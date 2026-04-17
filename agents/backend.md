@@ -51,7 +51,7 @@ Spring Boot 기반 REST API를 구현하는 에이전트입니다.
 ## 주요 모듈 (제안)
 
 ```
-api/src/main/java/com/climbing/community/
+api/src/main/java/io/crimp/
 ├── auth/       # OAuth2, JWT, 사용자 인증
 ├── user/       # 프로필, 팔로우, 설정
 ├── gym/        # 암장·루트 정보
