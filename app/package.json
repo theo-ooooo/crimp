@@ -1,0 +1,48 @@
+{
+  "name": "@crimp/app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "react-native start",
+    "android": "react-native run-android",
+    "ios": "react-native run-ios",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "jest"
+  },
+  "dependencies": {
+    "react": "18.3.1",
+    "react-native": "0.75.4",
+    "@react-navigation/native": "6.1.18",
+    "@react-navigation/native-stack": "6.11.0",
+    "react-native-safe-area-context": "4.11.1",
+    "react-native-screens": "3.34.0",
+    "@tanstack/react-query": "5.59.16",
+    "zustand": "5.0.1",
+    "zod": "3.23.8",
+    "i18next": "23.16.4",
+    "react-i18next": "15.1.0",
+    "date-fns": "4.1.0"
+  },
+  "devDependencies": {
+    "@babel/core": "7.25.8",
+    "@babel/preset-env": "7.25.8",
+    "@babel/runtime": "7.25.7",
+    "@react-native/babel-preset": "0.75.4",
+    "@react-native/eslint-config": "0.75.4",
+    "@react-native/metro-config": "0.75.4",
+    "@react-native/typescript-config": "0.75.4",
+    "@types/jest": "29.5.13",
+    "@types/react": "18.3.12",
+    "@types/react-test-renderer": "18.3.0",
+    "eslint": "8.57.1",
+    "jest": "29.7.0",
+    "prettier": "3.3.3",
+    "react-test-renderer": "18.3.1",
+    "typescript": "5.6.3"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.12.3"
+}
