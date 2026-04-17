@@ -1,0 +1,19 @@
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
+
+app:
+  brand: Crimp
+  env: test
+  auth:
+    access-token-ttl-seconds: 900
+    refresh-token-ttl-seconds: 1209600
+    jwt-issuer: https://crimp.local
+  media:
+    s3-bucket: test-bucket
+    cdn-base-url: https://test-cdn.crimp.local
+    presigned-url-ttl-seconds: 600
