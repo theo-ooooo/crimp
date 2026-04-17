@@ -40,6 +40,8 @@ dependencies {
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:mysql")
     testRuntimeOnly("com.h2database:h2")
+    // Gradle 9+는 JUnit Platform Launcher 의존성을 명시적으로 요구
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 dependencyManagement {
