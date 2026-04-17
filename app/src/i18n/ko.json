@@ -1,0 +1,14 @@
+{
+  "common": {
+    "brand": "Crimp",
+    "home": "홈",
+    "feed": "피드",
+    "log": "로그",
+    "gym": "암장",
+    "profile": "프로필"
+  },
+  "home": {
+    "tagline": "클라이머를 위한 디지털 홈",
+    "description": "암장·루트·등반 로그·크루·아웃도어를 한 곳에서."
+  }
+}
