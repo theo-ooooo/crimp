@@ -32,11 +32,13 @@ docker compose down -v
 
 | 항목 | 값 |
 | --- | --- |
-| MySQL host:port | `localhost:3306` |
+| MySQL host:port | `localhost:13306` |
 | MySQL 관리자 | `root` / `root` |
 | MySQL 앱 계정 | `crimp` / `crimp` |
 | MySQL DB | `crimp` |
 | Redis host:port | `localhost:6379` |
+
+> 포트 13306 은 Homebrew 등 로컬 다른 MySQL 인스턴스(기본 3306)와 충돌 방지.
 
 ## 구조
 
@@ -53,18 +55,20 @@ infra/
 로컬 개발 시 Claude가 DB를 직접 조회할 수 있게 MCP 서버를 등록하려면:
 
 ```bash
-claude mcp add --transport stdio mysql \
-  --env MYSQL_HOST=localhost \
-  --env MYSQL_PORT=3306 \
+claude mcp add --scope user --transport stdio mysql \
+  --env MYSQL_HOST=127.0.0.1 \
+  --env MYSQL_PORT=13306 \
   --env MYSQL_USER=crimp \
-  --env MYSQL_PASSWORD=crimp \
-  --env MYSQL_DATABASE=crimp \
+  --env MYSQL_PASS=crimp \
+  --env MYSQL_DB=crimp \
   -- npx -y @benborla29/mcp-server-mysql
 
 claude mcp list
 ```
 
-`--scope project` 플래그로 `.mcp.json`에 저장하면 팀 전체가 공유 가능 (단, 커밋 전에 민감정보 환경 변수 참조로 돌려야 함).
+- `@benborla29/mcp-server-mysql` env 이름 규약: `MYSQL_PASS` / `MYSQL_DB` (축약형)
+- `--scope project` 플래그로 `.mcp.json` 에 저장하면 팀 공유 가능 (커밋 전 민감정보 env 참조로 돌려야 함)
+- 등록 후 Claude Code `/exit` → `claude --continue` 로 세션 재시작해야 도구 로드됨
 
 ## 스테이징·프로덕션
 
