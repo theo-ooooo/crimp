@@ -19,12 +19,18 @@
 
 | 디렉토리 | 내용 |
 | --- | --- |
-| `api/` | Spring Boot 3.x REST API (Java 21, JPA, MySQL) |
+| `crimp-common/` | 공통 유틸·베이스·응답 포맷 (백엔드) |
+| `crimp-core/` | JPA 엔티티·Redis·Flyway·DB 드라이버 |
+| `crimp-domain/` | 도메인 서비스·DTO·JWT·비즈니스 로직 |
+| `crimp-infra/` | 외부 연동 구현 (S3·Mail·OAuth 등) |
+| `crimp-api/` | REST Controller·Security·Swagger·메인 엔트리 |
 | `app/` | React Native 모바일 앱 (iOS / Android) |
 | `web/` | Next.js 14 랜딩·관리자 콘솔 |
-| `infra/` | Terraform + GitHub Actions |
+| `infra/` | docker-compose·MySQL 초기화·(예정) Terraform |
 | `docs/` | 기획·설계·운영 문서 ([index](./docs/README.md)) |
 | `agents/` | AI 에이전트 하네스 (backend·frontend·design·docs·qa) |
+
+백엔드는 Gradle 멀티모듈 구조. 의존 방향: `api → {common, core, domain, infra}`, `infra → {common, core, domain}`, `domain → core → common`.
 
 ## 주요 문서
 
