@@ -1,6 +1,8 @@
-# 🧗 climbing-community
+# 🧗 Crimp
 
-국내 클라이머를 위한 디지털 홈 — 암장·루트·등반 로그·크루·아웃도어를 한 곳에서.
+> 국내 클라이머를 위한 디지털 홈 — 암장·루트·등반 로그·크루·아웃도어를 한 곳에서.
+
+**Crimp**는 작은 홀드를 꽉 움켜쥐는 클라이밍 동작. 한 번의 세션, 한 번의 시도를 놓치지 않고 잡아내는 서비스의 지향을 담았다.
 
 ## 현재 단계
 
@@ -26,7 +28,7 @@
 
 ## 주요 문서
 
-- 기획서: [Notion — 클라이밍 커뮤니티 서비스 기획서](https://www.notion.so/345fbab2ef738182b16ad0029cfc5c0c)
+- 기획서: [Notion — Crimp 서비스 기획서](https://www.notion.so/345fbab2ef738182b16ad0029cfc5c0c)
 - 아키텍처: [`docs/설계/architecture.md`](./docs/설계/architecture.md)
 - DB 스키마: [`docs/설계/db-schema.md`](./docs/설계/db-schema.md)
 - API 가이드: [`docs/설계/api-guide.md`](./docs/설계/api-guide.md)
@@ -45,4 +47,4 @@ CI/CD    : GitHub Actions
 
 ## 라이선스
 
-미정 (MVP 이후 결정)
+[MIT](./LICENSE) © 2026 Kyungwon Kang
