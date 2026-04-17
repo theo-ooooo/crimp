@@ -1,0 +1,69 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.swp
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Java / Gradle
+api/build/
+api/.gradle/
+api/bin/
+*.class
+hs_err_pid*.log
+
+# Maven (보조)
+api/target/
+api/pom.xml.tag
+api/pom.xml.releaseBackup
+api/pom.xml.versionsBackup
+
+# Node / JavaScript
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# Next.js
+web/.next/
+web/out/
+web/.turbo/
+
+# React Native
+app/ios/Pods/
+app/ios/build/
+app/android/.gradle/
+app/android/build/
+app/android/app/build/
+app/.expo/
+app/.expo-shared/
+
+# Terraform
+infra/**/.terraform/
+infra/**/terraform.tfstate
+infra/**/terraform.tfstate.backup
+infra/**/*.tfvars
+!infra/**/*.tfvars.example
+
+# Logs / reports
+logs/
+*.log
+coverage/
+.nyc_output/
+
+# Build artifacts
+dist/
+build/

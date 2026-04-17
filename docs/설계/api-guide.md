@@ -1,0 +1,195 @@
+# API 설계 가이드
+
+| 항목 | 내용 |
+| --- | --- |
+| 작성일 | 2026-04-17 |
+| 작성자 | 강경원 |
+| 상태 | Draft |
+| 단일 소스 | `api/openapi.yaml` (OpenAPI 3.1) |
+
+## 1. 기본 원칙
+
+- **RESTful**, 자원 복수형 명사 (`/users`, `/gyms`, `/feed-posts`)
+- JSON 요청·응답, `application/json; charset=utf-8`
+- 식별자는 외부 노출용 **ULID(ext_id)** 사용, 내부 BIGINT PK 노출 금지
+- 타임존: 응답은 **ISO 8601 UTC** (`2026-04-17T10:30:00Z`), 클라이언트에서 KST 변환
+- 모든 엔드포인트에 OpenAPI 스펙 주석, `springdoc-openapi`로 자동 생성
+
+## 2. URL 규칙
+
+```
+/v1/{resource}                    # 리스트
+/v1/{resource}/{ext_id}           # 단건
+/v1/{resource}/{ext_id}/{sub}     # 서브리소스
+/v1/me/...                        # 인증 사용자 컨텍스트
+```
+
+- 버전: path prefix `/v1` (호환 불가한 변경 시 `/v2` 분기)
+- 동사가 필요한 액션: `/v1/feed-posts/{ext_id}:like` (Google AOM 스타일, 드물게 사용)
+
+## 3. 인증·인가
+
+| 단계 | 방법 |
+| --- | --- |
+| 소셜 로그인 | `POST /v1/auth/oauth/{provider}` (provider: `kakao`/`apple`/`google`) |
+| 토큰 재발급 | `POST /v1/auth/refresh` |
+| 로그아웃 | `POST /v1/auth/logout` (refresh 블랙리스트) |
+| 이후 요청 | `Authorization: Bearer {accessToken}` |
+
+- Access: 15분, Refresh: 14일
+- Refresh는 Redis에 `refresh:{userId}:{jti}` 저장, 로테이션 방식
+
+## 4. 공통 응답 포맷
+
+### 성공
+```json
+{
+  "data": { /* resource or collection */ },
+  "meta": { "requestId": "01HY...", "serverTime": "2026-04-17T10:30:00Z" }
+}
+```
+
+### 리스트 (커서 페이지네이션)
+```json
+{
+  "data": [ /* items */ ],
+  "page": {
+    "nextCursor": "01HY...",     // null이면 마지막
+    "size": 20
+  },
+  "meta": { ... }
+}
+```
+
+### 에러
+```json
+{
+  "error": {
+    "code": "AUTH_EXPIRED",
+    "message": "Access token expired",
+    "details": { "field": "token" }
+  },
+  "meta": { "requestId": "01HY...", "serverTime": "..." }
+}
+```
+
+## 5. 에러 코드 체계
+
+| HTTP | 에러 code 예시 | 의미 |
+| --- | --- | --- |
+| 400 | `VALIDATION_FAILED` | 요청 값 검증 실패 |
+| 401 | `AUTH_REQUIRED` / `AUTH_EXPIRED` / `AUTH_INVALID` | 인증 실패 |
+| 403 | `FORBIDDEN_RESOURCE` | 권한 없음 |
+| 404 | `RESOURCE_NOT_FOUND` | 자원 없음 |
+| 409 | `RESOURCE_CONFLICT` / `NICKNAME_TAKEN` | 충돌 |
+| 413 | `PAYLOAD_TOO_LARGE` | 파일 크기 초과 |
+| 422 | `UNPROCESSABLE_ENTITY` | 비즈니스 규칙 위반 |
+| 429 | `RATE_LIMITED` | 레이트 리밋 |
+| 500 | `INTERNAL_ERROR` | 내부 오류 |
+| 503 | `DEPENDENCY_UNAVAILABLE` | 외부 의존성 장애 |
+
+- 에러 `code`는 `UPPER_SNAKE_CASE` 고정 enum, 문서화된 집합만 사용
+- 유저에게 직접 보여줘도 되는 문구는 `message`, 기술적 디버깅은 `details`
+
+## 6. 페이지네이션
+
+- **커서 방식 기본**: `?cursor=01HY...&size=20` (size는 10·20·50, 기본 20, 최대 50)
+- 관리자 목록 등 전체 집계가 필요한 경우에만 offset 허용 (`?page=1&size=20`)
+- 커서는 서버에서 인코딩된 불투명 문자열 (ULID · 복합정렬 키)
+
+## 7. 정렬·필터
+
+- 정렬: `?sort=createdAt:desc,likeCount:desc` (쉼표 구분, 화이트리스트)
+- 필터: 쿼리 파라미터. 배열은 반복 키 `?grade=V3&grade=V4`
+- 검색: `?q=` (Phase 1은 LIKE, Phase 2 OpenSearch)
+
+## 8. 멱등성·안전성
+
+- 모든 `POST`에 `Idempotency-Key` 헤더 지원 (24h TTL Redis 저장)
+- `PUT`/`DELETE`는 자연스럽게 멱등
+- 결제·알림 등 중복 방지가 중요한 엔드포인트는 Idempotency-Key 필수
+
+## 9. 레이트 리밋
+
+| 대상 | 한도 | 응답 |
+| --- | --- | --- |
+| 미인증 IP | 분당 60회 | 429 + `Retry-After` |
+| 인증 사용자 | 분당 180회 | 429 |
+| 로그인 실패 IP | 15분 10회 | 차단 (`AUTH_BLOCKED`) |
+| 영상 업로드 | 10분 20회 | 429 |
+
+- 응답 헤더: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
+
+## 10. 추적·로깅
+
+- 요청 헤더 `X-Request-Id`가 있으면 그대로 사용, 없으면 서버 생성 (ULID)
+- 모든 응답에 `X-Request-Id` 반환
+- OpenTelemetry traceparent 전파
+
+## 11. MVP 엔드포인트 인벤토리
+
+### 인증 (`/v1/auth`)
+| Method | Path | 설명 |
+| --- | --- | --- |
+| POST | `/v1/auth/oauth/{provider}` | 소셜 로그인 교환 |
+| POST | `/v1/auth/refresh` | 토큰 재발급 |
+| POST | `/v1/auth/logout` | 로그아웃 |
+
+### 사용자 (`/v1/me`, `/v1/users`)
+| Method | Path | 설명 |
+| --- | --- | --- |
+| GET | `/v1/me` | 내 정보 |
+| PATCH | `/v1/me/profile` | 프로필 수정 |
+| GET | `/v1/users/{extId}` | 타 사용자 프로필 |
+| POST | `/v1/users/{extId}:follow` | 팔로우 |
+| DELETE | `/v1/users/{extId}:follow` | 언팔로우 |
+
+### 암장·루트 (`/v1/gyms`, `/v1/routes`)
+| Method | Path | 설명 |
+| --- | --- | --- |
+| GET | `/v1/gyms` | 암장 검색 (좌표·키워드·브랜드) |
+| GET | `/v1/gyms/{extId}` | 암장 상세 |
+| GET | `/v1/gyms/{extId}/routes` | 루트 목록 (활성) |
+| GET | `/v1/routes/{extId}` | 루트 상세 |
+
+### 등반 기록 (`/v1/sessions`, `/v1/attempts`)
+| Method | Path | 설명 |
+| --- | --- | --- |
+| GET | `/v1/me/sessions` | 내 세션 목록 |
+| POST | `/v1/sessions` | 세션 생성 |
+| GET | `/v1/sessions/{extId}` | 세션 상세 (시도 포함) |
+| PATCH | `/v1/sessions/{extId}` | 세션 수정 |
+| DELETE | `/v1/sessions/{extId}` | 세션 삭제 |
+| POST | `/v1/sessions/{extId}/attempts` | 시도 추가 |
+| PATCH | `/v1/attempts/{extId}` | 시도 수정 |
+| DELETE | `/v1/attempts/{extId}` | 시도 삭제 |
+| GET | `/v1/me/stats/monthly` | 월별 통계 |
+
+### 피드 (`/v1/feed-posts`)
+| Method | Path | 설명 |
+| --- | --- | --- |
+| GET | `/v1/feed` | 홈 피드 (팔로우 기반) |
+| GET | `/v1/feed-posts` | 전체·필터 피드 |
+| POST | `/v1/feed-posts` | 피드 작성 |
+| GET | `/v1/feed-posts/{extId}` | 게시물 상세 |
+| PATCH | `/v1/feed-posts/{extId}` | 게시물 수정 |
+| DELETE | `/v1/feed-posts/{extId}` | 게시물 삭제 |
+| POST | `/v1/feed-posts/{extId}:like` | 좋아요 |
+| DELETE | `/v1/feed-posts/{extId}:like` | 좋아요 취소 |
+| GET | `/v1/feed-posts/{extId}/comments` | 댓글 목록 |
+| POST | `/v1/feed-posts/{extId}/comments` | 댓글 작성 |
+| DELETE | `/v1/comments/{extId}` | 댓글 삭제 |
+
+### 미디어 (`/v1/media`)
+| Method | Path | 설명 |
+| --- | --- | --- |
+| POST | `/v1/media:prepareUpload` | S3 presigned PUT URL 발급 |
+| POST | `/v1/media:confirmUpload` | 업로드 완료 통지 (클라→서버) |
+| GET | `/v1/media/{extId}` | 미디어 상태 조회 |
+
+## 12. 오픈 이슈
+
+- [ ] 피드 랭킹 알고리즘: `/v1/feed` 내부에 구현 vs 별도 서비스
+- [ ] 신고·차단 API 추가 시점
+- [ ] GraphQL 검토 (Phase 2, 모바일 오버페칭 이슈 측정 후)
+- [ ] 웹훅(파트너사 암장 정보 연동) Phase 2
