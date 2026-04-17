@@ -1,0 +1,93 @@
+package io.crimp.core.entity.media;
+
+import io.crimp.core.entity.enums.MediaKind;
+import io.crimp.core.entity.enums.MediaStatus;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+
+import java.time.Instant;
+
+import static lombok.AccessLevel.PROTECTED;
+
+@Entity
+@Getter
+@Table(name = "media_assets")
+@NoArgsConstructor(access = PROTECTED)
+public class MediaAsset {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "ext_id", nullable = false, length = 26, unique = true, updatable = false)
+    private String extId;
+
+    @Column(name = "owner_user_id", nullable = false)
+    private Long ownerUserId;
+
+    @Column(name = "kind", nullable = false)
+    private MediaKind kind;
+
+    @Column(name = "status", nullable = false)
+    private MediaStatus status;
+
+    @Column(name = "mime", nullable = false, length = 80)
+    private String mime;
+
+    @Column(name = "byte_size")
+    private Long byteSize;
+
+    @Column(name = "width")
+    private Integer width;
+
+    @Column(name = "height")
+    private Integer height;
+
+    @Column(name = "duration_ms")
+    private Integer durationMs;
+
+    @Column(name = "s3_key", nullable = false, length = 500)
+    private String s3Key;
+
+    @Column(name = "cdn_url", length = 500)
+    private String cdnUrl;
+
+    @Column(name = "thumbnail_cdn_url", length = 500)
+    private String thumbnailCdnUrl;
+
+    @Column(name = "variants", columnDefinition = "json")
+    private String variantsJson;
+
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
+    private MediaAsset(String extId, Long ownerUserId, MediaKind kind, String mime, String s3Key) {
+        this.extId = extId;
+        this.ownerUserId = ownerUserId;
+        this.kind = kind;
+        this.status = MediaStatus.UPLOADING;
+        this.mime = mime;
+        this.s3Key = s3Key;
+    }
+
+    public static MediaAsset createUploading(String extId, Long ownerUserId, MediaKind kind, String mime, String s3Key) {
+        return new MediaAsset(extId, ownerUserId, kind, mime, s3Key);
+    }
+
+    public void markProcessing() { this.status = MediaStatus.PROCESSING; }
+    public void markReady(String cdnUrl, String thumbnailCdnUrl, String variantsJson) {
+        this.status = MediaStatus.READY;
+        this.cdnUrl = cdnUrl;
+        this.thumbnailCdnUrl = thumbnailCdnUrl;
+        this.variantsJson = variantsJson;
+    }
+    public void markFailed() { this.status = MediaStatus.FAILED; }
+}
