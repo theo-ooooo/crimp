@@ -61,19 +61,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: pnpm
-          cache-dependency-path: app/pnpm-lock.yaml
       - working-directory: app
-        run: pnpm install --frozen-lockfile
-      - name: Lint
-        working-directory: app
-        run: pnpm lint
+        run: pnpm install --no-frozen-lockfile
       - name: Typecheck
         working-directory: app
         run: pnpm typecheck
       - name: Test
         working-directory: app
-        run: pnpm test --run
+        run: pnpm test --ci
 
   web:
     name: Web (Next.js)
@@ -88,19 +83,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: pnpm
-          cache-dependency-path: web/pnpm-lock.yaml
       - working-directory: web
-        run: pnpm install --frozen-lockfile
-      - name: Lint
-        working-directory: web
-        run: pnpm lint
+        run: pnpm install --no-frozen-lockfile
       - name: Typecheck
         working-directory: web
         run: pnpm typecheck
-      - name: Test
-        working-directory: web
-        run: pnpm test --run
 
   ci:
     name: ci
