@@ -13,13 +13,22 @@
 
 ## 서브 프로젝트 구조
 
-| 프로젝트 | 역할 | 기술 스택 | 담당 영역 |
-| --- | --- | --- | --- |
-| `api/` | REST API 백엔드 | Spring Boot 3.x (Java 21), JPA, MySQL, Redis | 비즈니스 로직, 인증, 미디어 파이프라인 |
-| `app/` | 모바일 앱 (iOS/Android) | React Native, TypeScript | 유저 화면, 오프라인 로그 |
-| `web/` | 웹 (랜딩·관리자) | Next.js 14, TypeScript | 랜딩, 관리자 콘솔 |
-| `infra/` | 인프라 구성 | Terraform, GitHub Actions | AWS ECS/RDS/S3, CI/CD |
-| `docs/` | 설계·기획·운영 문서 | Markdown | 스펙, 회의록, 릴리즈 노트 |
+루트는 top-level 구성(`app/`, `web/`, `docs/`, `infra/`, `agents/`)을 두고, 백엔드는 `api/` 디렉토리 **내부에서** Gradle 멀티모듈 레이어드 아키텍처로 구성한다.
+
+| 디렉토리 | 역할 |
+| --- | --- |
+| `api/` | 백엔드 Gradle 멀티모듈 루트 (아래 5개 서브모듈) |
+| `api/crimp-common/` | 공통 유틸·베이스·응답 포맷·예외·`@ConfigurationProperties` |
+| `api/crimp-core/` | JPA 엔티티·Redis·DB 드라이버·Flyway 마이그레이션·QueryDSL |
+| `api/crimp-domain/` | 도메인 서비스·DTO·JWT·비즈니스 로직 |
+| `api/crimp-infra/` | 외부 연동 구현 (S3·Mail·OAuth provider 등) |
+| `api/crimp-api/` | REST Controller·Security·Actuator·Swagger·메인 엔트리 (`bootJar`) |
+| `app/` | 모바일 앱 (RN + TS) |
+| `web/` | 웹 (Next.js 14 + TS) |
+| `infra/` | 인프라 구성 (docker-compose·MySQL 초기화·예정 Terraform) |
+| `docs/` | 설계·기획·운영 문서 |
+
+의존 방향: `crimp-api → {common, core, domain, infra}` / `infra → {common, core, domain}` / `domain → core → common`.
 
 각 서브 프로젝트가 생성되면 내부에 독립적인 CLAUDE.md를 두고, 해당 하위 디렉토리에서 작업 시 우선 참조합니다.
 
@@ -114,16 +123,16 @@ CI/CD    : GitHub Actions
 
 | 에이전트 | 수정 가능 영역 |
 | --- | --- |
-| 백엔드 | `api/` |
+| 백엔드 | `api/` (5개 서브모듈 전체) |
 | 프론트엔드 | `app/`, `web/` |
 | 디자인 | `docs/design/`, Figma 연동 파일 |
 | 문서 | `docs/` (design 제외) |
-| QA | `api/src/test/`, `app/__tests__/`, `e2e/` |
+| QA | `api/*/src/test/`, `app/__tests__/`, `e2e/` |
 
 ### DB 공유 자원
 - 스키마 변경(DDL)은 백엔드 에이전트만 수행, 다른 에이전트는 요청만 가능
 - 스키마 변경 요청 시 영향받는 모듈 목록을 반드시 명시
-- 마이그레이션은 `api/src/main/resources/db/migration/` 단일 경로로 통합
+- 마이그레이션은 `api/crimp-core/src/main/resources/db/migration/` 단일 경로로 통합
 - 변경 완료 후 `docs/설계/db-schema.md` 업데이트
 - UI는 DB에 직접 접근하지 않음 (API 경유)
 
