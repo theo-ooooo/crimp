@@ -13,21 +13,22 @@
 
 ## 서브 프로젝트 구조
 
-백엔드는 Gradle **멀티모듈** 레이어드 아키텍처.
+루트는 top-level 구성(`app/`, `web/`, `docs/`, `infra/`, `agents/`)을 두고, 백엔드는 `api/` 디렉토리 **내부에서** Gradle 멀티모듈 레이어드 아키텍처로 구성한다.
 
-| 프로젝트 | 역할 | 의존 |
-| --- | --- | --- |
-| `crimp-common/` | 공통 유틸·베이스 엔티티·응답 포맷·예외·공통 설정 | - |
-| `crimp-core/` | JPA 엔티티·Redis·DB 드라이버·Flyway 마이그레이션·QueryDSL | common |
-| `crimp-domain/` | 도메인 서비스·DTO·JWT·비즈니스 로직 | core |
-| `crimp-infra/` | 외부 연동 구현 (S3·Mail·OAuth provider 등) | common + core + domain |
-| `crimp-api/` | REST Controller·Security·Actuator·Swagger·메인 엔트리 (`bootJar`) | 모두 |
-| `app/` | 모바일 앱 (RN + TS) | - |
-| `web/` | 웹 (Next.js 14 + TS) | - |
-| `infra/` | 인프라 구성 (Terraform·docker-compose·MySQL 초기화) | - |
-| `docs/` | 설계·기획·운영 문서 | - |
+| 디렉토리 | 역할 |
+| --- | --- |
+| `api/` | 백엔드 Gradle 멀티모듈 루트 (아래 5개 서브모듈) |
+| `api/crimp-common/` | 공통 유틸·베이스·응답 포맷·예외·`@ConfigurationProperties` |
+| `api/crimp-core/` | JPA 엔티티·Redis·DB 드라이버·Flyway 마이그레이션·QueryDSL |
+| `api/crimp-domain/` | 도메인 서비스·DTO·JWT·비즈니스 로직 |
+| `api/crimp-infra/` | 외부 연동 구현 (S3·Mail·OAuth provider 등) |
+| `api/crimp-api/` | REST Controller·Security·Actuator·Swagger·메인 엔트리 (`bootJar`) |
+| `app/` | 모바일 앱 (RN + TS) |
+| `web/` | 웹 (Next.js 14 + TS) |
+| `infra/` | 인프라 구성 (docker-compose·MySQL 초기화·예정 Terraform) |
+| `docs/` | 설계·기획·운영 문서 |
 
-의존 방향: `api → {common, core, domain, infra}` / `infra → {common, core, domain}` / `domain → core → common`.
+의존 방향: `crimp-api → {common, core, domain, infra}` / `infra → {common, core, domain}` / `domain → core → common`.
 
 각 서브 프로젝트가 생성되면 내부에 독립적인 CLAUDE.md를 두고, 해당 하위 디렉토리에서 작업 시 우선 참조합니다.
 
@@ -122,16 +123,16 @@ CI/CD    : GitHub Actions
 
 | 에이전트 | 수정 가능 영역 |
 | --- | --- |
-| 백엔드 | `crimp-common/`, `crimp-core/`, `crimp-domain/`, `crimp-infra/`, `crimp-api/` |
+| 백엔드 | `api/` (5개 서브모듈 전체) |
 | 프론트엔드 | `app/`, `web/` |
 | 디자인 | `docs/design/`, Figma 연동 파일 |
 | 문서 | `docs/` (design 제외) |
-| QA | 각 모듈의 `src/test/`, `app/__tests__/`, `e2e/` |
+| QA | `api/*/src/test/`, `app/__tests__/`, `e2e/` |
 
 ### DB 공유 자원
 - 스키마 변경(DDL)은 백엔드 에이전트만 수행, 다른 에이전트는 요청만 가능
 - 스키마 변경 요청 시 영향받는 모듈 목록을 반드시 명시
-- 마이그레이션은 `crimp-core/src/main/resources/db/migration/` 단일 경로로 통합
+- 마이그레이션은 `api/crimp-core/src/main/resources/db/migration/` 단일 경로로 통합
 - 변경 완료 후 `docs/설계/db-schema.md` 업데이트
 - UI는 DB에 직접 접근하지 않음 (API 경유)
 
