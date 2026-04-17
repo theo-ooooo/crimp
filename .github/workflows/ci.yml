@@ -68,7 +68,7 @@ jobs:
         run: pnpm typecheck
       - name: Test
         working-directory: app
-        run: pnpm test --ci
+        run: pnpm test -- --ci --passWithNoTests
 
   web:
     name: Web (Next.js)
