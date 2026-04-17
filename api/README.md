@@ -4,16 +4,12 @@ Crimp의 REST API. Spring Boot 3.3 / Java 21 / MySQL 8 / Redis 7 / Flyway.
 
 ## 로컬 실행
 
-1. 의존 인프라 기동 (루트 `docker-compose.yml` 예정)
+1. 의존 인프라 기동 (프로젝트 루트에서)
    ```bash
-   docker compose up -d mysql redis
+   docker compose up -d
    ```
-2. DB 생성 (최초 1회)
-   ```bash
-   docker exec -it crimp-mysql mysql -uroot -proot \
-     -e "CREATE DATABASE IF NOT EXISTS crimp DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
-   ```
-3. 애플리케이션 구동
+   MySQL·Redis 컨테이너가 올라오고, `crimp` DB·계정은 자동 생성됨.
+2. 애플리케이션 구동
    ```bash
    ./gradlew bootRun
    ```
