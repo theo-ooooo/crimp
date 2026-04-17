@@ -47,4 +47,4 @@ CI/CD    : GitHub Actions
 
 ## 라이선스
 
-미정 (MVP 이후 결정)
+[MIT](./LICENSE) © 2026 Kyungwon Kang
