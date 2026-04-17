@@ -26,9 +26,9 @@ crimp-api → crimp-common
    ```bash
    docker compose up -d       # 루트 docker-compose.yml
    ```
-2. 앱 기동
+2. 앱 기동 (레포 루트에서)
    ```bash
-   gradle :crimp-api:bootRun
+   cd api && gradle :crimp-api:bootRun
    ```
 3. 헬스 체크: <http://localhost:8080/v1/health>
 4. Swagger UI: <http://localhost:8080/swagger-ui>
@@ -36,9 +36,9 @@ crimp-api → crimp-common
 ## 테스트
 
 ```bash
-gradle :crimp-api:check
+cd api && gradle :crimp-api:check
 # 또는 전체
-gradle check
+cd api && gradle check
 ```
 
-자세한 규약은 [`../agents/backend.md`](../agents/backend.md) 참고.
+자세한 규약은 [`../../agents/backend.md`](../../agents/backend.md) 참고.
