@@ -40,3 +40,14 @@ UX/UI 설계, 디자인 시스템, 접근성을 담당하는 에이전트입니�
 - **Motion as Feedback**: 기록·완등 순간의 성취감을 마이크로 인터랙션으로
 - **Content over Chrome**: 영상·사진이 UI보다 우선
 - **Accessible by default**: 색맹·저시력·한 손 조작 고려
+
+## 서브 에이전트
+
+| 서브 에이전트 | 역할 | 주 수정 영역 |
+| --- | --- | --- |
+| 토큰 관리자 | `tokens.json` 버전 관리, Figma Variables 양방향 동기화, 토큰 변경 영향도 문서화 | `docs/design/tokens.json`, `docs/design/figma.md` |
+| 컴포넌트 스펙 | 프리미티브·도메인 컴포넌트 변형·상태·토큰 매핑 정의 | `docs/design/components.md` |
+| 플로우·IA | 온보딩·세션로그·피드 등 유저 플로우 Mermaid + IA 문서 | `docs/design/flows/**` |
+| 시각 에셋 | 아이콘·일러스트·마크·사진 가이드, 라이선스 추적 | `docs/design/assets/` (예정) |
+| 접근성 검토 | 대비비·터치 타겟·모션·색맹·스크린 리더 검증 리포트 | `docs/design/accessibility.md` |
+| 다크모드·테마 | Phase 1.5 다크 토큰, 테마 전환 시 컴포넌트 회귀 체크 | `tokens.json` (dark variant) |

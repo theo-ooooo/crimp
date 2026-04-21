@@ -56,3 +56,14 @@
 - 백엔드 라인 커버리지 80%+
 - 프론트 핵심 플로우 커버리지 70%+
 - E2E: MVP 핵심 유저 저니 5개 이상 자동화
+
+## 서브 에이전트
+
+| 서브 에이전트 | 역할 | 주 수정 영역 |
+| --- | --- | --- |
+| 시나리오 설계 | 테스트 케이스 설계 (동등 분할·경계값·상태 전이), 우선순위 분류 | `docs/qa/scenarios.md` |
+| E2E 자동화 | Playwright(웹)·Maestro(앱)·크로스 플랫폼 스모크 suite 유지 | `e2e/`, `app/e2e/`, `web/e2e/` |
+| 통합·회귀 | API 통합 테스트 (Testcontainers), 회귀 매트릭스 유지 | `api/crimp-api/src/test/**` |
+| 보안 테스트 | OWASP Top 10·인증·인가·입력 검증·레이트 리밋 체크리스트 | `docs/qa/security-checklist.md` |
+| 성능·부하 | k6 시나리오, p95·p99 추적, 병목 프로파일링 | `perf/k6/` (예정) |
+| QA 리포트 | 릴리즈별 QA 리포트, 심각도 분류, 버그 티켓 등록·추적 | `docs/qa/reports/**` |
