@@ -25,7 +25,7 @@ public class Gym extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "ext_id", nullable = false, length = 26, unique = true, updatable = false)
+    @Column(name = "ext_id", nullable = false, columnDefinition = "char(26)", unique = true, updatable = false)
     private String extId;
 
     @Column(name = "name", nullable = false, length = 100)
@@ -50,7 +50,7 @@ public class Gym extends BaseEntity {
     private String openingHoursJson;
 
     @Column(name = "setting_cycle_days")
-    private Integer settingCycleDays;
+    private Short settingCycleDays;
 
     @Column(name = "features", columnDefinition = "json")
     private String featuresJson;

@@ -22,11 +22,11 @@ public class PostMedia {
     private PostMediaId id;
 
     @Column(name = "seq", nullable = false)
-    private Integer seq;
+    private Short seq;
 
     private PostMedia(PostMediaId id, int seq) {
         this.id = id;
-        this.seq = seq;
+        this.seq = (short) seq;
     }
 
     public static PostMedia attach(Long postId, Long mediaId, int seq) {

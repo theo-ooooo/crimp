@@ -3,8 +3,11 @@ package io.crimp.core.entity.enums;
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
 
-/** TINYINT ↔ enum 변환. 각 enum 별로 상속해서 특화. */
-public abstract class CodeEnumConverter<E extends Enum<E>> implements AttributeConverter<E, Integer> {
+/**
+ * MySQL TINYINT ↔ enum code 변환.
+ * DB 컬럼이 TINYINT 이므로 Java 바인딩 타입은 Byte 로 선언.
+ */
+public abstract class CodeEnumConverter<E extends Enum<E>> implements AttributeConverter<E, Byte> {
 
     private final Class<E> enumType;
 
@@ -13,16 +16,17 @@ public abstract class CodeEnumConverter<E extends Enum<E>> implements AttributeC
     }
 
     @Override
-    public Integer convertToDatabaseColumn(E attribute) {
+    public Byte convertToDatabaseColumn(E attribute) {
         if (attribute == null) return null;
-        return codeOf(attribute);
+        return (byte) codeOf(attribute);
     }
 
     @Override
-    public E convertToEntityAttribute(Integer dbData) {
+    public E convertToEntityAttribute(Byte dbData) {
         if (dbData == null) return null;
+        int code = dbData.intValue();
         for (E c : enumType.getEnumConstants()) {
-            if (codeOf(c) == dbData) return c;
+            if (codeOf(c) == code) return c;
         }
         throw new IllegalArgumentException("Unknown " + enumType.getSimpleName() + " code: " + dbData);
     }

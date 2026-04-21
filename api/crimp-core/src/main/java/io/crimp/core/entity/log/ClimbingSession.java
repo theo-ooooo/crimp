@@ -24,7 +24,7 @@ public class ClimbingSession extends SoftDeletableEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "ext_id", nullable = false, length = 26, unique = true, updatable = false)
+    @Column(name = "ext_id", nullable = false, columnDefinition = "char(26)", unique = true, updatable = false)
     private String extId;
 
     @Column(name = "user_id", nullable = false)
@@ -43,13 +43,13 @@ public class ClimbingSession extends SoftDeletableEntity {
     private Instant endedAt;
 
     @Column(name = "duration_min")
-    private Integer durationMin;
+    private Short durationMin;
 
     @Column(name = "note", length = 500)
     private String note;
 
     @Column(name = "`condition`")
-    private Integer condition;
+    private Byte condition;
 
     private ClimbingSession(String extId, Long userId, Long gymId, Instant startedAt) {
         this.extId = extId;
@@ -65,10 +65,11 @@ public class ClimbingSession extends SoftDeletableEntity {
     public void close(Instant endedAt) {
         this.endedAt = endedAt;
         if (startedAt != null) {
-            this.durationMin = (int) ((endedAt.toEpochMilli() - startedAt.toEpochMilli()) / 60_000L);
+            long minutes = (endedAt.toEpochMilli() - startedAt.toEpochMilli()) / 60_000L;
+            this.durationMin = (short) Math.min(minutes, Short.MAX_VALUE);
         }
     }
 
     public void updateNote(String note) { this.note = note; }
-    public void updateCondition(Integer condition) { this.condition = condition; }
+    public void updateCondition(Byte condition) { this.condition = condition; }
 }
