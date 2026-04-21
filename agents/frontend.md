@@ -55,3 +55,16 @@ app/
 ├── profile/        # 프로필·설정
 └── crew/           # 크루 (Phase 1.5)
 ```
+
+## 서브 에이전트
+
+| 서브 에이전트 | 역할 | 주 수정 영역 |
+| --- | --- | --- |
+| 코드 분석가 | 기존 컴포넌트·스토어·라우트 구조 파악, 유사 UI 탐색, 변경 영향도 조사 | (읽기 전용) |
+| 앱 화면 구현 | RN 화면·컴포넌트·네비게이션·제스처 | `app/src/screens`, `app/src/components` |
+| 웹 화면 구현 | Next.js App Router 페이지·레이아웃·랜딩·관리자 | `web/app/**`, `web/src/components` |
+| 상태·API 연동 | React Query / TanStack Query 훅, Zustand 스토어, zod 스키마 | 각 앱의 `api/`, `store/`, `schemas/` |
+| 디자인 토큰 연동 | `docs/design/tokens.json` → Tailwind theme · RN StyleSheet 반영 | `web/tailwind.config.ts`, `app/src/theme` |
+| 다국어·접근성 | i18n 키 동시 수정(ko/en), aria-label, 포커스 순서, VoiceOver/TalkBack | `app/src/i18n/**`, `web/src/i18n/**` |
+| 테스트 | Vitest(web)·Jest(app)·Maestro·Playwright·Storybook 스냅샷 | 각 앱의 `__tests__`, `e2e/` |
+| 코드 품질 | ESLint·Prettier·TS strict·Lighthouse·번들 사이즈 | 각 앱의 설정 파일 |

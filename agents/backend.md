@@ -105,3 +105,19 @@ api/src/main/java/io/crimp/
 - 슬로우 쿼리 임계: 1초, `long_query_time=1`로 설정 후 주간 리뷰
 - 스키마 덤프는 `mysqldump --single-transaction --no-data` 로 매일 백업
 - 읽기 부하 분산은 Phase 2에서 리드 리플리카 + `@Transactional(readOnly=true)` 라우팅으로 도입
+
+## 서브 에이전트
+
+작업 성격에 따라 백엔드 에이전트 내부에서 다음 서브 롤로 분화. 각 서브는 자기 영역의 파일만 수정하고 경계를 넘는 변경은 오케스트레이터로 에스컬레이션.
+
+| 서브 에이전트 | 역할 | 주 수정 영역 |
+| --- | --- | --- |
+| 코드 분석가 | 멀티모듈 의존·레이어 경계 파악, 유사 패턴 탐색, 변경 영향도 선조사 | (읽기 전용) |
+| API 구현 | REST Controller·DTO·예외 매핑·OpenAPI 주석 | `crimp-api/**/controller`, `.../dto`, `.../advice` |
+| 서비스·도메인 | 비즈니스 로직·트랜잭션 경계·도메인 이벤트 | `crimp-domain/**` |
+| DB·엔티티 | JPA `@Entity`·JpaRepository·Flyway 마이그레이션·인덱스 | `crimp-core/entity`, `crimp-core/repository`, `crimp-core/resources/db/migration` |
+| 인증·보안 | JWT·OAuth·Security 설정·암호화·감사 로그 | `crimp-api/security`, `crimp-domain/auth`, `crimp-infra/auth` |
+| 통합·외부연동 | S3·MediaConvert·Kakao·FCM·SES 구현체 | `crimp-infra/**` |
+| 배치·스케줄러 | 통계 집계·카운터 flush·푸시 발송·미디어 콜백 처리 | `crimp-domain/batch`, `crimp-infra/messaging` |
+| 테스트 | JUnit 5·Mockito·Testcontainers(MySQL/Redis)·REST Assured | 각 모듈의 `src/test/**` |
+| 코드 품질 | Spotless·Checkstyle·SpotBugs·OWASP Dependency Check·커버리지 측정 | `build.gradle` 플러그인·설정 |
