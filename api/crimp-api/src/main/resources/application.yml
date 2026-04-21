@@ -64,13 +64,17 @@ app:
   brand: Crimp
   env: ${SPRING_PROFILES_ACTIVE:local}
   auth:
-    access-token-ttl-seconds: 900
-    refresh-token-ttl-seconds: 1209600
-    jwt-issuer: https://crimp.local
-  media:
-    s3-bucket: ${S3_BUCKET:crimp-media-dev}
-    cdn-base-url: ${CDN_BASE:https://dev-cdn.crimp.local}
-    presigned-url-ttl-seconds: 600
+    jwt:
+      # 로컬 개발 기본값. 운영에서는 Secrets Manager 환경 변수로 주입.
+      secret: ${JWT_SECRET:crimp-local-development-secret-please-change-in-production-32bytes+}
+      access-ttl-seconds: 900
+      refresh-ttl-seconds: 1209600
+      issuer: https://crimp.local
+    oauth:
+      kakao:
+        client-id: ${KAKAO_CLIENT_ID:placeholder-kakao-client-id}
+        issuer: https://kauth.kakao.com
+        jwks-uri: https://kauth.kakao.com/.well-known/jwks.json
 
 logging:
   level:

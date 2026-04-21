@@ -10,10 +10,13 @@ app:
   brand: Crimp
   env: test
   auth:
-    access-token-ttl-seconds: 900
-    refresh-token-ttl-seconds: 1209600
-    jwt-issuer: https://crimp.local
-  media:
-    s3-bucket: test-bucket
-    cdn-base-url: https://test-cdn.crimp.local
-    presigned-url-ttl-seconds: 600
+    jwt:
+      secret: "test-secret-at-least-32-bytes-long-for-hs256-signing-algorithm"
+      access-ttl-seconds: 900
+      refresh-ttl-seconds: 1209600
+      issuer: https://crimp.local
+    oauth:
+      kakao:
+        client-id: test-client-id
+        issuer: https://kauth.kakao.com
+        jwks-uri: https://kauth.kakao.com/.well-known/jwks.json
