@@ -17,7 +17,7 @@ sequenceDiagram
     participant Redis
 
     U->>App: "오늘 운동 시작"
-    App->>API: POST /v1/sessions { gymId, startedAt }
+    App->>API: POST /api/v1/sessions { gymId, startedAt }
     API->>DB: INSERT climbing_sessions (status: open)
     DB-->>API: session.extId
     API-->>App: { session }
@@ -25,14 +25,14 @@ sequenceDiagram
 
     loop 매 시도
         U->>App: 루트 선택 + 결과 입력
-        App->>API: POST /v1/sessions/{extId}/attempts { routeId, result, attempts, grade, tags, mediaId? }
+        App->>API: POST /api/v1/sessions/{extId}/attempts { routeId, result, attempts, grade, tags, mediaId? }
         API->>DB: INSERT session_attempts
         API->>Redis: INCR user:{id}:today:attempts
         API-->>App: { attempt }
     end
 
     U->>App: "운동 종료"
-    App->>API: PATCH /v1/sessions/{extId} { endedAt }
+    App->>API: PATCH /api/v1/sessions/{extId} { endedAt }
     API->>DB: UPDATE climbing_sessions SET ended_at, duration_min
     API->>Redis: SET user:{id}:last_session {session}
     API-->>App: { session }
@@ -51,7 +51,7 @@ sequenceDiagram
     U->>App: 시도 입력 (네트워크 없음)
     App->>Local: pending_attempts 큐에 저장
     Note over App: 네트워크 복구 시 트리거
-    App->>API: POST /v1/sessions/{extId}/attempts (배치)
+    App->>API: POST /api/v1/sessions/{extId}/attempts (배치)
     API-->>App: 201 (idempotency key 포함)
     App->>Local: 큐에서 제거
 ```
@@ -68,11 +68,11 @@ sequenceDiagram
     participant MC as MediaConvert
     participant SQS
 
-    App->>API: POST /v1/media:prepareUpload { mime, size, kind:VIDEO }
+    App->>API: POST /api/v1/media:prepareUpload { mime, size, kind:VIDEO }
     API-->>App: { media.extId, uploadUrl, s3Key }
     App->>S3: PUT uploadUrl (원본 업로드)
     S3-->>App: 200
-    App->>API: POST /v1/media:confirmUpload { extId }
+    App->>API: POST /api/v1/media:confirmUpload { extId }
     API->>SQS: send { mediaId } (processing queue)
     API-->>App: { media: status=PROCESSING }
 
@@ -87,7 +87,7 @@ sequenceDiagram
         API->>DB: UPDATE media_assets SET status=READY, variants, cdn_url
     end
 
-    App->>API: POST /v1/sessions/{extId}/attempts { mediaId, ... }
+    App->>API: POST /api/v1/sessions/{extId}/attempts { mediaId, ... }
     Note over App,API: media 상태가 READY가 아니어도 attempt 생성은 허용, 클라에서 처리중 표시
 ```
 
@@ -100,7 +100,7 @@ sequenceDiagram
     participant Redis
     participant DB
 
-    App->>API: GET /v1/me/stats/monthly?year=2026&month=4
+    App->>API: GET /api/v1/me/stats/monthly?year=2026&month=4
     API->>Redis: GET stats:{userId}:2026-04
     alt 캐시 히트
         Redis-->>API: JSON

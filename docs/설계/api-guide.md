@@ -18,22 +18,22 @@
 ## 2. URL 규칙
 
 ```
-/v1/{resource}                    # 리스트
-/v1/{resource}/{ext_id}           # 단건
-/v1/{resource}/{ext_id}/{sub}     # 서브리소스
-/v1/me/...                        # 인증 사용자 컨텍스트
+/api/v1/{resource}                    # 리스트
+/api/v1/{resource}/{ext_id}           # 단건
+/api/v1/{resource}/{ext_id}/{sub}     # 서브리소스
+/api/v1/me/...                        # 인증 사용자 컨텍스트
 ```
 
 - 버전: path prefix `/v1` (호환 불가한 변경 시 `/v2` 분기)
-- 동사가 필요한 액션: `/v1/feed-posts/{ext_id}:like` (Google AOM 스타일, 드물게 사용)
+- 동사가 필요한 액션: `/api/v1/feed-posts/{ext_id}:like` (Google AOM 스타일, 드물게 사용)
 
 ## 3. 인증·인가
 
 | 단계 | 방법 |
 | --- | --- |
-| 소셜 로그인 | `POST /v1/auth/oauth/{provider}` (provider: `kakao`/`apple`/`google`) |
-| 토큰 재발급 | `POST /v1/auth/refresh` |
-| 로그아웃 | `POST /v1/auth/logout` (refresh 블랙리스트) |
+| 소셜 로그인 | `POST /api/v1/auth/oauth/{provider}` (provider: `kakao`/`apple`/`google`) |
+| 토큰 재발급 | `POST /api/v1/auth/refresh` |
+| 로그아웃 | `POST /api/v1/auth/logout` (refresh 블랙리스트) |
 | 이후 요청 | `Authorization: Bearer {accessToken}` |
 
 - Access: 15분, Refresh: 14일
@@ -128,68 +128,68 @@
 
 ## 11. MVP 엔드포인트 인벤토리
 
-### 인증 (`/v1/auth`)
+### 인증 (`/api/v1/auth`)
 | Method | Path | 설명 |
 | --- | --- | --- |
-| POST | `/v1/auth/oauth/{provider}` | 소셜 로그인 교환 |
-| POST | `/v1/auth/refresh` | 토큰 재발급 |
-| POST | `/v1/auth/logout` | 로그아웃 |
+| POST | `/api/v1/auth/oauth/{provider}` | 소셜 로그인 교환 |
+| POST | `/api/v1/auth/refresh` | 토큰 재발급 |
+| POST | `/api/v1/auth/logout` | 로그아웃 |
 
-### 사용자 (`/v1/me`, `/v1/users`)
+### 사용자 (`/api/v1/me`, `/api/v1/users`)
 | Method | Path | 설명 |
 | --- | --- | --- |
-| GET | `/v1/me` | 내 정보 |
-| PATCH | `/v1/me/profile` | 프로필 수정 |
-| GET | `/v1/users/{extId}` | 타 사용자 프로필 |
-| POST | `/v1/users/{extId}:follow` | 팔로우 |
-| DELETE | `/v1/users/{extId}:follow` | 언팔로우 |
+| GET | `/api/v1/me` | 내 정보 |
+| PATCH | `/api/v1/me/profile` | 프로필 수정 |
+| GET | `/api/v1/users/{extId}` | 타 사용자 프로필 |
+| POST | `/api/v1/users/{extId}:follow` | 팔로우 |
+| DELETE | `/api/v1/users/{extId}:follow` | 언팔로우 |
 
-### 암장·루트 (`/v1/gyms`, `/v1/routes`)
+### 암장·루트 (`/api/v1/gyms`, `/api/v1/routes`)
 | Method | Path | 설명 |
 | --- | --- | --- |
-| GET | `/v1/gyms` | 암장 검색 (좌표·키워드·브랜드) |
-| GET | `/v1/gyms/{extId}` | 암장 상세 |
-| GET | `/v1/gyms/{extId}/routes` | 루트 목록 (활성) |
-| GET | `/v1/routes/{extId}` | 루트 상세 |
+| GET | `/api/v1/gyms` | 암장 검색 (좌표·키워드·브랜드) |
+| GET | `/api/v1/gyms/{extId}` | 암장 상세 |
+| GET | `/api/v1/gyms/{extId}/routes` | 루트 목록 (활성) |
+| GET | `/api/v1/routes/{extId}` | 루트 상세 |
 
-### 등반 기록 (`/v1/sessions`, `/v1/attempts`)
+### 등반 기록 (`/api/v1/sessions`, `/api/v1/attempts`)
 | Method | Path | 설명 |
 | --- | --- | --- |
-| GET | `/v1/me/sessions` | 내 세션 목록 |
-| POST | `/v1/sessions` | 세션 생성 |
-| GET | `/v1/sessions/{extId}` | 세션 상세 (시도 포함) |
-| PATCH | `/v1/sessions/{extId}` | 세션 수정 |
-| DELETE | `/v1/sessions/{extId}` | 세션 삭제 |
-| POST | `/v1/sessions/{extId}/attempts` | 시도 추가 |
-| PATCH | `/v1/attempts/{extId}` | 시도 수정 |
-| DELETE | `/v1/attempts/{extId}` | 시도 삭제 |
-| GET | `/v1/me/stats/monthly` | 월별 통계 |
+| GET | `/api/v1/me/sessions` | 내 세션 목록 |
+| POST | `/api/v1/sessions` | 세션 생성 |
+| GET | `/api/v1/sessions/{extId}` | 세션 상세 (시도 포함) |
+| PATCH | `/api/v1/sessions/{extId}` | 세션 수정 |
+| DELETE | `/api/v1/sessions/{extId}` | 세션 삭제 |
+| POST | `/api/v1/sessions/{extId}/attempts` | 시도 추가 |
+| PATCH | `/api/v1/attempts/{extId}` | 시도 수정 |
+| DELETE | `/api/v1/attempts/{extId}` | 시도 삭제 |
+| GET | `/api/v1/me/stats/monthly` | 월별 통계 |
 
-### 피드 (`/v1/feed-posts`)
+### 피드 (`/api/v1/feed-posts`)
 | Method | Path | 설명 |
 | --- | --- | --- |
-| GET | `/v1/feed` | 홈 피드 (팔로우 기반) |
-| GET | `/v1/feed-posts` | 전체·필터 피드 |
-| POST | `/v1/feed-posts` | 피드 작성 |
-| GET | `/v1/feed-posts/{extId}` | 게시물 상세 |
-| PATCH | `/v1/feed-posts/{extId}` | 게시물 수정 |
-| DELETE | `/v1/feed-posts/{extId}` | 게시물 삭제 |
-| POST | `/v1/feed-posts/{extId}:like` | 좋아요 |
-| DELETE | `/v1/feed-posts/{extId}:like` | 좋아요 취소 |
-| GET | `/v1/feed-posts/{extId}/comments` | 댓글 목록 |
-| POST | `/v1/feed-posts/{extId}/comments` | 댓글 작성 |
-| DELETE | `/v1/comments/{extId}` | 댓글 삭제 |
+| GET | `/api/v1/feed` | 홈 피드 (팔로우 기반) |
+| GET | `/api/v1/feed-posts` | 전체·필터 피드 |
+| POST | `/api/v1/feed-posts` | 피드 작성 |
+| GET | `/api/v1/feed-posts/{extId}` | 게시물 상세 |
+| PATCH | `/api/v1/feed-posts/{extId}` | 게시물 수정 |
+| DELETE | `/api/v1/feed-posts/{extId}` | 게시물 삭제 |
+| POST | `/api/v1/feed-posts/{extId}:like` | 좋아요 |
+| DELETE | `/api/v1/feed-posts/{extId}:like` | 좋아요 취소 |
+| GET | `/api/v1/feed-posts/{extId}/comments` | 댓글 목록 |
+| POST | `/api/v1/feed-posts/{extId}/comments` | 댓글 작성 |
+| DELETE | `/api/v1/comments/{extId}` | 댓글 삭제 |
 
-### 미디어 (`/v1/media`)
+### 미디어 (`/api/v1/media`)
 | Method | Path | 설명 |
 | --- | --- | --- |
-| POST | `/v1/media:prepareUpload` | S3 presigned PUT URL 발급 |
-| POST | `/v1/media:confirmUpload` | 업로드 완료 통지 (클라→서버) |
-| GET | `/v1/media/{extId}` | 미디어 상태 조회 |
+| POST | `/api/v1/media:prepareUpload` | S3 presigned PUT URL 발급 |
+| POST | `/api/v1/media:confirmUpload` | 업로드 완료 통지 (클라→서버) |
+| GET | `/api/v1/media/{extId}` | 미디어 상태 조회 |
 
 ## 12. 오픈 이슈
 
-- [ ] 피드 랭킹 알고리즘: `/v1/feed` 내부에 구현 vs 별도 서비스
+- [ ] 피드 랭킹 알고리즘: `/api/v1/feed` 내부에 구현 vs 별도 서비스
 - [ ] 신고·차단 API 추가 시점
 - [ ] GraphQL 검토 (Phase 2, 모바일 오버페칭 이슈 측정 후)
 - [ ] 웹훅(파트너사 암장 정보 연동) Phase 2

@@ -118,8 +118,8 @@ public class AuthService {
         userRepository.save(user);
         oauthIdentityRepository.save(
                 OauthIdentity.link(user.getId(), info.provider(), info.providerUid()));
-        // 온보딩 닉네임 정책은 별도 PR — 지금은 ext_id 앞 8자 prefix 로 유일성 확보 후 유저가 변경.
-        String defaultNickname = "crimper_" + extId.substring(0, 8);
+        // 기본 닉네임은 user.id 기반 — DB BIGINT AUTO_INCREMENT 가 유일성 보장. 온보딩 UI 에서 유저가 변경.
+        String defaultNickname = "crimper_" + user.getId();
         profileRepository.save(Profile.create(user.getId(), defaultNickname));
         return user;
     }
