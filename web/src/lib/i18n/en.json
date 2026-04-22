@@ -44,16 +44,21 @@
   "session": {
     "list": {
       "title": "My sessions",
+      "subtitleMonth": "{{count}} sends this month",
       "empty": "No sessions logged yet. Start your first session today!",
+      "emptyCtaStart": "Start a session",
       "newButton": "Start session",
       "loadMore": "Load more",
       "errorTitle": "Failed to load sessions",
       "itemGymFallback": "Gym not set",
       "itemDurationMinutes": "{{minutes}} min",
-      "itemOngoing": "Ongoing"
+      "itemOngoing": "Ongoing",
+      "itemAttempts": "{{count}} attempts",
+      "itemSends": "{{count}} sends"
     },
     "start": {
-      "title": "Start session",
+      "title": "New session",
+      "subtitle": "Tell us the gym and start time",
       "gymNameLabel": "Gym name",
       "gymNamePlaceholder": "e.g. ClimbPark Gangnam",
       "startedAtLabel": "Start time",
@@ -71,10 +76,16 @@
       "labelDuration": "Duration",
       "labelNote": "Note",
       "labelCondition": "Condition",
+      "elapsedLabel": "Elapsed",
+      "metaCaption": "{{gym}} · started {{startedAt}}",
+      "statsSends": "Sends",
+      "statsAttempts": "Attempts",
+      "statsTopGrade": "Top",
+      "timelineTitle": "Attempt timeline",
       "endButton": "End session",
       "ending": "Ending...",
       "endedBadge": "Ended",
-      "ongoingBadge": "Ongoing",
+      "ongoingBadge": "LIVE",
       "attemptsTitle": "Attempts",
       "attemptsEmpty": "No attempts logged yet.",
       "errorTitle": "Failed to load session"

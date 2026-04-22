@@ -44,16 +44,21 @@
   "session": {
     "list": {
       "title": "내 세션",
+      "subtitleMonth": "이번 달 {{count}}회 완등",
       "empty": "아직 기록된 세션이 없어요. 오늘 첫 세션을 시작해 보세요.",
+      "emptyCtaStart": "세션 시작하기",
       "newButton": "세션 시작",
       "loadMore": "더 보기",
       "errorTitle": "세션 목록을 불러오지 못했습니다",
       "itemGymFallback": "암장 미지정",
       "itemDurationMinutes": "{{minutes}}분",
-      "itemOngoing": "진행 중"
+      "itemOngoing": "진행 중",
+      "itemAttempts": "시도 {{count}}",
+      "itemSends": "완등 {{count}}"
     },
     "start": {
-      "title": "세션 시작",
+      "title": "새 세션",
+      "subtitle": "오늘 방문한 암장과 시작 시각을 알려주세요",
       "gymNameLabel": "암장 이름",
       "gymNamePlaceholder": "예: 클라임파크 강남점",
       "startedAtLabel": "시작 시각",
@@ -71,10 +76,16 @@
       "labelDuration": "소요",
       "labelNote": "메모",
       "labelCondition": "컨디션",
+      "elapsedLabel": "경과 시간",
+      "metaCaption": "{{gym}} · {{startedAt}} 시작",
+      "statsSends": "완등",
+      "statsAttempts": "시도",
+      "statsTopGrade": "최고",
+      "timelineTitle": "시도 타임라인",
       "endButton": "세션 종료",
       "ending": "종료 중...",
       "endedBadge": "종료됨",
-      "ongoingBadge": "진행 중",
+      "ongoingBadge": "LIVE",
       "attemptsTitle": "시도 기록",
       "attemptsEmpty": "아직 기록된 시도가 없어요.",
       "errorTitle": "세션 정보를 불러오지 못했습니다"
