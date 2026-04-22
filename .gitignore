@@ -42,6 +42,9 @@ web/.next/
 web/out/
 web/.turbo/
 
+# TypeScript incremental build info
+*.tsbuildinfo
+
 # React Native
 app/ios/Pods/
 app/ios/build/
