@@ -4,7 +4,12 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { t } from './src/lib/i18n';
+import type { RootStackParamList } from './src/navigation/types';
 import HomeScreen from './src/screens/HomeScreen';
+import SessionDetailScreen from './src/screens/SessionDetailScreen';
+import SessionListScreen from './src/screens/SessionListScreen';
+import StartSessionScreen from './src/screens/StartSessionScreen';
 import { useTokenStore } from './src/store/tokenStore';
 
 // 앱 루트에서 1회 생성해 Fast Refresh 간에도 보존.
@@ -17,7 +22,7 @@ const queryClient = new QueryClient({
   },
 });
 
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App(): JSX.Element {
   useEffect(() => {
@@ -39,6 +44,21 @@ export default function App(): JSX.Element {
               name="Home"
               component={HomeScreen}
               options={{ title: 'Crimp' }}
+            />
+            <Stack.Screen
+              name="SessionList"
+              component={SessionListScreen}
+              options={{ title: t('session.list.title') }}
+            />
+            <Stack.Screen
+              name="StartSession"
+              component={StartSessionScreen}
+              options={{ title: t('session.start.title') }}
+            />
+            <Stack.Screen
+              name="SessionDetail"
+              component={SessionDetailScreen}
+              options={{ title: t('session.detail.title') }}
             />
           </Stack.Navigator>
         </NavigationContainer>
