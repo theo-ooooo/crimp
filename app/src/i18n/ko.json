@@ -5,10 +5,19 @@
     "feed": "피드",
     "log": "로그",
     "gym": "암장",
-    "profile": "프로필"
+    "profile": "프로필",
+    "loading": "불러오는 중...",
+    "retry": "다시 시도"
   },
   "home": {
     "tagline": "클라이머를 위한 디지털 홈",
-    "description": "암장·루트·등반 로그·크루·아웃도어를 한 곳에서."
+    "description": "암장·루트·등반 로그·크루·아웃도어를 한 곳에서.",
+    "healthSectionTitle": "서버 상태",
+    "healthLabelStatus": "상태",
+    "healthLabelBrand": "브랜드",
+    "healthLabelEnv": "환경",
+    "healthLabelServerTime": "서버 시각",
+    "healthErrorTitle": "서버 응답을 불러오지 못했습니다",
+    "healthErrorHint": "백엔드가 실행 중인지(기본 http://localhost:8080) 확인하세요."
   }
 }

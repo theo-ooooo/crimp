@@ -18,6 +18,19 @@
     "healthLabelEnv": "Env",
     "healthLabelServerTime": "Server time",
     "healthErrorTitle": "Failed to load server health",
-    "healthErrorHint": "Make sure the backend is running (default http://localhost:8080)."
+    "healthErrorHint": "Make sure the backend is running on http://localhost:8080."
+  },
+  "me": {
+    "title": "My profile",
+    "loginRequiredTitle": "Login required",
+    "loginRequiredDescription": "Please login first. In dev mode, set localStorage key 'crimp.accessToken'.",
+    "labelExtId": "User ID",
+    "labelNickname": "Nickname",
+    "labelBio": "Bio",
+    "labelLevelSelf": "Self-rated level",
+    "labelMainGymId": "Main gym ID",
+    "labelAvatarMediaId": "Avatar media ID",
+    "empty": "-",
+    "errorTitle": "Failed to load your profile"
   }
 }

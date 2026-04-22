@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
+import { QueryProvider } from '@/lib/query/QueryProvider';
+
 export const metadata: Metadata = {
   title: 'Crimp — 클라이머를 위한 디지털 홈',
   description:
@@ -18,7 +20,9 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ko">
-      <body>{children}</body>
+      <body>
+        <QueryProvider>{children}</QueryProvider>
+      </body>
     </html>
   );
 }
