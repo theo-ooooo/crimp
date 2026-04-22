@@ -12,18 +12,17 @@ import { fontFamily, touchTarget, type Theme } from '@/lib/tokens';
 import { useReducedMotion } from '@/lib/useReducedMotion';
 import { useTokens } from '@/lib/useTokens';
 
-export type ButtonVariant = 'primary' | 'secondary';
+type Variant = 'primary' | 'secondary';
 
 export type ButtonProps = {
   onPress?: () => void;
   children: string;
   disabled?: boolean;
   style?: ViewStyle;
-  variant?: ButtonVariant;
   accessibilityLabel?: string;
 };
 
-function makeStyles(theme: Theme, variant: ButtonVariant, disabled: boolean) {
+function makeStyles(theme: Theme, variant: Variant, disabled: boolean) {
   const bg = disabled
     ? theme.subtle2
     : variant === 'primary'
@@ -57,13 +56,13 @@ function makeStyles(theme: Theme, variant: ButtonVariant, disabled: boolean) {
 }
 
 function ButtonBase({
+  variant,
   onPress,
   children,
   disabled = false,
   style,
-  variant,
   accessibilityLabel,
-}: Required<Pick<ButtonProps, 'variant'>> & ButtonProps): JSX.Element {
+}: ButtonProps & { variant: Variant }): JSX.Element {
   const theme = useTokens();
   const reducedMotion = useReducedMotion();
   const styles = useMemo(
@@ -99,9 +98,9 @@ function ButtonBase({
 }
 
 export function PrimaryButton(props: ButtonProps): JSX.Element {
-  return <ButtonBase {...props} variant={props.variant ?? 'primary'} />;
+  return <ButtonBase {...props} variant="primary" />;
 }
 
 export function SecondaryButton(props: ButtonProps): JSX.Element {
-  return <ButtonBase {...props} variant={props.variant ?? 'secondary'} />;
+  return <ButtonBase {...props} variant="secondary" />;
 }

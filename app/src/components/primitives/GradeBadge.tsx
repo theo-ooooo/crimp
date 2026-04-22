@@ -1,7 +1,14 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 
 import { fontFamily, gradeTint } from '@/lib/tokens';
+
+// iOS 전용 tabular-nums. Android 는 비례폭 숫자로 렌더링 (시각 차이 미미).
+const TABULAR_NUMS = Platform.select<Array<'tabular-nums'>>({
+  ios: ['tabular-nums'],
+  android: [],
+  default: [],
+}) as Array<'tabular-nums'>;
 
 export type GradeSize = 'sm' | 'md' | 'lg';
 
@@ -33,7 +40,7 @@ function makeStyles(bg: string, fg: string, w: number, h: number, fs: number) {
       fontSize: fs,
       fontWeight: '800',
       letterSpacing: -(fs * 0.02),
-      fontVariant: ['tabular-nums'],
+      fontVariant: TABULAR_NUMS,
       includeFontPadding: false,
       textAlignVertical: 'center',
     },

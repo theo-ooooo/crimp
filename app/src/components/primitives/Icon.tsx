@@ -27,21 +27,27 @@ type IconDef = {
   fillGlyph?: string;
 };
 
+/**
+ * 모든 글리프는 **모노크롬 텍스트 Unicode** 만 사용 (BMP ≤ U+2FFF Miscellaneous
+ * Symbols / Geometric Shapes 등). iOS·Android 모두 `color` prop 이 적용되어
+ * 다크 모드·탭바·액티브 상태에서 색이 정상 반영된다.
+ * 이모지 글리프(U+1F5xx 등) 는 시스템이 풀컬러로 렌더해 `color` 를 무시하므로 금지.
+ */
 const iconDefs = {
-  bell: { glyph: '\u{1F514}', scale: 0.7 },
-  search: { glyph: '\u{1F50D}', scale: 0.7 },
+  bell: { glyph: '\u25C9', scale: 0.85 }, // ◉ fisheye — 알림 점
+  search: { glyph: '\u2315', scale: 0.95 }, // ⌕ 검색
   plus: { glyph: '+', scale: 0.9 },
   chevR: { glyph: '\u203A', scale: 0.95 },
   chevL: { glyph: '\u2039', scale: 0.95 },
   close: { glyph: '\u2715', scale: 0.72 },
   home: { glyph: '\u2302', scale: 0.9 },
-  map: { glyph: '\u{1F5FA}', scale: 0.7 },
+  map: { glyph: '\u29C9', scale: 0.9 }, // ⧉ 두 사각형
   feed: { glyph: '\u25A4', scale: 0.85 },
   profile: { glyph: '\u263B', scale: 0.8 },
-  clock: { glyph: '\u23F1', scale: 0.7 },
-  pin: { glyph: '\u{1F4CD}', scale: 0.7 },
+  clock: { glyph: '\u25F7', scale: 0.95 }, // ◷ 시계 사분면
+  pin: { glyph: '\u2691', scale: 0.85 }, // ⚑ 플래그
   play: { glyph: '\u25B6', scale: 0.72 },
-  flame: { glyph: '\u{1F525}', scale: 0.72 },
+  flame: { glyph: '\u25B4', scale: 0.9 }, // ▴ 상승 삼각 (불꽃 추상)
   check: { glyph: '\u2713', scale: 0.9 },
   filter: { glyph: '\u2263', scale: 0.85 },
   trend: { glyph: '\u2197', scale: 0.9 },

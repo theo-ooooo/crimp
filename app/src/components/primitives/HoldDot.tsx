@@ -13,7 +13,8 @@ export type HoldDotProps = {
 };
 
 function resolveColor(value: HoldColorKey | string, theme: Theme): string {
-  if (value in theme.hold) {
+  // 프로토타입 체인 오염 방지: 자체 프로퍼티만 허용.
+  if (Object.prototype.hasOwnProperty.call(theme.hold, value)) {
     return theme.hold[value as HoldColorKey];
   }
   return value;
