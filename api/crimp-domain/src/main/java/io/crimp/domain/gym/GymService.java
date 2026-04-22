@@ -1,5 +1,6 @@
 package io.crimp.domain.gym;
 
+import io.crimp.core.entity.enums.GymStatus;
 import io.crimp.core.entity.gym.Gym;
 import io.crimp.core.repository.gym.GymRepository;
 import org.springframework.data.domain.PageRequest;
@@ -37,7 +38,7 @@ public class GymService {
 
     @Transactional(readOnly = true)
     public GymView getByExtId(String extId) {
-        Gym gym = gymRepository.findByExtId(extId)
+        Gym gym = gymRepository.findByExtIdAndStatus(extId, GymStatus.ACTIVE)
                 .orElseThrow(() -> new GymException("GYM_NOT_FOUND", "Gym " + extId + " not found"));
         return toView(gym);
     }

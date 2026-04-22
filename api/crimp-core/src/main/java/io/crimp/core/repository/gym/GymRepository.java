@@ -19,7 +19,8 @@ public interface GymRepository extends JpaRepository<Gym, Long> {
      */
     @Query("""
            SELECT g FROM Gym g
-            WHERE (:cursorId IS NULL OR g.id < :cursorId)
+            WHERE g.status = io.crimp.core.entity.enums.GymStatus.ACTIVE
+              AND (:cursorId IS NULL OR g.id < :cursorId)
               AND (:keyword IS NULL OR g.name LIKE CONCAT('%', :keyword, '%'))
               AND (:brand IS NULL OR g.brand = :brand)
             ORDER BY g.id DESC
@@ -29,4 +30,6 @@ public interface GymRepository extends JpaRepository<Gym, Long> {
             @Param("keyword") String keyword,
             @Param("brand") String brand,
             Pageable pageable);
+
+    Optional<Gym> findByExtIdAndStatus(String extId, io.crimp.core.entity.enums.GymStatus status);
 }
