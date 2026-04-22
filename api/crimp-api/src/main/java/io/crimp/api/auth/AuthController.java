@@ -1,5 +1,6 @@
 package io.crimp.api.auth;
 
+import io.crimp.common.response.ErrorResponse;
 import io.crimp.core.entity.enums.OauthProvider;
 import io.crimp.domain.auth.AuthException;
 import io.crimp.domain.auth.AuthService;
@@ -14,10 +15,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Map;
-
 @RestController
-@RequestMapping("/v1/auth")
+@RequestMapping("/api/v1/auth")
 @Profile("!test")
 public class AuthController {
 
@@ -49,15 +48,13 @@ public class AuthController {
     }
 
     @ExceptionHandler(AuthException.class)
-    public ResponseEntity<Map<String, Object>> handleAuth(AuthException e) {
+    public ResponseEntity<ErrorResponse> handleAuth(AuthException e) {
         int status = switch (e.code()) {
             case "AUTH_PROVIDER_UNSUPPORTED" -> 400;
             case "AUTH_INVALID", "AUTH_USER_MISSING" -> 401;
             default -> 401;
         };
-        return ResponseEntity.status(status).body(Map.of(
-                "error", Map.of("code", e.code(), "message", e.getMessage())
-        ));
+        return ResponseEntity.status(status).body(ErrorResponse.of(e.code(), e.getMessage()));
     }
 
     private static OauthProvider parseProvider(String raw) {

@@ -9,7 +9,7 @@ import java.time.Instant;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/v1")
+@RequestMapping("/api/v1")
 public class HealthController {
 
     private final AppProperties appProperties;

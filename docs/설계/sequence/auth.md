@@ -23,7 +23,7 @@ sequenceDiagram
     Provider-->>User: 동의 화면 노출
     User->>Provider: 동의 및 로그인
     Provider-->>App: Authorization Code (또는 ID Token)
-    App->>API: POST /v1/auth/oauth/kakao { idToken }
+    App->>API: POST /api/v1/auth/oauth/kakao { idToken }
     API->>Provider: (필요 시) idToken 검증 또는 code 교환
     Provider-->>API: userInfo (provider_uid, email)
     API->>DB: SELECT * FROM oauth_identities WHERE provider, provider_uid
@@ -49,7 +49,7 @@ sequenceDiagram
     participant API
     participant Redis
 
-    App->>API: POST /v1/auth/refresh { refreshToken }
+    App->>API: POST /api/v1/auth/refresh { refreshToken }
     API->>API: refreshToken 서명·만료 검증
     API->>Redis: GET refresh:{userId}:{jti}
     alt 유효
@@ -71,7 +71,7 @@ sequenceDiagram
     participant API
     participant Redis
 
-    App->>API: POST /v1/auth/logout { refreshToken }
+    App->>API: POST /api/v1/auth/logout { refreshToken }
     API->>Redis: DEL refresh:{userId}:{jti}
     API-->>App: 200
     App->>App: 로컬 토큰 제거

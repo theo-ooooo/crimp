@@ -4,6 +4,7 @@ import io.crimp.core.entity.enums.OauthProvider;
 import io.crimp.core.entity.user.OauthIdentity;
 import io.crimp.core.entity.user.User;
 import io.crimp.core.repository.user.OauthIdentityRepository;
+import io.crimp.core.repository.user.ProfileRepository;
 import io.crimp.core.repository.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,6 +31,7 @@ class AuthServiceTest {
 
     private UserRepository userRepo;
     private OauthIdentityRepository oauthRepo;
+    private ProfileRepository profileRepo;
     private OauthIdTokenVerifier kakaoVerifier;
     private JwtProvider jwtProvider;
     private JwtProperties jwtProps;
@@ -40,6 +42,7 @@ class AuthServiceTest {
     void setUp() {
         userRepo = mock(UserRepository.class);
         oauthRepo = mock(OauthIdentityRepository.class);
+        profileRepo = mock(ProfileRepository.class);
 
         kakaoVerifier = mock(OauthIdTokenVerifier.class);
         when(kakaoVerifier.supports()).thenReturn(OauthProvider.KAKAO);
@@ -51,7 +54,7 @@ class AuthServiceTest {
 
         refreshStore = new InMemoryRefreshStore();
 
-        service = new AuthService(userRepo, oauthRepo, List.of(kakaoVerifier),
+        service = new AuthService(userRepo, oauthRepo, profileRepo, List.of(kakaoVerifier),
                 jwtProvider, jwtProps, refreshStore);
     }
 

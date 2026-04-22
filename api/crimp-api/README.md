@@ -30,7 +30,7 @@ crimp-api → crimp-common
    ```bash
    cd api && gradle :crimp-api:bootRun
    ```
-3. 헬스 체크: <http://localhost:8080/v1/health>
+3. 헬스 체크: <http://localhost:8080/api/v1/health>
 4. Swagger UI: <http://localhost:8080/swagger-ui>
 
 ## 테스트
