@@ -50,10 +50,11 @@ public class SessionController {
     @GetMapping("/me/sessions")
     public SessionListResponse listMine(
             @AuthenticationPrincipal CrimpPrincipal principal,
-            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Long cursor,
             @RequestParam(required = false) Integer size) {
-        List<SessionView> items = sessionService.listMine(principal.userId(), page, size);
-        return new SessionListResponse(items.stream().map(SessionResponse::of).toList());
+        var result = sessionService.listMine(principal.userId(), cursor, size);
+        List<SessionResponse> items = result.items().stream().map(SessionResponse::of).toList();
+        return new SessionListResponse(items, new Page(result.nextCursor(), result.size()));
     }
 
     @GetMapping("/sessions/{extId}")
@@ -124,5 +125,7 @@ public class SessionController {
         }
     }
 
-    public record SessionListResponse(List<SessionResponse> data) {}
+    public record SessionListResponse(List<SessionResponse> data, Page page) {}
+
+    public record Page(Long nextCursor, int size) {}
 }

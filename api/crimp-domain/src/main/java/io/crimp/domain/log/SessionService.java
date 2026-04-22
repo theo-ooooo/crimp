@@ -35,12 +35,14 @@ public class SessionService {
     }
 
     @Transactional(readOnly = true)
-    public List<SessionView> listMine(long userId, Integer page, Integer size) {
-        int p = page == null || page < 0 ? 0 : page;
+    public SessionPage listMine(long userId, Long cursor, Integer size) {
         int s = size == null || size <= 0 ? DEFAULT_PAGE_SIZE : Math.min(size, MAX_PAGE_SIZE);
-        Slice<ClimbingSession> slice = sessionRepository
-                .findByUserIdAndDeletedAtIsNullOrderByStartedAtDesc(userId, PageRequest.of(p, s));
-        return slice.getContent().stream().map(SessionService::toView).toList();
+        Slice<ClimbingSession> slice = sessionRepository.searchMine(userId, cursor, PageRequest.of(0, s));
+        List<SessionView> items = slice.getContent().stream().map(SessionService::toView).toList();
+        Long nextCursor = slice.hasNext() && !slice.getContent().isEmpty()
+                ? slice.getContent().get(slice.getContent().size() - 1).getId()
+                : null;
+        return new SessionPage(items, nextCursor, s);
     }
 
     @Transactional(readOnly = true)
@@ -52,6 +54,13 @@ public class SessionService {
     @Transactional
     public SessionView update(long userId, String extId, UpdateSessionCommand cmd) {
         ClimbingSession session = fetchOwnedNotDeleted(userId, extId);
+        if (cmd.endedAt() != null && session.getStartedAt() != null
+                && cmd.endedAt().isBefore(session.getStartedAt())) {
+            throw new SessionException("SESSION_INVALID", "endedAt must be after startedAt");
+        }
+        if (cmd.condition() != null && (cmd.condition() < 1 || cmd.condition() > 5)) {
+            throw new SessionException("SESSION_INVALID", "condition must be between 1 and 5");
+        }
         if (cmd.note() != null) session.updateNote(cmd.note());
         if (cmd.condition() != null) session.updateCondition(cmd.condition());
         if (cmd.endedAt() != null) session.close(cmd.endedAt());
@@ -89,4 +98,6 @@ public class SessionService {
                 s.getCondition()
         );
     }
+
+    public record SessionPage(List<SessionView> items, Long nextCursor, int size) {}
 }

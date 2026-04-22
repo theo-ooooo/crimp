@@ -58,24 +58,32 @@ class SessionServiceTest {
     @Test
     void listMine_caps_size_50() {
         Slice<ClimbingSession> empty = new SliceImpl<>(List.of(), Pageable.ofSize(50), false);
-        when(repo.findByUserIdAndDeletedAtIsNullOrderByStartedAtDesc(eq(42L), any())).thenReturn(empty);
+        when(repo.searchMine(eq(42L), any(), any())).thenReturn(empty);
 
-        service.listMine(42L, 0, 1000);
-        // 실측: 호출 시 Pageable.size 가 50 으로 클램프
-        org.mockito.ArgumentCaptor<Pageable> cap = org.mockito.ArgumentCaptor.forClass(Pageable.class);
-        org.mockito.Mockito.verify(repo).findByUserIdAndDeletedAtIsNullOrderByStartedAtDesc(eq(42L), cap.capture());
-        assertThat(cap.getValue().getPageSize()).isEqualTo(50);
+        var result = service.listMine(42L, null, 1000);
+        assertThat(result.size()).isEqualTo(50);
     }
 
     @Test
     void listMine_default_size_20_when_null() {
         Slice<ClimbingSession> empty = new SliceImpl<>(List.of(), Pageable.ofSize(20), false);
-        when(repo.findByUserIdAndDeletedAtIsNullOrderByStartedAtDesc(eq(42L), any())).thenReturn(empty);
+        when(repo.searchMine(eq(42L), any(), any())).thenReturn(empty);
 
-        service.listMine(42L, null, null);
-        org.mockito.ArgumentCaptor<Pageable> cap = org.mockito.ArgumentCaptor.forClass(Pageable.class);
-        org.mockito.Mockito.verify(repo).findByUserIdAndDeletedAtIsNullOrderByStartedAtDesc(eq(42L), cap.capture());
-        assertThat(cap.getValue().getPageSize()).isEqualTo(20);
+        var result = service.listMine(42L, null, null);
+        assertThat(result.size()).isEqualTo(20);
+        assertThat(result.nextCursor()).isNull();
+    }
+
+    @Test
+    void listMine_sets_nextCursor_when_hasNext() {
+        ClimbingSession s1 = session(10L, "01HX1", 42L, false);
+        ClimbingSession s2 = session(7L, "01HX2", 42L, false);
+        Slice<ClimbingSession> slice = new SliceImpl<>(List.of(s1, s2), Pageable.ofSize(2), true);
+        when(repo.searchMine(eq(42L), any(), any())).thenReturn(slice);
+
+        var result = service.listMine(42L, 100L, 2);
+        assertThat(result.nextCursor()).isEqualTo(7L);
+        assertThat(result.items()).hasSize(2);
     }
 
     @Test
@@ -118,6 +126,29 @@ class SessionServiceTest {
         assertThat(view.note()).isEqualTo("메모");
         assertThat(view.condition()).isEqualTo((byte) 4);
         assertThat(view.durationMin()).isNotNull(); // close() 로 계산됨
+    }
+
+    @Test
+    void update_rejects_endedAt_before_startedAt() {
+        ClimbingSession s = session(1L, "01HSESS", 42L, false);
+        when(repo.findByExtId("01HSESS")).thenReturn(Optional.of(s));
+
+        // startedAt=10:00Z, endedAt=09:00Z 는 역전 → 거부
+        var cmd = new UpdateSessionCommand(Instant.parse("2026-04-20T09:00:00Z"), null, null);
+        assertThatThrownBy(() -> service.update(42L, "01HSESS", cmd))
+                .isInstanceOf(SessionException.class)
+                .satisfies(e -> assertThat(((SessionException) e).code()).isEqualTo("SESSION_INVALID"));
+    }
+
+    @Test
+    void update_rejects_condition_out_of_range() {
+        ClimbingSession s = session(1L, "01HSESS", 42L, false);
+        when(repo.findByExtId("01HSESS")).thenReturn(Optional.of(s));
+
+        var cmd = new UpdateSessionCommand(null, null, (byte) 7);
+        assertThatThrownBy(() -> service.update(42L, "01HSESS", cmd))
+                .isInstanceOf(SessionException.class)
+                .satisfies(e -> assertThat(((SessionException) e).code()).isEqualTo("SESSION_INVALID"));
     }
 
     @Test
