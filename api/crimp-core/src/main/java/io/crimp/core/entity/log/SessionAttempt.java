@@ -25,6 +25,9 @@ public class SessionAttempt {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "ext_id", nullable = false, columnDefinition = "char(26)", unique = true, updatable = false)
+    private String extId;
+
     @Column(name = "session_id", nullable = false)
     private Long sessionId;
 
@@ -58,7 +61,8 @@ public class SessionAttempt {
     @Column(name = "logged_at", nullable = false)
     private Instant loggedAt;
 
-    private SessionAttempt(Long sessionId, Long routeId, AttemptResult result, int attempts, Instant loggedAt) {
+    private SessionAttempt(String extId, Long sessionId, Long routeId, AttemptResult result, int attempts, Instant loggedAt) {
+        this.extId = extId;
         this.sessionId = sessionId;
         this.routeId = routeId;
         this.result = result;
@@ -66,7 +70,17 @@ public class SessionAttempt {
         this.loggedAt = loggedAt;
     }
 
-    public static SessionAttempt log(Long sessionId, Long routeId, AttemptResult result, int attempts, Instant loggedAt) {
-        return new SessionAttempt(sessionId, routeId, result, attempts, loggedAt);
+    public static SessionAttempt log(String extId, Long sessionId, Long routeId, AttemptResult result, int attempts, Instant loggedAt) {
+        return new SessionAttempt(extId, sessionId, routeId, result, attempts, loggedAt);
     }
+
+    public void updateRoute(Long routeId) { this.routeId = routeId; }
+    public void updateGymId(Long gymId) { this.gymId = gymId; }
+    public void updateGradeValue(String gradeValue) { this.gradeValue = gradeValue; }
+    public void updateGradeNumeric(java.math.BigDecimal gradeNumeric) { this.gradeNumeric = gradeNumeric; }
+    public void updateResult(AttemptResult result) { this.result = result; }
+    public void updateAttempts(int attempts) { this.attempts = (short) attempts; }
+    public void updateMediaId(Long mediaId) { this.mediaId = mediaId; }
+    public void updateNote(String note) { this.note = note; }
+    public void updateTagsJson(String tagsJson) { this.tagsJson = tagsJson; }
 }
