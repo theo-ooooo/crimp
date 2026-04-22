@@ -13,6 +13,8 @@
     "loading": "Loading...",
     "retry": "Retry",
     "cancel": "Cancel",
+    "back": "Back",
+    "close": "Close",
     "save": "Save",
     "delete": "Delete",
     "empty": "-"
@@ -44,7 +46,7 @@
   "session": {
     "list": {
       "title": "My sessions",
-      "subtitleMonth": "{{count}} sends this month",
+      "subtitleMonth": "{{count}} sessions this month",
       "empty": "No sessions logged yet. Start your first session today!",
       "emptyCtaStart": "Start a session",
       "newButton": "Start session",
