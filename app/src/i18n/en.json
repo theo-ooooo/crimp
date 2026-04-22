@@ -5,10 +5,19 @@
     "feed": "Feed",
     "log": "Log",
     "gym": "Gym",
-    "profile": "Profile"
+    "profile": "Profile",
+    "loading": "Loading...",
+    "retry": "Retry"
   },
   "home": {
     "tagline": "Digital home for climbers",
-    "description": "Gyms, routes, climbing logs, crews and outdoors in one place."
+    "description": "Gyms, routes, climbing logs, crews and outdoors in one place.",
+    "healthSectionTitle": "Server health",
+    "healthLabelStatus": "Status",
+    "healthLabelBrand": "Brand",
+    "healthLabelEnv": "Env",
+    "healthLabelServerTime": "Server time",
+    "healthErrorTitle": "Failed to load server health",
+    "healthErrorHint": "Make sure the backend is running (default http://localhost:8080)."
   }
 }
