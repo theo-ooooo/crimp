@@ -56,7 +56,7 @@ class RouteServiceTest {
         assertThat(result.items().get(0).extId()).isEqualTo("01HR30");
         assertThat(result.items().get(1).extId()).isEqualTo("01HR20");
         assertThat(result.nextCursor()).isNull();
-        assertThat(result.size()).isEqualTo(20);
+        assertThat(result.pageSize()).isEqualTo(20);
     }
 
     @Test
@@ -83,8 +83,20 @@ class RouteServiceTest {
         Slice<Route> empty = new SliceImpl<>(List.of(), Pageable.ofSize(20), false);
         when(routeRepo.findByGymIdCursor(eq(42L), any(), any())).thenReturn(empty);
 
-        assertThat(service.listByGym("01HGYM42", null, null).size()).isEqualTo(20);
-        assertThat(service.listByGym("01HGYM42", null, 0).size()).isEqualTo(20);
+        assertThat(service.listByGym("01HGYM42", null, null).pageSize()).isEqualTo(20);
+        assertThat(service.listByGym("01HGYM42", null, 0).pageSize()).isEqualTo(20);
+    }
+
+    @Test
+    void listByGym_negative_size_falls_back_to_default() {
+        Gym gym = gym(42L, "01HGYM42");
+        when(gymRepo.findByExtIdAndStatus("01HGYM42", GymStatus.ACTIVE)).thenReturn(Optional.of(gym));
+
+        Slice<Route> empty = new SliceImpl<>(List.of(), Pageable.ofSize(20), false);
+        when(routeRepo.findByGymIdCursor(eq(42L), any(), any())).thenReturn(empty);
+
+        assertThat(service.listByGym("01HGYM42", null, -1).pageSize()).isEqualTo(20);
+        assertThat(service.listByGym("01HGYM42", null, Integer.MIN_VALUE).pageSize()).isEqualTo(20);
     }
 
     @Test
@@ -96,7 +108,7 @@ class RouteServiceTest {
         when(routeRepo.findByGymIdCursor(eq(42L), any(), any())).thenReturn(empty);
 
         var result = service.listByGym("01HGYM42", null, 1000);
-        assertThat(result.size()).isEqualTo(50);
+        assertThat(result.pageSize()).isEqualTo(50);
     }
 
     @Test
@@ -146,7 +158,7 @@ class RouteServiceTest {
         assertThat(v.extId()).isEqualTo("01HR30");
         assertThat(v.name()).isEqualTo("모카");
         assertThat(v.color()).isEqualTo("red");
-        assertThat(v.gradeScale()).isEqualTo(GradeScale.V);
+        assertThat(v.gradeScale()).isEqualTo("V");
         assertThat(v.gradeValue()).isEqualTo("V4");
         assertThat(v.gradeNumeric()).isEqualByComparingTo("4.0");
         assertThat(v.setter()).isEqualTo("김세터");

@@ -1,16 +1,13 @@
 package io.crimp.api.gym;
 
-import io.crimp.api.security.CrimpPrincipal;
 import io.crimp.common.response.ErrorResponse;
 import io.crimp.domain.gym.GymException;
 import io.crimp.domain.gym.GymService;
 import io.crimp.domain.gym.GymView;
 import io.crimp.domain.gym.RouteService;
 import io.crimp.domain.gym.RouteView;
-import io.crimp.core.entity.enums.GradeScale;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -53,17 +50,17 @@ public class GymController {
 
     /**
      * 암장의 활성 루트 목록 조회. id DESC (최근 세팅 우선), 커서 페이지네이션.
+     *
+     * 인증 자체는 SecurityConfig 의 /api/v1/gyms/&#42;/routes 매처가 강제한다.
      */
     @GetMapping("/{gymExtId}/routes")
     public RouteListResponse listRoutes(
-            @AuthenticationPrincipal CrimpPrincipal principal,
             @PathVariable String gymExtId,
             @RequestParam(required = false) Long cursor,
             @RequestParam(required = false) Integer size) {
-        // principal 은 인증 보장용 (루트 목록은 암장 공개정보지만 인증 컨텍스트 요구 — SecurityConfig 참고)
         var result = routeService.listByGym(gymExtId, cursor, size);
         List<RouteItem> items = result.items().stream().map(RouteItem::of).toList();
-        return new RouteListResponse(items, new Page(result.nextCursor(), result.size()));
+        return new RouteListResponse(items, new Page(result.nextCursor(), result.pageSize()));
     }
 
     @ExceptionHandler(GymException.class)
@@ -120,7 +117,7 @@ public class GymController {
             String extId,
             String name,
             String color,
-            GradeScale gradeScale,
+            String gradeScale,
             String gradeValue,
             BigDecimal gradeNumeric,
             String setter,

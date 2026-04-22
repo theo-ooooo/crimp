@@ -57,7 +57,7 @@ public class RouteService {
                 r.getExtId(),
                 r.getName(),
                 r.getColor(),
-                r.getGradeScale(),
+                r.getGradeScale() != null ? r.getGradeScale().name() : null,
                 r.getGradeValue(),
                 r.getGradeNumeric(),
                 r.getSetter(),
@@ -65,5 +65,12 @@ public class RouteService {
         );
     }
 
-    public record RoutePage(List<RouteView> items, Long nextCursor, int size) {}
+    /**
+     * 루트 목록 페이지 결과.
+     *
+     * @param items       조회된 루트 뷰 (실제 반환 건수 = {@code items.size()})
+     * @param nextCursor  다음 페이지 커서. 더 조회할 데이터가 없으면 null.
+     * @param pageSize    요청된(또는 기본·상한 적용된) 페이지 크기. 실제 반환 건수와 다를 수 있음.
+     */
+    public record RoutePage(List<RouteView> items, Long nextCursor, int pageSize) {}
 }
