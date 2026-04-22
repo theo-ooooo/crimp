@@ -1,4 +1,8 @@
 {
+  "site": {
+    "title": "Crimp — Digital home for climbers",
+    "description": "Gyms, routes, climbing logs, crews and outdoors — all in one place."
+  },
   "common": {
     "brand": "Crimp",
     "home": "Home",
