@@ -83,7 +83,7 @@ export default function StartSessionScreen(): JSX.Element {
   return (
     <KeyboardAvoidingView
       style={[styles.root, { backgroundColor: theme.bg }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.select({ ios: 'padding', android: 'height' })}
     >
       <ScrollView
         style={styles.scroll}
@@ -184,6 +184,7 @@ function makeStyles(theme: Theme) {
     },
     title: {
       fontFamily,
+      // TODO F1: fontSize.* 서브스케일 (28 = h2Tight 등) 추가되면 교체
       fontSize: 28,
       fontWeight: fontWeight.extrabold,
       color: theme.text,
@@ -213,6 +214,7 @@ function makeStyles(theme: Theme) {
       paddingHorizontal: space[4],
       paddingVertical: space[4],
       fontFamily,
+      // TODO F1: fontSize.* 서브스케일 (17 = bodyLg 등) 추가되면 교체
       fontSize: 17,
       fontWeight: fontWeight.medium,
       color: theme.text,

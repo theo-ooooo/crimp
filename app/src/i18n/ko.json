@@ -40,7 +40,10 @@
       "itemDurationPending": "—",
       "itemOngoing": "진행 중",
       "weeklyCountLabel": "이번 주 붙은 세션",
-      "weeklyCountUnit": "회"
+      "weeklyCountUnit": "회",
+      "durationAccessibilityHm": "{{h}}시간 {{m}}분",
+      "durationAccessibilityM": "{{m}}분",
+      "durationAccessibilityPending": "아직 진행 중"
     },
     "start": {
       "title": "세션 시작",

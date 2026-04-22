@@ -45,9 +45,16 @@ export function AttemptRow({ attempt }: AttemptRowProps): JSX.Element {
   const theme = useTokens();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const grade = attempt.gradeValue?.trim();
+  const formattedTime = formatTime(attempt.loggedAt);
+  // 집계 라벨: 스크린리더가 "완등 V4 ×2 19:42" 한 덩어리로 읽도록 묶음
+  const a11yLabel = `${t(`attempt.result.${attempt.result}` as const)} ${grade ?? ''} ×${attempt.attempts} ${formattedTime}`;
 
   return (
-    <View style={styles.row}>
+    <View
+      style={styles.row}
+      accessible
+      accessibilityLabel={a11yLabel}
+    >
       <View style={styles.markCell}>
         <ResultMark kind={attempt.result} size={28} />
       </View>
@@ -62,7 +69,7 @@ export function AttemptRow({ attempt }: AttemptRowProps): JSX.Element {
           </Text>
           <View style={styles.spacer} />
           <Text style={styles.time} numberOfLines={1}>
-            {formatTime(attempt.loggedAt)}
+            {formattedTime}
           </Text>
         </View>
         {attempt.note ? (

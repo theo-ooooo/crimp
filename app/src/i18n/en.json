@@ -40,7 +40,10 @@
       "itemDurationPending": "—",
       "itemOngoing": "Ongoing",
       "weeklyCountLabel": "Sessions this week",
-      "weeklyCountUnit": "×"
+      "weeklyCountUnit": "sessions",
+      "durationAccessibilityHm": "{{h}} hour {{m}} minute",
+      "durationAccessibilityM": "{{m}} minute",
+      "durationAccessibilityPending": "Still ongoing"
     },
     "start": {
       "title": "Start session",

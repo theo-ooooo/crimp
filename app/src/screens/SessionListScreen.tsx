@@ -26,6 +26,7 @@ import { toUserMessage } from '@/lib/api/errorMessage';
 import { t } from '@/lib/i18n';
 import {
   fontFamily,
+  fontSize,
   fontWeight,
   letterSpacing,
   radius,
@@ -107,7 +108,6 @@ export default function SessionListScreen(): JSX.Element {
   const renderItem: ListRenderItem<Session> = ({ item }) => (
     <SessionCard
       session={item}
-      theme={theme}
       onPress={() =>
         navigation.navigate('SessionDetail', { extId: item.extId })
       }
@@ -120,7 +120,6 @@ export default function SessionListScreen(): JSX.Element {
         <Text style={styles.title}>{t('session.list.title')}</Text>
         <IconAction
           onPress={() => navigation.navigate('StartSession')}
-          theme={theme}
           accessibilityLabel={t('session.list.newButton')}
         />
       </View>
@@ -170,7 +169,6 @@ export default function SessionListScreen(): JSX.Element {
           }
           ListEmptyComponent={
             <EmptyState
-              theme={theme}
               onStart={() => navigation.navigate('StartSession')}
             />
           }
@@ -192,13 +190,13 @@ export default function SessionListScreen(): JSX.Element {
 
 function SessionCard({
   session,
-  theme,
   onPress,
 }: {
   session: Session;
-  theme: Theme;
   onPress: () => void;
 }): JSX.Element {
+  // I8: 하위 컴포넌트도 useTokens() 를 내부에서 호출하도록 통일 (AttemptRow/SessionMetaCard 와 일관)
+  const theme = useTokens();
   const reducedMotion = useReducedMotion();
   const styles = useMemo(() => makeCardStyles(theme), [theme]);
   const ended = Boolean(session.endedAt);
@@ -214,7 +212,11 @@ function SessionCard({
               ? t('session.list.itemDurationLabelEnded')
               : t('session.list.itemDurationLabelOngoing')}
           </Text>
-          <Text style={styles.durationValue}>
+          {/* I10: "1h 23m" 축약은 한국어 TTS 가 "1에이치 23엠" 으로 읽으므로 풀어쓴 accessibilityLabel 제공 */}
+          <Text
+            style={styles.durationValue}
+            accessibilityLabel={formatDurationA11y(session.durationMin, ended)}
+          >
             {formatDurationShort(session.durationMin, ended)}
           </Text>
         </View>
@@ -262,13 +264,13 @@ function SessionCard({
 
 function IconAction({
   onPress,
-  theme,
   accessibilityLabel,
 }: {
   onPress: () => void;
-  theme: Theme;
   accessibilityLabel: string;
 }): JSX.Element {
+  // I8: useTokens() 내부 호출
+  const theme = useTokens();
   const reducedMotion = useReducedMotion();
   return (
     <Pressable
@@ -294,12 +296,12 @@ function IconAction({
 }
 
 function EmptyState({
-  theme,
   onStart,
 }: {
-  theme: Theme;
   onStart: () => void;
 }): JSX.Element {
+  // I8: useTokens() 내부 호출
+  const theme = useTokens();
   const styles = useMemo(() => makeEmptyStyles(theme), [theme]);
   return (
     <View style={styles.wrap}>
@@ -355,6 +357,27 @@ function formatDurationShort(
   return `${m}m`;
 }
 
+/**
+ * I10: durationValue 스크린리더용 풀어쓴 라벨 — 현재 로케일의 "N시간 M분" / "N hour M minute" 로 변환.
+ */
+function formatDurationA11y(
+  duration: number | null,
+  ended: boolean,
+): string {
+  if (duration === null || !ended) {
+    return t('session.list.durationAccessibilityPending');
+  }
+  const total = Math.max(0, duration);
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h > 0) {
+    return t('session.list.durationAccessibilityHm')
+      .replace('{{h}}', String(h))
+      .replace('{{m}}', String(m));
+  }
+  return t('session.list.durationAccessibilityM').replace('{{m}}', String(m));
+}
+
 function pad(n: number): string {
   return n < 10 ? `0${n}` : String(n);
 }
@@ -392,7 +415,7 @@ function makeStyles(theme: Theme) {
     },
     title: {
       fontFamily,
-      fontSize: 32,
+      fontSize: fontSize.h1,
       fontWeight: fontWeight.extrabold,
       color: theme.text,
       letterSpacing: letterSpacing.h1,

@@ -5,6 +5,7 @@ import { BigStat } from '@/components/primitives';
 import { t } from '@/lib/i18n';
 import {
   fontFamily,
+  fontSize,
   fontWeight,
   letterSpacing,
   radius,
@@ -90,6 +91,12 @@ export function SessionMetaCard({ session }: SessionMetaCardProps): JSX.Element 
       <Text style={styles.caption} numberOfLines={1}>
         {meta}
       </Text>
+      {/*
+        I6: BigStat 은 label 이 값 "위"에 오는 2단 레이아웃이라
+        "caption(meta) + timer + status(badge + duration)" 3단 구성에서 재사용이 어려움.
+        따라서 timer 는 display 토큰·tabular-nums 를 직접 지정하는 커스텀 렌더로 유지.
+        F4: BigStat 이 label optional 을 지원하게 되면 교체 검토.
+      */}
       <Text
         style={styles.timer}
         accessibilityLabel={t('session.detail.elapsedLabel')}
@@ -147,11 +154,11 @@ function makeStyles(theme: Theme) {
     },
     timer: {
       fontFamily,
-      fontSize: 72,
+      fontSize: fontSize.display,
       fontWeight: fontWeight.extrabold,
       color: theme.text,
       letterSpacing: letterSpacing.display,
-      lineHeight: 72 * 0.95,
+      lineHeight: fontSize.display * 0.95,
       fontVariant: TABULAR_NUMS,
       includeFontPadding: false,
     },

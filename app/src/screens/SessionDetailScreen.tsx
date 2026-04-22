@@ -1,12 +1,10 @@
 import { useRoute, type RouteProp } from '@react-navigation/native';
 import React, { useMemo } from 'react';
 import {
-  FlatList,
   ScrollView,
   StyleSheet,
   Text,
   View,
-  type ListRenderItem,
 } from 'react-native';
 
 import { SecondaryButton, Skeleton } from '@/components/primitives';
@@ -34,7 +32,7 @@ import { SessionMetaCard } from './session/SessionMetaCard';
  * 세션 상세 화면.
  *
  * - 상단 SessionMetaCard (라이브 경과 시간)
- * - 시도 타임라인 (FlatList)
+ * - 시도 타임라인 (ScrollView 내부 map 렌더 — I2 참고)
  * - 진행 중이면 하단에 LogAttemptForm + SecondaryButton 세션 종료
  */
 export default function SessionDetailScreen(): JSX.Element {
@@ -75,10 +73,6 @@ export default function SessionDetailScreen(): JSX.Element {
   const attempts: Attempt[] = attemptsQuery.data?.data ?? [];
   const isOngoing = session ? !session.endedAt : false;
 
-  const renderAttempt: ListRenderItem<Attempt> = ({ item }) => (
-    <AttemptRow attempt={item} />
-  );
-
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: theme.bg }]}
@@ -114,17 +108,24 @@ export default function SessionDetailScreen(): JSX.Element {
           <Skeleton height={64} radius={radius.lg} />
         </View>
       ) : attemptsQuery.error ? (
-        <Text style={styles.errorTitle}>
-          {toUserMessage(attemptsQuery.error)}
-        </Text>
+        // I3: session 에러 블록과 동일한 errorBox 스타일로 통일
+        <View style={styles.errorBox}>
+          <Text style={styles.errorTitle}>
+            {t('session.detail.errorTitle')}
+          </Text>
+          <Text style={styles.errorBody}>
+            {toUserMessage(attemptsQuery.error)}
+          </Text>
+        </View>
       ) : attempts.length > 0 ? (
-        <FlatList
-          data={attempts}
-          keyExtractor={(a) => a.extId}
-          renderItem={renderAttempt}
-          contentContainerStyle={styles.timelineList}
-          scrollEnabled={false}
-        />
+        // I2 (Option A): ScrollView 내부에서 FlatList + scrollEnabled=false 하면
+        // 가상화 이점이 사라지고 VirtualizedLists 경고가 뜸. MVP 규모상 일반 map 렌더로 충분.
+        // 세션당 시도 수가 수백 단위로 늘어나면 Option B (루트 FlatList + ListHeaderComponent) 로 전환 필요.
+        <View style={styles.timelineList}>
+          {attempts.map((a) => (
+            <AttemptRow key={a.extId} attempt={a} />
+          ))}
+        </View>
       ) : (
         <Text style={styles.muted}>{t('session.detail.attemptsEmpty')}</Text>
       )}
