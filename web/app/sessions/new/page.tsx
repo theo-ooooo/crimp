@@ -87,7 +87,7 @@ export default function NewSessionPage(): JSX.Element {
         </div>
         <Link
           href="/sessions"
-          aria-label={t('common.cancel')}
+          aria-label={t('common.close')}
           className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-text-2 transition-colors duration-fast ease-standard hover:bg-subtle"
         >
           <CrimpIcon.close s={22} />
