@@ -1,11 +1,16 @@
 package io.crimp.api.gym;
 
+import io.crimp.api.security.CrimpPrincipal;
 import io.crimp.common.response.ErrorResponse;
 import io.crimp.domain.gym.GymException;
 import io.crimp.domain.gym.GymService;
 import io.crimp.domain.gym.GymView;
+import io.crimp.domain.gym.RouteService;
+import io.crimp.domain.gym.RouteView;
+import io.crimp.core.entity.enums.GradeScale;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -14,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -22,9 +28,11 @@ import java.util.List;
 public class GymController {
 
     private final GymService gymService;
+    private final RouteService routeService;
 
-    public GymController(GymService gymService) {
+    public GymController(GymService gymService, RouteService routeService) {
         this.gymService = gymService;
+        this.routeService = routeService;
     }
 
     @GetMapping
@@ -41,6 +49,21 @@ public class GymController {
     @GetMapping("/{extId}")
     public GymDetailResponse detail(@PathVariable String extId) {
         return GymDetailResponse.of(gymService.getByExtId(extId));
+    }
+
+    /**
+     * 암장의 활성 루트 목록 조회. id DESC (최근 세팅 우선), 커서 페이지네이션.
+     */
+    @GetMapping("/{gymExtId}/routes")
+    public RouteListResponse listRoutes(
+            @AuthenticationPrincipal CrimpPrincipal principal,
+            @PathVariable String gymExtId,
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(required = false) Integer size) {
+        // principal 은 인증 보장용 (루트 목록은 암장 공개정보지만 인증 컨텍스트 요구 — SecurityConfig 참고)
+        var result = routeService.listByGym(gymExtId, cursor, size);
+        List<RouteItem> items = result.items().stream().map(RouteItem::of).toList();
+        return new RouteListResponse(items, new Page(result.nextCursor(), result.size()));
     }
 
     @ExceptionHandler(GymException.class)
@@ -87,6 +110,26 @@ public class GymController {
             return new GymDetailResponse(
                     v.extId(), v.name(), v.brand(), v.address(), v.lat(), v.lng(),
                     v.phone(), v.openingHoursJson(), v.settingCycleDays(), v.featuresJson()
+            );
+        }
+    }
+
+    public record RouteListResponse(List<RouteItem> data, Page page) {}
+
+    public record RouteItem(
+            String extId,
+            String name,
+            String color,
+            GradeScale gradeScale,
+            String gradeValue,
+            BigDecimal gradeNumeric,
+            String setter,
+            LocalDate setAt
+    ) {
+        static RouteItem of(RouteView v) {
+            return new RouteItem(
+                    v.extId(), v.name(), v.color(), v.gradeScale(), v.gradeValue(),
+                    v.gradeNumeric(), v.setter(), v.setAt()
             );
         }
     }
