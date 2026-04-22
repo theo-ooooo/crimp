@@ -1,6 +1,7 @@
 package io.crimp.api.security;
 
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -21,7 +22,11 @@ public class SecurityConfig {
             JwtAuthenticationFilter jwtFilter,
             RestAuthenticationEntryPoint authEntryPoint,
             RestAccessDeniedHandler accessDeniedHandler,
-            ObjectProvider<CorsConfigurationSource> corsSource) throws Exception {
+            @Qualifier("corsConfigurationSource") ObjectProvider<CorsConfigurationSource> corsSource)
+            throws Exception {
+        // Spring MVC 의 HandlerMappingIntrospector 도 CorsConfigurationSource 타입이라
+        // 이름("corsConfigurationSource") 으로 고정해 우리가 등록한 빈만 사용.
+        // test 프로파일에서는 CorsConfig 가 비활성화되므로 getIfAvailable() 로 null 허용.
         CorsConfigurationSource cors = corsSource.getIfAvailable();
         http
                 .csrf(AbstractHttpConfigurer::disable)
