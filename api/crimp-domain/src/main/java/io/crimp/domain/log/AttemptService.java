@@ -32,8 +32,9 @@ public class AttemptService {
             throw new SessionException("ATTEMPT_INVALID", "result is required");
         }
         int attemptCount = cmd.attempts() == null ? 1 : cmd.attempts();
-        if (attemptCount < 1) {
-            throw new SessionException("ATTEMPT_INVALID", "attempts must be >= 1");
+        if (attemptCount < 1 || attemptCount > SessionAttempt.MAX_ATTEMPTS) {
+            throw new SessionException("ATTEMPT_INVALID",
+                    "attempts must be between 1 and " + SessionAttempt.MAX_ATTEMPTS);
         }
         Instant loggedAt = cmd.loggedAt() != null ? cmd.loggedAt() : Instant.now();
 
@@ -65,8 +66,9 @@ public class AttemptService {
     @Transactional
     public AttemptView update(long userId, String attemptExtId, UpdateAttemptCommand cmd) {
         SessionAttempt attempt = fetchOwnedAttempt(userId, attemptExtId);
-        if (cmd.attempts() != null && cmd.attempts() < 1) {
-            throw new SessionException("ATTEMPT_INVALID", "attempts must be >= 1");
+        if (cmd.attempts() != null && (cmd.attempts() < 1 || cmd.attempts() > SessionAttempt.MAX_ATTEMPTS)) {
+            throw new SessionException("ATTEMPT_INVALID",
+                    "attempts must be between 1 and " + SessionAttempt.MAX_ATTEMPTS);
         }
         if (cmd.routeId() != null) attempt.updateRoute(cmd.routeId());
         if (cmd.gymId() != null) attempt.updateGymId(cmd.gymId());

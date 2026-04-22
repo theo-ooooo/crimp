@@ -9,6 +9,7 @@ import io.crimp.domain.log.LogAttemptCommand;
 import io.crimp.domain.log.SessionException;
 import io.crimp.domain.log.UpdateAttemptCommand;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 import org.springframework.context.annotation.Profile;
@@ -96,7 +97,7 @@ public class AttemptController {
             @Size(max = 10) String gradeValue,
             BigDecimal gradeNumeric,
             AttemptResult result,
-            @Min(1) Integer attempts,
+            @Min(1) @Max(999) Integer attempts,
             Long mediaId,
             @Size(max = 300) String note,
             String tagsJson,
@@ -109,7 +110,7 @@ public class AttemptController {
             @Size(max = 10) String gradeValue,
             BigDecimal gradeNumeric,
             AttemptResult result,
-            @Min(1) Integer attempts,
+            @Min(1) @Max(999) Integer attempts,
             Long mediaId,
             @Size(max = 300) String note,
             String tagsJson

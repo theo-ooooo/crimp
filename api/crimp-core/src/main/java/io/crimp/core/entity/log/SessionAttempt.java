@@ -61,12 +61,14 @@ public class SessionAttempt {
     @Column(name = "logged_at", nullable = false)
     private Instant loggedAt;
 
+    public static final int MAX_ATTEMPTS = 999;
+
     private SessionAttempt(String extId, Long sessionId, Long routeId, AttemptResult result, int attempts, Instant loggedAt) {
         this.extId = extId;
         this.sessionId = sessionId;
         this.routeId = routeId;
         this.result = result;
-        this.attempts = (short) attempts;
+        this.attempts = toAttemptShort(attempts);
         this.loggedAt = loggedAt;
     }
 
@@ -79,8 +81,15 @@ public class SessionAttempt {
     public void updateGradeValue(String gradeValue) { this.gradeValue = gradeValue; }
     public void updateGradeNumeric(java.math.BigDecimal gradeNumeric) { this.gradeNumeric = gradeNumeric; }
     public void updateResult(AttemptResult result) { this.result = result; }
-    public void updateAttempts(int attempts) { this.attempts = (short) attempts; }
+    public void updateAttempts(int attempts) { this.attempts = toAttemptShort(attempts); }
     public void updateMediaId(Long mediaId) { this.mediaId = mediaId; }
     public void updateNote(String note) { this.note = note; }
     public void updateTagsJson(String tagsJson) { this.tagsJson = tagsJson; }
+
+    private static short toAttemptShort(int attempts) {
+        if (attempts < 1 || attempts > MAX_ATTEMPTS) {
+            throw new IllegalArgumentException("attempts must be between 1 and " + MAX_ATTEMPTS + " (got " + attempts + ")");
+        }
+        return (short) attempts;
+    }
 }

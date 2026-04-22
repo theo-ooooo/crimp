@@ -73,6 +73,16 @@ class AttemptServiceTest {
     }
 
     @Test
+    void log_rejects_attempts_above_max() {
+        ClimbingSession s = session(100L, "01HSESS", 42L, false);
+        when(sessionRepo.findByExtId("01HSESS")).thenReturn(Optional.of(s));
+        var cmd = new LogAttemptCommand(null, null, null, null, AttemptResult.TRY, 40000, null, null, null, null);
+        assertThatThrownBy(() -> service.log(42L, "01HSESS", cmd))
+                .isInstanceOf(SessionException.class)
+                .satisfies(e -> assertThat(((SessionException) e).code()).isEqualTo("ATTEMPT_INVALID"));
+    }
+
+    @Test
     void log_foreign_session_is_404() {
         ClimbingSession s = session(100L, "01HSESS", 99L, false);
         when(sessionRepo.findByExtId("01HSESS")).thenReturn(Optional.of(s));
