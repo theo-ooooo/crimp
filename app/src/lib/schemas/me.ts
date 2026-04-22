@@ -9,7 +9,8 @@ export const MeSchema = z.object({
   extId: z.string(),
   nickname: z.string().nullable(),
   bio: z.string().nullable(),
-  levelSelf: z.number().int().min(0).max(127).nullable(),
+  // 백엔드 Byte 계약 범위 (-128~127). 음수는 비즈니스상 기대치 아님 — 표시 시 UI clamp.
+  levelSelf: z.number().int().min(-128).max(127).nullable(),
   mainGymId: z.number().nullable(),
   avatarMediaId: z.number().nullable(),
 });

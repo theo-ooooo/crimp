@@ -1,6 +1,18 @@
 import type { ErrorBody } from '@/lib/schemas/error';
 
 /**
+ * 에러 메시지 i18n 정책:
+ *
+ * 본 모듈과 `client.ts` 의 한국어 `Error` 메시지는 **개발자용 진단** 이며
+ * UI 에 직접 노출 금지. 사용자 문구는 다음 규칙으로 구성한다:
+ *
+ * - `ApiError`: `error.code` 를 i18n 키로 맵핑 (`AUTH_REQUIRED` → `t('error.authRequired')` 등)
+ * - `ApiTransportError` / `ApiSchemaError` / 기타 `Error`: 일반 문구로 고정
+ *
+ * 로깅·콘솔에는 원문 `error.message` 유지.
+ */
+
+/**
  * 서버가 표준 에러 envelope 로 응답한 경우 던지는 예외.
  */
 export class ApiError extends Error {
