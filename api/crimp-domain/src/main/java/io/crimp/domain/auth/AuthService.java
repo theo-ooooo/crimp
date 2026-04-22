@@ -3,11 +3,12 @@ package io.crimp.domain.auth;
 import io.crimp.common.id.UlidGenerator;
 import io.crimp.core.entity.enums.OauthProvider;
 import io.crimp.core.entity.user.OauthIdentity;
+import io.crimp.core.entity.user.Profile;
 import io.crimp.core.entity.user.User;
 import io.crimp.core.repository.user.OauthIdentityRepository;
+import io.crimp.core.repository.user.ProfileRepository;
 import io.crimp.core.repository.user.UserRepository;
 import io.jsonwebtoken.JwtException;
-import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,11 +23,12 @@ import java.util.Map;
 import java.util.Optional;
 
 @Service
-@Profile("!test")
+@org.springframework.context.annotation.Profile("!test")
 public class AuthService {
 
     private final UserRepository userRepository;
     private final OauthIdentityRepository oauthIdentityRepository;
+    private final ProfileRepository profileRepository;
     private final Map<OauthProvider, OauthIdTokenVerifier> verifiers;
     private final JwtProvider jwtProvider;
     private final JwtProperties jwtProperties;
@@ -35,6 +37,7 @@ public class AuthService {
     public AuthService(
             UserRepository userRepository,
             OauthIdentityRepository oauthIdentityRepository,
+            ProfileRepository profileRepository,
             List<OauthIdTokenVerifier> verifierList,
             JwtProvider jwtProvider,
             JwtProperties jwtProperties,
@@ -42,6 +45,7 @@ public class AuthService {
     ) {
         this.userRepository = userRepository;
         this.oauthIdentityRepository = oauthIdentityRepository;
+        this.profileRepository = profileRepository;
         this.verifiers = verifierList.stream().collect(
                 java.util.stream.Collectors.toMap(OauthIdTokenVerifier::supports, v -> v));
         this.jwtProvider = jwtProvider;
@@ -114,6 +118,9 @@ public class AuthService {
         userRepository.save(user);
         oauthIdentityRepository.save(
                 OauthIdentity.link(user.getId(), info.provider(), info.providerUid()));
+        // 기본 닉네임은 user.id 기반 — DB BIGINT AUTO_INCREMENT 가 유일성 보장. 온보딩 UI 에서 유저가 변경.
+        String defaultNickname = "crimper_" + user.getId();
+        profileRepository.save(Profile.create(user.getId(), defaultNickname));
         return user;
     }
 

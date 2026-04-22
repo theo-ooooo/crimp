@@ -20,13 +20,13 @@ sequenceDiagram
     U->>App: 피드 작성 화면
     U->>App: 사진/영상 선택
     loop 미디어별
-        App->>API: POST /v1/media:prepareUpload
+        App->>API: POST /api/v1/media:prepareUpload
         API-->>App: { extId, uploadUrl }
         App->>S3: PUT uploadUrl
-        App->>API: POST /v1/media:confirmUpload { extId }
+        App->>API: POST /api/v1/media:confirmUpload { extId }
     end
     U->>App: 텍스트 작성 + 세션 연결 + 게시
-    App->>API: POST /v1/feed-posts { content, mediaIds, sessionId?, gymId?, visibility }
+    App->>API: POST /api/v1/feed-posts { content, mediaIds, sessionId?, gymId?, visibility }
     API->>DB: INSERT feed_posts + post_media (트랜잭션)
     API->>Redis: DEL user:{id}:home:* (캐시 무효화)
     API->>Redis: LPUSH fanout:queue { postId }
@@ -43,7 +43,7 @@ sequenceDiagram
     participant Redis
     participant DB
 
-    App->>API: GET /v1/feed?cursor=null&size=20
+    App->>API: GET /api/v1/feed?cursor=null&size=20
     API->>Redis: GET home:{userId}:cursor:null
     alt 캐시 히트
         Redis-->>API: JSON (posts + nextCursor)
@@ -70,7 +70,7 @@ sequenceDiagram
     participant Batch as 카운터 Flush 배치
 
     U->>App: 하트 탭
-    App->>API: POST /v1/feed-posts/{extId}:like
+    App->>API: POST /api/v1/feed-posts/{extId}:like
     API->>DB: INSERT IGNORE likes
     alt 신규
         API->>Redis: INCR post:{id}:likes_delta
@@ -95,7 +95,7 @@ sequenceDiagram
     participant Notify as 알림 워커
 
     U->>App: 댓글 입력 → 전송
-    App->>API: POST /v1/feed-posts/{extId}/comments { content, parentId? }
+    App->>API: POST /api/v1/feed-posts/{extId}/comments { content, parentId? }
     API->>DB: INSERT comments
     API->>DB: UPDATE feed_posts SET comment_count = comment_count + 1
     API->>SQS: publish { type:'COMMENT', postId, commentId }
@@ -108,9 +108,9 @@ sequenceDiagram
 
 ## 5. 조회·상세·수정·삭제
 
-- 상세: `GET /v1/feed-posts/{extId}` — 댓글 최초 20개 포함, 이후 `GET /comments`로 페이지네이션
-- 수정: `PATCH /v1/feed-posts/{extId}` — 작성자만, 15분 내 편집, 이후는 삭제 후 재작성
-- 삭제: `DELETE /v1/feed-posts/{extId}` — 소프트 딜리트, 피드 목록에서 제외
+- 상세: `GET /api/v1/feed-posts/{extId}` — 댓글 최초 20개 포함, 이후 `GET /comments`로 페이지네이션
+- 수정: `PATCH /api/v1/feed-posts/{extId}` — 작성자만, 15분 내 편집, 이후는 삭제 후 재작성
+- 삭제: `DELETE /api/v1/feed-posts/{extId}` — 소프트 딜리트, 피드 목록에서 제외
 
 ## 6. 예외·엣지
 
