@@ -29,6 +29,7 @@ const config: Config = {
         success: 'var(--color-success)',
         warning: 'var(--color-warning)',
         danger: 'var(--color-danger)',
+        info: 'var(--color-info)',
       },
       fontFamily: {
         sans: [

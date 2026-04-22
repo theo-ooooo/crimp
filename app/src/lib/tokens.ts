@@ -22,6 +22,7 @@ const semantic = {
   success: '#12B886',
   warning: '#FAB005',
   danger: '#E03131',
+  info: '#3182F6', // accent 재사용 — 정보성 피드백은 accent 와 같은 톤
 } as const;
 
 const hold = {
@@ -109,10 +110,24 @@ export function gradeTint(v: string): { bg: string; fg: string } {
   return gradeHex[v] ?? gradeHex.V0!;
 }
 
+/**
+ * 기본 폰트 스택.
+ *
+ * RN 은 CSS 같은 font stack 을 지원하지 않고 "번들·시스템에 실제 존재하는 단일 PostScript 이름"
+ * 만 받는다. Pretendard 는 현재 네이티브 프로젝트에 번들되어 있지 않으므로, 지금은 iOS·Android
+ * 시스템 한글 폰트로 안전 폴백한다.
+ *
+ * 후속 번들링 가이드:
+ * 1. `app/assets/fonts/` 에 PretendardVariable.ttf 추가
+ * 2. `react-native.config.js` 에 assets 경로 등록 후 `pnpm react-native-asset`
+ * 3. iOS `Info.plist` 의 UIAppFonts 에 파일명 추가 (자동 스크립트가 처리)
+ * 4. Android 는 자동으로 `android/app/src/main/assets/fonts/` 로 복사됨
+ * 5. 이 값을 `PretendardVariable` (iOS PostScript name) / `PretendardVariable` (Android) 로 교체
+ */
 export const fontFamily = Platform.select({
-  ios: 'Pretendard Variable',
-  android: 'Pretendard-Regular',
-  default: 'Pretendard',
+  ios: 'System', // → San Francisco + 한글 Apple SD Gothic Neo 자동 폴백
+  android: 'sans-serif', // → Roboto + 한글 Noto Sans CJK 폴백
+  default: 'System',
 }) as string;
 
 export const fontSize = {
@@ -121,8 +136,8 @@ export const fontSize = {
   title: 18,
   h2: 24,
   h1: 32,
-  display: 56,
-  hero: 72,
+  display: 72,
+  hero: 120,
 } as const;
 
 export const fontWeight: Record<
@@ -142,8 +157,8 @@ export const letterSpacing = {
   title: -0.36,
   h2: -0.72,
   h1: -1.28,
-  display: -2.8,
-  hero: -4.32,
+  display: -3.6,
+  hero: -7.2,
 } as const;
 
 export const lineHeight = {

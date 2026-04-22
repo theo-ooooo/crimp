@@ -41,6 +41,7 @@ export const colors = {
     success: '#12B886',
     warning: '#FAB005',
     danger: '#E03131',
+    info: '#3182F6',
   },
   hold: {
     red: '#E03131',

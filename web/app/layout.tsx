@@ -24,9 +24,16 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <head>
+        {/*
+          Pretendard Variable — jsdelivr 핀된 버전. SRI 로 CDN 변조 방어.
+          버전 업 시 `curl -sL <url> | openssl dgst -sha384 -binary | openssl base64 -A`
+          로 해시 재계산해서 integrity 값 교체.
+        */}
         <link
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css"
+          integrity="sha384-f9iEnfDmuRSuBrXQjpPibejnfJMrZ2yI+715EjxlzBsPFIpaD1NxMh1MIzthxtCh"
+          crossOrigin="anonymous"
         />
       </head>
       <body>

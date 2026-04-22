@@ -3,6 +3,9 @@
 한 토큰이 4군데(JSON 원본 · TS export · CSS 변수 · Tailwind 클래스)에서 다른 표기를 쓰기 때문에
 아래 표가 **단일 참조**. 새 토큰 추가 시 네 칸 모두 채운다.
 
+> JSON 은 W3C Design Tokens Community Group 포맷 (`$value` / `$type` / `$description`) 을 따른다.
+> Style Dictionary 등 외부 도구 연결 시 그대로 파싱 가능.
+
 ## 규약
 
 - JSON 계층은 `.` 점 표기 (`color.accent.base`).
