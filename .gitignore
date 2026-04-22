@@ -67,3 +67,4 @@ coverage/
 # Build artifacts
 dist/
 build/
+.claude/worktrees/
