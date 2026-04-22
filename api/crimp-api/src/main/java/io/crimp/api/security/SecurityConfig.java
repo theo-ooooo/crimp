@@ -30,6 +30,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/api/v1/health").permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
+                        // 루트 목록은 인증 필요 — gyms permitAll 패턴보다 먼저 선언해 우선순위 확보
+                        .requestMatchers(HttpMethod.GET, "/api/v1/gyms/*/routes").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/gyms", "/api/v1/gyms/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/info", "/actuator/prometheus").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()

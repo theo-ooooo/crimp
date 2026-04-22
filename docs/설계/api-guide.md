@@ -149,7 +149,7 @@
 | --- | --- | --- |
 | GET | `/api/v1/gyms` | 암장 검색 (좌표·키워드·브랜드) |
 | GET | `/api/v1/gyms/{extId}` | 암장 상세 |
-| GET | `/api/v1/gyms/{extId}/routes` | 루트 목록 (활성) |
+| GET | `/api/v1/gyms/{extId}/routes` | 루트 목록 (활성, 인증 필요, 커서 페이지네이션 `?cursor=&size=`, id DESC) |
 | GET | `/api/v1/routes/{extId}` | 루트 상세 |
 
 ### 등반 기록 (`/api/v1/sessions`, `/api/v1/attempts`)
