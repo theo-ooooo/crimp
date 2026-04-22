@@ -19,13 +19,17 @@ export interface ChipProps
   icon?: ReactNode;
 }
 
+// 시각 크기(36px)와 터치 타겟(44px) 을 분리: pseudo before 로 클릭 가능 영역을 4px×2 만큼
+// 확장해 접근성 44×44 요구사항을 만족. 마우스 hover 영역은 그대로 36.
 const BASE_CLASSES = [
-  'inline-flex items-center gap-1.5',
+  'relative inline-flex items-center gap-1.5',
   'h-9 px-3.5 rounded-full',
   'text-sm font-semibold tracking-[-0.01em]',
-  'transition-colors duration-fast ease-standard',
+  'transition-[background-color,color,transform] duration-fast ease-standard',
   'select-none',
-  'disabled:cursor-not-allowed disabled:opacity-60',
+  "before:content-[''] before:absolute before:inset-x-0 before:-top-1 before:-bottom-1",
+  'active:scale-[0.96]',
+  'disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100',
 ].join(' ');
 
 const ACTIVE_CLASSES = 'bg-text text-bg';

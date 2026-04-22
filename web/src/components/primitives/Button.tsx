@@ -16,10 +16,12 @@ export interface ButtonProps extends NativeButtonProps {
   children: ReactNode;
 }
 
+// 공통 레이아웃·모션 — font-weight 는 Variant 에서 단독 지정 (Tailwind 유틸 클래스
+// 순서 의존성 제거). primary=bold / secondary=semibold.
 const BASE_CLASSES = [
   'inline-flex items-center justify-center',
   'w-full h-14 rounded-lg',
-  'text-[17px] font-bold tracking-[-0.02em]',
+  'text-[17px] tracking-[-0.02em]',
   'transition-transform duration-fast ease-standard',
   'active:scale-[0.98]',
   'select-none',
@@ -27,7 +29,7 @@ const BASE_CLASSES = [
 ].join(' ');
 
 const PRIMARY_CLASSES = [
-  'bg-accent text-white',
+  'bg-accent text-white font-bold',
   'disabled:bg-subtle-2 disabled:text-text-3',
 ].join(' ');
 
