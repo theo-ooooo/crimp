@@ -6,8 +6,6 @@
 
 import type { CSSProperties, FC } from 'react';
 
-import { colors } from '@/lib/tokens';
-
 export interface SkeletonProps {
   /** 너비 (px 숫자 또는 '100%' 같은 CSS 문자열) */
   w?: number | string;
@@ -18,9 +16,12 @@ export interface SkeletonProps {
   className?: string;
 }
 
-// 라이트 토큰을 쓰되 CSS 변수 기반 그라디언트로 다크 모드도 자동 반응하도록.
-// gradient 에는 토큰 hex 를 깔고, 배경 색상은 CSS 변수 우선.
-const GRADIENT = `linear-gradient(90deg, ${colors.light.subtle} 0%, ${colors.light.subtle2} 50%, ${colors.light.subtle} 100%)`;
+/**
+ * 그라디언트는 CSS 변수 경유로 넘겨 라이트·다크 모드 자동 반응.
+ * `background` 단축 속성 안에 `var()` 를 쓰면 브라우저가 매 렌더링 시 값을 해석.
+ */
+const GRADIENT =
+  'linear-gradient(90deg, var(--color-subtle) 0%, var(--color-subtle-2) 50%, var(--color-subtle) 100%)';
 
 export const Skeleton: FC<SkeletonProps> = ({ w = '100%', h = 16, r = 8, className }) => {
   const style: CSSProperties = {

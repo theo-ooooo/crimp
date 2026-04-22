@@ -8,6 +8,13 @@ import type { CSSProperties, FC, ReactElement } from 'react';
 
 import { colors } from '@/lib/tokens';
 
+/**
+ * 참고: TRY/FAIL 은 neutral 배경·전경이 필요한데, 이 파일은 JS 객체로 색을
+ * 선계산하기 때문에 CSS 변수 문자열(`var(--color-subtle-2)`) 을 그대로 넘긴다.
+ * 브라우저는 `style.background = 'var(--color-subtle-2)'` 를 정상 해석하고
+ * 라이트/다크 전환 시 자동으로 덮어써짐.
+ */
+
 export type ResultKind = 'SEND' | 'FLASH' | 'ONSIGHT' | 'TRY' | 'FAIL';
 
 export interface ResultMarkProps {
@@ -54,8 +61,8 @@ const GLYPHS: Record<ResultKind, GlyphDef> = {
     ),
   },
   TRY: {
-    bg: colors.light.subtle2,
-    fg: colors.light.text2,
+    bg: 'var(--color-subtle-2)',
+    fg: 'var(--color-text-2)',
     glyph: (
       <path
         d="M9 3v7l4 3"
@@ -67,8 +74,8 @@ const GLYPHS: Record<ResultKind, GlyphDef> = {
     ),
   },
   FAIL: {
-    bg: colors.light.subtle2,
-    fg: colors.light.text3,
+    bg: 'var(--color-subtle-2)',
+    fg: 'var(--color-text-3)',
     glyph: (
       <path d="M5 5l8 8M13 5l-8 8" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
     ),
