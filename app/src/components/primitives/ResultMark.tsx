@@ -28,11 +28,11 @@ const glyphMap: Record<ResultKind, string> = {
 function resolveColors(kind: ResultKind, theme: Theme): { bg: string; fg: string } {
   switch (kind) {
     case 'SEND':
-      return { bg: theme.accent.base, fg: '#FFFFFF' };
+      return { bg: theme.accent.base, fg: theme.accent.on };
     case 'FLASH':
       return { bg: theme.semantic.warning, fg: '#1A1200' };
     case 'ONSIGHT':
-      return { bg: theme.semantic.success, fg: '#FFFFFF' };
+      return { bg: theme.semantic.success, fg: theme.accent.on };
     case 'TRY':
       return { bg: theme.subtle2, fg: theme.text2 };
     case 'FAIL':

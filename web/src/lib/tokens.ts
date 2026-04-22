@@ -14,6 +14,7 @@ export const colors = {
     soft: '#E8F2FE',
     ink: '#1B64DA',
     flash: '#5B9BFF',
+    on: '#FFFFFF',
   },
   light: {
     bg: '#FFFFFF',

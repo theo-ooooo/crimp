@@ -5,11 +5,29 @@ import { motion, type Theme } from '@/lib/tokens';
 import { useReducedMotion } from '@/lib/useReducedMotion';
 import { useTokens } from '@/lib/useTokens';
 
+/**
+ * 로딩 플레이스홀더.
+ * - 기본: opacity 0.5↔1 로 느슨한 펄스 (reduced-motion 시 정적 0.6 으로 고정).
+ * - 쉐이더·LinearGradient 없이 단색 Animated.View 로 구현 → 번들 영향 0.
+ */
 export type SkeletonProps = {
   width?: DimensionValue;
   height?: DimensionValue;
   radius?: number;
 };
+
+const MIN_OPACITY = 0.5;
+const MAX_OPACITY = 1.0;
+const STATIC_OPACITY = 0.6;
+
+function createPulseLoop(
+  opacity: Animated.Value,
+  duration: number,
+): Animated.CompositeAnimation {
+  const step = (toValue: number) =>
+    Animated.timing(opacity, { toValue, duration, useNativeDriver: true });
+  return Animated.loop(Animated.sequence([step(MAX_OPACITY), step(MIN_OPACITY)]));
+}
 
 function makeStyles(
   theme: Theme,
@@ -26,7 +44,7 @@ function makeStyles(
       overflow: 'hidden',
     },
     staticDim: {
-      opacity: 0.6,
+      opacity: STATIC_OPACITY,
     },
   });
 }
@@ -38,7 +56,7 @@ export function Skeleton({
 }: SkeletonProps): JSX.Element {
   const theme = useTokens();
   const reducedMotion = useReducedMotion();
-  const opacity = useRef(new Animated.Value(0.5)).current;
+  const opacity = useRef(new Animated.Value(MIN_OPACITY)).current;
   const styles = useMemo(
     () => makeStyles(theme, width, height, radius),
     [theme, width, height, radius],
@@ -46,27 +64,12 @@ export function Skeleton({
 
   useEffect(() => {
     if (reducedMotion) {
-      opacity.setValue(0.6);
+      opacity.setValue(STATIC_OPACITY);
       return;
     }
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: motion.duration.slow,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 0.5,
-          duration: motion.duration.slow,
-          useNativeDriver: true,
-        }),
-      ]),
-    );
+    const loop = createPulseLoop(opacity, motion.duration.slow);
     loop.start();
-    return () => {
-      loop.stop();
-    };
+    return () => loop.stop();
   }, [opacity, reducedMotion]);
 
   return (

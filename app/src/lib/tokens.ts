@@ -16,6 +16,7 @@ const accent = {
   soft: '#E8F2FE',
   ink: '#1B64DA',
   flash: '#5B9BFF',
+  on: '#FFFFFF', // accent 위에 얹히는 전경(텍스트·아이콘) — 대비비 4.5+ 보장
 } as const;
 
 const semantic = {

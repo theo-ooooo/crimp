@@ -31,7 +31,7 @@ function makeStyles(theme: Theme, variant: Variant, disabled: boolean) {
   const fg = disabled
     ? theme.text3
     : variant === 'primary'
-      ? '#FFFFFF'
+      ? theme.accent.on
       : theme.text;
 
   return StyleSheet.create({
