@@ -5,7 +5,7 @@ export default function HomePage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-8 px-6">
       <section>
-        <p className="text-sm uppercase tracking-[0.3em] text-crimp-500">
+        <p className="text-sm uppercase tracking-[0.3em] text-accent">
           {t('common.brand')}
         </p>
         <h1 className="mt-2 text-4xl font-semibold sm:text-5xl">

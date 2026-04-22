@@ -77,7 +77,7 @@ export default function NewSessionPage(): JSX.Element {
             onChange={(e) => setGymName(e.target.value)}
             placeholder={t('session.start.gymNamePlaceholder')}
             maxLength={100}
-            className="rounded border border-neutral-800 bg-neutral-950/60 px-3 py-2 text-sm text-neutral-100 focus:border-crimp-500 focus:outline-none"
+            className="rounded border border-neutral-800 bg-neutral-950/60 px-3 py-2 text-sm text-neutral-100 focus:border-accent focus:outline-none"
           />
         </label>
 
@@ -90,7 +90,7 @@ export default function NewSessionPage(): JSX.Element {
             value={startedAtLocal}
             required
             onChange={(e) => setStartedAtLocal(e.target.value)}
-            className="rounded border border-neutral-800 bg-neutral-950/60 px-3 py-2 text-sm text-neutral-100 focus:border-crimp-500 focus:outline-none"
+            className="rounded border border-neutral-800 bg-neutral-950/60 px-3 py-2 text-sm text-neutral-100 focus:border-accent focus:outline-none"
           />
         </label>
 
@@ -106,7 +106,7 @@ export default function NewSessionPage(): JSX.Element {
         <button
           type="submit"
           disabled={mutation.isPending}
-          className="rounded bg-crimp-500 px-4 py-2 text-sm font-medium text-white hover:bg-crimp-500/90 disabled:opacity-50"
+          className="rounded bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50"
         >
           {mutation.isPending
             ? t('session.start.submitting')

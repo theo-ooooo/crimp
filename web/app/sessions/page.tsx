@@ -47,7 +47,7 @@ export default function SessionsPage(): JSX.Element {
         <h1 className="text-2xl font-semibold">{t('session.list.title')}</h1>
         <Link
           href="/sessions/new"
-          className="rounded border border-crimp-500 bg-crimp-500/10 px-3 py-1.5 text-sm text-crimp-500 hover:bg-crimp-500/20"
+          className="rounded border border-accent bg-accent/10 px-3 py-1.5 text-sm text-accent hover:bg-accent/20"
         >
           {t('session.list.newButton')}
         </Link>
@@ -78,7 +78,7 @@ export default function SessionsPage(): JSX.Element {
                     className={
                       s.endedAt
                         ? 'text-xs text-neutral-500'
-                        : 'text-xs text-crimp-500'
+                        : 'text-xs text-accent'
                     }
                   >
                     {s.endedAt
