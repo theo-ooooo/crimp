@@ -1,5 +1,6 @@
 package io.crimp.domain.gym;
 
+import io.crimp.core.entity.enums.GymStatus;
 import io.crimp.core.entity.gym.Gym;
 import io.crimp.core.repository.gym.GymRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -93,15 +94,15 @@ class GymServiceTest {
     @Test
     void getByExtId_returnsView() {
         Gym g = gym(1L, "01HGYMX", "xpoint", "스탯");
-        when(gymRepo.findByExtId("01HGYMX")).thenReturn(Optional.of(g));
+        when(gymRepo.findByExtIdAndStatus("01HGYMX", GymStatus.ACTIVE)).thenReturn(Optional.of(g));
         GymView view = service.getByExtId("01HGYMX");
         assertThat(view.extId()).isEqualTo("01HGYMX");
         assertThat(view.name()).isEqualTo("xpoint");
     }
 
     @Test
-    void getByExtId_notFound_throws() {
-        when(gymRepo.findByExtId("nope")).thenReturn(Optional.empty());
+    void getByExtId_notFound_or_closed_throws() {
+        when(gymRepo.findByExtIdAndStatus("nope", GymStatus.ACTIVE)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.getByExtId("nope"))
                 .isInstanceOf(GymException.class)
                 .satisfies(e -> assertThat(((GymException) e).code()).isEqualTo("GYM_NOT_FOUND"));
