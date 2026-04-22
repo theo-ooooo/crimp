@@ -21,6 +21,7 @@
 | `color.accent.soft` | `colors.accent.soft` | `accent.soft` | `--color-accent-soft` | `bg-accent-soft` |
 | `color.accent.ink` | `colors.accent.ink` | `accent.ink` | `--color-accent-ink` | `text-accent-ink` |
 | `color.accent.flash` | `colors.accent.flash` | `accent.flash` | `--color-accent-flash` | `bg-accent-flash` |
+| `color.accent.on` | `colors.accent.on` | `accent.on` | `--color-accent-on` | `text-accent-on` |
 | `color.neutral.light.bg` | `colors.light.bg` | `theme.bg` (mode=light) | `--color-bg` | `bg-bg` |
 | `color.neutral.light.subtle` | `colors.light.subtle` | `theme.subtle` | `--color-subtle` | `bg-subtle` |
 | `color.neutral.light.subtle2` | `colors.light.subtle2` | `theme.subtle2` | `--color-subtle-2` | `bg-subtle-2` |

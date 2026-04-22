@@ -14,6 +14,7 @@ const config: Config = {
           soft: 'var(--color-accent-soft)',
           ink: 'var(--color-accent-ink)',
           flash: 'var(--color-accent-flash)',
+          on: 'var(--color-accent-on)',
         },
         bg: 'var(--color-bg)',
         subtle: 'var(--color-subtle)',
