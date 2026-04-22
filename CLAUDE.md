@@ -131,6 +131,7 @@ CI/CD    : GitHub Actions
 | 디자인 | `docs/design/`, Figma 연동 파일 |
 | 문서 | `docs/` (design 제외) |
 | QA | `api/*/src/test/`, `app/__tests__/`, `e2e/` |
+| 코드 리뷰 | (읽기 전용) — PR 코멘트만 게시, 파일 수정 금지 |
 
 ### DB 공유 자원
 - 스키마 변경(DDL)은 백엔드 에이전트만 수행, 다른 에이전트는 요청만 가능
