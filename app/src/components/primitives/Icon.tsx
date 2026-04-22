@@ -1,0 +1,122 @@
+import React, { useMemo } from 'react';
+import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
+
+import { fontFamily } from '@/lib/tokens';
+import { useTokens } from '@/lib/useTokens';
+
+/**
+ * Icon — react-native-svg 미설치 환경 폴백.
+ *
+ * 현재 앱 번들에 `react-native-svg` 가 없으므로 각 아이콘을 단일 유니코드 글리프 +
+ * 경량 View 로 근사한다. API (name/size/color/fill) 는 향후 SVG 로 교체해도 변경 없이
+ * 유지 가능하도록 유지한다.
+ */
+
+export type IconProps = {
+  size?: number;
+  color?: string;
+  fill?: boolean;
+};
+
+type IconDef = {
+  /** 1자 또는 짧은 문자열 — 시스템 폰트에서 안정적으로 렌더되는 것만 사용 */
+  glyph: string;
+  /** glyph 를 container 대비 얼마나 키울지 (기본 0.62) */
+  scale?: number;
+  /** fill prop 이 true 일 때도 동일 글리프 쓸지. 현재 모든 아이콘은 동일 글리프 사용 */
+  fillGlyph?: string;
+};
+
+const iconDefs = {
+  bell: { glyph: '\u{1F514}', scale: 0.7 },
+  search: { glyph: '\u{1F50D}', scale: 0.7 },
+  plus: { glyph: '+', scale: 0.9 },
+  chevR: { glyph: '\u203A', scale: 0.95 },
+  chevL: { glyph: '\u2039', scale: 0.95 },
+  close: { glyph: '\u2715', scale: 0.72 },
+  home: { glyph: '\u2302', scale: 0.9 },
+  map: { glyph: '\u{1F5FA}', scale: 0.7 },
+  feed: { glyph: '\u25A4', scale: 0.85 },
+  profile: { glyph: '\u263B', scale: 0.8 },
+  clock: { glyph: '\u23F1', scale: 0.7 },
+  pin: { glyph: '\u{1F4CD}', scale: 0.7 },
+  play: { glyph: '\u25B6', scale: 0.72 },
+  flame: { glyph: '\u{1F525}', scale: 0.72 },
+  check: { glyph: '\u2713', scale: 0.9 },
+  filter: { glyph: '\u2263', scale: 0.85 },
+  trend: { glyph: '\u2197', scale: 0.9 },
+  dots: { glyph: '\u22EF', scale: 0.95 },
+  target: { glyph: '\u25CE', scale: 0.9 },
+} as const satisfies Record<string, IconDef>;
+
+export type IconName = keyof typeof iconDefs;
+
+function createIcon(name: IconName) {
+  return function Icon({ size = 24, color, fill = false }: IconProps): JSX.Element {
+    const theme = useTokens();
+    const def = iconDefs[name];
+    const scale = def.scale ?? 0.62;
+    const fg = color ?? theme.text;
+    const styles = useMemo(() => makeStyles(size, scale), [size, scale]);
+
+    const containerStyle: ViewStyle | null = fill
+      ? { backgroundColor: fg, borderRadius: size * 0.2 }
+      : null;
+    const glyphColor = fill ? theme.bg : fg;
+
+    return (
+      <View
+        style={[styles.container, containerStyle]}
+        accessibilityRole="image"
+        accessibilityLabel={name}
+      >
+        <Text
+          allowFontScaling={false}
+          style={[styles.glyph, { color: glyphColor }]}
+        >
+          {def.glyph}
+        </Text>
+      </View>
+    );
+  };
+}
+
+function makeStyles(size: number, scale: number) {
+  return StyleSheet.create({
+    container: {
+      width: size,
+      height: size,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    glyph: {
+      fontFamily,
+      fontSize: size * scale,
+      lineHeight: size,
+      includeFontPadding: false,
+      textAlign: 'center',
+    },
+  });
+}
+
+export const CrimpIcon: Record<IconName, (props: IconProps) => JSX.Element> = {
+  bell: createIcon('bell'),
+  search: createIcon('search'),
+  plus: createIcon('plus'),
+  chevR: createIcon('chevR'),
+  chevL: createIcon('chevL'),
+  close: createIcon('close'),
+  home: createIcon('home'),
+  map: createIcon('map'),
+  feed: createIcon('feed'),
+  profile: createIcon('profile'),
+  clock: createIcon('clock'),
+  pin: createIcon('pin'),
+  play: createIcon('play'),
+  flame: createIcon('flame'),
+  check: createIcon('check'),
+  filter: createIcon('filter'),
+  trend: createIcon('trend'),
+  dots: createIcon('dots'),
+  target: createIcon('target'),
+};
