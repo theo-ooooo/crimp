@@ -29,7 +29,7 @@ public class Route {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "ext_id", nullable = false, length = 26, unique = true, updatable = false)
+    @Column(name = "ext_id", nullable = false, columnDefinition = "char(26)", unique = true, updatable = false)
     private String extId;
 
     @Column(name = "gym_id", nullable = false)

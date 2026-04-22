@@ -32,7 +32,7 @@ public class Profile {
     private Long avatarMediaId;
 
     @Column(name = "level_self")
-    private Integer levelSelf;
+    private Byte levelSelf;
 
     @Column(name = "main_gym_id")
     private Long mainGymId;
@@ -53,6 +53,6 @@ public class Profile {
     public void updateNickname(String nickname) { this.nickname = nickname; }
     public void updateBio(String bio) { this.bio = bio; }
     public void updateAvatar(Long avatarMediaId) { this.avatarMediaId = avatarMediaId; }
-    public void updateLevel(Integer levelSelf) { this.levelSelf = levelSelf; }
+    public void updateLevel(Byte levelSelf) { this.levelSelf = levelSelf; }
     public void updateMainGym(Long mainGymId) { this.mainGymId = mainGymId; }
 }

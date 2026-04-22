@@ -36,9 +36,9 @@ docker compose down -v
 | MySQL 관리자 | `root` / `root` |
 | MySQL 앱 계정 | `crimp` / `crimp` |
 | MySQL DB | `crimp` |
-| Redis host:port | `localhost:6379` |
+| Redis host:port | `localhost:16379` |
 
-> 포트 13306 은 Homebrew 등 로컬 다른 MySQL 인스턴스(기본 3306)와 충돌 방지.
+> 포트 13306·16379 는 Homebrew 등 로컬 다른 MySQL/Redis 인스턴스(기본 3306/6379)와 충돌 방지.
 
 ## 구조
 

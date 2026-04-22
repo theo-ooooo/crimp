@@ -27,13 +27,13 @@ public class User extends SoftDeletableEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "ext_id", nullable = false, length = 26, unique = true, updatable = false)
+    @Column(name = "ext_id", nullable = false, columnDefinition = "char(26)", unique = true, updatable = false)
     private String extId;
 
-    @Column(name = "email")
+    @Column(name = "email", columnDefinition = "varbinary(256)")
     private byte[] email;
 
-    @Column(name = "email_hash", length = 64)
+    @Column(name = "email_hash", columnDefinition = "char(64)")
     private String emailHash;
 
     @Column(name = "status", nullable = false)

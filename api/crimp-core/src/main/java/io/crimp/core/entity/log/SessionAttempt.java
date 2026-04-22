@@ -44,7 +44,7 @@ public class SessionAttempt {
     private AttemptResult result;
 
     @Column(name = "attempts", nullable = false)
-    private Integer attempts;
+    private Short attempts;
 
     @Column(name = "media_id")
     private Long mediaId;
@@ -62,7 +62,7 @@ public class SessionAttempt {
         this.sessionId = sessionId;
         this.routeId = routeId;
         this.result = result;
-        this.attempts = attempts;
+        this.attempts = (short) attempts;
         this.loggedAt = loggedAt;
     }
 

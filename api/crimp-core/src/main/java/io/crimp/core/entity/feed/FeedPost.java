@@ -23,7 +23,7 @@ public class FeedPost extends SoftDeletableEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "ext_id", nullable = false, length = 26, unique = true, updatable = false)
+    @Column(name = "ext_id", nullable = false, columnDefinition = "char(26)", unique = true, updatable = false)
     private String extId;
 
     @Column(name = "user_id", nullable = false)
@@ -42,10 +42,10 @@ public class FeedPost extends SoftDeletableEntity {
     private PostVisibility visibility;
 
     @Column(name = "like_count", nullable = false, insertable = false, updatable = false)
-    private Long likeCount;
+    private Integer likeCount;
 
     @Column(name = "comment_count", nullable = false, insertable = false, updatable = false)
-    private Long commentCount;
+    private Integer commentCount;
 
     private FeedPost(String extId, Long userId, String content, Long sessionId, Long gymId, PostVisibility visibility) {
         this.extId = extId;
