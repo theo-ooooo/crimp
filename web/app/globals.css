@@ -93,3 +93,13 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Skeleton 쉬머 애니메이션 — primitives/Skeleton 전용 */
+@keyframes crimp-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
