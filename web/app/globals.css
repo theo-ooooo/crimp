@@ -2,15 +2,93 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Crimp 디자인 토큰 CSS 변수 (Variant A · Toss 블루).
+ * 단일 진실원: docs/design/tokens.json. 수동 동기.
+ */
+
 :root {
-  --bg: #0b0b0b;
-  --fg: #f5f5f4;
+  /* accent */
+  --color-accent: #3182F6;
+  --color-accent-soft: #E8F2FE;
+  --color-accent-ink: #1B64DA;
+  --color-accent-flash: #5B9BFF;
+
+  /* neutral (light) */
+  --color-bg: #FFFFFF;
+  --color-subtle: #F5F7FA;
+  --color-subtle-2: #EEF1F5;
+  --color-hairline: #E5E8EB;
+  --color-chip: #F2F4F6;
+  --color-text: #0F1419;
+  --color-text-2: #4E5968;
+  --color-text-3: #8B95A1;
+  --color-text-4: #B0B8C1;
+
+  /* semantic */
+  --color-success: #12B886;
+  --color-warning: #FAB005;
+  --color-danger: #E03131;
+  --color-info: #3182F6;
+
+  /* shadow */
+  --shadow-xs: 0 1px 2px rgba(15, 20, 25, 0.04), 0 2px 8px rgba(15, 20, 25, 0.04);
+  --shadow-sm: 0 4px 16px rgba(15, 20, 25, 0.08);
+  --shadow-lg: 0 20px 60px rgba(15, 20, 25, 0.18);
+
+  /* motion */
+  --motion-fast: 200ms;
+  --motion-normal: 300ms;
+  --motion-slow: 450ms;
+  --motion-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 28px;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #0D0F12;
+    --color-subtle: #17191C;
+    --color-subtle-2: #1E2125;
+    --color-hairline: #2A2E33;
+    --color-chip: #1E2125;
+    --color-text: #F7F8F9;
+    --color-text-2: #B0B8C1;
+    --color-text-3: #8B95A1;
+    --color-text-4: #5A6470;
+
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2);
+    --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.6);
+
+    color-scheme: dark;
+  }
 }
 
 html,
 body {
-  background: var(--bg);
-  color: var(--fg);
-  font-family: Pretendard, system-ui, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
+    system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo',
+    'Noto Sans KR', 'Malgun Gothic', sans-serif;
   -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'ss06' on;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

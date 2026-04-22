@@ -14,6 +14,7 @@
 | 파일 | 내용 |
 | --- | --- |
 | `tokens.json` | 디자인 토큰 (컬러·타이포·간격·radius·shadow) — 단일 소스 |
+| `tokens-mapping.md` | 토큰 이름 매핑표 (JSON ↔ Web TS ↔ App TS ↔ CSS var ↔ Tailwind 클래스) |
 | `components.md` | 컴포넌트 스펙 (Button, Card, FeedItem, GradeChip, …) |
 | `accessibility.md` | WCAG AA 체크리스트, 터치 타겟·대비비 규약 |
 | `figma.md` | Figma 파일 링크 인덱스·접근 요청 절차 |

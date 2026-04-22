@@ -143,7 +143,7 @@ function SessionCard({
           className={
             session.endedAt
               ? 'rounded-full bg-neutral-800 px-2 py-0.5 text-xs text-neutral-400'
-              : 'rounded-full bg-crimp-500/20 px-2 py-0.5 text-xs text-crimp-500'
+              : 'rounded-full bg-accent/20 px-2 py-0.5 text-xs text-accent'
           }
         >
           {session.endedAt
@@ -271,7 +271,7 @@ function LogAttemptForm({
               onClick={() => setResult(r)}
               className={
                 r === result
-                  ? 'rounded border border-crimp-500 bg-crimp-500/20 px-3 py-1 text-xs text-crimp-500'
+                  ? 'rounded border border-accent bg-accent/20 px-3 py-1 text-xs text-accent'
                   : 'rounded border border-neutral-700 px-3 py-1 text-xs text-neutral-300 hover:bg-neutral-800'
               }
             >
@@ -291,7 +291,7 @@ function LogAttemptForm({
           max={999}
           value={attemptsCount}
           onChange={(e) => setAttemptsCount(Number(e.target.value))}
-          className="w-24 rounded border border-neutral-800 bg-neutral-950/60 px-2 py-1 text-sm text-neutral-100 focus:border-crimp-500 focus:outline-none"
+          className="w-24 rounded border border-neutral-800 bg-neutral-950/60 px-2 py-1 text-sm text-neutral-100 focus:border-accent focus:outline-none"
         />
       </label>
 
@@ -305,7 +305,7 @@ function LogAttemptForm({
           maxLength={10}
           onChange={(e) => setGrade(e.target.value)}
           placeholder={t('attempt.log.gradePlaceholder')}
-          className="rounded border border-neutral-800 bg-neutral-950/60 px-2 py-1 text-sm text-neutral-100 focus:border-crimp-500 focus:outline-none"
+          className="rounded border border-neutral-800 bg-neutral-950/60 px-2 py-1 text-sm text-neutral-100 focus:border-accent focus:outline-none"
         />
       </label>
 
@@ -319,7 +319,7 @@ function LogAttemptForm({
           onChange={(e) => setNote(e.target.value)}
           placeholder={t('attempt.log.notePlaceholder')}
           rows={2}
-          className="rounded border border-neutral-800 bg-neutral-950/60 px-2 py-1 text-sm text-neutral-100 focus:border-crimp-500 focus:outline-none"
+          className="rounded border border-neutral-800 bg-neutral-950/60 px-2 py-1 text-sm text-neutral-100 focus:border-accent focus:outline-none"
         />
       </label>
 
@@ -335,7 +335,7 @@ function LogAttemptForm({
       <button
         type="submit"
         disabled={mutation.isPending}
-        className="self-start rounded bg-crimp-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-crimp-500/90 disabled:opacity-50"
+        className="self-start rounded bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/90 disabled:opacity-50"
       >
         {mutation.isPending
           ? t('attempt.log.submitting')
