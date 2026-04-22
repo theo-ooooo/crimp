@@ -1,0 +1,6 @@
+# local 프로파일 전용 오버라이드.
+# Flyway 시드 (dev 데이터) 를 함께 로드.
+
+spring:
+  flyway:
+    locations: classpath:db/migration,classpath:db/seed-dev
