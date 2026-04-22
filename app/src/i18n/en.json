@@ -7,7 +7,11 @@
     "gym": "Gym",
     "profile": "Profile",
     "loading": "Loading...",
-    "retry": "Retry"
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "empty": "-"
   },
   "home": {
     "tagline": "Digital home for climbers",
@@ -19,5 +23,77 @@
     "healthLabelServerTime": "Server time",
     "healthErrorTitle": "Failed to load server health",
     "healthErrorHint": "Make sure the backend is running (default http://localhost:8080)."
+  },
+  "session": {
+    "list": {
+      "title": "My sessions",
+      "empty": "No sessions logged yet. Start your first session today!",
+      "newButton": "Start session",
+      "loadMore": "Load more",
+      "errorTitle": "Failed to load sessions",
+      "itemGymFallback": "Gym not set",
+      "itemDurationMinutes": "{{minutes}} min",
+      "itemOngoing": "Ongoing"
+    },
+    "start": {
+      "title": "Start session",
+      "gymNameLabel": "Gym name",
+      "gymNamePlaceholder": "e.g. ClimbPark Gangnam",
+      "startedAtLabel": "Start time",
+      "submit": "Start",
+      "submitting": "Starting...",
+      "errorTitle": "Failed to start session"
+    },
+    "detail": {
+      "title": "Session detail",
+      "loginRequiredTitle": "Login required",
+      "loginRequiredDescription": "Login is required to view session detail.",
+      "labelGym": "Gym",
+      "labelStartedAt": "Started",
+      "labelEndedAt": "Ended",
+      "labelDuration": "Duration",
+      "labelNote": "Note",
+      "labelCondition": "Condition",
+      "endButton": "End session",
+      "ending": "Ending...",
+      "endedBadge": "Ended",
+      "ongoingBadge": "Ongoing",
+      "attemptsTitle": "Attempts",
+      "attemptsEmpty": "No attempts logged yet.",
+      "errorTitle": "Failed to load session"
+    }
+  },
+  "attempt": {
+    "log": {
+      "title": "Log attempt",
+      "resultLabel": "Result",
+      "attemptsLabel": "# of attempts",
+      "gradeLabel": "Grade",
+      "gradePlaceholder": "e.g. V4, 5.11a",
+      "noteLabel": "Note",
+      "notePlaceholder": "Beta, holds, belayer notes...",
+      "submit": "Log",
+      "submitting": "Logging...",
+      "errorTitle": "Failed to log attempt"
+    },
+    "result": {
+      "SEND": "Send",
+      "FLASH": "Flash",
+      "ONSIGHT": "Onsight",
+      "TRY": "Try",
+      "FAIL": "Fail"
+    }
+  },
+  "error": {
+    "transport": "Something went wrong. Please try again in a moment.",
+    "authRequired": "You need to sign in for this action.",
+    "authExpired": "Your session expired. Please sign in again.",
+    "forbidden": "You don't have permission for this action.",
+    "notFound": "The requested item was not found.",
+    "sessionNotFound": "Session not found.",
+    "sessionInvalid": "Session data is invalid.",
+    "attemptNotFound": "Attempt not found.",
+    "attemptInvalid": "Attempt data is invalid.",
+    "generic": "Request failed."
   }
 }
