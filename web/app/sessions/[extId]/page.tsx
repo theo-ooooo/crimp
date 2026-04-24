@@ -75,7 +75,7 @@ export default function SessionDetailPage(): JSX.Element {
   }
 
   const session = sessionQuery.data ?? null;
-  const attempts = attemptsQuery.data?.data ?? [];
+  const attempts = attemptsQuery.data?.items ?? [];
   const canEnd = Boolean(session && !session.endedAt);
 
   return (

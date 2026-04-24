@@ -4,6 +4,9 @@ dependencies {
     implementation 'org.springframework:spring-web'
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 
+    // 응답 envelope 의 `@JsonInclude(NON_NULL)` 을 위한 Jackson 어노테이션 API.
+    api 'com.fasterxml.jackson.core:jackson-annotations'
+
     implementation 'jakarta.persistence:jakarta.persistence-api'
     implementation 'jakarta.validation:jakarta.validation-api'
 

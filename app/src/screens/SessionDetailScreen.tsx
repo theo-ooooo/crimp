@@ -102,8 +102,8 @@ export default function SessionDetailScreen(): JSX.Element {
         <Text style={styles.errorTitle}>
           {toUserMessage(attemptsQuery.error)}
         </Text>
-      ) : attemptsQuery.data && attemptsQuery.data.data.length > 0 ? (
-        attemptsQuery.data.data.map((a) => (
+      ) : attemptsQuery.data && attemptsQuery.data.items.length > 0 ? (
+        attemptsQuery.data.items.map((a) => (
           <AttemptRow key={a.extId} attempt={a} />
         ))
       ) : (

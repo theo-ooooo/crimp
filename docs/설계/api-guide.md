@@ -39,39 +39,57 @@
 - Access: 15분, Refresh: 14일
 - Refresh는 Redis에 `refresh:{userId}:{jti}` 저장, 로테이션 방식
 
-## 4. 공통 응답 포맷
+## 4. 공통 응답 포맷 (응답 봉투 스펙)
 
-### 성공
+모든 HTTP 응답(성공·실패)은 `ApiResponse<T>` envelope 을 따른다.
+구현 참조: `api/crimp-common/src/main/java/io/crimp/common/response/ApiResponse.java`.
+
+### 성공 (HTTP 2xx)
 ```json
 {
-  "data": { /* resource or collection */ },
-  "meta": { "requestId": "01HY...", "serverTime": "2026-04-17T10:30:00Z" }
+  "status": true,
+  "data": { /* resource */ }
 }
 ```
 
-### 리스트 (커서 페이지네이션)
+### 리스트 (커서 페이지네이션, HTTP 2xx)
+
+리스트 엔드포인트는 `data` 객체 안에 `items` 배열 + `page` 메타를 둔다. `data` 는 리소스 컬렉션 자체가 아니라 **비즈니스 payload 객체**다.
+
 ```json
 {
-  "data": [ /* items */ ],
-  "page": {
-    "nextCursor": "01HY...",     // null이면 마지막
-    "size": 20
-  },
-  "meta": { ... }
+  "status": true,
+  "data": {
+    "items": [ /* items */ ],
+    "page": {
+      "nextCursor": 123,
+      "size": 20
+    }
+  }
 }
 ```
 
-### 에러
+### 에러 (HTTP 4xx/5xx — HTTP status 는 그대로 유지)
 ```json
 {
+  "status": false,
   "error": {
     "code": "AUTH_EXPIRED",
     "message": "Access token expired",
     "details": { "field": "token" }
-  },
-  "meta": { "requestId": "01HY...", "serverTime": "..." }
+  }
 }
 ```
+
+### 예외: 204 No Content
+
+성공 DELETE(`/sessions/{extId}`, `/attempts/{extId}`, `/auth/logout`) 는 전통적인 REST 관례대로 **바디 없이 204** 를 반환한다. envelope 로 감싸지 않으며 클라이언트는 HTTP status 만으로 성공을 판단한다.
+
+### 구현 메모
+
+- 서버측: `GlobalResponseWrapper`(`ResponseBodyAdvice`) 가 모든 컨트롤러 반환값을 `ApiResponse.success(...)` 로 자동 래핑. `@ExceptionHandler` 는 `ApiResponse.failure(ErrorBody.of(...))` 를 `ResponseEntity.status(...)` 로 감싸 반환한다.
+- Actuator(`/actuator/**`), Swagger UI(`/swagger-ui/**`), OpenAPI(`/v3/api-docs/**`) 는 래핑 대상에서 제외된다.
+- `meta.requestId` / `meta.serverTime` 는 현재 스펙에서 제거. 추적은 `X-Request-Id` 헤더로 일원화(섹션 10 참조).
 
 ## 5. 에러 코드 체계
 

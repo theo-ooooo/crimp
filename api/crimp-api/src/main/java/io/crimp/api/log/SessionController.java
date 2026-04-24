@@ -1,7 +1,8 @@
 package io.crimp.api.log;
 
 import io.crimp.api.security.CrimpPrincipal;
-import io.crimp.common.response.ErrorResponse;
+import io.crimp.common.response.ApiResponse;
+import io.crimp.common.response.ErrorBody;
 import io.crimp.domain.log.SessionException;
 import io.crimp.domain.log.SessionService;
 import io.crimp.domain.log.SessionView;
@@ -85,13 +86,13 @@ public class SessionController {
     }
 
     @ExceptionHandler(SessionException.class)
-    public ResponseEntity<ErrorResponse> handle(SessionException e) {
+    public ResponseEntity<ApiResponse<Void>> handle(SessionException e) {
         int status = switch (e.code()) {
             case "SESSION_NOT_FOUND" -> 404;
             case "SESSION_INVALID" -> 400;
             default -> 400;
         };
-        return ResponseEntity.status(status).body(ErrorResponse.of(e.code(), e.getMessage()));
+        return ResponseEntity.status(status).body(ApiResponse.failure(ErrorBody.of(e.code(), e.getMessage())));
     }
 
     // --- DTOs ---
@@ -125,7 +126,7 @@ public class SessionController {
         }
     }
 
-    public record SessionListResponse(List<SessionResponse> data, Page page) {}
+    public record SessionListResponse(List<SessionResponse> items, Page page) {}
 
     public record Page(Long nextCursor, int size) {}
 }

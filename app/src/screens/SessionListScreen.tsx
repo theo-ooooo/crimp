@@ -73,7 +73,7 @@ export default function SessionListScreen(): JSX.Element {
     );
   }
 
-  const sessions: Session[] = data?.pages.flatMap((p) => p.data) ?? [];
+  const sessions: Session[] = data?.pages.flatMap((p) => p.items) ?? [];
 
   return (
     <View style={styles.container}>

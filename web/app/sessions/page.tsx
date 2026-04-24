@@ -46,7 +46,7 @@ export default function SessionsPage(): JSX.Element {
     return <LoginRequired />;
   }
 
-  const sessions: Session[] = data?.pages.flatMap((p) => p.data) ?? [];
+  const sessions: Session[] = data?.pages.flatMap((p) => p.items) ?? [];
   const monthlySessions = countMonthlyEndedSessions(sessions);
 
   return (
