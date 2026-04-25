@@ -120,11 +120,13 @@ public class FeedService {
     }
 
     private static FeedItemView toView(FeedRow row) {
+        // FeedRow.userId 는 primitive long — INNER JOIN + NOT NULL PK 로 null 가능성 컴파일
+        // 타임 제거. silent fallback (hue=180) 으로 회귀가 가려지는 위험 차단.
         return new FeedItemView(
                 row.attemptExtId(),
                 row.userExtId(),
                 row.nickname(),
-                avatarColorHue(row.userId() == null ? 0L : row.userId()),
+                avatarColorHue(row.userId()),
                 row.gymName(),
                 row.result(),
                 row.gradeValue(),

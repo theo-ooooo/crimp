@@ -195,7 +195,7 @@
 ### 피드 (`/api/v1/feed-posts`)
 | Method | Path | 설명 |
 | --- | --- | --- |
-| GET | `/api/v1/feed` | 홈 피드 (팔로우 기반) |
+| GET | `/api/v1/feed?filter=popular\|my-gym\|friends&cursor=&size=` | 피드 (popular 기본 / my-gym = Profile.mainGymId / friends = Follow 기반). likes·comments 는 Phase 1.5 placeholder 0. |
 | GET | `/api/v1/feed-posts` | 전체·필터 피드 |
 | POST | `/api/v1/feed-posts` | 피드 작성 |
 | GET | `/api/v1/feed-posts/{extId}` | 게시물 상세 |

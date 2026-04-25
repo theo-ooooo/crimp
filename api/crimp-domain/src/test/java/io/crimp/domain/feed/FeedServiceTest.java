@@ -175,6 +175,26 @@ class FeedServiceTest {
         assertThat(page.items().get(0).holdColor()).isNull();
     }
 
+    @Test
+    void hold_color_regex_does_not_falsely_match_escaped_quote_inside_value() {
+        // 리뷰 I2 회귀 가드: 사용자 입력이 tagsJson 으로 흘러 들어가 escape 된 `\"hold\":\"..\"`
+        // 가 들어와도 정규식이 false-positive 매칭하지 않음을 보장.
+        //
+        // 입력 실제 char: `{"note":"used \"hold\":\"trick\""}` — `\"hold\"` 형태에서
+        // 닫는 `"` 앞이 `\` 라서 `"hold"\s*:\s*"..."` 패턴이 매칭 실패 → null.
+        //
+        // F5 에서 ObjectMapper / 전용 컬럼으로 교체하면 자연 소멸하지만, 그 전까지 본 테스트가
+        // regex 강건성을 lock-in.
+        FeedRow row = baseRow()
+                .withTagsJson("{\"note\":\"used \\\"hold\\\":\\\"trick\\\"\"}")
+                .build();
+        when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
+                .thenReturn(slice(List.of(row), false));
+
+        FeedPage page = service.listFeed(1L, FeedFilter.POPULAR, null, null);
+        assertThat(page.items().get(0).holdColor()).isNull();
+    }
+
     // --- avatarColorHue 결정성 ---
 
     @Test
@@ -285,7 +305,7 @@ class FeedServiceTest {
     private static class FeedRowBuilder {
         private Long attemptId = 1L;
         private String attemptExtId = "01HATTEMPT0000000000000001";
-        private Long userId = 1L;
+        private long userId = 1L;
         private String userExtId = "01HUSER0000000000000000001";
         private String nickname = "서지우";
         private String gymName = "서울볼더스 성수";
@@ -297,7 +317,7 @@ class FeedServiceTest {
         private Instant loggedAt = Instant.parse("2026-04-25T07:00:00Z");
 
         FeedRowBuilder withAttemptId(Long v) { this.attemptId = v; return this; }
-        FeedRowBuilder withUserId(Long v) { this.userId = v; return this; }
+        FeedRowBuilder withUserId(long v) { this.userId = v; return this; }
         FeedRowBuilder withTagsJson(String v) { this.tagsJson = v; return this; }
 
         FeedRow build() {

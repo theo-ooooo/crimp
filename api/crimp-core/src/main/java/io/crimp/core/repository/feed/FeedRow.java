@@ -11,7 +11,9 @@ import java.time.Instant;
  *
  * @param attemptId      SessionAttempt.id — 커서 페이지네이션 키
  * @param attemptExtId   SessionAttempt.extId
- * @param userId         User.id — avatarColorHue 결정적 계산 시드
+ * @param userId         User.id — avatarColorHue 결정적 계산 시드.
+ *                       INNER JOIN + NOT NULL PK 보장이라 primitive {@code long} 으로 받아
+ *                       null 케이스 자체를 컴파일 타임에 제거.
  * @param userExtId      User.extId
  * @param nickname       Profile.nickname
  * @param gymName        Gym.name (LEFT JOIN — 자연 암장 등은 null)
@@ -25,7 +27,7 @@ import java.time.Instant;
 public record FeedRow(
         Long attemptId,
         String attemptExtId,
-        Long userId,
+        long userId,
         String userExtId,
         String nickname,
         String gymName,
