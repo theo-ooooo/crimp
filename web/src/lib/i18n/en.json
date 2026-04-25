@@ -124,6 +124,35 @@
       "FAIL": "Fail"
     }
   },
+  "gym": {
+    "list": {
+      "title": "Find a gym",
+      "searchPlaceholder": "Search by name or address",
+      "empty": "No gyms matched your search",
+      "loadMore": "Load more",
+      "filtersReset": "Reset filters",
+      "filtersBrand": "Brand",
+      "errorTitle": "Failed to load gyms",
+      "addressFallback": "Address unavailable"
+    },
+    "detail": {
+      "metaCardTitle": "Basics",
+      "phoneLabel": "Phone",
+      "hoursLabel": "Hours",
+      "cycleLabel": "Setting cycle",
+      "cycleValue": "Reset every {{days}} days",
+      "featuresLabel": "Features",
+      "routesTitle": "Active routes",
+      "routesEmpty": "No active routes yet.",
+      "routesAuthRequired": "Sign in to browse routes.",
+      "routesErrorTitle": "Failed to load routes",
+      "routeSetterLabel": "Setter",
+      "routeSetAtLabel": "Set on",
+      "startSessionCta": "Start a session at this gym",
+      "errorTitle": "Failed to load gym",
+      "loadMore": "Load more"
+    }
+  },
   "error": {
     "transport": "Something went wrong. Please try again in a moment.",
     "authRequired": "You need to sign in for this action.",
@@ -133,6 +162,7 @@
     "sessionNotFound": "Session not found.",
     "sessionInvalid": "Session data is invalid.",
     "attemptNotFound": "Attempt not found.",
+    "gymNotFound": "Gym not found.",
     "attemptInvalid": "Attempt data is invalid.",
     "generic": "Request failed."
   }
