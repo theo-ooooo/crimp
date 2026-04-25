@@ -76,7 +76,9 @@
       "startedAtLabel": "시작 시각",
       "submit": "시작하기",
       "submitting": "시작 중...",
-      "errorTitle": "세션을 시작하지 못했습니다"
+      "errorTitle": "세션을 시작하지 못했습니다",
+      "selectedGymLabel": "선택된 암장",
+      "clearGymCta": "해제"
     },
     "detail": {
       "title": "세션 상세",

@@ -148,7 +148,7 @@ class AttemptServiceTest {
     // --- helpers ---
 
     private static ClimbingSession session(long id, String extId, long userId, boolean deleted) {
-        ClimbingSession cs = ClimbingSession.start(extId, userId, null, Instant.parse("2026-04-20T10:00:00Z"));
+        ClimbingSession cs = ClimbingSession.start(extId, userId, null, null, Instant.parse("2026-04-20T10:00:00Z"));
         setField(cs, "id", id);
         if (deleted) cs.softDelete();
         return cs;

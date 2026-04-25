@@ -70,8 +70,9 @@ export default function GymDetailPage(): JSX.Element {
   const routes: RouteItem[] =
     routesQuery.data?.pages.flatMap((p) => p.items) ?? [];
   const encodedName = encodeURIComponent(gym.name);
+  // gymExtId 로 명확히 전달 (이전 `gymId=<extId>` 는 값이 extId 인데 키가 혼란스러웠음).
   const startSessionHref =
-    `/sessions/new?gymId=${encodeURIComponent(gym.extId)}&gymName=${encodedName}` as const;
+    `/sessions/new?gymExtId=${encodeURIComponent(gym.extId)}&gymName=${encodedName}` as const;
 
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-8 bg-bg px-6 py-10">

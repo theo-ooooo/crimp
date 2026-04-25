@@ -1,7 +1,9 @@
 package io.crimp.domain.log;
 
 import io.crimp.common.id.UlidGenerator;
+import io.crimp.core.entity.gym.Gym;
 import io.crimp.core.entity.log.ClimbingSession;
+import io.crimp.core.repository.gym.GymRepository;
 import io.crimp.core.repository.log.ClimbingSessionRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
@@ -18,9 +20,13 @@ public class SessionService {
     private static final int MAX_PAGE_SIZE = 50;
 
     private final ClimbingSessionRepository sessionRepository;
+    private final GymRepository gymRepository;
 
-    public SessionService(ClimbingSessionRepository sessionRepository) {
+    public SessionService(
+            ClimbingSessionRepository sessionRepository,
+            GymRepository gymRepository) {
         this.sessionRepository = sessionRepository;
+        this.gymRepository = gymRepository;
     }
 
     @Transactional
@@ -28,8 +34,25 @@ public class SessionService {
         if (cmd.startedAt() == null) {
             throw new SessionException("SESSION_INVALID", "startedAt is required");
         }
+
+        Long resolvedGymId = cmd.gymId();
+        String resolvedGymNameRaw = cmd.gymNameRaw();
+
+        // gymExtId 가 제공되면 내부 id 로 해석. 클라이언트가 gymNameRaw 를 주지 않았다면
+        // Gym 엔티티의 공식 name 으로 fallback 한다.
+        String extId = cmd.gymExtId();
+        if (extId != null && !extId.isBlank()) {
+            Gym gym = gymRepository.findByExtId(extId)
+                    .orElseThrow(() -> new SessionException(
+                            "GYM_NOT_FOUND", "Gym " + extId + " not found"));
+            resolvedGymId = gym.getId();
+            if (resolvedGymNameRaw == null || resolvedGymNameRaw.isBlank()) {
+                resolvedGymNameRaw = gym.getName();
+            }
+        }
+
         ClimbingSession session = ClimbingSession.start(
-                UlidGenerator.next(), userId, cmd.gymId(), cmd.startedAt());
+                UlidGenerator.next(), userId, resolvedGymId, resolvedGymNameRaw, cmd.startedAt());
         sessionRepository.save(session);
         return toView(session);
     }

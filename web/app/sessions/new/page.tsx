@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
 
 import {
   CrimpIcon,
@@ -24,17 +24,61 @@ import { useAccessToken, useTokenStore } from '@/store/tokenStore';
  * - 에러는 `role="alert"` 영역에 한국어 문구
  *
  * 기존 로직(useStartSession, datetime-local ↔ ISO 변환, hydration 가드)은 유지.
+ *
+ * 쿼리 파라미터 `gymExtId` + `gymName` 이 오면 "선택된 암장" 카드로 잠그고,
+ * `POST /sessions` body 에 `gymExtId` 를 포함해 서버가 내부 id 로 해석하도록 한다.
+ * "해제" 누르면 쿼리 파라미터를 제거하고 free-form 입력으로 전환.
+ *
+ * Next.js App Router 는 `useSearchParams()` 사용 시 반드시 Suspense 경계가 필요하다
+ * (CSR bailout 방지). 그래서 기본 export 는 Suspense wrapper, 실제 본체는 Inner.
  */
 export default function NewSessionPage(): JSX.Element {
+  return (
+    <Suspense fallback={<NewSessionSkeleton />}>
+      <NewSessionPageInner />
+    </Suspense>
+  );
+}
+
+function NewSessionSkeleton(): JSX.Element {
+  return (
+    <main className="mx-auto flex min-h-screen max-w-xl flex-col justify-center gap-3 bg-bg px-6">
+      <Skeleton h={32} w="40%" />
+      <Skeleton h={16} w="60%" />
+    </main>
+  );
+}
+
+function NewSessionPageInner(): JSX.Element {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const hydrated = useTokenStore((s) => s.hydrated);
   const accessToken = useAccessToken();
   const mutation = useStartSession(accessToken);
+
+  const selectedGymExtId = searchParams?.get('gymExtId') ?? null;
+  const selectedGymName = searchParams?.get('gymName') ?? null;
+  const hasSelectedGym = Boolean(selectedGymExtId);
 
   const [gymName, setGymName] = useState('');
   const [startedAtLocal, setStartedAtLocal] = useState<string>(
     toLocalInputValue(new Date()),
   );
+
+  // 선택된 암장이 바뀌면 free-form 입력을 gymName 으로 초기화.
+  // (해제 직후에는 기존 값 유지 — 사용자가 즉시 재입력할 수도 있으니 지우지 않음.)
+  useEffect(() => {
+    if (selectedGymName) {
+      setGymName(selectedGymName);
+    }
+  }, [selectedGymName]);
+
+  const clearSelectedGym = () => {
+    // 선택된 암장 해제 시 자유입력 필드도 비워 "방금 선택한 이름" 이 남지 않도록 한다.
+    // (기존 useEffect 는 selectedGymName 이 truthy 일 때만 동기화 — null 로 바뀌어도 자동 clear 안 됨.)
+    setGymName('');
+    router.replace('/sessions/new');
+  };
 
   if (!hydrated) {
     return (
@@ -63,6 +107,7 @@ export default function NewSessionPage(): JSX.Element {
     const iso = localInputToIso(startedAtLocal);
     mutation.mutate(
       {
+        gymExtId: selectedGymExtId ?? null,
         gymNameRaw: gymName.trim() ? gymName.trim() : null,
         startedAt: iso,
       },
@@ -95,16 +140,42 @@ export default function NewSessionPage(): JSX.Element {
       </header>
 
       <form onSubmit={onSubmit} className="flex flex-col gap-5">
-        <FieldLabel label={t('session.start.gymNameLabel')}>
-          <input
-            type="text"
-            value={gymName}
-            onChange={(e) => setGymName(e.target.value)}
-            placeholder={t('session.start.gymNamePlaceholder')}
-            maxLength={100}
-            className="h-12 w-full rounded-lg border-0 bg-subtle-2 px-4 text-body font-medium text-text placeholder:text-text-4 focus:outline-none focus:ring-2 focus:ring-accent"
-          />
-        </FieldLabel>
+        {hasSelectedGym && selectedGymName ? (
+          <div
+            role="status"
+            aria-label={t('session.start.selectedGymLabel')}
+            className="flex items-center justify-between gap-3 rounded-2xl bg-subtle p-4 shadow-xs"
+          >
+            <div className="flex min-w-0 flex-col gap-1">
+              <span className="text-caption font-semibold text-text-3">
+                {t('session.start.selectedGymLabel')}
+              </span>
+              <span className="truncate text-body font-bold text-text">
+                {selectedGymName}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={clearSelectedGym}
+              aria-label={t('session.start.clearGymCta')}
+              className="inline-flex h-9 shrink-0 items-center gap-1 rounded-full bg-bg px-3 text-caption font-semibold text-text-2 transition-colors duration-fast ease-standard hover:text-text"
+            >
+              <CrimpIcon.close s={14} />
+              {t('session.start.clearGymCta')}
+            </button>
+          </div>
+        ) : (
+          <FieldLabel label={t('session.start.gymNameLabel')}>
+            <input
+              type="text"
+              value={gymName}
+              onChange={(e) => setGymName(e.target.value)}
+              placeholder={t('session.start.gymNamePlaceholder')}
+              maxLength={100}
+              className="h-12 w-full rounded-lg border-0 bg-subtle-2 px-4 text-body font-medium text-text placeholder:text-text-4 focus:outline-none focus:ring-2 focus:ring-accent"
+            />
+          </FieldLabel>
+        )}
 
         <FieldLabel label={t('session.start.startedAtLabel')}>
           <input

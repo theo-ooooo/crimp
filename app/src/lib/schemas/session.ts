@@ -37,7 +37,12 @@ export const SessionListSchema = z.object({
 
 export type SessionList = z.infer<typeof SessionListSchema>;
 
+/**
+ * `gymExtId` 가 제공되면 서버가 내부 `gymId` 로 해석하고, 해석 실패 시 404 `GYM_NOT_FOUND`.
+ * `gymId`(레거시 내부 숫자 ID) 와 동시 제공 시 `gymExtId` 가 우선.
+ */
 export const StartSessionBodySchema = z.object({
+  gymExtId: z.string().nullable().optional(),
   gymId: z.number().int().nullable().optional(),
   gymNameRaw: z.string().max(100).nullable().optional(),
   startedAt: z.string(),
