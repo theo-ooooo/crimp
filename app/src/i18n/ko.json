@@ -98,21 +98,26 @@
       "attemptsTitle": "시도 타임라인",
       "attemptsEmpty": "아직 기록된 시도가 없어요.",
       "errorTitle": "세션 정보를 불러오지 못했습니다"
+    },
+    "log": {
+      "title": "시도 기록",
+      "cancel": "취소",
+      "resultLabel": "결과",
+      "gradeLabel": "그레이드",
+      "holdLabel": "홀드 색",
+      "mediaLabel": "영상 · 사진",
+      "cameraVideoTitle": "동영상 촬영",
+      "cameraVideoHint": "최대 60초",
+      "cameraPhotoTitle": "사진 촬영",
+      "cameraPhotoHint": "또는 갤러리",
+      "noteLabel": "메모 (선택)",
+      "notePlaceholder": "크림프 잡고 데드포인트 무브가 핵심...",
+      "save": "저장",
+      "openCta": "시도 기록",
+      "cameraComingSoon": "카메라 촬영은 다음 업데이트에서 지원될 예정이에요."
     }
   },
   "attempt": {
-    "log": {
-      "title": "시도 기록",
-      "resultLabel": "결과",
-      "attemptsLabel": "시도 횟수",
-      "gradeLabel": "난이도",
-      "gradePlaceholder": "예: V4, 5.11a",
-      "noteLabel": "메모",
-      "notePlaceholder": "자세·홀드·빌레 등 메모",
-      "submit": "기록",
-      "submitting": "기록 중...",
-      "errorTitle": "시도를 기록하지 못했습니다"
-    },
     "result": {
       "SEND": "완등",
       "FLASH": "플래시",

@@ -1,13 +1,19 @@
 import { useRoute, type RouteProp } from '@react-navigation/native';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 
-import { SecondaryButton, Skeleton } from '@/components/primitives';
+import { PrimaryButton, SecondaryButton, Skeleton } from '@/components/primitives';
+import {
+  CameraSheet,
+  LogAttemptSheet,
+  type CameraMode,
+} from '@/components/session';
 import { useAttemptsQuery } from '@/hooks/useAttempts';
 import { useEndSession, useSessionQuery } from '@/hooks/useSessions';
 import { toUserMessage } from '@/lib/api/errorMessage';
@@ -25,7 +31,6 @@ import type { Attempt } from '@/lib/schemas/attempt';
 import { useTokenStore } from '@/store/tokenStore';
 
 import { AttemptRow } from './session/AttemptRow';
-import { LogAttemptForm } from './session/LogAttemptForm';
 import { SessionMetaCard } from './session/SessionMetaCard';
 
 /**
@@ -33,7 +38,7 @@ import { SessionMetaCard } from './session/SessionMetaCard';
  *
  * - 상단 SessionMetaCard (라이브 경과 시간)
  * - 시도 타임라인 (ScrollView 내부 map 렌더 — I2 참고)
- * - 진행 중이면 하단에 LogAttemptForm + SecondaryButton 세션 종료
+ * - 진행 중이면 하단에 "시도 기록" PrimaryButton(시트 토글) + SecondaryButton 세션 종료
  */
 export default function SessionDetailScreen(): JSX.Element {
   const theme = useTokens();
@@ -45,6 +50,19 @@ export default function SessionDetailScreen(): JSX.Element {
   const sessionQuery = useSessionQuery(accessToken, extId);
   const attemptsQuery = useAttemptsQuery(accessToken, extId);
   const endSession = useEndSession(accessToken);
+
+  // 시도 기록 시트 / 카메라 시트 상태. 카메라는 시트 위 시트로 동시에 열려도 무관.
+  const [logSheetOpen, setLogSheetOpen] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraMode, setCameraMode] = useState<CameraMode>('video');
+  // 셔터 상태(placeholder). video 모드 첫 셔터 탭 → recording=true, 두 번째 탭 또는
+  // photo 탭 → coming-soon Alert + 시트 닫힘. 실 녹화 / 캡처는 F5.
+  const [recording, setRecording] = useState(false);
+
+  const closeCamera = () => {
+    setCameraOpen(false);
+    setRecording(false);
+  };
 
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
@@ -132,7 +150,14 @@ export default function SessionDetailScreen(): JSX.Element {
 
       {isOngoing && session ? (
         <>
-          <LogAttemptForm accessToken={accessToken} sessionExtId={extId} />
+          <View style={styles.logCtaWrap}>
+            <PrimaryButton
+              onPress={() => setLogSheetOpen(true)}
+              accessibilityLabel={t('session.log.openCta')}
+            >
+              {t('session.log.openCta')}
+            </PrimaryButton>
+          </View>
           <View style={styles.endWrap}>
             <SecondaryButton
               onPress={() => {
@@ -152,6 +177,35 @@ export default function SessionDetailScreen(): JSX.Element {
               </Text>
             ) : null}
           </View>
+
+          <LogAttemptSheet
+            visible={logSheetOpen}
+            accessToken={accessToken}
+            sessionExtId={extId}
+            onClose={() => setLogSheetOpen(false)}
+            onCamera={(mode) => {
+              setRecording(false);
+              setCameraMode(mode);
+              setCameraOpen(true);
+            }}
+          />
+          <CameraSheet
+            visible={cameraOpen}
+            mode={cameraMode}
+            recording={recording}
+            onClose={closeCamera}
+            onShoot={() => {
+              if (cameraMode === 'video' && !recording) {
+                // video 첫 탭: 녹화 시작 (placeholder).
+                setRecording(true);
+                return;
+              }
+              // photo 또는 video 두 번째 탭: "곧 출시" 안내 후 시트 닫힘.
+              // TODO(F5): 실 캡처 결과(mediaId) 를 LogAttemptSheet 로 전달.
+              Alert.alert(t('session.log.cameraComingSoon'));
+              closeCamera();
+            }}
+          />
         </>
       ) : null}
     </ScrollView>
@@ -225,6 +279,9 @@ function makeStyles(theme: Theme) {
     },
     endWrap: {
       gap: space[2],
+      alignItems: 'stretch',
+    },
+    logCtaWrap: {
       alignItems: 'stretch',
     },
   });
