@@ -28,6 +28,7 @@ import {
   letterSpacing,
   radius,
   space,
+  withAlpha,
   type Theme,
 } from '@/lib/tokens';
 import { useTokens } from '@/lib/useTokens';
@@ -78,7 +79,8 @@ function LoggedOutView({ styles }: { styles: ReturnType<typeof makeStyles> }): J
       <Text style={styles.heroTagline}>{t('home.tagline')}</Text>
       <Text style={styles.heroDescription}>{t('home.description')}</Text>
       <View style={styles.heroButton}>
-        <SecondaryButton onPress={() => undefined}>{t('home.loginCta')}</SecondaryButton>
+        {/* TODO: 로그인 라우트 구현 시 onPress 에 navigation.navigate('Login') 연결. 그 전까지 disabled 로 비활성 표시. */}
+        <SecondaryButton disabled onPress={() => undefined}>{t('home.loginCta')}</SecondaryButton>
       </View>
       <Text style={styles.loginPrompt}>{t('home.loginPrompt')}</Text>
     </View>
@@ -115,12 +117,11 @@ function LoggedInView({ accessToken, navigation, styles, theme }: LoggedInProps)
         </Text>
         {stats ? (
           <Text style={styles.greeting}>
-            {t('home.weeklyHeadline').split('{{count}}')[0]}
+            {t('home.weeklyHeadlinePrefix')}
             <Text style={[styles.greeting, { color: theme.accent.base }]}>
               {stats.weekSends}
-              {t('home.weekSendsUnit')}
             </Text>
-            {t('home.weeklyHeadline').split('{{count}}')[1]?.replace(/회/, '')}
+            {t('home.weeklyHeadlineSuffix')}
           </Text>
         ) : null}
       </View>
@@ -224,10 +225,10 @@ function RecentSessionCard({
   styles: ReturnType<typeof makeStyles>;
 }): JSX.Element {
   const label = session.gymNameRaw ?? t('session.list.itemGymFallback');
-  const startedAt = new Date(session.startedAt).toLocaleDateString('ko-KR', {
-    month: '2-digit',
-    day: '2-digit',
-  });
+  const parsed = new Date(session.startedAt);
+  const startedAt = Number.isNaN(parsed.getTime())
+    ? t('common.empty')
+    : parsed.toLocaleDateString(undefined, { month: '2-digit', day: '2-digit' });
   return (
     <Pressable
       onPress={onPress}
@@ -335,7 +336,7 @@ function makeStyles(theme: Theme) {
       gap: space[3],
     },
     errorBox: {
-      backgroundColor: `${theme.semantic.danger}14`,
+      backgroundColor: withAlpha(theme.semantic.danger, 0.08),
       borderRadius: radius.lg,
       padding: space[5],
       gap: space[2],
