@@ -51,15 +51,17 @@ public class ClimbingSession extends SoftDeletableEntity {
     @Column(name = "`condition`")
     private Byte condition;
 
-    private ClimbingSession(String extId, Long userId, Long gymId, Instant startedAt) {
+    private ClimbingSession(String extId, Long userId, Long gymId, String gymNameRaw, Instant startedAt) {
         this.extId = extId;
         this.userId = userId;
         this.gymId = gymId;
+        this.gymNameRaw = gymNameRaw;
         this.startedAt = startedAt;
     }
 
-    public static ClimbingSession start(String extId, Long userId, Long gymId, Instant startedAt) {
-        return new ClimbingSession(extId, userId, gymId, startedAt);
+    public static ClimbingSession start(
+            String extId, Long userId, Long gymId, String gymNameRaw, Instant startedAt) {
+        return new ClimbingSession(extId, userId, gymId, gymNameRaw, startedAt);
     }
 
     public void close(Instant endedAt) {

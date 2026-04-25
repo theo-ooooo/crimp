@@ -44,7 +44,7 @@ public class SessionController {
             @RequestBody @Valid StartSessionRequest req) {
         var view = sessionService.start(
                 principal.userId(),
-                new StartSessionCommand(req.gymId(), req.gymNameRaw(), req.startedAt()));
+                new StartSessionCommand(req.gymExtId(), req.gymId(), req.gymNameRaw(), req.startedAt()));
         return SessionResponse.of(view);
     }
 
@@ -89,6 +89,7 @@ public class SessionController {
     public ResponseEntity<ApiResponse<Void>> handle(SessionException e) {
         int status = switch (e.code()) {
             case "SESSION_NOT_FOUND" -> 404;
+            case "GYM_NOT_FOUND" -> 404;
             case "SESSION_INVALID" -> 400;
             default -> 400;
         };
@@ -97,7 +98,16 @@ public class SessionController {
 
     // --- DTOs ---
 
+    /**
+     * 세션 시작 요청.
+     *
+     * - {@code gymExtId}: 암장 외부 ID (ULID). 제공되면 서버가 내부 {@code gymId} 로 해석하고
+     *   {@code gymNameRaw} 미지정 시 Gym.name 으로 채운다. 해석 실패 시 404.
+     * - {@code gymId}: (레거시) 내부 숫자 ID 직접 지정. {@code gymExtId} 가 있으면 무시됨.
+     * - {@code gymNameRaw}: free-form 암장 이름. 양쪽 ID 없이도 단독 허용.
+     */
     public record StartSessionRequest(
+            String gymExtId,
             Long gymId,
             @Size(max = 100) String gymNameRaw,
             Instant startedAt

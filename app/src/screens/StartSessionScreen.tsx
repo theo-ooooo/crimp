@@ -1,9 +1,10 @@
-import { useNavigation } from '@react-navigation/native';
-import React, { useMemo, useState } from 'react';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -24,7 +25,7 @@ import {
   type Theme,
 } from '@/lib/tokens';
 import { useTokens } from '@/lib/useTokens';
-import type { RootStackNavigationProp } from '@/navigation/types';
+import type { RootStackNavigationProp, RootStackParamList } from '@/navigation/types';
 import { useTokenStore } from '@/store/tokenStore';
 
 /**
@@ -38,12 +39,30 @@ import { useTokenStore } from '@/store/tokenStore';
 export default function StartSessionScreen(): JSX.Element {
   const theme = useTokens();
   const navigation = useNavigation<RootStackNavigationProp<'StartSession'>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'StartSession'>>();
   const hydrated = useTokenStore((s) => s.hydrated);
   const accessToken = useTokenStore((s) => s.accessToken);
   const mutation = useStartSession(accessToken);
 
-  const [gymName, setGymName] = useState<string>('');
+  // 암장 상세에서 "이 암장에서 세션 시작" 으로 넘어오면 route.params 로 전달된다.
+  const selectedGymExtId = route.params?.gymExtId ?? null;
+  const selectedGymName = route.params?.gymName ?? null;
+  const hasSelectedGym = Boolean(selectedGymExtId);
+
+  const [gymName, setGymName] = useState<string>(selectedGymName ?? '');
   const styles = useMemo(() => makeStyles(theme), [theme]);
+
+  // params 로 전달된 gymName 이 바뀌면 입력값 동기화.
+  useEffect(() => {
+    if (selectedGymName) {
+      setGymName(selectedGymName);
+    }
+  }, [selectedGymName]);
+
+  const clearSelectedGym = () => {
+    // 선택된 암장을 해제 → params 를 지우고 free-form 입력으로 전환.
+    navigation.setParams({ gymExtId: undefined, gymName: undefined });
+  };
 
   if (!hydrated) {
     return (
@@ -69,6 +88,7 @@ export default function StartSessionScreen(): JSX.Element {
   const onSubmit = () => {
     mutation.mutate(
       {
+        gymExtId: selectedGymExtId ?? null,
         gymNameRaw: gymName.trim() ? gymName.trim() : null,
         startedAt: new Date().toISOString(),
       },
@@ -96,21 +116,53 @@ export default function StartSessionScreen(): JSX.Element {
           <Text style={styles.subtitle}>{t('session.start.subtitle')}</Text>
         </View>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>{t('session.start.gymNameLabel')}</Text>
-          <TextInput
-            value={gymName}
-            onChangeText={setGymName}
-            maxLength={100}
-            placeholder={t('session.start.gymNamePlaceholder')}
-            placeholderTextColor={theme.text4}
-            style={styles.input}
-            autoCapitalize="none"
-            returnKeyType="done"
-            onSubmitEditing={onSubmit}
-            accessibilityLabel={t('session.start.gymNameLabel')}
-          />
-        </View>
+        {hasSelectedGym && selectedGymName ? (
+          <View
+            style={styles.selectedGymCard}
+            accessible
+            accessibilityRole="summary"
+            accessibilityLabel={t('session.start.selectedGymLabel')}
+          >
+            <View style={styles.selectedGymText}>
+              <Text style={styles.selectedGymLabel}>
+                {t('session.start.selectedGymLabel')}
+              </Text>
+              <Text style={styles.selectedGymName} numberOfLines={1}>
+                {selectedGymName}
+              </Text>
+            </View>
+            <Pressable
+              onPress={clearSelectedGym}
+              accessibilityRole="button"
+              accessibilityLabel={t('session.start.clearGymCta')}
+              style={({ pressed }) => [
+                styles.clearButton,
+                pressed && styles.clearButtonPressed,
+              ]}
+              hitSlop={8}
+            >
+              <Text style={styles.clearButtonLabel}>
+                {t('session.start.clearGymCta')}
+              </Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View style={styles.field}>
+            <Text style={styles.label}>{t('session.start.gymNameLabel')}</Text>
+            <TextInput
+              value={gymName}
+              onChangeText={setGymName}
+              maxLength={100}
+              placeholder={t('session.start.gymNamePlaceholder')}
+              placeholderTextColor={theme.text4}
+              style={styles.input}
+              autoCapitalize="none"
+              returnKeyType="done"
+              onSubmitEditing={onSubmit}
+              accessibilityLabel={t('session.start.gymNameLabel')}
+            />
+          </View>
+        )}
 
         <Text style={styles.hint}>
           {t('session.start.startedAtLabel')} · {formatNow()}
@@ -279,6 +331,48 @@ function makeStyles(theme: Theme) {
       fontSize: 15,
       fontWeight: fontWeight.semibold,
       color: theme.text3,
+    },
+    selectedGymCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space[3],
+      backgroundColor: theme.subtle,
+      borderRadius: radius.lg,
+      paddingHorizontal: space[4],
+      paddingVertical: space[4],
+    },
+    selectedGymText: {
+      flex: 1,
+      gap: space[1],
+    },
+    selectedGymLabel: {
+      fontFamily,
+      fontSize: 13,
+      fontWeight: fontWeight.semibold,
+      color: theme.text3,
+      letterSpacing: -0.13,
+    },
+    selectedGymName: {
+      fontFamily,
+      fontSize: 17,
+      fontWeight: fontWeight.bold,
+      color: theme.text,
+      letterSpacing: -0.34,
+    },
+    clearButton: {
+      paddingHorizontal: space[3],
+      paddingVertical: space[2],
+      borderRadius: radius.full,
+      backgroundColor: theme.bg,
+    },
+    clearButtonPressed: {
+      opacity: 0.7,
+    },
+    clearButtonLabel: {
+      fontFamily,
+      fontSize: 13,
+      fontWeight: fontWeight.semibold,
+      color: theme.text2,
     },
   });
 }

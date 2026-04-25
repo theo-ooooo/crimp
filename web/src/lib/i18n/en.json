@@ -76,7 +76,9 @@
       "startedAtLabel": "Start time",
       "submit": "Start",
       "submitting": "Starting...",
-      "errorTitle": "Failed to start session"
+      "errorTitle": "Failed to start session",
+      "selectedGymLabel": "Selected gym",
+      "clearGymCta": "Clear"
     },
     "detail": {
       "title": "Session detail",
