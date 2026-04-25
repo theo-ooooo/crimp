@@ -123,6 +123,7 @@
     "list": {
       "title": "Find a gym",
       "searchPlaceholder": "Search by gym name or area",
+      "searchClearLabel": "Clear search",
       "searchAccessibilityLabel": "Search gyms",
       "brandAllLabel": "All",
       "brandFilterLabel": "Brand filter",

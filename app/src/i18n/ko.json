@@ -123,6 +123,7 @@
     "list": {
       "title": "암장 찾기",
       "searchPlaceholder": "암장 이름·지역으로 검색",
+      "searchClearLabel": "검색어 지우기",
       "searchAccessibilityLabel": "암장 검색",
       "brandAllLabel": "전체",
       "brandFilterLabel": "브랜드 필터",

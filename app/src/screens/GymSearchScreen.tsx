@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   FlatList,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -116,11 +117,15 @@ export default function GymSearchScreen(): JSX.Element {
 
   const gyms: GymItem[] = data?.pages.flatMap((p) => p.items) ?? [];
 
-  const renderItem: ListRenderItem<GymItem> = ({ item }) => (
-    <GymCard
-      gym={item}
-      onPress={() => navigation.navigate('GymDetail', { extId: item.extId })}
-    />
+  // I1: useCallback + React.memo 로 FlatList row 재렌더 억제.
+  const renderItem = useCallback<ListRenderItem<GymItem>>(
+    ({ item }) => (
+      <GymCard
+        gym={item}
+        onPress={() => navigation.navigate('GymDetail', { extId: item.extId })}
+      />
+    ),
+    [navigation],
   );
 
   return (
@@ -142,8 +147,21 @@ export default function GymSearchScreen(): JSX.Element {
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="search"
+            clearButtonMode="while-editing" // iOS 네이티브 clear 버튼
             accessibilityLabel={t('gym.list.searchAccessibilityLabel')}
           />
+          {/* Android / 웹RN 은 clearButtonMode 가 무시되므로 값이 있을 때만 수동 버튼 렌더 */}
+          {searchText.length > 0 && Platform.OS !== 'ios' ? (
+            <Pressable
+              onPress={() => setSearchText('')}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t('gym.list.searchClearLabel')}
+              style={styles.searchClear}
+            >
+              <CrimpIcon.close size={18} color={theme.text3} />
+            </Pressable>
+          ) : null}
         </View>
       </View>
 
@@ -212,7 +230,8 @@ export default function GymSearchScreen(): JSX.Element {
   );
 }
 
-function GymCard({
+// I1: React.memo 로 gym·onPress 가 같으면 재렌더 방지.
+const GymCard = React.memo(function GymCard({
   gym,
   onPress,
 }: {
@@ -222,6 +241,16 @@ function GymCard({
   const theme = useTokens();
   const reducedMotion = useReducedMotion();
   const styles = useMemo(() => makeCardStyles(theme), [theme]);
+
+  // I2: brand/address 포함해 스크린리더가 카드를 한 번에 설명할 수 있도록.
+  const a11yParts: string[] = [gym.name];
+  if (gym.brand) {
+    a11yParts.push(gym.brand);
+  }
+  if (gym.address) {
+    a11yParts.push(gym.address);
+  }
+  const accessibilityLabel = a11yParts.join(', ');
 
   const renderContent = ({ pressed }: PressableStateCallbackType) => {
     const pressedStyle: ViewStyle | null =
@@ -247,12 +276,12 @@ function GymCard({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={gym.name}
+      accessibilityLabel={accessibilityLabel}
     >
       {renderContent}
     </Pressable>
   );
-}
+});
 
 function EmptyState(): JSX.Element {
   const theme = useTokens();
@@ -314,6 +343,9 @@ function makeStyles(theme: Theme) {
       color: theme.text,
       letterSpacing: -0.15,
       padding: 0,
+    },
+    searchClear: {
+      padding: space[1],
     },
     chipScroll: {
       flexGrow: 0,

@@ -132,6 +132,11 @@ function GymHeader({ gym }: { gym: GymDetail }): JSX.Element {
   );
 }
 
+// I3: MetaCard 에서 styles 를 한 번만 만들어 MetaRow 에 prop 으로 전달.
+// 이전에는 MetaRow 가 각자 useTokens + useMemo(makeMetaStyles) 를 호출해서
+// 카드당 4회 StyleSheet.create 가 일어났음.
+type MetaStyles = ReturnType<typeof makeMetaStyles>;
+
 function GymMetaCard({ gym }: { gym: GymDetail }): JSX.Element {
   const theme = useTokens();
   const styles = useMemo(() => makeMetaStyles(theme), [theme]);
@@ -141,13 +146,15 @@ function GymMetaCard({ gym }: { gym: GymDetail }): JSX.Element {
 
   return (
     <View style={styles.card}>
-      <MetaRow label={t('gym.detail.metaPhone')} value={gym.phone} />
+      <MetaRow styles={styles} label={t('gym.detail.metaPhone')} value={gym.phone} />
       <MetaRow
+        styles={styles}
         label={t('gym.detail.metaHours')}
         value={openingHours}
         multiline
       />
       <MetaRow
+        styles={styles}
         label={t('gym.detail.metaCycle')}
         value={
           gym.settingCycleDays !== null
@@ -156,6 +163,7 @@ function GymMetaCard({ gym }: { gym: GymDetail }): JSX.Element {
         }
       />
       <MetaRow
+        styles={styles}
         label={t('gym.detail.metaFeatures')}
         value={features}
         multiline
@@ -165,16 +173,16 @@ function GymMetaCard({ gym }: { gym: GymDetail }): JSX.Element {
 }
 
 function MetaRow({
+  styles,
   label,
   value,
   multiline = false,
 }: {
+  styles: MetaStyles;
   label: string;
   value: string | null;
   multiline?: boolean;
 }): JSX.Element {
-  const theme = useTokens();
-  const styles = useMemo(() => makeMetaStyles(theme), [theme]);
   return (
     <View style={styles.row}>
       <Text style={styles.label}>{label}</Text>
@@ -251,7 +259,10 @@ function RoutesSection({
                 }}
                 disabled={isFetchingNextPage}
               >
-                {t('gym.detail.routesLoadMore')}
+                {/* I4: 로딩 중엔 텍스트 스왑으로 반응성 시각 피드백 */}
+                {isFetchingNextPage
+                  ? t('common.loading')
+                  : t('gym.detail.routesLoadMore')}
               </SecondaryButton>
             </View>
           ) : null}
