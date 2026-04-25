@@ -8,6 +8,14 @@ import {
   type LogAttemptBody,
   type UpdateAttemptBody,
 } from '@/lib/schemas/attempt';
+import {
+  GymDetailSchema,
+  GymListSchema,
+  RouteListSchema,
+  type GymDetail,
+  type GymList,
+  type RouteList,
+} from '@/lib/schemas/gym';
 import { HealthResponseSchema, type HealthResponse } from '@/lib/schemas/health';
 import { MeSchema, type Me } from '@/lib/schemas/me';
 import { MeStatsSchema, type MeStats } from '@/lib/schemas/meStats';
@@ -207,6 +215,84 @@ export function deleteAttempt(
     path: `/api/v1/attempts/${encodeURIComponent(extId)}`,
     accessToken,
     schema: z.void(),
+    signal,
+  });
+}
+
+// ===== Gyms =====
+
+/**
+ * `GET /api/v1/gyms` — 암장 검색·목록 (커서 기반).
+ *
+ * 비인증 엔드포인트. `q` / `brand` 는 부분 일치 / 정확 일치 조합 (백엔드 스펙 참조).
+ */
+export function fetchGyms(
+  cursor?: number | null,
+  q?: string,
+  brand?: string,
+  size?: number,
+  signal?: AbortSignal,
+): Promise<GymList> {
+  const params = new URLSearchParams();
+  if (cursor !== undefined && cursor !== null) {
+    params.set('cursor', String(cursor));
+  }
+  if (q !== undefined && q.length > 0) {
+    params.set('q', q);
+  }
+  if (brand !== undefined && brand.length > 0) {
+    params.set('brand', brand);
+  }
+  if (size !== undefined) {
+    params.set('size', String(size));
+  }
+  const qs = params.toString();
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/gyms${qs ? `?${qs}` : ''}`,
+    schema: GymListSchema,
+    signal,
+  });
+}
+
+/** `GET /api/v1/gyms/{extId}` — 암장 상세 (비인증). */
+export function fetchGym(
+  extId: string,
+  signal?: AbortSignal,
+): Promise<GymDetail> {
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/gyms/${encodeURIComponent(extId)}`,
+    schema: GymDetailSchema,
+    signal,
+  });
+}
+
+/**
+ * `GET /api/v1/gyms/{gymExtId}/routes` — 암장 활성 루트 목록.
+ *
+ * 인증 필수 (SecurityConfig 의 `/api/v1/gyms/*\/routes` 매처).
+ */
+export function fetchGymRoutes(
+  accessToken: string,
+  gymExtId: string,
+  cursor?: number | null,
+  size?: number,
+  signal?: AbortSignal,
+): Promise<RouteList> {
+  const params = new URLSearchParams();
+  if (cursor !== undefined && cursor !== null) {
+    params.set('cursor', String(cursor));
+  }
+  if (size !== undefined) {
+    params.set('size', String(size));
+  }
+  const qs = params.toString();
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/gyms/${encodeURIComponent(gymExtId)}/routes${qs ? `?${qs}` : ''}`,
+    accessToken,
+    schema: RouteListSchema,
     signal,
   });
 }

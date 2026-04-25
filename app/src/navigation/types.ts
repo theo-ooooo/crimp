@@ -8,8 +8,26 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 export type RootStackParamList = {
   Home: undefined;
   SessionList: undefined;
-  StartSession: undefined;
+  /**
+   * 세션 시작 화면. 선택적으로 특정 암장에서 바로 시작하도록 prefil 용 params 를 받는다.
+   * (Gym 상세 화면의 "이 암장에서 세션 시작" CTA 에서 전달.)
+   * StartSessionScreen 본체 수정은 별도 PR.
+   */
+  StartSession:
+    | {
+        gymExtId?: string;
+        gymName?: string;
+      }
+    | undefined;
   SessionDetail: { extId: string };
+  /**
+   * 암장 검색·목록 (비인증 허용).
+   */
+  GymSearch: undefined;
+  /**
+   * 암장 상세. 활성 루트 목록은 인증 필요 (화면 내부에서 gate 처리).
+   */
+  GymDetail: { extId: string };
   /**
    * 디자인 프리미티브 미리보기 (네비게이션 버튼 없이 딥링크/개발 모드 전용).
    */
