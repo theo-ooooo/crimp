@@ -108,6 +108,9 @@ export async function apiRequest<TBody, TResponse>(
     throw new ApiError(response.status, envelope.data.error);
   }
 
+  // 백엔드가 `@JsonInclude(NON_NULL)` 로 직렬화하므로 payload 가 null 이면 `data` 키가
+  // 누락되어 `envelope.data.data === undefined`. 비어있는 success 를 받을 가능성이 있는
+  // 호출부는 스키마를 `z.void()` / `z.unknown().optional()` / `z.null()` 로 정의할 것.
   const parsed = schema.safeParse(envelope.data.data);
   if (!parsed.success) {
     throw new ApiSchemaError('응답 스키마 검증 실패', parsed.error.issues);

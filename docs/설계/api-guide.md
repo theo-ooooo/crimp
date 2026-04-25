@@ -85,10 +85,18 @@
 
 성공 DELETE(`/sessions/{extId}`, `/attempts/{extId}`, `/auth/logout`) 는 전통적인 REST 관례대로 **바디 없이 204** 를 반환한다. envelope 로 감싸지 않으며 클라이언트는 HTTP status 만으로 성공을 판단한다.
 
+### 직렬화 규약 — `null` 필드 제거
+
+`ApiResponse` 는 `@JsonInclude(NON_NULL)` 로 직렬화되므로 **`null` 필드는 응답에 포함되지 않는다**.
+
+- 성공 시 `error` 키는 항상 누락
+- 실패 시 `data` 키는 항상 누락
+- **payload 가 `null` 인 성공 응답** (e.g. body 없는 success) 은 `data` 필드도 누락된다 → 클라이언트는 `{ "status": true }` 만 받을 수 있음. 호출부 zod 스키마는 `z.void()` / `z.unknown().optional()` 로 받거나, 백엔드가 `204` 를 반환하도록 설계할 것.
+
 ### 구현 메모
 
 - 서버측: `GlobalResponseWrapper`(`ResponseBodyAdvice`) 가 모든 컨트롤러 반환값을 `ApiResponse.success(...)` 로 자동 래핑. `@ExceptionHandler` 는 `ApiResponse.failure(ErrorBody.of(...))` 를 `ResponseEntity.status(...)` 로 감싸 반환한다.
-- Actuator(`/actuator/**`), Swagger UI(`/swagger-ui/**`), OpenAPI(`/v3/api-docs/**`) 는 래핑 대상에서 제외된다.
+- Actuator(`/actuator/**`), Swagger UI(`/swagger-ui/**`), OpenAPI(`/v3/api-docs/**`) 는 래핑 대상에서 제외된다 — 정확히 prefix 거나 prefix + `/` 매칭만 skip (예: `/actuator-other` 는 일반 응답).
 - `meta.requestId` / `meta.serverTime` 는 현재 스펙에서 제거. 추적은 `X-Request-Id` 헤더로 일원화(섹션 10 참조).
 
 ## 5. 에러 코드 체계
