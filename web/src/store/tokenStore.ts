@@ -26,8 +26,11 @@ export interface TokenState {
   hydrated: boolean;
   hydrate: () => void;
   setAccessToken: (token: string | null) => void;
-  setRefreshToken: (token: string | null) => void;
-  /** access·refresh 를 한 번에 저장 (로그인·refresh 응답 후 호출). */
+  /**
+   * access·refresh 를 한 번에 저장 (로그인·refresh 응답 후 호출).
+   * 단독 setter (`setRefreshToken`) 는 의도적으로 노출하지 않는다 —
+   * refresh 토큰만 갱신되는 정상 흐름이 없어 access 와 분리해 저장하면 일관성 깨짐.
+   */
   setTokens: (tokens: { accessToken: string; refreshToken: string }) => void;
   clear: () => void;
 }
@@ -66,10 +69,6 @@ export const useTokenStore = create<TokenState>((set) => ({
   setAccessToken: (token) => {
     writeKey(ACCESS_KEY, token);
     set({ accessToken: token });
-  },
-  setRefreshToken: (token) => {
-    writeKey(REFRESH_KEY, token);
-    set({ refreshToken: token });
   },
   setTokens: ({ accessToken, refreshToken }) => {
     writeKey(ACCESS_KEY, accessToken);

@@ -14,7 +14,7 @@ import { useAccessToken, useTokenStore } from '@/store/tokenStore';
  * `/login` — Kakao OIDC 소셜 로그인 + 개발자 모드 ID 토큰 폴백.
  *
  * 흐름:
- * 1) Kakao JS SDK 를 CDN 으로 로드 (`afterInteractive`).
+ * 1) Kakao JS SDK 를 CDN 으로 로드 (`afterInteractive`, SRI integrity 적용).
  * 2) `Kakao.init(NEXT_PUBLIC_KAKAO_APP_KEY)` — 키 미설정 시 카카오 버튼은 비활성화.
  * 3) `Kakao.Auth.login({ scope: 'openid' })` 팝업 → 응답 객체에서 `id_token` 추출.
  * 4) `POST /api/v1/auth/oauth/kakao` 로 교환 → `tokenStore.setTokens` → `/` 이동.
@@ -27,6 +27,12 @@ import { useAccessToken, useTokenStore } from '@/store/tokenStore';
  */
 
 const KAKAO_APP_KEY = process.env.NEXT_PUBLIC_KAKAO_APP_KEY ?? '';
+
+// Kakao JS SDK v2.7.1 SHA-384 — 버전 업 시 재계산:
+// `curl -sL https://t1.kakaocdn.net/kakao_js_sdk/2.7.1/kakao.min.js | openssl dgst -sha384 -binary | openssl base64 -A`
+const KAKAO_SDK_URL = 'https://t1.kakaocdn.net/kakao_js_sdk/2.7.1/kakao.min.js';
+const KAKAO_SDK_INTEGRITY =
+  'sha384-kDljxUXHaJ9xAb2AzRd59KxjrFjzHa5TAoFQ6GbYTCAG0bjM55XohjjDT7tDDC01';
 
 // ===== Kakao SDK 타입 (CDN 로드되는 전역 객체용 최소 선언) =====
 //
@@ -57,12 +63,28 @@ declare global {
 function extractIdToken(authObj: unknown): string | null {
   if (!authObj || typeof authObj !== 'object') return null;
   const record = authObj as Record<string, unknown>;
-  // 표준 OIDC 응답 키 우선, 일부 SDK 버전 대비 camelCase 도 시도.
-  const candidates = [record.id_token, record.idToken, record.id_Token];
+  // 표준 OIDC 응답 키 + 일부 SDK 버전 대비 camelCase 만 시도. PascalCase 변형은 표준에
+  // 없으므로 제외.
+  const candidates = [record.id_token, record.idToken];
   for (const c of candidates) {
     if (typeof c === 'string' && c.length > 0) return c;
   }
   return null;
+}
+
+/**
+ * Kakao SDK 가 fail 콜백에 넘기는 객체는 `{error, error_description}` 같은 형태일 수 있다.
+ * `toUserMessage` 가 일관되게 처리하도록 Error 인스턴스로 정규화한다.
+ */
+function normalizeKakaoError(err: unknown): Error {
+  if (err instanceof Error) return err;
+  if (err && typeof err === 'object') {
+    const r = err as Record<string, unknown>;
+    const desc = typeof r.error_description === 'string' ? r.error_description : null;
+    const code = typeof r.error === 'string' ? r.error : null;
+    return new Error(desc ?? code ?? 'Kakao SDK error');
+  }
+  return new Error(typeof err === 'string' ? err : 'Kakao SDK error');
 }
 
 export default function LoginPage(): JSX.Element {
@@ -74,7 +96,7 @@ export default function LoginPage(): JSX.Element {
   const [sdkReady, setSdkReady] = useState<boolean>(false);
   const [devMode, setDevMode] = useState<boolean>(false);
   const [devToken, setDevToken] = useState<string>('');
-  const [kakaoError, setKakaoError] = useState<unknown>(null);
+  const [kakaoError, setKakaoError] = useState<Error | null>(null);
 
   const hasAppKey = KAKAO_APP_KEY.length > 0;
 
@@ -85,11 +107,29 @@ export default function LoginPage(): JSX.Element {
     }
   }, [hydrated, accessToken, router]);
 
+  // I3: id_token → 백엔드 교환 + 성공 시 홈으로 — 두 진입점(카카오·dev) 공통 헬퍼.
+  const submitIdToken = useCallback(
+    (idToken: string) => {
+      exchange.mutate(
+        { provider: 'kakao', idToken },
+        {
+          onSuccess: () => {
+            setDevToken('');
+            setKakaoError(null);
+            router.replace('/');
+          },
+        },
+      );
+    },
+    [exchange, router],
+  );
+
   const handleKakaoLogin = useCallback(() => {
     setKakaoError(null);
     if (typeof window === 'undefined') return;
     const sdk = window.Kakao;
     if (!sdk || !sdk.isInitialized()) {
+      console.error('[login] kakao-sdk-not-ready');
       setKakaoError(new Error('Kakao SDK is not ready'));
       return;
     }
@@ -99,43 +139,31 @@ export default function LoginPage(): JSX.Element {
       success: (authObj: unknown) => {
         const idToken = extractIdToken(authObj);
         if (!idToken) {
+          console.error('[login] kakao-id-token-missing', authObj);
           setKakaoError(new Error('id_token missing in Kakao response'));
           return;
         }
-        exchange.mutate(
-          { provider: 'kakao', idToken },
-          {
-            onSuccess: () => {
-              router.replace('/');
-            },
-          },
-        );
+        submitIdToken(idToken);
       },
       fail: (err: unknown) => {
-        setKakaoError(err);
+        console.error('[login] kakao-auth-fail', err);
+        setKakaoError(normalizeKakaoError(err));
       },
     });
-  }, [exchange, router]);
+  }, [submitIdToken]);
 
   const handleDevSubmit = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
       const trimmed = devToken.trim();
       if (!trimmed) return;
-      exchange.mutate(
-        { provider: 'kakao', idToken: trimmed },
-        {
-          onSuccess: () => {
-            router.replace('/');
-          },
-        },
-      );
+      submitIdToken(trimmed);
     },
-    [devToken, exchange, router],
+    [devToken, submitIdToken],
   );
 
-  // hydration 전이거나, 이미 로그인된 상태(redirect 직전)면 placeholder.
-  if (!hydrated || accessToken) {
+  // hydration 전에는 일반 로딩 placeholder.
+  if (!hydrated) {
     return (
       <main
         aria-busy="true"
@@ -149,6 +177,19 @@ export default function LoginPage(): JSX.Element {
     );
   }
 
+  // 이미 로그인된 사용자 진입 — 안내 메시지 + redirect (useEffect 가 처리).
+  if (accessToken) {
+    return (
+      <main
+        aria-live="polite"
+        className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-3 bg-bg px-6 py-10"
+      >
+        <h1 className="text-h2 font-bold text-text">{t('common.brand')}</h1>
+        <p className="text-body text-text-2">{t('auth.login.alreadyLoggedIn')}</p>
+      </main>
+    );
+  }
+
   const errorToShow = exchange.error ?? kakaoError;
 
   return (
@@ -156,9 +197,8 @@ export default function LoginPage(): JSX.Element {
       {/* CDN 로드: 키가 있을 때만 init 시도. */}
       {hasAppKey ? (
         <Script
-          // TODO(auth): Kakao SDK SRI integrity 해시 추가
-          // (`curl -sL <url> | openssl dgst -sha384 -binary | openssl base64 -A`).
-          src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.1/kakao.min.js"
+          src={KAKAO_SDK_URL}
+          integrity={KAKAO_SDK_INTEGRITY}
           crossOrigin="anonymous"
           strategy="afterInteractive"
           onLoad={() => {
@@ -170,6 +210,7 @@ export default function LoginPage(): JSX.Element {
             setSdkReady(true);
           }}
           onError={() => {
+            console.error('[login] kakao-sdk-load-failed', KAKAO_SDK_URL);
             setKakaoError(new Error('Failed to load Kakao SDK'));
           }}
         />
