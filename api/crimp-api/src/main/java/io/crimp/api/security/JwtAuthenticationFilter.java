@@ -1,7 +1,8 @@
 package io.crimp.api.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.crimp.common.response.ErrorResponse;
+import io.crimp.common.response.ApiResponse;
+import io.crimp.common.response.ErrorBody;
 import io.crimp.domain.auth.JwtProvider;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -61,7 +62,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             response.setCharacterEncoding(StandardCharsets.UTF_8.name());
             objectMapper.writeValue(
                     response.getOutputStream(),
-                    ErrorResponse.of("AUTH_INVALID", "Invalid or expired access token"));
+                    ApiResponse.failure(ErrorBody.of("AUTH_INVALID", "Invalid or expired access token")));
         }
     }
 }

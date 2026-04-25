@@ -1,6 +1,7 @@
 package io.crimp.api.auth;
 
-import io.crimp.common.response.ErrorResponse;
+import io.crimp.common.response.ApiResponse;
+import io.crimp.common.response.ErrorBody;
 import io.crimp.core.entity.enums.OauthProvider;
 import io.crimp.domain.auth.AuthException;
 import io.crimp.domain.auth.AuthService;
@@ -48,13 +49,13 @@ public class AuthController {
     }
 
     @ExceptionHandler(AuthException.class)
-    public ResponseEntity<ErrorResponse> handleAuth(AuthException e) {
+    public ResponseEntity<ApiResponse<Void>> handleAuth(AuthException e) {
         int status = switch (e.code()) {
             case "AUTH_PROVIDER_UNSUPPORTED" -> 400;
             case "AUTH_INVALID", "AUTH_USER_MISSING" -> 401;
             default -> 401;
         };
-        return ResponseEntity.status(status).body(ErrorResponse.of(e.code(), e.getMessage()));
+        return ResponseEntity.status(status).body(ApiResponse.failure(ErrorBody.of(e.code(), e.getMessage())));
     }
 
     private static OauthProvider parseProvider(String raw) {

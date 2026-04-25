@@ -43,7 +43,7 @@ export const AttemptSchema = z.object({
 export type Attempt = z.infer<typeof AttemptSchema>;
 
 export const AttemptListSchema = z.object({
-  data: z.array(AttemptSchema),
+  items: z.array(AttemptSchema),
 });
 
 export type AttemptList = z.infer<typeof AttemptListSchema>;

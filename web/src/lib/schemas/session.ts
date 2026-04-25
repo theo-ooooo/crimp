@@ -36,9 +36,9 @@ export const SessionPageSchema = z.object({
 
 export type SessionPage = z.infer<typeof SessionPageSchema>;
 
-/** `GET /me/sessions` 응답. */
+/** `GET /me/sessions` 응답 `data` 필드 (envelope 내부 payload). */
 export const SessionListSchema = z.object({
-  data: z.array(SessionSchema),
+  items: z.array(SessionSchema),
   page: SessionPageSchema,
 });
 

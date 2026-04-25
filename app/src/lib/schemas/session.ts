@@ -31,7 +31,7 @@ export const SessionPageSchema = z.object({
 export type SessionPage = z.infer<typeof SessionPageSchema>;
 
 export const SessionListSchema = z.object({
-  data: z.array(SessionSchema),
+  items: z.array(SessionSchema),
   page: SessionPageSchema,
 });
 

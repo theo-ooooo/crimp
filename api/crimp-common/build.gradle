@@ -4,6 +4,11 @@ dependencies {
     implementation 'org.springframework:spring-web'
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 
+    // 응답 envelope 의 `@JsonInclude(NON_NULL)` 을 위한 Jackson 어노테이션 API.
+    api 'com.fasterxml.jackson.core:jackson-annotations'
+    // 직렬화 회귀 테스트용 (런타임은 사용 모듈이 spring-boot-starter-web 에 의존하면서 들어옴).
+    testImplementation 'com.fasterxml.jackson.core:jackson-databind'
+
     implementation 'jakarta.persistence:jakarta.persistence-api'
     implementation 'jakarta.validation:jakarta.validation-api'
 

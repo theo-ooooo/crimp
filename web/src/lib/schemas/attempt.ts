@@ -48,9 +48,9 @@ export const AttemptSchema = z.object({
 
 export type Attempt = z.infer<typeof AttemptSchema>;
 
-/** `GET /sessions/{sessionExtId}/attempts` 응답. */
+/** `GET /sessions/{sessionExtId}/attempts` 응답 `data` 필드 (envelope 내부 payload). */
 export const AttemptListSchema = z.object({
-  data: z.array(AttemptSchema),
+  items: z.array(AttemptSchema),
 });
 
 export type AttemptList = z.infer<typeof AttemptListSchema>;
