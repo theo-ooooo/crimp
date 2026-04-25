@@ -227,6 +227,21 @@ export const motion = {
   spring: { stiffness: 180, damping: 20 },
 } as const;
 
+/**
+ * `#RRGGBB` hex 에 알파를 덧붙여 `#RRGGBBAA` 를 생성.
+ * RN 은 8자리 hex 를 지원하므로 그대로 style 값에 넣을 수 있다.
+ *
+ * 예: `withAlpha(theme.semantic.danger, 0.08)` → `#E0313114`
+ *
+ * @param hex  `#RRGGBB` (6자리) 문자열
+ * @param alpha 0~1 사이 불투명도
+ */
+export function withAlpha(hex: string, alpha: number): string {
+  if (!/^#[0-9A-Fa-f]{6}$/.test(hex)) return hex;
+  const a = Math.round(Math.max(0, Math.min(1, alpha)) * 255);
+  return hex + a.toString(16).padStart(2, '0').toUpperCase();
+}
+
 export const touchTarget = { min: 44 } as const;
 
 export type Theme = {
