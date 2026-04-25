@@ -6,14 +6,13 @@ import io.crimp.core.repository.log.SessionAttemptRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.springframework.data.domain.Pageable;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Collection;
-import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -54,8 +53,8 @@ class MeStatsServiceTest {
         when(attemptRepo.countSendsByUserId(eq(42L), anyCollection())).thenReturn(0L);
         when(attemptRepo.countSendsByUserIdAndLoggedAtBetween(eq(42L), anyCollection(), any(), any()))
                 .thenReturn(0L);
-        when(attemptRepo.findTopGradeValueByUserId(eq(42L), anyCollection(), any(Pageable.class)))
-                .thenReturn(List.of());
+        when(attemptRepo.findTopGradeValueByUserId(eq(42L), anyCollection()))
+                .thenReturn(Optional.empty());
 
         MeStatsView view = service.getStats(42L);
 
@@ -76,8 +75,8 @@ class MeStatsServiceTest {
         when(attemptRepo.countSendsByUserId(eq(7L), anyCollection())).thenReturn(412L);
         when(attemptRepo.countSendsByUserIdAndLoggedAtBetween(eq(7L), anyCollection(), any(), any()))
                 .thenReturn(14L);
-        when(attemptRepo.findTopGradeValueByUserId(eq(7L), anyCollection(), any(Pageable.class)))
-                .thenReturn(List.of("V6"));
+        when(attemptRepo.findTopGradeValueByUserId(eq(7L), anyCollection()))
+                .thenReturn(Optional.of("V6"));
 
         MeStatsView view = service.getStats(7L);
 
@@ -92,8 +91,8 @@ class MeStatsServiceTest {
     void getStats_weekBoundaries_areMondayStartSundayEndUtc() {
         when(sessionRepo.countByUserIdAndDeletedAtIsNull(anyLong())).thenReturn(0L);
         when(attemptRepo.countSendsByUserId(anyLong(), anyCollection())).thenReturn(0L);
-        when(attemptRepo.findTopGradeValueByUserId(anyLong(), anyCollection(), any(Pageable.class)))
-                .thenReturn(List.of());
+        when(attemptRepo.findTopGradeValueByUserId(anyLong(), anyCollection()))
+                .thenReturn(Optional.empty());
 
         // 캡처용 응답은 0 으로 두고, 호출 시 전달된 Instant 인자만 검증
         ArgumentCaptor<Instant> fromCap = ArgumentCaptor.forClass(Instant.class);
@@ -122,8 +121,8 @@ class MeStatsServiceTest {
         when(attemptRepo.countSendsByUserId(anyLong(), anyCollection())).thenReturn(1L);
         when(attemptRepo.countSendsByUserIdAndLoggedAtBetween(anyLong(), anyCollection(), any(), any()))
                 .thenReturn(0L);
-        when(attemptRepo.findTopGradeValueByUserId(anyLong(), anyCollection(), any(Pageable.class)))
-                .thenReturn(List.of("V8", "V7"));
+        when(attemptRepo.findTopGradeValueByUserId(anyLong(), anyCollection()))
+                .thenReturn(Optional.of("V8"));
 
         MeStatsView view = service.getStats(99L);
         assertThat(view.topGrade()).isEqualTo("V8");
@@ -137,8 +136,8 @@ class MeStatsServiceTest {
         when(attemptRepo.countSendsByUserId(anyLong(), anyCollection())).thenReturn(0L);
         when(attemptRepo.countSendsByUserIdAndLoggedAtBetween(anyLong(), anyCollection(), any(), any()))
                 .thenReturn(0L);
-        when(attemptRepo.findTopGradeValueByUserId(anyLong(), anyCollection(), any(Pageable.class)))
-                .thenReturn(List.of());
+        when(attemptRepo.findTopGradeValueByUserId(anyLong(), anyCollection()))
+                .thenReturn(Optional.empty());
 
         service.getStats(1L);
 

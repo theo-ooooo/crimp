@@ -4,7 +4,6 @@ import io.crimp.core.entity.enums.AttemptResult;
 import io.crimp.core.repository.log.ClimbingSessionRepository;
 import io.crimp.core.repository.log.SessionAttemptRepository;
 import org.springframework.context.annotation.Profile;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -68,13 +67,13 @@ public class MeStatsService {
         long weekSends = attemptRepository
                 .countSendsByUserIdAndLoggedAtBetween(userId, SEND_RESULTS, weekFrom, weekTo);
 
-        List<String> topGrade = attemptRepository
-                .findTopGradeValueByUserId(userId, SEND_RESULTS, PageRequest.of(0, 1));
-        String topGradeValue = topGrade.isEmpty() ? null : topGrade.get(0);
+        String topGradeValue = attemptRepository
+                .findTopGradeValueByUserId(userId, SEND_RESULTS)
+                .orElse(null);
 
         return new MeStatsView(
-                Math.toIntExact(weekSessions),
-                Math.toIntExact(weekSends),
+                weekSessions,
+                weekSends,
                 totalSessions,
                 totalSends,
                 topGradeValue,

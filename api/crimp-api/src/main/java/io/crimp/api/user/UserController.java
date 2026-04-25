@@ -52,7 +52,7 @@ public class UserController {
     }
 
     @GetMapping("/me/stats")
-    public MeStatsResponse getMyStats(@AuthenticationPrincipal CrimpPrincipal principal) {
+    public MeStatsResponse myStats(@AuthenticationPrincipal CrimpPrincipal principal) {
         return MeStatsResponse.of(meStatsService.getStats(principal.userId()));
     }
 
@@ -112,8 +112,8 @@ public class UserController {
      * weekRange 는 도메인 뷰의 평면 필드(weekStart/weekEnd)를 nested 구조로 변환.
      */
     public record MeStatsResponse(
-            int weekSessions,
-            int weekSends,
+            long weekSessions,
+            long weekSends,
             long totalSessions,
             long totalSends,
             String topGrade,
