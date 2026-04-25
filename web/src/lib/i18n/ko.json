@@ -19,6 +19,20 @@
     "delete": "삭제",
     "empty": "-"
   },
+  "auth": {
+    "login": {
+      "title": "오늘도 잘 붙어봐요",
+      "tagline": "카카오 계정으로 1초 만에 시작하세요.",
+      "kakaoCta": "카카오로 시작하기",
+      "kakaoUnavailableHint": "카카오 앱키가 설정되지 않았어요. 개발자 모드를 사용하세요.",
+      "devModeToggle": "개발자 모드 · ID 토큰 직접 입력",
+      "devModeHint": "Kakao SDK 없이 직접 발급받은 OIDC id_token 으로 로그인합니다. 운영 환경에서는 사용하지 마세요.",
+      "devTokenLabel": "ID 토큰 (id_token)",
+      "devSubmit": "토큰으로 로그인",
+      "errorTitle": "로그인하지 못했어요",
+      "alreadyLoggedIn": "이미 로그인되어 있어요. 홈으로 이동합니다."
+    }
+  },
   "home": {
     "tagline": "클라이머를 위한 디지털 홈",
     "description": "암장·루트·등반 로그·크루·아웃도어를 한 곳에서.",

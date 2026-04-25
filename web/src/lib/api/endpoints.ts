@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
 import {
+  TokenResponseSchema,
+  type OauthProvider,
+  type TokenResponse,
+} from '@/lib/schemas/auth';
+import {
   AttemptListSchema,
   AttemptSchema,
   type Attempt,
@@ -29,6 +34,59 @@ import {
 } from '@/lib/schemas/session';
 
 import { apiRequest } from './client';
+
+// ===== Auth =====
+
+/**
+ * `POST /api/v1/auth/oauth/{provider}` — provider OIDC `id_token` 을 백엔드 JWT 로 교환.
+ *
+ * 인증이 필요 없는 공개 엔드포인트이므로 `accessToken` 을 전달하지 않는다.
+ */
+export function exchangeOauth(
+  provider: OauthProvider,
+  idToken: string,
+  signal?: AbortSignal,
+): Promise<TokenResponse> {
+  return apiRequest({
+    method: 'POST',
+    path: `/api/v1/auth/oauth/${encodeURIComponent(provider)}`,
+    body: { idToken },
+    schema: TokenResponseSchema,
+    signal,
+  });
+}
+
+/**
+ * `POST /api/v1/auth/refresh` — refresh 토큰으로 access·refresh 재발급.
+ */
+export function refreshTokens(
+  refreshToken: string,
+  signal?: AbortSignal,
+): Promise<TokenResponse> {
+  return apiRequest({
+    method: 'POST',
+    path: '/api/v1/auth/refresh',
+    body: { refreshToken },
+    schema: TokenResponseSchema,
+    signal,
+  });
+}
+
+/**
+ * `POST /api/v1/auth/logout` — refresh 토큰 폐기 (Redis 블랙리스트). 204 No Content.
+ */
+export function logout(
+  refreshToken: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  return apiRequest({
+    method: 'POST',
+    path: '/api/v1/auth/logout',
+    body: { refreshToken },
+    schema: z.void(),
+    signal,
+  });
+}
 
 /**
  * `GET /api/v1/health` (공개) 호출.

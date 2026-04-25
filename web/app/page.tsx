@@ -75,17 +75,13 @@ function LoggedOut(): JSX.Element {
         {t('home.loginPromptDescription')}
       </p>
       <div className="mt-2">
-        {/*
-          `/login` 라우트는 후속 PR 에서 추가 예정. 현재는 typed-routes 를 우회하기 위해
-          `<a>` 로 placeholder 링크만 둔다. 라우트 생성 후 `<Link>` + 타입 추론으로 교체.
-        */}
-        <a
+        <Link
           href="/login"
           aria-label={t('home.loginCta')}
           className="inline-flex h-14 w-full items-center justify-center rounded-lg bg-accent text-title font-bold text-accent-on transition-transform duration-fast ease-standard active:scale-[0.98]"
         >
           {t('home.loginCta')}
-        </a>
+        </Link>
       </div>
     </main>
   );
