@@ -111,6 +111,7 @@
       "gradeLabel": "그레이드",
       "holdLabel": "홀드 색",
       "mediaLabel": "영상 · 사진",
+      "mediaAttached": "첨부됨",
       "cameraVideoTitle": "동영상 촬영",
       "cameraVideoHint": "최대 60초",
       "cameraPhotoTitle": "사진 촬영",

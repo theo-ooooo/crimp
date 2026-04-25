@@ -24,7 +24,7 @@
  * Z-index: 70 (CameraSheet 의 90 보다 낮다 — CameraSheet 는 시트 위에 덮인다).
  */
 
-import { useEffect, useId, useState, type FC } from 'react';
+import { useEffect, useId, useRef, useState, type FC } from 'react';
 
 import {
   CrimpIcon,
@@ -81,6 +81,12 @@ export interface LogAttemptSheetProps {
    * mode 는 video/photo 둘 중 하나.
    */
   onCamera: (mode: CameraSheetMode) => void;
+  /**
+   * CameraSheet 가 닫힌 후 미디어가 첨부되었는지 여부.
+   * 부모(SessionDetailPage)가 onShoot 완료 시 true 로 셋, 시트 닫힐 때 false 로 리셋.
+   * 현재는 시각적 indicator 만 — 실제 mediaId 전송은 F5.
+   */
+  mediaAttached?: boolean;
 }
 
 /**
@@ -109,6 +115,7 @@ export const LogAttemptSheet: FC<LogAttemptSheetProps> = ({
   accessToken,
   onClose,
   onCamera,
+  mediaAttached = false,
 }) => {
   const titleId = useId();
   const reducedMotion = useReducedMotion();
@@ -120,10 +127,39 @@ export const LogAttemptSheet: FC<LogAttemptSheetProps> = ({
   const [hold, setHold] = useState<HoldColorKey | null>('red');
   const [note, setNote] = useState<string>('');
 
-  // Esc 키로 닫기.
+  // 시트 컨테이너 ref — focus trap 범위 제한 + 첫 포커스 대상 탐색.
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+
+  // Esc 키로 닫기 + Tab focus trap (시트 외부로 포커스 빠지지 않도록 wrap).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const root = sheetRef.current;
+      if (!root) return;
+      const focusables = root.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      // 활성 요소가 시트 밖에 있으면 강제로 첫 요소로 끌어온다.
+      if (!active || !root.contains(active)) {
+        e.preventDefault();
+        first.focus();
+        return;
+      }
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => {
@@ -131,11 +167,28 @@ export const LogAttemptSheet: FC<LogAttemptSheetProps> = ({
     };
   }, [onClose]);
 
+  // 마운트 후 첫 포커스를 시트 내부 첫 버튼으로 이동 (Result picker 의 첫 옵션).
+  useEffect(() => {
+    const root = sheetRef.current;
+    if (!root) return;
+    const first = root.querySelector<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), textarea:not([disabled])',
+    );
+    first?.focus();
+  }, []);
+
   const onSave = () => {
+    // V0..V8 → 0..8 정수 매핑. 백엔드 BigDecimal `gradeNumeric` 채움 → MetaCard `pickTopGrade`
+    // 가 parseGradeNumeric 폴백 없이 정확히 정렬된다.
+    const gradeNumeric = grade ? Number.parseInt(grade.slice(1), 10) : null;
     const body: LogAttemptBody = {
       result,
       attempts: 1,
       gradeValue: grade,
+      gradeNumeric:
+        gradeNumeric !== null && Number.isFinite(gradeNumeric)
+          ? gradeNumeric
+          : null,
       // hold 는 별도 백엔드 컬럼이 없어 tagsJson 에 직렬화한다.
       // TODO(F5): 정식 컬럼 도입 시 별도 필드로 분리.
       tagsJson: hold ? JSON.stringify({ hold }) : null,
@@ -162,6 +215,7 @@ export const LogAttemptSheet: FC<LogAttemptSheetProps> = ({
       }}
     >
       <div
+        ref={sheetRef}
         onClick={(e) => e.stopPropagation()}
         className="max-h-[92%] overflow-y-auto rounded-t-2xl bg-bg p-5 pb-12 text-text"
         style={
@@ -292,9 +346,33 @@ export const LogAttemptSheet: FC<LogAttemptSheetProps> = ({
 
         {/* Camera CTA */}
         <section className="mb-6">
-          <p className="mb-2.5 text-[12px] font-bold uppercase tracking-[0.04em] text-text-3">
-            {t('session.log.mediaLabel')}
-          </p>
+          <div className="mb-2.5 flex items-center justify-between gap-2">
+            <p className="text-[12px] font-bold uppercase tracking-[0.04em] text-text-3">
+              {t('session.log.mediaLabel')}
+            </p>
+            {mediaAttached ? (
+              <span
+                role="status"
+                aria-live="polite"
+                className="inline-flex items-center gap-1 rounded-full bg-accent-soft px-2.5 py-0.5 text-[11px] font-bold text-accent-ink"
+              >
+                <svg
+                  width="11"
+                  height="11"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M2.5 6.5l2.5 2.5 4.5-5" />
+                </svg>
+                {t('session.log.mediaAttached')}
+              </span>
+            ) : null}
+          </div>
           <div className="flex gap-2.5">
             <button
               type="button"
@@ -375,6 +453,16 @@ export const LogAttemptSheet: FC<LogAttemptSheetProps> = ({
               className="w-full resize-none rounded-2xl border-0 bg-subtle p-4 text-body font-medium text-text placeholder:text-text-3 focus:outline-none focus:ring-2 focus:ring-accent"
             />
           </label>
+          {/* 글자 수 카운터 — maxLength 도달 시 강조. */}
+          <p
+            aria-live="polite"
+            className={
+              'mt-1.5 text-right text-caption tabular-nums ' +
+              (note.length >= 300 ? 'text-accent-ink font-bold' : 'text-text-3')
+            }
+          >
+            {note.length} / 300
+          </p>
         </section>
 
         {/* 에러 */}

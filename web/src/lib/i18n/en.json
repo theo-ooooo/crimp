@@ -111,6 +111,7 @@
       "gradeLabel": "Grade",
       "holdLabel": "Hold color",
       "mediaLabel": "Video · Photo",
+      "mediaAttached": "Attached",
       "cameraVideoTitle": "Record video",
       "cameraVideoHint": "Up to 60s",
       "cameraPhotoTitle": "Take photo",

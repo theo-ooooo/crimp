@@ -55,6 +55,9 @@ export default function SessionDetailPage(): JSX.Element {
   const [logSheetOpen, setLogSheetOpen] = useState<boolean>(false);
   const [cameraMode, setCameraMode] = useState<CameraSheetMode | null>(null);
   const [recording, setRecording] = useState<boolean>(false);
+  // CameraSheet 가 onShoot 으로 닫힌 직후 LogAttemptSheet 에 첨부 indicator 노출.
+  // 시트가 닫힐 때 false 로 리셋. 실 mediaId 전송은 F5.
+  const [mediaAttached, setMediaAttached] = useState<boolean>(false);
 
   if (!hydrated) {
     return <HydrationGate />;
@@ -194,7 +197,11 @@ export default function SessionDetailPage(): JSX.Element {
         <LogAttemptSheet
           accessToken={accessToken}
           sessionExtId={extId}
-          onClose={() => setLogSheetOpen(false)}
+          mediaAttached={mediaAttached}
+          onClose={() => {
+            setLogSheetOpen(false);
+            setMediaAttached(false);
+          }}
           onCamera={(mode) => {
             setCameraMode(mode);
             setRecording(false);
@@ -226,6 +233,9 @@ export default function SessionDetailPage(): JSX.Element {
             if (typeof window !== 'undefined') {
               window.alert(t('session.log.cameraComingSoon'));
             }
+            // placeholder 단계지만 사용자 의도(촬영 완료) 는 LogAttemptSheet 에서
+            // visual feedback 으로 반영. 실 mediaId 첨부는 F5.
+            setMediaAttached(true);
             setCameraMode(null);
             setRecording(false);
           }}
