@@ -119,6 +119,42 @@
       "FAIL": "실패"
     }
   },
+  "gym": {
+    "list": {
+      "title": "암장 찾기",
+      "searchPlaceholder": "암장 이름·지역으로 검색",
+      "searchAccessibilityLabel": "암장 검색",
+      "brandAllLabel": "전체",
+      "brandFilterLabel": "브랜드 필터",
+      "emptyTitle": "검색 결과가 없어요",
+      "emptyBody": "다른 키워드나 브랜드로 다시 검색해 보세요",
+      "errorTitle": "암장 목록을 불러오지 못했어요",
+      "loadMore": "더 보기",
+      "brandFallback": "브랜드 미등록",
+      "addressFallback": "주소 미등록"
+    },
+    "detail": {
+      "title": "암장 상세",
+      "brandFallback": "브랜드 미등록",
+      "addressFallback": "주소 미등록",
+      "metaPhone": "전화",
+      "metaHours": "영업 시간",
+      "metaCycle": "세팅 주기",
+      "metaCycleUnit": "일마다",
+      "metaFeatures": "편의/특징",
+      "metaEmpty": "—",
+      "routesTitle": "활성 루트",
+      "routesLoginRequired": "활성 루트를 보려면 로그인이 필요해요",
+      "routesEmpty": "아직 등록된 루트가 없어요",
+      "routesErrorTitle": "루트 목록을 불러오지 못했어요",
+      "routesLoadMore": "더 보기",
+      "routeSetterPrefix": "세터",
+      "routeSetAtPrefix": "세팅일",
+      "routeSetterUnknown": "미표기",
+      "startSessionCta": "이 암장에서 세션 시작",
+      "errorTitle": "암장 정보를 불러오지 못했어요"
+    }
+  },
   "error": {
     "transport": "일시적 오류가 발생했어요. 잠시 후 다시 시도해 주세요.",
     "authRequired": "로그인이 필요한 작업이에요.",

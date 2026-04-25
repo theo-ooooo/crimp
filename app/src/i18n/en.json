@@ -119,6 +119,42 @@
       "FAIL": "Fail"
     }
   },
+  "gym": {
+    "list": {
+      "title": "Find a gym",
+      "searchPlaceholder": "Search by gym name or area",
+      "searchAccessibilityLabel": "Search gyms",
+      "brandAllLabel": "All",
+      "brandFilterLabel": "Brand filter",
+      "emptyTitle": "No results found",
+      "emptyBody": "Try a different keyword or brand",
+      "errorTitle": "Failed to load gyms",
+      "loadMore": "Load more",
+      "brandFallback": "Brand not listed",
+      "addressFallback": "Address not listed"
+    },
+    "detail": {
+      "title": "Gym detail",
+      "brandFallback": "Brand not listed",
+      "addressFallback": "Address not listed",
+      "metaPhone": "Phone",
+      "metaHours": "Hours",
+      "metaCycle": "Setting cycle",
+      "metaCycleUnit": "days",
+      "metaFeatures": "Features",
+      "metaEmpty": "—",
+      "routesTitle": "Active routes",
+      "routesLoginRequired": "Sign in to view active routes",
+      "routesEmpty": "No routes listed yet",
+      "routesErrorTitle": "Failed to load routes",
+      "routesLoadMore": "Load more",
+      "routeSetterPrefix": "Setter",
+      "routeSetAtPrefix": "Set on",
+      "routeSetterUnknown": "Unknown",
+      "startSessionCta": "Start a session here",
+      "errorTitle": "Failed to load gym"
+    }
+  },
   "error": {
     "transport": "Something went wrong. Please try again in a moment.",
     "authRequired": "You need to sign in for this action.",

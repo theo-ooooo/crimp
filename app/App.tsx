@@ -7,6 +7,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { t } from './src/lib/i18n';
 import type { RootStackParamList } from './src/navigation/types';
 import DesignPrimitivesScreen from './src/screens/DesignPrimitivesScreen';
+import GymDetailScreen from './src/screens/GymDetailScreen';
+import GymSearchScreen from './src/screens/GymSearchScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import SessionDetailScreen from './src/screens/SessionDetailScreen';
 import SessionListScreen from './src/screens/SessionListScreen';
@@ -60,6 +62,16 @@ export default function App(): JSX.Element {
               name="SessionDetail"
               component={SessionDetailScreen}
               options={{ title: t('session.detail.title') }}
+            />
+            <Stack.Screen
+              name="GymSearch"
+              component={GymSearchScreen}
+              options={{ title: t('gym.list.title') }}
+            />
+            <Stack.Screen
+              name="GymDetail"
+              component={GymDetailScreen}
+              options={{ title: t('gym.detail.title') }}
             />
             <Stack.Screen
               name="DesignPrimitives"
