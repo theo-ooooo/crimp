@@ -118,18 +118,6 @@
     }
   },
   "attempt": {
-    "log": {
-      "title": "시도 기록",
-      "resultLabel": "결과",
-      "attemptsLabel": "시도 횟수",
-      "gradeLabel": "난이도",
-      "gradePlaceholder": "예: V4, 5.11a",
-      "noteLabel": "메모",
-      "notePlaceholder": "자세·홀드·빌레 등 메모",
-      "submit": "기록",
-      "submitting": "기록 중...",
-      "errorTitle": "시도를 기록하지 못했습니다"
-    },
     "result": {
       "SEND": "완등",
       "FLASH": "플래시",

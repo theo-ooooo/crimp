@@ -228,6 +228,10 @@ export function LogAttemptSheet({
                       accessibilityRole="button"
                       accessibilityState={{ selected: active }}
                       accessibilityLabel={`Grade ${v}`}
+                      // 그레이드 셀 자체는 ~50dp 이지만 horizontal scroll 안에서 손가락
+                      // 정밀도가 떨어진다. 44dp 권고치 확보 + 양쪽 셀 침범 방지를 위해
+                      // 좌우 hitSlop 은 작게 (3) 위·아래는 넉넉히 (8).
+                      hitSlop={{ top: 8, bottom: 8, left: 3, right: 3 }}
                       style={pressableNeutralStyle}
                     >
                       <View
@@ -257,6 +261,9 @@ export function LogAttemptSheet({
                       accessibilityRole="button"
                       accessibilityState={{ selected: active }}
                       accessibilityLabel={`Hold ${c}`}
+                      // 홀드 셀 40dp → 44dp 권고치까지 hitSlop 으로 보강.
+                      // 양옆 셀 간격(space[2]=8) 의 절반 미만으로 두어 인접 셀 침범 회피.
+                      hitSlop={2}
                       style={pressableNeutralStyle}
                     >
                       <View
@@ -476,7 +483,10 @@ function makeStyles(theme: Theme) {
       borderColor: 'transparent',
     },
     gradeCellActive: {
+      // 라임은 배경 대비 luminance 가 높아 단색 outline 만으로는 활성 상태 식별이
+      // 약하다. accent.soft 배경을 함께 깔아 톤 차이로 보강 (라이트/다크 공통).
       borderColor: theme.accent.base,
+      backgroundColor: theme.accent.soft,
     },
     holdRow: {
       flexDirection: 'row',
@@ -493,7 +503,10 @@ function makeStyles(theme: Theme) {
       justifyContent: 'center',
     },
     holdCellActive: {
+      // grade 와 동일한 이유 — 라임 단색 outline 만으로는 약하므로 soft 배경 보강.
+      // 둥근 셀이라도 hold 점은 중앙에 26dp 작게 배치되어 주변에 충분한 여백이 있다.
       borderColor: theme.accent.base,
+      backgroundColor: theme.accent.soft,
     },
     cameraRow: {
       flexDirection: 'row',

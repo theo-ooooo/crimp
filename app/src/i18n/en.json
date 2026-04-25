@@ -118,18 +118,6 @@
     }
   },
   "attempt": {
-    "log": {
-      "title": "Log attempt",
-      "resultLabel": "Result",
-      "attemptsLabel": "# of attempts",
-      "gradeLabel": "Grade",
-      "gradePlaceholder": "e.g. V4, 5.11a",
-      "noteLabel": "Note",
-      "notePlaceholder": "Beta, holds, belayer notes...",
-      "submit": "Log",
-      "submitting": "Logging...",
-      "errorTitle": "Failed to log attempt"
-    },
     "result": {
       "SEND": "Send",
       "FLASH": "Flash",

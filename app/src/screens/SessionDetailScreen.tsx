@@ -1,6 +1,7 @@
 import { useRoute, type RouteProp } from '@react-navigation/native';
 import React, { useMemo, useState } from 'react';
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -54,6 +55,14 @@ export default function SessionDetailScreen(): JSX.Element {
   const [logSheetOpen, setLogSheetOpen] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraMode, setCameraMode] = useState<CameraMode>('video');
+  // 셔터 상태(placeholder). video 모드 첫 셔터 탭 → recording=true, 두 번째 탭 또는
+  // photo 탭 → coming-soon Alert + 시트 닫힘. 실 녹화 / 캡처는 F5.
+  const [recording, setRecording] = useState(false);
+
+  const closeCamera = () => {
+    setCameraOpen(false);
+    setRecording(false);
+  };
 
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
@@ -175,6 +184,7 @@ export default function SessionDetailScreen(): JSX.Element {
             sessionExtId={extId}
             onClose={() => setLogSheetOpen(false)}
             onCamera={(mode) => {
+              setRecording(false);
               setCameraMode(mode);
               setCameraOpen(true);
             }}
@@ -182,7 +192,19 @@ export default function SessionDetailScreen(): JSX.Element {
           <CameraSheet
             visible={cameraOpen}
             mode={cameraMode}
-            onClose={() => setCameraOpen(false)}
+            recording={recording}
+            onClose={closeCamera}
+            onShoot={() => {
+              if (cameraMode === 'video' && !recording) {
+                // video 첫 탭: 녹화 시작 (placeholder).
+                setRecording(true);
+                return;
+              }
+              // photo 또는 video 두 번째 탭: "곧 출시" 안내 후 시트 닫힘.
+              // TODO(F5): 실 캡처 결과(mediaId) 를 LogAttemptSheet 로 전달.
+              Alert.alert(t('session.log.cameraComingSoon'));
+              closeCamera();
+            }}
           />
         </>
       ) : null}

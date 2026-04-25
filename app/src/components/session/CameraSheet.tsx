@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 import {
-  Alert,
   Modal,
   Pressable,
   StyleSheet,
@@ -38,8 +37,19 @@ import type { CameraMode } from './LogAttemptSheet';
 export type CameraSheetProps = {
   visible: boolean;
   mode: CameraMode;
+  /**
+   * 부모(SessionDetailScreen)가 관리하는 녹화 상태. true 일 때 상단 REC pill /
+   * 하단 셔터 inner 가 record 모양으로 변경된다. video 모드 첫 셔터 탭에서 부모가
+   * onShoot 핸들러를 통해 true 로 끌어올린다 (Phase 1 placeholder; 실 녹화는 F5).
+   */
   recording?: boolean;
   onClose: () => void;
+  /**
+   * 셔터 탭 콜백. 부모가 video 첫 탭은 recording=true 로, 그 외(사진 / 녹화 종료)는
+   * `cameraComingSoon` 안내 + 시트 닫기로 처리한다.
+   * F5 에서 실제 캡처 결과(mediaId) 전달로 확장.
+   */
+  onShoot: () => void;
 };
 
 // 화면 내 placeholder 클라이밍 홀드 — 토큰의 hold 팔레트를 재사용.
@@ -56,21 +66,25 @@ const FAKE_HOLD_LAYOUT = [
 const CAMERA_BG = '#000000';
 const CAMERA_FG = '#FFFFFF';
 
+/**
+ * 뷰파인더 placeholder 배경 — 어두운 초콜릿 갈색 (gym 벽 연출).
+ *
+ * F5 후속에서 `react-native-vision-camera` 미리보기 컴포넌트로 교체되면 이 상수는
+ * 삭제된다. 디자인 토큰에 포함하지 않는 이유: placeholder 단계에서만 쓰이는
+ * 일회성 색이라 시스템 토큰을 오염시키지 않는다.
+ */
+const VIEWFINDER_PLACEHOLDER_BG = '#1A1410';
+
 export function CameraSheet({
   visible,
   mode,
   recording = false,
   onClose,
+  onShoot,
 }: CameraSheetProps): JSX.Element {
   const theme = useTokens();
   const reducedMotion = useReducedMotion();
   const styles = useMemo(() => makeStyles(theme), [theme]);
-
-  const handleShoot = () => {
-    // TODO(F5): 실제 카메라 캡처 + S3 업로드 결과를 부모로 전달.
-    Alert.alert(t('session.log.cameraComingSoon'));
-    onClose();
-  };
 
   return (
     <Modal
@@ -145,7 +159,7 @@ export function CameraSheet({
           <View style={styles.shutterSide} />
 
           <Pressable
-            onPress={handleShoot}
+            onPress={onShoot}
             style={styles.shutter}
             accessibilityRole="button"
             accessibilityLabel={
@@ -233,9 +247,8 @@ function makeStyles(theme: Theme) {
     },
     viewfinder: {
       flex: 1,
-      // gym wall 톤 — 토큰 chocolate-ish 가 없어 어두운 갈색 리터럴 유지 (placeholder 이므로
-      // 본 카메라 연동 시 viewfinder 자체를 카메라 미리보기로 교체).
-      backgroundColor: '#1A1410',
+      // F5 에서 카메라 미리보기 컴포넌트로 교체. 그 전까지 placeholder 색 사용.
+      backgroundColor: VIEWFINDER_PLACEHOLDER_BG,
       position: 'relative',
       overflow: 'hidden',
     },
