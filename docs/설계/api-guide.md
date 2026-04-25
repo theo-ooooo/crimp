@@ -189,7 +189,8 @@
 | POST | `/api/v1/sessions/{extId}/attempts` | 시도 추가 |
 | PATCH | `/api/v1/attempts/{extId}` | 시도 수정 |
 | DELETE | `/api/v1/attempts/{extId}` | 시도 삭제 |
-| GET | `/api/v1/me/stats/monthly` | 월별 통계 |
+| GET | `/api/v1/me/stats` | 홈 대시보드 집계 (주간 + 라이프타임) — **주 경계는 KST 기준** |
+| GET | `/api/v1/me/stats/monthly` | 월별 통계 (예정) |
 
 ### 피드 (`/api/v1/feed-posts`)
 | Method | Path | 설명 |

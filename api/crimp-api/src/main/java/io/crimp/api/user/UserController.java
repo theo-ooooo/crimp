@@ -3,6 +3,9 @@ package io.crimp.api.user;
 import io.crimp.api.security.CrimpPrincipal;
 import io.crimp.common.response.ApiResponse;
 import io.crimp.common.response.ErrorBody;
+import io.crimp.common.time.AppTimeZone;
+import io.crimp.domain.user.MeStatsService;
+import io.crimp.domain.user.MeStatsView;
 import io.crimp.domain.user.ProfileView;
 import io.crimp.domain.user.UpdateProfileCommand;
 import io.crimp.domain.user.UserException;
@@ -20,15 +23,19 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
+
 @RestController
 @RequestMapping("/api/v1")
 @Profile("!test")
 public class UserController {
 
     private final UserService userService;
+    private final MeStatsService meStatsService;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, MeStatsService meStatsService) {
         this.userService = userService;
+        this.meStatsService = meStatsService;
     }
 
     @GetMapping("/me")
@@ -43,6 +50,13 @@ public class UserController {
         UpdateProfileCommand cmd = new UpdateProfileCommand(
                 req.nickname(), req.bio(), req.levelSelf(), req.mainGymId(), req.avatarMediaId());
         return MeResponse.of(userService.updateMyProfile(principal.userId(), cmd));
+    }
+
+    @GetMapping("/me/stats")
+    public MeStatsResponse myStats(@AuthenticationPrincipal CrimpPrincipal principal) {
+        // Phase 1: KST 고정. 사용자 profile 에 timezone 필드 추가 시 User 엔티티에서 읽어 전달 (F1).
+        return MeStatsResponse.of(
+                meStatsService.getStats(principal.userId(), AppTimeZone.KST));
     }
 
     @GetMapping("/users/{extId}")
@@ -95,4 +109,30 @@ public class UserController {
             return new PublicUserResponse(v.extId(), v.nickname(), v.bio(), v.levelSelf(), v.avatarMediaId());
         }
     }
+
+    /**
+     * 홈 대시보드 집계 응답.
+     * weekRange 는 도메인 뷰의 평면 필드(weekStart/weekEnd)를 nested 구조로 변환.
+     */
+    public record MeStatsResponse(
+            long weekSessions,
+            long weekSends,
+            long totalSessions,
+            long totalSends,
+            String topGrade,
+            WeekRange weekRange
+    ) {
+        static MeStatsResponse of(MeStatsView v) {
+            return new MeStatsResponse(
+                    v.weekSessions(),
+                    v.weekSends(),
+                    v.totalSessions(),
+                    v.totalSends(),
+                    v.topGrade(),
+                    new WeekRange(v.weekStart(), v.weekEnd())
+            );
+        }
+    }
+
+    public record WeekRange(LocalDate start, LocalDate end) {}
 }
