@@ -158,6 +158,27 @@
       "errorTitle": "암장 정보를 불러오지 못했어요"
     }
   },
+  "auth": {
+    "login": {
+      "title": "로그인",
+      "tagline": "당신의 등반을 한 곳에 기록해요",
+      "kakaoCta": "카카오로 시작하기",
+      "exchanging": "로그인 중...",
+      "kakaoUnavailable": "카카오 로그인 모듈이 아직 연결되지 않았습니다. 아래 dev 토큰으로 진행해 주세요.",
+      "kakaoNoIdToken": "카카오에서 idToken 을 받지 못했어요. 잠시 후 다시 시도해 주세요.",
+      "nativeUnlinkedTitle": "Kakao 네이티브 SDK 미연결",
+      "nativeUnlinkedBody": "iOS/Android 네이티브 프로젝트가 생성된 후 Kakao 앱 키를 등록하면 활성화됩니다.",
+      "devModeToggle": "개발자 모드 (idToken 직접 입력)",
+      "devModeHide": "개발자 모드 닫기",
+      "devModeHint": "개발/테스트용. 백엔드가 신뢰하는 OAuth idToken 을 붙여넣고 Submit 합니다.",
+      "devTokenLabel": "idToken",
+      "devTokenPlaceholder": "eyJhbGciOi...",
+      "devSubmit": "토큰 제출",
+      "errorTitle": "로그인에 실패했어요",
+      "alreadyLoggedIn": "이미 로그인되어 있어요",
+      "goHome": "홈으로 이동"
+    }
+  },
   "error": {
     "transport": "일시적 오류가 발생했어요. 잠시 후 다시 시도해 주세요.",
     "authRequired": "로그인이 필요한 작업이에요.",

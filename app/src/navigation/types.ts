@@ -7,6 +7,12 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
  */
 export type RootStackParamList = {
   Home: undefined;
+  /**
+   * 로그인 화면. Kakao 네이티브 SDK + dev 토큰 폴백.
+   *
+   * HomeScreen 의 LoggedOutView CTA 에서 진입한다. 로그인 성공 시 `Home` 으로 reset.
+   */
+  Login: undefined;
   SessionList: undefined;
   /**
    * 세션 시작 화면. 선택적으로 특정 암장에서 바로 시작하도록 prefil 용 params 를 받는다.
