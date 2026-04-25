@@ -10,6 +10,7 @@ import {
 } from '@/lib/schemas/attempt';
 import { HealthResponseSchema, type HealthResponse } from '@/lib/schemas/health';
 import { MeSchema, type Me } from '@/lib/schemas/me';
+import { MeStatsSchema, type MeStats } from '@/lib/schemas/meStats';
 import {
   SessionListSchema,
   SessionSchema,
@@ -36,6 +37,19 @@ export function fetchMe(accessToken: string, signal?: AbortSignal): Promise<Me> 
     path: '/api/v1/me',
     accessToken,
     schema: MeSchema,
+    signal,
+  });
+}
+
+export function fetchMeStats(
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<MeStats> {
+  return apiRequest({
+    method: 'GET',
+    path: '/api/v1/me/stats',
+    accessToken,
+    schema: MeStatsSchema,
     signal,
   });
 }
