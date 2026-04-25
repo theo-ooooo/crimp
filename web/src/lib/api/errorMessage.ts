@@ -22,6 +22,7 @@ const CODE_TO_KEY: Record<string, MessageKey> = {
   SESSION_INVALID: 'error.sessionInvalid',
   ATTEMPT_NOT_FOUND: 'error.attemptNotFound',
   ATTEMPT_INVALID: 'error.attemptInvalid',
+  GYM_NOT_FOUND: 'error.gymNotFound',
 };
 
 export function toUserMessage(err: unknown): string {

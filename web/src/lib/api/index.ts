@@ -14,4 +14,7 @@ export {
   logAttempt,
   updateAttempt,
   deleteAttempt,
+  fetchGyms,
+  fetchGym,
+  fetchGymRoutes,
 } from './endpoints';
