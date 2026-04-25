@@ -126,6 +126,38 @@
       "FAIL": "Fail"
     }
   },
+  "feed": {
+    "title": "Feed",
+    "openCta": "Open feed",
+    "openCtaDescription": "Browse climbs from friends, popular climbers, and your gym",
+    "loginRequiredTitle": "Login required",
+    "loginRequiredDescription": "Sign in to view the feed.",
+    "errorTitle": "Failed to load the feed",
+    "filter": {
+      "friends": "Friends",
+      "popular": "Popular",
+      "myGym": "My gym"
+    },
+    "empty": {
+      "friends": {
+        "title": "You're not following anyone yet",
+        "body": "Following lands soon. For now, explore other climbers in the Popular tab."
+      },
+      "popular": {
+        "title": "No climbs to show yet",
+        "body": "The first logged attempts will appear here."
+      },
+      "myGym": {
+        "title": "No climbs from your gym",
+        "body": "Set your home gym or log your first session — it'll show up here."
+      }
+    },
+    "time": {
+      "justNow": "just now",
+      "minutesAgo": "{{m}}m ago",
+      "hoursAgo": "{{h}}h ago"
+    }
+  },
   "gym": {
     "list": {
       "title": "Find a gym",

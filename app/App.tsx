@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { t } from './src/lib/i18n';
 import type { RootStackParamList } from './src/navigation/types';
 import DesignPrimitivesScreen from './src/screens/DesignPrimitivesScreen';
+import FeedScreen from './src/screens/FeedScreen';
 import GymDetailScreen from './src/screens/GymDetailScreen';
 import GymSearchScreen from './src/screens/GymSearchScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -83,6 +84,11 @@ export default function App(): JSX.Element {
               name="DesignPrimitives"
               component={DesignPrimitivesScreen}
               options={{ title: 'Design Primitives' }}
+            />
+            <Stack.Screen
+              name="Feed"
+              component={FeedScreen}
+              options={{ title: t('feed.title') }}
             />
           </Stack.Navigator>
         </NavigationContainer>

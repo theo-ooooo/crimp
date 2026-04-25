@@ -20,4 +20,5 @@ export {
   fetchGyms,
   fetchGym,
   fetchGymRoutes,
+  fetchFeed,
 } from './endpoints';

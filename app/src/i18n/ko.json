@@ -126,6 +126,38 @@
       "FAIL": "실패"
     }
   },
+  "feed": {
+    "title": "피드",
+    "openCta": "피드 열기",
+    "openCtaDescription": "친구·인기·내 암장 등반 기록 둘러보기",
+    "loginRequiredTitle": "로그인 필요",
+    "loginRequiredDescription": "피드를 보려면 로그인이 필요합니다.",
+    "errorTitle": "피드를 불러오지 못했어요",
+    "filter": {
+      "friends": "친구",
+      "popular": "인기",
+      "myGym": "내 암장"
+    },
+    "empty": {
+      "friends": {
+        "title": "아직 팔로우한 친구가 없어요",
+        "body": "팔로우 기능은 곧 열려요. 그동안은 인기 탭에서 다른 클라이머의 등반을 만나보세요."
+      },
+      "popular": {
+        "title": "표시할 등반이 아직 없어요",
+        "body": "첫 시도가 기록되면 여기에서 가장 먼저 보여드려요."
+      },
+      "myGym": {
+        "title": "내 암장 등반이 없어요",
+        "body": "내 암장을 설정하거나 첫 세션을 시작하면 이 자리에 채워져요."
+      }
+    },
+    "time": {
+      "justNow": "방금",
+      "minutesAgo": "{{m}}분 전",
+      "hoursAgo": "{{h}}시간 전"
+    }
+  },
   "gym": {
     "list": {
       "title": "암장 찾기",
