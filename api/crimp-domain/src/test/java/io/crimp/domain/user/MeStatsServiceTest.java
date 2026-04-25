@@ -10,6 +10,7 @@ import org.mockito.ArgumentCaptor;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Collection;
 import java.util.Optional;
@@ -36,6 +37,7 @@ class MeStatsServiceTest {
     private static final Instant FIXED_NOW = Instant.parse("2026-04-22T12:00:00Z");
     private static final LocalDate EXPECTED_WEEK_START = LocalDate.parse("2026-04-20");
     private static final LocalDate EXPECTED_WEEK_END = LocalDate.parse("2026-04-26");
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     @BeforeEach
     void setUp() {
@@ -56,7 +58,7 @@ class MeStatsServiceTest {
         when(attemptRepo.findTopGradeValueByUserId(eq(42L), anyCollection()))
                 .thenReturn(Optional.empty());
 
-        MeStatsView view = service.getStats(42L);
+        MeStatsView view = service.getStats(42L, KST);
 
         assertThat(view.weekSessions()).isZero();
         assertThat(view.weekSends()).isZero();
@@ -78,7 +80,7 @@ class MeStatsServiceTest {
         when(attemptRepo.findTopGradeValueByUserId(eq(7L), anyCollection()))
                 .thenReturn(Optional.of("V6"));
 
-        MeStatsView view = service.getStats(7L);
+        MeStatsView view = service.getStats(7L, KST);
 
         assertThat(view.weekSessions()).isEqualTo(3);
         assertThat(view.weekSends()).isEqualTo(14);
@@ -102,15 +104,15 @@ class MeStatsServiceTest {
         when(attemptRepo.countSendsByUserIdAndLoggedAtBetween(
                 eq(42L), anyCollection(), any(), any())).thenReturn(0L);
 
-        service.getStats(42L);
+        service.getStats(42L, KST);
 
         Instant from = fromCap.getValue();
         Instant to = toCap.getValue();
-        // 월요일 00:00:00 UTC
-        assertThat(from).isEqualTo(Instant.parse("2026-04-20T00:00:00Z"));
-        // 일요일 23:59:59.999999999 UTC (ISO 주의 마지막 나노초)
-        assertThat(to).isAfter(Instant.parse("2026-04-26T23:59:59Z"));
-        assertThat(to).isBefore(Instant.parse("2026-04-27T00:00:00Z"));
+        // KST 월요일 00:00 = UTC 전 일요일 15:00
+        assertThat(from).isEqualTo(Instant.parse("2026-04-19T15:00:00Z"));
+        // KST 일요일 23:59:59.999999999 = UTC 14:59:59.999999999
+        assertThat(to).isAfter(Instant.parse("2026-04-26T14:59:59Z"));
+        assertThat(to).isBefore(Instant.parse("2026-04-26T15:00:00Z"));
     }
 
     @Test
@@ -124,7 +126,7 @@ class MeStatsServiceTest {
         when(attemptRepo.findTopGradeValueByUserId(anyLong(), anyCollection()))
                 .thenReturn(Optional.of("V8"));
 
-        MeStatsView view = service.getStats(99L);
+        MeStatsView view = service.getStats(99L, KST);
         assertThat(view.topGrade()).isEqualTo("V8");
     }
 
@@ -139,7 +141,7 @@ class MeStatsServiceTest {
         when(attemptRepo.findTopGradeValueByUserId(anyLong(), anyCollection()))
                 .thenReturn(Optional.empty());
 
-        service.getStats(1L);
+        service.getStats(1L, KST);
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Collection<AttemptResult>> resultsCap =

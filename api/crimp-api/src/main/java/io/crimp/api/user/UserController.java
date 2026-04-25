@@ -3,6 +3,7 @@ package io.crimp.api.user;
 import io.crimp.api.security.CrimpPrincipal;
 import io.crimp.common.response.ApiResponse;
 import io.crimp.common.response.ErrorBody;
+import io.crimp.common.time.AppTimeZone;
 import io.crimp.domain.user.MeStatsService;
 import io.crimp.domain.user.MeStatsView;
 import io.crimp.domain.user.ProfileView;
@@ -53,7 +54,9 @@ public class UserController {
 
     @GetMapping("/me/stats")
     public MeStatsResponse myStats(@AuthenticationPrincipal CrimpPrincipal principal) {
-        return MeStatsResponse.of(meStatsService.getStats(principal.userId()));
+        // Phase 1: KST 고정. 사용자 profile 에 timezone 필드 추가 시 User 엔티티에서 읽어 전달 (F1).
+        return MeStatsResponse.of(
+                meStatsService.getStats(principal.userId(), AppTimeZone.KST));
     }
 
     @GetMapping("/users/{extId}")
