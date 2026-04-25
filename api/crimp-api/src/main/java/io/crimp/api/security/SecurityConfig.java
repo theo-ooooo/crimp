@@ -1,13 +1,17 @@
 package io.crimp.api.security;
 
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfigurationSource;
 
 @Configuration
 public class SecurityConfig {
@@ -17,9 +21,18 @@ public class SecurityConfig {
             HttpSecurity http,
             JwtAuthenticationFilter jwtFilter,
             RestAuthenticationEntryPoint authEntryPoint,
-            RestAccessDeniedHandler accessDeniedHandler) throws Exception {
+            RestAccessDeniedHandler accessDeniedHandler,
+            @Qualifier("corsConfigurationSource") ObjectProvider<CorsConfigurationSource> corsSource)
+            throws Exception {
+        // Spring MVC 의 HandlerMappingIntrospector 도 CorsConfigurationSource 타입이라
+        // 이름("corsConfigurationSource") 으로 고정해 우리가 등록한 빈만 사용.
+        // test 프로파일에서는 CorsConfig 가 비활성화되므로 getIfAvailable() 로 null 허용.
+        CorsConfigurationSource cors = corsSource.getIfAvailable();
         http
                 .csrf(AbstractHttpConfigurer::disable)
+                .cors(cors != null
+                        ? c -> c.configurationSource(cors)
+                        : Customizer.withDefaults())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
@@ -28,6 +41,7 @@ public class SecurityConfig {
                         .authenticationEntryPoint(authEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/health").permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         // 루트 목록은 인증 필요 — gyms permitAll 패턴보다 먼저 선언해 우선순위 확보

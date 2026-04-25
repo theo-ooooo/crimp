@@ -1,7 +1,8 @@
 package io.crimp.api.user;
 
 import io.crimp.api.security.CrimpPrincipal;
-import io.crimp.common.response.ErrorResponse;
+import io.crimp.common.response.ApiResponse;
+import io.crimp.common.response.ErrorBody;
 import io.crimp.domain.user.ProfileView;
 import io.crimp.domain.user.UpdateProfileCommand;
 import io.crimp.domain.user.UserException;
@@ -50,13 +51,13 @@ public class UserController {
     }
 
     @ExceptionHandler(UserException.class)
-    public ResponseEntity<ErrorResponse> handleUser(UserException e) {
+    public ResponseEntity<ApiResponse<Void>> handleUser(UserException e) {
         int status = switch (e.code()) {
             case "USER_NOT_FOUND", "PROFILE_MISSING" -> 404;
             case "NICKNAME_TAKEN" -> 409;
             default -> 400;
         };
-        return ResponseEntity.status(status).body(ErrorResponse.of(e.code(), e.getMessage()));
+        return ResponseEntity.status(status).body(ApiResponse.failure(ErrorBody.of(e.code(), e.getMessage())));
     }
 
     // --- DTOs ---

@@ -13,6 +13,8 @@
     "loading": "불러오는 중...",
     "retry": "다시 시도",
     "cancel": "취소",
+    "back": "뒤로 가기",
+    "close": "닫기",
     "save": "저장",
     "delete": "삭제",
     "empty": "-"
@@ -44,7 +46,7 @@
   "session": {
     "list": {
       "title": "내 세션",
-      "subtitleMonth": "이번 달 {{count}}회 완등",
+      "subtitleMonth": "이번 달 {{count}}개 세션",
       "empty": "아직 기록된 세션이 없어요. 오늘 첫 세션을 시작해 보세요.",
       "emptyCtaStart": "세션 시작하기",
       "newButton": "세션 시작",

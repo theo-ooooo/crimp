@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 import {
   CrimpIcon,
@@ -45,8 +46,8 @@ export default function SessionsPage(): JSX.Element {
     return <LoginRequired />;
   }
 
-  const sessions: Session[] = data?.pages.flatMap((p) => p.data) ?? [];
-  const monthlySends = countMonthlySends(sessions);
+  const sessions: Session[] = data?.pages.flatMap((p) => p.items) ?? [];
+  const monthlySessions = countMonthlyEndedSessions(sessions);
 
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-8 bg-bg px-6 py-10">
@@ -59,13 +60,13 @@ export default function SessionsPage(): JSX.Element {
             <p className="text-body font-medium text-text-3 tabular-nums">
               {t('session.list.subtitleMonth').replace(
                 '{{count}}',
-                String(monthlySends),
+                String(monthlySessions),
               )}
             </p>
           </div>
           <Link
             href="/sessions/new"
-            className="inline-flex h-11 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-bold text-white shadow-xs transition-transform duration-fast ease-standard active:scale-[0.98]"
+            className="inline-flex h-11 items-center gap-1.5 rounded-full bg-accent px-4 text-body font-bold text-white shadow-xs transition-transform duration-fast ease-standard active:scale-[0.98]"
           >
             <CrimpIcon.plus s={16} />
             {t('session.list.newButton')}
@@ -177,6 +178,7 @@ function ErrorCard({
 }
 
 function EmptyState(): JSX.Element {
+  const router = useRouter();
   return (
     <div className="flex flex-col items-center justify-center gap-5 rounded-2xl bg-subtle px-6 py-14 text-center shadow-xs">
       <div className="flex h-14 w-14 items-center justify-center rounded-full bg-bg text-accent">
@@ -186,14 +188,15 @@ function EmptyState(): JSX.Element {
         {t('session.list.empty')}
       </p>
       <div className="w-full max-w-xs">
-        <Link href="/sessions/new" aria-label={t('session.list.emptyCtaStart')}>
-          <PrimaryButton>
-            <span className="inline-flex items-center gap-2">
-              <CrimpIcon.play s={16} />
-              {t('session.list.emptyCtaStart')}
-            </span>
-          </PrimaryButton>
-        </Link>
+        <PrimaryButton
+          aria-label={t('session.list.emptyCtaStart')}
+          onClick={() => router.push('/sessions/new')}
+        >
+          <span className="inline-flex items-center gap-2">
+            <CrimpIcon.play s={16} />
+            {t('session.list.emptyCtaStart')}
+          </span>
+        </PrimaryButton>
       </div>
     </div>
   );
@@ -249,9 +252,15 @@ function StatusBadge({
   );
 }
 
-function countMonthlySends(sessions: Session[]): number {
-  // "완등" 은 세션 기준으로 근사: 이번 달에 시작하고 종료된 세션 수.
-  // (시도 단위 SEND 집계는 목록 API 범위 밖이므로 세션 지표로 대체.)
+/**
+ * 이번 달에 시작하고 종료된(=완료된) 세션 수를 집계한다.
+ *
+ * 주의: 이 값은 "완등(SEND/FLASH/ONSIGHT) 시도 수" 가 아니다.
+ * 시도 단위 SEND 집계는 현재 목록 API 범위 밖이라, Phase 1 에서는
+ * "완료된 세션 수" 근사치를 홈 카피에 노출한다.
+ * 정확한 월간 집계는 `GET /me/stats?period=month` 도입(F1, 별도 PR) 후 교체.
+ */
+function countMonthlyEndedSessions(sessions: Session[]): number {
   const now = new Date();
   const y = now.getFullYear();
   const m = now.getMonth();

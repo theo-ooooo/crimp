@@ -1,6 +1,7 @@
 package io.crimp.api.gym;
 
-import io.crimp.common.response.ErrorResponse;
+import io.crimp.common.response.ApiResponse;
+import io.crimp.common.response.ErrorBody;
 import io.crimp.domain.gym.GymException;
 import io.crimp.domain.gym.GymService;
 import io.crimp.domain.gym.GymView;
@@ -64,17 +65,17 @@ public class GymController {
     }
 
     @ExceptionHandler(GymException.class)
-    public ResponseEntity<ErrorResponse> handleGym(GymException e) {
+    public ResponseEntity<ApiResponse<Void>> handleGym(GymException e) {
         int status = switch (e.code()) {
             case "GYM_NOT_FOUND" -> 404;
             default -> 400;
         };
-        return ResponseEntity.status(status).body(ErrorResponse.of(e.code(), e.getMessage()));
+        return ResponseEntity.status(status).body(ApiResponse.failure(ErrorBody.of(e.code(), e.getMessage())));
     }
 
     // --- DTOs ---
 
-    public record GymListResponse(List<GymItem> data, Page page) {}
+    public record GymListResponse(List<GymItem> items, Page page) {}
 
     public record Page(Long nextCursor, int size) {}
 
@@ -111,7 +112,7 @@ public class GymController {
         }
     }
 
-    public record RouteListResponse(List<RouteItem> data, Page page) {}
+    public record RouteListResponse(List<RouteItem> items, Page page) {}
 
     public record RouteItem(
             String extId,

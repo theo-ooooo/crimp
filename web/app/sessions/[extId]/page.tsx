@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import {
   CrimpIcon,
@@ -75,7 +75,7 @@ export default function SessionDetailPage(): JSX.Element {
   }
 
   const session = sessionQuery.data ?? null;
-  const attempts = attemptsQuery.data?.data ?? [];
+  const attempts = attemptsQuery.data?.items ?? [];
   const canEnd = Boolean(session && !session.endedAt);
 
   return (
@@ -83,7 +83,7 @@ export default function SessionDetailPage(): JSX.Element {
       <header className="flex items-center justify-between gap-3">
         <Link
           href="/sessions"
-          aria-label={t('common.cancel')}
+          aria-label={t('common.back')}
           className="inline-flex h-10 w-10 items-center justify-center rounded-full text-text-2 transition-colors duration-fast ease-standard hover:bg-subtle"
         >
           <CrimpIcon.chevL s={22} />
@@ -146,7 +146,7 @@ export default function SessionDetailPage(): JSX.Element {
 
       {canEnd && session ? (
         <div
-          className="fixed inset-x-0 bottom-0 z-20 bg-gradient-to-t from-bg via-bg/95 to-transparent px-6 pb-8 pt-4"
+          className="fixed inset-x-0 bottom-0 z-20 bg-gradient-to-t from-bg via-bg/95 to-transparent px-6 pt-4 pb-[max(2rem,env(safe-area-inset-bottom))]"
         >
           <div className="mx-auto flex max-w-2xl flex-col gap-2">
             <SecondaryButton
@@ -244,16 +244,26 @@ function MetaCard({
   const ongoing = !session.endedAt;
   const elapsed = useElapsed(session.startedAt, session.endedAt);
   const gym = session.gymNameRaw ?? t('session.list.itemGymFallback');
-  const startedAt = formatDateTimeShort(session.startedAt);
-  const caption = t('session.detail.metaCaption')
-    .replace('{{gym}}', gym)
-    .replace('{{startedAt}}', startedAt);
 
-  const sends = attempts.filter(
-    (a) => a.result === 'SEND' || a.result === 'FLASH' || a.result === 'ONSIGHT',
-  ).length;
-  const tries = attempts.length;
-  const topGrade = pickTopGrade(attempts);
+  // 타이머가 1초마다 리렌더되므로 attempts 기반 파생값과
+  // 시작시각 캡션은 useMemo 로 캐싱한다.
+  const caption = useMemo(() => {
+    const startedAt = formatDateTimeShort(session.startedAt);
+    return t('session.detail.metaCaption')
+      .replace('{{gym}}', gym)
+      .replace('{{startedAt}}', startedAt);
+  }, [gym, session.startedAt]);
+
+  const sends = useMemo(
+    () =>
+      attempts.filter(
+        (a) =>
+          a.result === 'SEND' || a.result === 'FLASH' || a.result === 'ONSIGHT',
+      ).length,
+    [attempts],
+  );
+  const tries = useMemo(() => attempts.length, [attempts]);
+  const topGrade = useMemo(() => pickTopGrade(attempts), [attempts]);
 
   return (
     <section className="flex flex-col gap-5 rounded-2xl bg-subtle p-6 shadow-xs">
@@ -320,7 +330,7 @@ function StatTile({
       <p className="text-caption font-semibold text-text-3">{label}</p>
       <p
         className={
-          'mt-1 text-2xl font-extrabold tracking-[-0.03em] tabular-nums ' +
+          'mt-1 text-h2 font-extrabold tabular-nums ' +
           (accent ? 'text-accent' : 'text-text')
         }
       >
@@ -418,7 +428,7 @@ function LogAttemptForm({
               onClick={() => setResult(r)}
               aria-pressed={r === result}
               className={
-                'inline-flex h-10 items-center gap-2 rounded-full px-3.5 text-sm font-semibold tracking-[-0.01em] transition-transform duration-fast ease-standard active:scale-[0.97] ' +
+                'inline-flex h-10 items-center gap-2 rounded-full px-3.5 text-body font-semibold transition-transform duration-fast ease-standard active:scale-[0.97] ' +
                 (r === result
                   ? 'bg-text text-bg'
                   : 'bg-chip text-text-2 hover:bg-subtle-2')
@@ -492,7 +502,7 @@ function LogAttemptForm({
         <button
           type="submit"
           disabled={mutation.isPending}
-          className="inline-flex h-12 items-center gap-2 rounded-full bg-accent px-6 text-sm font-bold text-white shadow-xs transition-transform duration-fast ease-standard active:scale-[0.98] disabled:bg-subtle-2 disabled:text-text-3"
+          className="inline-flex h-12 items-center gap-2 rounded-full bg-accent px-6 text-body font-bold text-white shadow-xs transition-transform duration-fast ease-standard active:scale-[0.98] disabled:bg-subtle-2 disabled:text-text-3"
         >
           <CrimpIcon.plus s={16} />
           {mutation.isPending
@@ -534,9 +544,22 @@ function pad2(n: number): string {
   return n < 10 ? `0${n}` : String(n);
 }
 
+/**
+ * SEND/FLASH/ONSIGHT 시도 중 "최고" 그레이드 문자열을 반환.
+ *
+ * 비교 우선순위:
+ *   1) `gradeNumeric` 이 있는 후보를 null 후보보다 우선한다.
+ *   2) 동일 타입(numeric ↔ numeric)끼리는 값이 큰 쪽이 승.
+ *   3) numeric 이 전부 null 이면 `parseGradeNumeric` 로 V·YDS 문자열에서 추정.
+ *   4) 그래도 null 이면 문자열 사전순으로 비교(순서 의존 제거).
+ *
+ * 정확한 순서는 백엔드가 `gradeNumeric` 을 항상 채워줄 때 보장된다
+ * (V·YDS 이외 스케일 — Fontainebleau 등 — 이 들어오는 날 F2 도메인 유틸
+ * `web/src/lib/grade.ts` 로 이동해 앱/웹 공유).
+ */
 function pickTopGrade(attempts: Attempt[]): string | null {
   let bestStr: string | null = null;
-  let bestNum = -Infinity;
+  let bestNum: number | null = null;
   for (const a of attempts) {
     if (a.result !== 'SEND' && a.result !== 'FLASH' && a.result !== 'ONSIGHT') {
       continue;
@@ -544,30 +567,73 @@ function pickTopGrade(attempts: Attempt[]): string | null {
     const candidate = a.gradeValue;
     if (!candidate) continue;
     const num = a.gradeNumeric ?? parseGradeNumeric(candidate);
-    if (num !== null && num > bestNum) {
-      bestNum = num;
+
+    if (bestStr === null) {
       bestStr = candidate;
-    } else if (num === null && bestStr === null) {
+      bestNum = num;
+      continue;
+    }
+
+    if (num !== null && bestNum === null) {
+      // 숫자로 비교 가능한 후보가 우선한다.
+      bestStr = candidate;
+      bestNum = num;
+      continue;
+    }
+    if (num !== null && bestNum !== null && num > bestNum) {
+      bestStr = candidate;
+      bestNum = num;
+      continue;
+    }
+    if (num === null && bestNum === null && candidate > bestStr) {
+      // 숫자 비교 불가 → 사전순. 순서 의존 제거.
       bestStr = candidate;
     }
   }
   return bestStr;
 }
 
+/**
+ * 그레이드 문자열 → 비교용 숫자.
+ *
+ * - V-scale: `V\d+` → 뒤 숫자. 예) `V5` → 5, `V10+` → 10.
+ * - YDS   : `5.<minor><letter?>` → `major + minor/100 + letterOffset/400`.
+ *   예) `5.11a` → 11.0025, `5.11d` → 11.01, `5.12a` → 12.0025, `5.12b` → 12.005.
+ *   V-스케일(수치: 0~17)와 YDS(수치: 5~16) 의 스케일이 다르므로 서로 다른 단위로
+ *   기록된 시도는 정확히 비교되지 않지만, 같은 스케일끼리는 정렬이 보장된다.
+ *
+ * 백엔드 `gradeNumeric` 이 채워져 있을 때는 이 함수가 불리지 않는다.
+ */
 function parseGradeNumeric(v: string): number | null {
-  const m = /V(\d+)/i.exec(v);
-  if (m && m[1]) {
-    const parsed = Number.parseInt(m[1], 10);
+  const vMatch = /^V(\d+)/i.exec(v);
+  if (vMatch && vMatch[1]) {
+    const parsed = Number.parseInt(vMatch[1], 10);
     return Number.isNaN(parsed) ? null : parsed;
+  }
+  const ydsMatch = /^5\.(\d+)([a-d])?/i.exec(v);
+  if (ydsMatch && ydsMatch[1]) {
+    const minor = Number.parseInt(ydsMatch[1], 10);
+    if (Number.isNaN(minor)) return null;
+    const letter = ydsMatch[2]?.toLowerCase();
+    const letterOffset =
+      letter === 'a' ? 0 : letter === 'b' ? 1 : letter === 'c' ? 2 : letter === 'd' ? 3 : 0;
+    return 5 + minor / 100 + letterOffset / 400;
   }
   return null;
 }
 
+/**
+ * `YYYY? Mon D, HH:MM` 형식. 올해의 날짜면 연도 생략, 다른 해면 연도 포함.
+ * 오래된 세션 상세에서 시점이 모호하게 보이는 문제(리뷰 I6)를 방지한다.
+ */
 function formatDateTimeShort(iso: string): string {
   try {
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return iso;
+    const nowYear = new Date().getFullYear();
+    const sameYear = d.getFullYear() === nowYear;
     return d.toLocaleString(undefined, {
+      ...(sameYear ? {} : { year: 'numeric' }),
       month: 'short',
       day: 'numeric',
       hour: '2-digit',

@@ -1,7 +1,8 @@
 package io.crimp.api.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.crimp.common.response.ErrorResponse;
+import io.crimp.common.response.ApiResponse;
+import io.crimp.common.response.ErrorBody;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
@@ -33,6 +34,6 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         objectMapper.writeValue(
                 response.getOutputStream(),
-                ErrorResponse.of("AUTH_REQUIRED", "Authentication required"));
+                ApiResponse.failure(ErrorBody.of("AUTH_REQUIRED", "Authentication required")));
     }
 }

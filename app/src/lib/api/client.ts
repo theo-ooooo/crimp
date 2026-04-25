@@ -1,6 +1,6 @@
 import type { ZodType } from 'zod';
 
-import { ErrorResponseSchema } from '@/lib/schemas/error';
+import { ApiEnvelopeSchema } from '@/lib/schemas/error';
 
 import { API_BASE_URL } from './config';
 import { ApiError, ApiSchemaError, ApiTransportError } from './errors';
@@ -20,46 +20,16 @@ export interface ApiRequestWithSchema<TBody, TResponse> extends ApiRequest<TBody
   schema: ZodType<TResponse>;
 }
 
-async function parseErrorResponse(response: Response): Promise<never> {
-  const text = await response.text();
-  if (!text) {
-    throw new ApiTransportError(
-      `HTTP ${response.status} (empty body)`,
-      response.status,
-      null,
-    );
-  }
-
-  let parsedJson: unknown;
-  try {
-    parsedJson = JSON.parse(text);
-  } catch {
-    throw new ApiTransportError(
-      `HTTP ${response.status} (non-JSON body)`,
-      response.status,
-      text,
-    );
-  }
-
-  const envelope = ErrorResponseSchema.safeParse(parsedJson);
-  if (!envelope.success) {
-    throw new ApiTransportError(
-      `HTTP ${response.status} (unexpected error envelope)`,
-      response.status,
-      text,
-    );
-  }
-  throw new ApiError(response.status, envelope.data.error);
-}
-
 /**
  * 공통 API 클라이언트 (React Native).
  *
  * - URL 은 `API_BASE_URL + path` 로 조합. `path` 는 반드시 `/` 로 시작.
  * - `accessToken` 이 제공되면 `Authorization: Bearer <token>` 자동 삽입.
  * - 본문이 있으면 JSON 직렬화 + `Content-Type: application/json` 설정.
- * - 2xx 응답: zod 스키마로 런타임 검증, 실패 시 `ApiSchemaError`.
- * - 4xx/5xx: 에러 envelope 파싱 후 `ApiError`, 아니면 `ApiTransportError`.
+ * - 응답은 `ApiResponse<T>` envelope 으로 수신:
+ *   - `{ status: true, data: ... }` → `data` 를 `schema` 로 검증 후 반환.
+ *   - `{ status: false, error: ... }` → HTTP status 와 함께 `ApiError` throw.
+ * - 204 No Content: envelope 없이 빈 본문. `z.void()` 를 넘기면 `undefined` 반환.
  */
 export async function apiRequest<TBody, TResponse>(
   options: ApiRequestWithSchema<TBody, TResponse>,
@@ -97,12 +67,16 @@ export async function apiRequest<TBody, TResponse>(
     throw new ApiTransportError(message, null, null);
   }
 
-  if (!response.ok) {
-    await parseErrorResponse(response);
-  }
-
   const text = await response.text();
+
   if (!text) {
+    if (!response.ok) {
+      throw new ApiTransportError(
+        `HTTP ${response.status} (empty body)`,
+        response.status,
+        null,
+      );
+    }
     const parsed = schema.safeParse(undefined);
     if (!parsed.success) {
       throw new ApiSchemaError('응답 본문이 비어 있습니다', parsed.error.issues);
@@ -114,10 +88,30 @@ export async function apiRequest<TBody, TResponse>(
   try {
     parsedJson = JSON.parse(text);
   } catch {
-    throw new ApiTransportError('응답 본문이 JSON 형식이 아닙니다', response.status, text);
+    throw new ApiTransportError(
+      `HTTP ${response.status} (non-JSON body)`,
+      response.status,
+      text,
+    );
   }
 
-  const parsed = schema.safeParse(parsedJson);
+  const envelope = ApiEnvelopeSchema.safeParse(parsedJson);
+  if (!envelope.success) {
+    throw new ApiTransportError(
+      `HTTP ${response.status} (unexpected envelope)`,
+      response.status,
+      text,
+    );
+  }
+
+  if (envelope.data.status === false) {
+    throw new ApiError(response.status, envelope.data.error);
+  }
+
+  // 백엔드가 `@JsonInclude(NON_NULL)` 로 직렬화하므로 payload 가 null 이면 `data` 키가
+  // 누락되어 `envelope.data.data === undefined`. 비어있는 success 를 받을 가능성이 있는
+  // 호출부는 스키마를 `z.void()` / `z.unknown().optional()` / `z.null()` 로 정의할 것.
+  const parsed = schema.safeParse(envelope.data.data);
   if (!parsed.success) {
     throw new ApiSchemaError('응답 스키마 검증 실패', parsed.error.issues);
   }

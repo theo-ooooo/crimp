@@ -70,7 +70,7 @@ export default function SessionDetailScreen(): JSX.Element {
   }
 
   const session = sessionQuery.data;
-  const attempts: Attempt[] = attemptsQuery.data?.data ?? [];
+  const attempts: Attempt[] = attemptsQuery.data?.items ?? [];
   const isOngoing = session ? !session.endedAt : false;
 
   return (

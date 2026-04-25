@@ -1,7 +1,8 @@
 package io.crimp.api.log;
 
 import io.crimp.api.security.CrimpPrincipal;
-import io.crimp.common.response.ErrorResponse;
+import io.crimp.common.response.ApiResponse;
+import io.crimp.common.response.ErrorBody;
 import io.crimp.core.entity.enums.AttemptResult;
 import io.crimp.domain.log.AttemptService;
 import io.crimp.domain.log.AttemptView;
@@ -80,13 +81,13 @@ public class AttemptController {
     }
 
     @ExceptionHandler(SessionException.class)
-    public ResponseEntity<ErrorResponse> handle(SessionException e) {
+    public ResponseEntity<ApiResponse<Void>> handle(SessionException e) {
         int status = switch (e.code()) {
             case "SESSION_NOT_FOUND", "ATTEMPT_NOT_FOUND" -> 404;
             case "ATTEMPT_INVALID" -> 400;
             default -> 400;
         };
-        return ResponseEntity.status(status).body(ErrorResponse.of(e.code(), e.getMessage()));
+        return ResponseEntity.status(status).body(ApiResponse.failure(ErrorBody.of(e.code(), e.getMessage())));
     }
 
     // --- DTOs ---
@@ -136,5 +137,5 @@ public class AttemptController {
         }
     }
 
-    public record AttemptListResponse(List<AttemptResponse> data) {}
+    public record AttemptListResponse(List<AttemptResponse> items) {}
 }
