@@ -7,30 +7,35 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   CrimpIcon,
   GradeBadge,
+  PrimaryButton,
   ResultMark,
   SecondaryButton,
   Skeleton,
 } from '@/components/primitives';
-import { useAttemptsQuery, useLogAttempt } from '@/hooks/useAttempts';
+import {
+  CameraSheet,
+  type CameraSheetMode,
+} from '@/components/session/CameraSheet';
+import { LogAttemptSheet } from '@/components/session/LogAttemptSheet';
+import { useAttemptsQuery } from '@/hooks/useAttempts';
 import { useEndSession, useSessionQuery } from '@/hooks/useSessions';
 import { toUserMessage } from '@/lib/api/errorMessage';
 import { t } from '@/lib/i18n';
-import {
-  ATTEMPT_RESULTS,
-  type Attempt,
-  type AttemptResult,
-} from '@/lib/schemas/attempt';
+import { type Attempt } from '@/lib/schemas/attempt';
 import type { Session } from '@/lib/schemas/session';
 import { useAccessToken, useTokenStore } from '@/store/tokenStore';
 
 /**
  * `/sessions/[extId]` — 세션 상세 + 시도 로그 화면.
  *
- * Toss 톤 리디자인:
+ * v2 라임 리디자인:
  * - 상단 메타 카드: 디스플레이 스케일 타이머 (`text-display` · `tabular-nums`) +
  *   캡션(암장·시작시각) + 상태 Pill (LIVE/종료됨)
  * - 통계 타일 3개 (완등 / 시도 / 최고 그레이드) — `bg-subtle` 카드
- * - 시도 기록 인라인 폼: ResultMark 선택 버튼, 그레이드·시도·메모 채움형 입력
+ * - "시도 기록" PrimaryButton — 탭 시 `LogAttemptSheet` (바텀시트) 가 열림.
+ *   기존 인라인 폼 (`LogAttemptForm`) 은 v2 시트 패턴으로 대체.
+ * - LogAttemptSheet 안의 카메라 CTA 는 `CameraSheet` (full-screen overlay) 로 진입.
+ *   현재 카메라는 placeholder — 실 캡처/업로드는 F5 follow-up.
  * - 타임라인: ResultMark + GradeBadge + 시각 + 메모 한 줄 카드
  * - 하단 고정 SecondaryButton "세션 종료" (진행 중인 세션 한정)
  *
@@ -45,6 +50,11 @@ export default function SessionDetailPage(): JSX.Element {
   const sessionQuery = useSessionQuery(accessToken, extId);
   const attemptsQuery = useAttemptsQuery(accessToken, extId);
   const endSession = useEndSession(accessToken);
+
+  // v2 시트 패턴 — LogAttemptSheet / CameraSheet 토글 상태.
+  const [logSheetOpen, setLogSheetOpen] = useState<boolean>(false);
+  const [cameraMode, setCameraMode] = useState<CameraSheetMode | null>(null);
+  const [recording, setRecording] = useState<boolean>(false);
 
   if (!hydrated) {
     return <HydrationGate />;
@@ -106,7 +116,15 @@ export default function SessionDetailPage(): JSX.Element {
       ) : null}
 
       {session && !session.endedAt ? (
-        <LogAttemptForm accessToken={accessToken} sessionExtId={extId} />
+        <PrimaryButton
+          type="button"
+          onClick={() => setLogSheetOpen(true)}
+          aria-haspopup="dialog"
+          aria-expanded={logSheetOpen}
+        >
+          <CrimpIcon.plus s={18} className="mr-1.5" />
+          {t('session.log.openCta')}
+        </PrimaryButton>
       ) : null}
 
       <section className="flex flex-col gap-4">
@@ -169,6 +187,49 @@ export default function SessionDetailPage(): JSX.Element {
             ) : null}
           </div>
         </div>
+      ) : null}
+
+      {/* v2 LogAttemptSheet — 진행 중 세션에서만 노출. */}
+      {logSheetOpen && session && !session.endedAt ? (
+        <LogAttemptSheet
+          accessToken={accessToken}
+          sessionExtId={extId}
+          onClose={() => setLogSheetOpen(false)}
+          onCamera={(mode) => {
+            setCameraMode(mode);
+            setRecording(false);
+          }}
+        />
+      ) : null}
+
+      {/*
+       * v2 CameraSheet — placeholder.
+       * TODO(F5): 실 카메라 캡처 + S3 업로드 + mediaId 전달 구현.
+       * 현재는 onShoot 시 alert 후 시트만 닫힌다.
+       */}
+      {cameraMode ? (
+        <CameraSheet
+          mode={cameraMode}
+          recording={recording}
+          onClose={() => {
+            setCameraMode(null);
+            setRecording(false);
+          }}
+          onShoot={() => {
+            if (cameraMode === 'video' && !recording) {
+              // video 첫 탭: 녹화 시작 (placeholder).
+              setRecording(true);
+              return;
+            }
+            // photo 또는 video 두 번째 탭: "곧 출시" 안내 후 시트 닫힘.
+            // TODO(F5): toast 컴포넌트 도입 후 alert → toast 교체.
+            if (typeof window !== 'undefined') {
+              window.alert(t('session.log.cameraComingSoon'));
+            }
+            setCameraMode(null);
+            setRecording(false);
+          }}
+        />
       ) : null}
     </main>
   );
@@ -371,146 +432,6 @@ function AttemptCard({ attempt }: { attempt: Attempt }): JSX.Element {
         ) : null}
       </div>
     </article>
-  );
-}
-
-function LogAttemptForm({
-  accessToken,
-  sessionExtId,
-}: {
-  accessToken: string;
-  sessionExtId: string;
-}): JSX.Element {
-  const [result, setResult] = useState<AttemptResult>('SEND');
-  const [attemptsCount, setAttemptsCount] = useState<number>(1);
-  const [grade, setGrade] = useState<string>('');
-  const [note, setNote] = useState<string>('');
-  const mutation = useLogAttempt(accessToken, sessionExtId);
-
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    mutation.mutate(
-      {
-        result,
-        attempts: Math.max(1, Math.min(999, Math.floor(attemptsCount) || 1)),
-        gradeValue: grade.trim() ? grade.trim() : null,
-        note: note.trim() ? note.trim() : null,
-      },
-      {
-        onSuccess: () => {
-          setGrade('');
-          setNote('');
-          setAttemptsCount(1);
-          setResult('SEND');
-        },
-      },
-    );
-  };
-
-  return (
-    <form
-      onSubmit={onSubmit}
-      className="flex flex-col gap-5 rounded-2xl bg-subtle p-6 shadow-xs"
-    >
-      <h3 className="text-h2 font-bold tracking-[-0.03em] text-text">
-        {t('attempt.log.title')}
-      </h3>
-
-      <div className="flex flex-col gap-2">
-        <span className="text-caption font-semibold text-text-3">
-          {t('attempt.log.resultLabel')}
-        </span>
-        <div className="flex flex-wrap gap-2">
-          {ATTEMPT_RESULTS.map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => setResult(r)}
-              aria-pressed={r === result}
-              className={
-                'inline-flex h-10 items-center gap-2 rounded-full px-3.5 text-body font-semibold transition-transform duration-fast ease-standard active:scale-[0.97] ' +
-                (r === result
-                  ? 'bg-text text-bg'
-                  : 'bg-chip text-text-2 hover:bg-subtle-2')
-              }
-            >
-              <ResultMark kind={r} size={18} />
-              {t(`attempt.result.${r}` as const)}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <label className="flex flex-col gap-2">
-          <span className="text-caption font-semibold text-text-3">
-            {t('attempt.log.gradeLabel')}
-          </span>
-          <input
-            type="text"
-            value={grade}
-            maxLength={10}
-            onChange={(e) => setGrade(e.target.value)}
-            placeholder={t('attempt.log.gradePlaceholder')}
-            className="h-11 w-full rounded-lg border-0 bg-subtle-2 px-3 text-body font-medium text-text placeholder:text-text-4 focus:outline-none focus:ring-2 focus:ring-accent"
-          />
-        </label>
-        <label className="flex flex-col gap-2">
-          <span className="text-caption font-semibold text-text-3">
-            {t('attempt.log.attemptsLabel')}
-          </span>
-          <input
-            type="number"
-            min={1}
-            max={999}
-            value={attemptsCount}
-            onChange={(e) => setAttemptsCount(Number(e.target.value))}
-            className="h-11 w-full rounded-lg border-0 bg-subtle-2 px-3 text-body font-medium text-text tabular-nums focus:outline-none focus:ring-2 focus:ring-accent"
-          />
-        </label>
-      </div>
-
-      <label className="flex flex-col gap-2">
-        <span className="text-caption font-semibold text-text-3">
-          {t('attempt.log.noteLabel')}
-        </span>
-        <textarea
-          value={note}
-          maxLength={300}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder={t('attempt.log.notePlaceholder')}
-          rows={2}
-          className="w-full resize-none rounded-lg border-0 bg-subtle-2 px-3 py-2.5 text-body font-medium text-text placeholder:text-text-4 focus:outline-none focus:ring-2 focus:ring-accent"
-        />
-      </label>
-
-      {mutation.error ? (
-        <div
-          role="alert"
-          className="rounded-xl bg-bg p-3 shadow-xs"
-        >
-          <p className="text-title font-bold text-danger">
-            {t('attempt.log.errorTitle')}
-          </p>
-          <p className="mt-0.5 text-caption text-text-2">
-            {toUserMessage(mutation.error)}
-          </p>
-        </div>
-      ) : null}
-
-      <div>
-        <button
-          type="submit"
-          disabled={mutation.isPending}
-          className="inline-flex h-12 items-center gap-2 rounded-full bg-accent px-6 text-body font-bold text-white shadow-xs transition-transform duration-fast ease-standard active:scale-[0.98] disabled:bg-subtle-2 disabled:text-text-3"
-        >
-          <CrimpIcon.plus s={16} />
-          {mutation.isPending
-            ? t('attempt.log.submitting')
-            : t('attempt.log.submit')}
-        </button>
-      </div>
-    </form>
   );
 }
 

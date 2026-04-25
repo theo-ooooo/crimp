@@ -103,6 +103,26 @@
       "attemptsTitle": "Attempts",
       "attemptsEmpty": "No attempts logged yet.",
       "errorTitle": "Failed to load session"
+    },
+    "log": {
+      "title": "Log attempt",
+      "cancel": "Cancel",
+      "resultLabel": "Result",
+      "gradeLabel": "Grade",
+      "holdLabel": "Hold color",
+      "mediaLabel": "Video · Photo",
+      "cameraVideoTitle": "Record video",
+      "cameraVideoHint": "Up to 60s",
+      "cameraPhotoTitle": "Take photo",
+      "cameraPhotoHint": "Or pick from gallery",
+      "cameraVideoModeLabel": "Video",
+      "cameraPhotoModeLabel": "Photo",
+      "cameraBetaModeLabel": "Beta",
+      "noteLabel": "Note (optional)",
+      "notePlaceholder": "e.g. Crimp + deadpoint move...",
+      "save": "Save",
+      "openCta": "Log attempt",
+      "cameraComingSoon": "Camera capture is coming soon"
     }
   },
   "attempt": {

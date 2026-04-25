@@ -103,6 +103,26 @@
       "attemptsTitle": "시도 기록",
       "attemptsEmpty": "아직 기록된 시도가 없어요.",
       "errorTitle": "세션 정보를 불러오지 못했습니다"
+    },
+    "log": {
+      "title": "시도 기록",
+      "cancel": "취소",
+      "resultLabel": "결과",
+      "gradeLabel": "그레이드",
+      "holdLabel": "홀드 색",
+      "mediaLabel": "영상 · 사진",
+      "cameraVideoTitle": "동영상 촬영",
+      "cameraVideoHint": "최대 60초",
+      "cameraPhotoTitle": "사진 촬영",
+      "cameraPhotoHint": "또는 갤러리",
+      "cameraVideoModeLabel": "동영상",
+      "cameraPhotoModeLabel": "사진",
+      "cameraBetaModeLabel": "베타",
+      "noteLabel": "메모 (선택)",
+      "notePlaceholder": "예: 크림프 잡고 데드포인트 무브...",
+      "save": "저장",
+      "openCta": "시도 기록",
+      "cameraComingSoon": "카메라 캡처는 곧 출시됩니다"
     }
   },
   "attempt": {
