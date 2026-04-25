@@ -4,6 +4,7 @@ export { ApiError, ApiSchemaError, ApiTransportError } from './errors';
 export {
   fetchHealth,
   fetchMe,
+  fetchMeStats,
   fetchMySessions,
   fetchSession,
   startSession,
