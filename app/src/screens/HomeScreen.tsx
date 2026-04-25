@@ -66,21 +66,31 @@ export default function HomeScreen(): JSX.Element {
   }
 
   if (!accessToken) {
-    return <LoggedOutView styles={styles} />;
+    return <LoggedOutView navigation={navigation} styles={styles} />;
   }
 
   return <LoggedInView accessToken={accessToken} navigation={navigation} styles={styles} theme={theme} />;
 }
 
-function LoggedOutView({ styles }: { styles: ReturnType<typeof makeStyles> }): JSX.Element {
+function LoggedOutView({
+  navigation,
+  styles,
+}: {
+  navigation: Nav;
+  styles: ReturnType<typeof makeStyles>;
+}): JSX.Element {
   return (
     <View style={[styles.container, styles.center]}>
       <Text style={styles.brand}>{t('common.brand')}</Text>
       <Text style={styles.heroTagline}>{t('home.tagline')}</Text>
       <Text style={styles.heroDescription}>{t('home.description')}</Text>
       <View style={styles.heroButton}>
-        {/* TODO: 로그인 라우트 구현 시 onPress 에 navigation.navigate('Login') 연결. 그 전까지 disabled 로 비활성 표시. */}
-        <SecondaryButton disabled onPress={() => undefined}>{t('home.loginCta')}</SecondaryButton>
+        <SecondaryButton
+          onPress={() => navigation.navigate('Login')}
+          accessibilityLabel={t('home.loginCta')}
+        >
+          {t('home.loginCta')}
+        </SecondaryButton>
       </View>
       <Text style={styles.loginPrompt}>{t('home.loginPrompt')}</Text>
     </View>
