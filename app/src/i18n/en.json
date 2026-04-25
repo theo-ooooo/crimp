@@ -98,6 +98,23 @@
       "attemptsTitle": "Attempts",
       "attemptsEmpty": "No attempts logged yet.",
       "errorTitle": "Failed to load session"
+    },
+    "log": {
+      "title": "Log attempt",
+      "cancel": "Cancel",
+      "resultLabel": "Result",
+      "gradeLabel": "Grade",
+      "holdLabel": "Hold color",
+      "mediaLabel": "Video · Photo",
+      "cameraVideoTitle": "Record video",
+      "cameraVideoHint": "Up to 60s",
+      "cameraPhotoTitle": "Take photo",
+      "cameraPhotoHint": "Or pick from gallery",
+      "noteLabel": "Note (optional)",
+      "notePlaceholder": "Crimp into a deadpoint move...",
+      "save": "Save",
+      "openCta": "Log attempt",
+      "cameraComingSoon": "In-app camera capture lands in a future update."
     }
   },
   "attempt": {

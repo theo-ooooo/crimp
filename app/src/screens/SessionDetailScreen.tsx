@@ -1,5 +1,5 @@
 import { useRoute, type RouteProp } from '@react-navigation/native';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -7,7 +7,12 @@ import {
   View,
 } from 'react-native';
 
-import { SecondaryButton, Skeleton } from '@/components/primitives';
+import { PrimaryButton, SecondaryButton, Skeleton } from '@/components/primitives';
+import {
+  CameraSheet,
+  LogAttemptSheet,
+  type CameraMode,
+} from '@/components/session';
 import { useAttemptsQuery } from '@/hooks/useAttempts';
 import { useEndSession, useSessionQuery } from '@/hooks/useSessions';
 import { toUserMessage } from '@/lib/api/errorMessage';
@@ -25,7 +30,6 @@ import type { Attempt } from '@/lib/schemas/attempt';
 import { useTokenStore } from '@/store/tokenStore';
 
 import { AttemptRow } from './session/AttemptRow';
-import { LogAttemptForm } from './session/LogAttemptForm';
 import { SessionMetaCard } from './session/SessionMetaCard';
 
 /**
@@ -33,7 +37,7 @@ import { SessionMetaCard } from './session/SessionMetaCard';
  *
  * - 상단 SessionMetaCard (라이브 경과 시간)
  * - 시도 타임라인 (ScrollView 내부 map 렌더 — I2 참고)
- * - 진행 중이면 하단에 LogAttemptForm + SecondaryButton 세션 종료
+ * - 진행 중이면 하단에 "시도 기록" PrimaryButton(시트 토글) + SecondaryButton 세션 종료
  */
 export default function SessionDetailScreen(): JSX.Element {
   const theme = useTokens();
@@ -45,6 +49,11 @@ export default function SessionDetailScreen(): JSX.Element {
   const sessionQuery = useSessionQuery(accessToken, extId);
   const attemptsQuery = useAttemptsQuery(accessToken, extId);
   const endSession = useEndSession(accessToken);
+
+  // 시도 기록 시트 / 카메라 시트 상태. 카메라는 시트 위 시트로 동시에 열려도 무관.
+  const [logSheetOpen, setLogSheetOpen] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraMode, setCameraMode] = useState<CameraMode>('video');
 
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
@@ -132,7 +141,14 @@ export default function SessionDetailScreen(): JSX.Element {
 
       {isOngoing && session ? (
         <>
-          <LogAttemptForm accessToken={accessToken} sessionExtId={extId} />
+          <View style={styles.logCtaWrap}>
+            <PrimaryButton
+              onPress={() => setLogSheetOpen(true)}
+              accessibilityLabel={t('session.log.openCta')}
+            >
+              {t('session.log.openCta')}
+            </PrimaryButton>
+          </View>
           <View style={styles.endWrap}>
             <SecondaryButton
               onPress={() => {
@@ -152,6 +168,22 @@ export default function SessionDetailScreen(): JSX.Element {
               </Text>
             ) : null}
           </View>
+
+          <LogAttemptSheet
+            visible={logSheetOpen}
+            accessToken={accessToken}
+            sessionExtId={extId}
+            onClose={() => setLogSheetOpen(false)}
+            onCamera={(mode) => {
+              setCameraMode(mode);
+              setCameraOpen(true);
+            }}
+          />
+          <CameraSheet
+            visible={cameraOpen}
+            mode={cameraMode}
+            onClose={() => setCameraOpen(false)}
+          />
         </>
       ) : null}
     </ScrollView>
@@ -225,6 +257,9 @@ function makeStyles(theme: Theme) {
     },
     endWrap: {
       gap: space[2],
+      alignItems: 'stretch',
+    },
+    logCtaWrap: {
       alignItems: 'stretch',
     },
   });
