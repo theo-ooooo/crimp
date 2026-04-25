@@ -78,6 +78,8 @@ export function useGymsQuery(params: GymsQueryParams, pageSize?: number) {
  */
 export function useGymQuery(extId: string | null | undefined) {
   return useQuery<GymDetail>({
+    // '__none__' placeholder: extId 미정 상태에서 queryKey 타입이 필요하지만
+    // enabled:false 가드 덕분에 queryFn 은 실행되지 않는다. 실제 데이터 fetch 없음.
     queryKey: extId ? gymQueryKey(extId) : (['gym', '__none__'] as const),
     queryFn: ({ signal }) => {
       if (!extId) {
@@ -105,6 +107,7 @@ export function useGymRoutesQuery(
     ReturnType<typeof gymRoutesQueryKey>,
     number | null
   >({
+    // '__none__' placeholder — enabled:false 시 queryFn 미실행, 캐시 오염 없음.
     queryKey: gymRoutesQueryKey(gymExtId ?? '__none__'),
     initialPageParam: null,
     queryFn: ({ pageParam, signal }) => {

@@ -148,7 +148,7 @@ export default function GymDetailPage(): JSX.Element {
         <Link
           href={startSessionHref}
           aria-label={t('gym.detail.startSessionCta')}
-          className="inline-flex h-14 w-full items-center justify-center rounded-lg bg-accent text-[17px] font-bold tracking-[-0.02em] text-accent-on transition-transform duration-fast ease-standard active:scale-[0.98]"
+          className="inline-flex h-14 w-full items-center justify-center rounded-lg bg-accent text-title font-bold text-accent-on transition-transform duration-fast ease-standard active:scale-[0.98]"
         >
           <span className="inline-flex items-center gap-2">
             <CrimpIcon.play s={18} />

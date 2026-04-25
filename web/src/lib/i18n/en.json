@@ -133,7 +133,6 @@
       "filtersReset": "Reset filters",
       "filtersBrand": "Brand",
       "errorTitle": "Failed to load gyms",
-      "brandFallback": "No brand",
       "addressFallback": "Address unavailable"
     },
     "detail": {
@@ -163,6 +162,7 @@
     "sessionNotFound": "Session not found.",
     "sessionInvalid": "Session data is invalid.",
     "attemptNotFound": "Attempt not found.",
+    "gymNotFound": "Gym not found.",
     "attemptInvalid": "Attempt data is invalid.",
     "generic": "Request failed."
   }
