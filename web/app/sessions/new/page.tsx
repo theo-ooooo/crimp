@@ -74,6 +74,9 @@ function NewSessionPageInner(): JSX.Element {
   }, [selectedGymName]);
 
   const clearSelectedGym = () => {
+    // 선택된 암장 해제 시 자유입력 필드도 비워 "방금 선택한 이름" 이 남지 않도록 한다.
+    // (기존 useEffect 는 selectedGymName 이 truthy 일 때만 동기화 — null 로 바뀌어도 자동 clear 안 됨.)
+    setGymName('');
     router.replace('/sessions/new');
   };
 

@@ -106,6 +106,30 @@ class SessionServiceTest {
     }
 
     @Test
+    void start_prefers_gymExtId_over_gymId_when_both_provided() {
+        // 회귀 방어: 클라이언트가 gymExtId 와 (레거시) gymId 를 동시에 보내면
+        // 서비스는 extId 를 최종 소스 오브 트루스로 채택해야 한다.
+        // gymId 999L 이 실제 사용되면 잘못된 암장에 세션이 묶이는 회귀.
+        Gym gym = gym(55L, "01HGYM0000000000000000000X", "클라임파크 강남점");
+        when(gymRepo.findByExtId("01HGYM0000000000000000000X"))
+                .thenReturn(Optional.of(gym));
+        when(repo.save(any(ClimbingSession.class))).thenAnswer(inv -> {
+            ClimbingSession s = inv.getArgument(0);
+            setField(s, "id", 1L);
+            return s;
+        });
+
+        var cmd = new StartSessionCommand(
+                "01HGYM0000000000000000000X",
+                999L, // 레거시 gymId — extId 가 있으면 무시되어야 함
+                null,
+                Instant.parse("2026-04-22T10:00:00Z"));
+        var view = service.start(42L, cmd);
+        assertThat(view.gymId()).isEqualTo(55L); // gym.findByExtId 결과 id 우선
+        assertThat(view.gymNameRaw()).isEqualTo("클라임파크 강남점");
+    }
+
+    @Test
     void start_throws_GYM_NOT_FOUND_when_gymExtId_unresolved() {
         when(gymRepo.findByExtId("01HMISSING0000000000000000"))
                 .thenReturn(Optional.empty());
