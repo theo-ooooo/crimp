@@ -8,6 +8,14 @@ import {
   type LogAttemptBody,
   type UpdateAttemptBody,
 } from '@/lib/schemas/attempt';
+import {
+  GymDetailSchema,
+  GymListSchema,
+  RouteListSchema,
+  type GymDetail,
+  type GymList,
+  type RouteList,
+} from '@/lib/schemas/gym';
 import { HealthResponseSchema, type HealthResponse } from '@/lib/schemas/health';
 import { MeSchema, type Me } from '@/lib/schemas/me';
 import { MeStatsSchema, type MeStats } from '@/lib/schemas/meStats';
@@ -237,6 +245,90 @@ export function deleteAttempt(
     path: `/api/v1/attempts/${encodeURIComponent(extId)}`,
     accessToken,
     schema: z.void(),
+    signal,
+  });
+}
+
+// ===== Gyms =====
+
+/**
+ * `GET /api/v1/gyms` — 암장 검색·목록 (커서 페이지네이션, 공개).
+ *
+ * - `cursor`: 직전 응답 `page.nextCursor` 를 그대로 전달. 첫 호출에선 `null`.
+ * - `q`: 이름/주소 검색어 (선택).
+ * - `brand`: 브랜드 필터 (선택).
+ * - `size`: 서버 기본값 사용 시 생략.
+ */
+export function fetchGyms(
+  cursor?: number | null,
+  q?: string | null,
+  brand?: string | null,
+  size?: number,
+  signal?: AbortSignal,
+): Promise<GymList> {
+  const params = new URLSearchParams();
+  if (cursor !== undefined && cursor !== null) {
+    params.set('cursor', String(cursor));
+  }
+  if (q !== undefined && q !== null && q !== '') {
+    params.set('q', q);
+  }
+  if (brand !== undefined && brand !== null && brand !== '') {
+    params.set('brand', brand);
+  }
+  if (size !== undefined) {
+    params.set('size', String(size));
+  }
+  const qs = params.toString();
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/gyms${qs ? `?${qs}` : ''}`,
+    schema: GymListSchema,
+    signal,
+  });
+}
+
+/**
+ * `GET /api/v1/gyms/{extId}` — 암장 단건 조회 (공개).
+ */
+export function fetchGym(
+  extId: string,
+  signal?: AbortSignal,
+): Promise<GymDetail> {
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/gyms/${encodeURIComponent(extId)}`,
+    schema: GymDetailSchema,
+    signal,
+  });
+}
+
+/**
+ * `GET /api/v1/gyms/{gymExtId}/routes` — 암장의 활성 루트 목록 (Bearer 필요).
+ *
+ * - id DESC (최근 세팅 우선), 커서 페이지네이션.
+ * - 인증은 SecurityConfig 의 `/api/v1/gyms/&#42;/routes` 매처가 강제.
+ */
+export function fetchGymRoutes(
+  accessToken: string,
+  gymExtId: string,
+  cursor?: number | null,
+  size?: number,
+  signal?: AbortSignal,
+): Promise<RouteList> {
+  const params = new URLSearchParams();
+  if (cursor !== undefined && cursor !== null) {
+    params.set('cursor', String(cursor));
+  }
+  if (size !== undefined) {
+    params.set('size', String(size));
+  }
+  const qs = params.toString();
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/gyms/${encodeURIComponent(gymExtId)}/routes${qs ? `?${qs}` : ''}`,
+    accessToken,
+    schema: RouteListSchema,
     signal,
   });
 }

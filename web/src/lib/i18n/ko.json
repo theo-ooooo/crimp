@@ -124,6 +124,36 @@
       "FAIL": "실패"
     }
   },
+  "gym": {
+    "list": {
+      "title": "암장 찾기",
+      "searchPlaceholder": "암장 이름·주소로 검색",
+      "empty": "검색 결과가 없어요",
+      "loadMore": "더 보기",
+      "filtersReset": "필터 초기화",
+      "filtersBrand": "브랜드",
+      "errorTitle": "암장 목록을 불러오지 못했습니다",
+      "brandFallback": "브랜드 미지정",
+      "addressFallback": "주소 미지정"
+    },
+    "detail": {
+      "metaCardTitle": "기본 정보",
+      "phoneLabel": "전화",
+      "hoursLabel": "운영 시간",
+      "cycleLabel": "세팅 주기",
+      "cycleValue": "{{days}}일마다 세팅",
+      "featuresLabel": "시설",
+      "routesTitle": "활성 루트",
+      "routesEmpty": "등록된 활성 루트가 없어요.",
+      "routesAuthRequired": "로그인 후 루트를 확인할 수 있어요.",
+      "routesErrorTitle": "루트 정보를 불러오지 못했습니다",
+      "routeSetterLabel": "세팅",
+      "routeSetAtLabel": "세팅일",
+      "startSessionCta": "이 암장에서 세션 시작",
+      "errorTitle": "암장 정보를 불러오지 못했습니다",
+      "loadMore": "더 보기"
+    }
+  },
   "error": {
     "transport": "일시적 오류가 발생했어요. 잠시 후 다시 시도해 주세요.",
     "authRequired": "로그인이 필요한 작업이에요.",
