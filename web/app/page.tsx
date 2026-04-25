@@ -49,7 +49,11 @@ export default function HomePage(): JSX.Element {
 
 function HydrationGate(): JSX.Element {
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 bg-bg px-6 py-10">
+    <main
+      aria-busy="true"
+      aria-live="polite"
+      className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 bg-bg px-6 py-10"
+    >
       <Skeleton h={20} w="35%" />
       <Skeleton h={32} w="70%" />
       <Skeleton h={220} r={28} />
@@ -78,7 +82,7 @@ function LoggedOut(): JSX.Element {
         <a
           href="/login"
           aria-label={t('home.loginCta')}
-          className="inline-flex h-14 w-full items-center justify-center rounded-lg bg-accent text-[17px] font-bold tracking-[-0.02em] text-white transition-transform duration-fast ease-standard active:scale-[0.98]"
+          className="inline-flex h-14 w-full items-center justify-center rounded-lg bg-accent text-title font-bold text-accent-on transition-transform duration-fast ease-standard active:scale-[0.98]"
         >
           {t('home.loginCta')}
         </a>
@@ -201,12 +205,10 @@ function WeeklyHeadline({ weekSends }: { weekSends: number }): JSX.Element {
   );
 }
 
+// BigStat 내부 label(`home.statsWeekSendsLabel`) 이 섹션 제목 역할을 하므로 추가 aria-label 로 중복시키지 않는다.
 function StatsCard({ stats }: { stats: MeStats }): JSX.Element {
   return (
-    <section
-      aria-label={t('home.statsWeekSendsLabel')}
-      className="flex flex-col gap-5 rounded-2xl bg-subtle p-6 shadow-xs"
-    >
+    <section className="flex flex-col gap-5 rounded-2xl bg-subtle p-6 shadow-xs">
       <BigStat
         scale="xl"
         label={t('home.statsWeekSendsLabel')}
@@ -243,9 +245,7 @@ function SmallStat({
 }): JSX.Element {
   return (
     <div className="flex flex-col gap-1.5">
-      <p className="text-[12px] font-semibold tracking-[-0.01em] text-text-3">
-        {label}
-      </p>
+      <p className="text-caption font-semibold text-text-3">{label}</p>
       <p
         className={`text-h2 font-extrabold tracking-[-0.03em] tabular-nums ${
           accent ? 'text-accent' : 'text-text'
