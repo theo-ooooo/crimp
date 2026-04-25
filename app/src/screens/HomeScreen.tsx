@@ -1,181 +1,396 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { useHealthQuery } from '@/hooks/useHealth';
+import {
+  BigStat,
+  CrimpIcon,
+  PrimaryButton,
+  SecondaryButton,
+  Skeleton,
+} from '@/components/primitives';
+import { useMeStatsQuery } from '@/hooks/useMeStats';
+import { useMeQuery } from '@/hooks/useMe';
+import { useSessionsQuery } from '@/hooks/useSessions';
+import { toUserMessage } from '@/lib/api/errorMessage';
 import { t } from '@/lib/i18n';
+import {
+  fontFamily,
+  fontSize,
+  fontWeight,
+  letterSpacing,
+  radius,
+  space,
+  type Theme,
+} from '@/lib/tokens';
+import { useTokens } from '@/lib/useTokens';
+import type { Session } from '@/lib/schemas/session';
+import type { RootStackParamList } from '@/navigation/types';
+import { useTokenStore } from '@/store/tokenStore';
+
+type Nav = NativeStackNavigationProp<RootStackParamList, 'Home'>;
+
+function fill(key: string, vars: Record<string, string | number>): string {
+  return Object.entries(vars).reduce(
+    (acc, [k, v]) => acc.replace(`{{${k}}}`, String(v)),
+    key,
+  );
+}
+
+/** "2026-04-20" → "04-20" */
+function toMonthDay(iso: string): string {
+  return iso.length >= 10 ? iso.slice(5) : iso;
+}
 
 export default function HomeScreen(): JSX.Element {
-  const { data, error, isLoading, isFetching, refetch } = useHealthQuery();
+  const theme = useTokens();
+  const navigation = useNavigation<Nav>();
+  const hydrated = useTokenStore((s) => s.hydrated);
+  const accessToken = useTokenStore((s) => s.accessToken);
+  const styles = useMemo(() => makeStyles(theme), [theme]);
+
+  if (!hydrated) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <Text style={styles.muted}>{t('common.loading')}</Text>
+      </View>
+    );
+  }
+
+  if (!accessToken) {
+    return <LoggedOutView styles={styles} />;
+  }
+
+  return <LoggedInView accessToken={accessToken} navigation={navigation} styles={styles} theme={theme} />;
+}
+
+function LoggedOutView({ styles }: { styles: ReturnType<typeof makeStyles> }): JSX.Element {
+  return (
+    <View style={[styles.container, styles.center]}>
+      <Text style={styles.brand}>{t('common.brand')}</Text>
+      <Text style={styles.heroTagline}>{t('home.tagline')}</Text>
+      <Text style={styles.heroDescription}>{t('home.description')}</Text>
+      <View style={styles.heroButton}>
+        <SecondaryButton onPress={() => undefined}>{t('home.loginCta')}</SecondaryButton>
+      </View>
+      <Text style={styles.loginPrompt}>{t('home.loginPrompt')}</Text>
+    </View>
+  );
+}
+
+type LoggedInProps = {
+  accessToken: string;
+  navigation: Nav;
+  styles: ReturnType<typeof makeStyles>;
+  theme: Theme;
+};
+
+function LoggedInView({ accessToken, navigation, styles, theme }: LoggedInProps): JSX.Element {
+  const meQuery = useMeQuery(accessToken);
+  const statsQuery = useMeStatsQuery(accessToken);
+  const sessionsQuery = useSessionsQuery(accessToken);
+
+  const nickname = meQuery.data?.nickname ?? t('home.nicknameFallback');
+  const stats = statsQuery.data;
+  const recent: Session[] =
+    sessionsQuery.data?.pages.flatMap((p) => p.items).slice(0, 3) ?? [];
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.eyebrow}>{t('common.brand').toUpperCase()}</Text>
-      <Text style={styles.title}>{t('home.tagline')}</Text>
-      <Text style={styles.body}>{t('home.description')}</Text>
-
-      <View
-        style={styles.healthCard}
-        accessible
-        accessibilityLabel={t('home.healthSectionTitle')}
-      >
-        <Text style={styles.healthSectionTitle}>
-          {t('home.healthSectionTitle')}
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.scrollContent}
+    >
+      {/* 인사말 */}
+      <View style={styles.greetingBlock}>
+        <Text style={styles.eyebrow}>{t('home.eyebrow')}</Text>
+        <Text style={styles.greeting}>
+          {fill(t('home.greeting'), { nickname })}
         </Text>
-
-        {isLoading ? (
-          <View style={styles.inline}>
-            <ActivityIndicator color="#ff7a1f" />
-            <Text style={styles.loadingText}>{t('common.loading')}</Text>
-          </View>
-        ) : error ? (
-          <View>
-            <Text style={styles.errorTitle}>{t('home.healthErrorTitle')}</Text>
-            <Text style={styles.errorHint}>{t('home.healthErrorHint')}</Text>
-            <Text style={styles.errorDetails}>
-              {error instanceof Error ? error.message : String(error)}
+        {stats ? (
+          <Text style={styles.greeting}>
+            {t('home.weeklyHeadline').split('{{count}}')[0]}
+            <Text style={[styles.greeting, { color: theme.accent.base }]}>
+              {stats.weekSends}
+              {t('home.weekSendsUnit')}
             </Text>
-            <Pressable
-              onPress={() => {
-                refetch().catch(() => {
-                  /* 재시도 실패는 화면 상태가 그대로 유지되므로 별도 처리 없음 */
-                });
-              }}
-              disabled={isFetching}
-              style={({ pressed }) => [
-                styles.retryButton,
-                pressed ? styles.retryButtonPressed : null,
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel={t('common.retry')}
-            >
-              <Text style={styles.retryLabel}>{t('common.retry')}</Text>
-            </Pressable>
-          </View>
-        ) : data ? (
-          <View style={styles.kvList}>
-            <KeyValue label={t('home.healthLabelStatus')} value={data.status} />
-            <KeyValue label={t('home.healthLabelBrand')} value={data.brand} />
-            <KeyValue label={t('home.healthLabelEnv')} value={data.env} />
-            <KeyValue
-              label={t('home.healthLabelServerTime')}
-              value={data.serverTime}
-            />
-          </View>
+            {t('home.weeklyHeadline').split('{{count}}')[1]?.replace(/회/, '')}
+          </Text>
         ) : null}
       </View>
-    </View>
+
+      {/* 큰 통계 카드 */}
+      {statsQuery.isLoading ? (
+        <View style={styles.statsCard}>
+          <Skeleton width="40%" height={14} />
+          <View style={{ height: space[4] }} />
+          <Skeleton width="60%" height={56} />
+          <View style={{ height: space[6] }} />
+          <Skeleton width="100%" height={48} />
+        </View>
+      ) : statsQuery.error ? (
+        <View style={styles.errorBox}>
+          <Text style={styles.errorTitle}>{t('home.errorTitle')}</Text>
+          <Text style={styles.muted}>{toUserMessage(statsQuery.error)}</Text>
+        </View>
+      ) : stats ? (
+        <View style={styles.statsCard}>
+          <Text style={styles.caption}>
+            {fill(t('home.weekCaption'), {
+              start: toMonthDay(stats.weekRange.start),
+              end: toMonthDay(stats.weekRange.end),
+            })}
+          </Text>
+          <View style={{ height: space[4] }} />
+          <BigStat
+            value={stats.weekSends}
+            unit={t('home.weekSendsUnit') || undefined}
+            label={t('home.weekSendsLabel')}
+            scale="xl"
+          />
+          <View style={styles.divider} />
+          <View style={styles.statsRow}>
+            <BigStat
+              value={stats.totalSessions}
+              label={t('home.totalSessionsLabel')}
+              scale="sm"
+            />
+            <BigStat
+              value={stats.totalSends}
+              label={t('home.totalSendsLabel')}
+              scale="sm"
+            />
+            <BigStat
+              value={stats.topGrade ?? t('home.topGradeEmpty')}
+              label={t('home.topGradeLabel')}
+              scale="sm"
+            />
+          </View>
+        </View>
+      ) : null}
+
+      {/* 주 CTA */}
+      <PrimaryButton onPress={() => navigation.navigate('StartSession')}>
+        {t('home.ctaStartSession')}
+      </PrimaryButton>
+
+      {/* 최근 세션 */}
+      {stats && stats.totalSessions === 0 ? (
+        <View style={styles.emptyBlock}>
+          <CrimpIcon.flame size={48} color={theme.accent.base} />
+          <Text style={styles.emptyTitle}>{t('home.emptyTitle')}</Text>
+          <Text style={styles.muted}>{t('home.emptyHint')}</Text>
+        </View>
+      ) : (
+        <View style={styles.recentBlock}>
+          <Text style={styles.sectionTitle}>{t('home.recentSessionsTitle')}</Text>
+          {sessionsQuery.isLoading ? (
+            <>
+              <Skeleton height={64} radius={radius.lg} />
+              <View style={{ height: space[2] }} />
+              <Skeleton height={64} radius={radius.lg} />
+            </>
+          ) : recent.length > 0 ? (
+            recent.map((s) => (
+              <RecentSessionCard
+                key={s.extId}
+                session={s}
+                styles={styles}
+                onPress={() =>
+                  navigation.navigate('SessionDetail', { extId: s.extId })
+                }
+              />
+            ))
+          ) : null}
+        </View>
+      )}
+    </ScrollView>
   );
 }
 
-function KeyValue({ label, value }: { label: string; value: string }): JSX.Element {
+function RecentSessionCard({
+  session,
+  onPress,
+  styles,
+}: {
+  session: Session;
+  onPress: () => void;
+  styles: ReturnType<typeof makeStyles>;
+}): JSX.Element {
+  const label = session.gymNameRaw ?? t('session.list.itemGymFallback');
+  const startedAt = new Date(session.startedAt).toLocaleDateString('ko-KR', {
+    month: '2-digit',
+    day: '2-digit',
+  });
   return (
-    <View style={styles.kvRow}>
-      <Text style={styles.kvLabel}>{label}</Text>
-      <Text style={styles.kvValue}>{value}</Text>
-    </View>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.recentCard,
+        pressed ? styles.recentCardPressed : null,
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      <Text style={styles.recentCardLabel}>{label}</Text>
+      <Text style={styles.recentCardDate}>{startedAt}</Text>
+    </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0b0b0b',
-    paddingHorizontal: 24,
-    justifyContent: 'center',
-    gap: 12,
-  },
-  eyebrow: {
-    color: '#ff7a1f',
-    fontSize: 12,
-    letterSpacing: 3,
-  },
-  title: {
-    color: '#f5f5f4',
-    fontSize: 28,
-    fontWeight: '600',
-  },
-  body: {
-    color: '#a3a3a3',
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  healthCard: {
-    marginTop: 24,
-    borderRadius: 10,
-    borderColor: '#262626',
-    borderWidth: 1,
-    padding: 16,
-    backgroundColor: '#111111',
-    gap: 10,
-  },
-  healthSectionTitle: {
-    color: '#a3a3a3',
-    fontSize: 11,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-  },
-  inline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  loadingText: {
-    color: '#a3a3a3',
-    fontSize: 13,
-  },
-  errorTitle: {
-    color: '#f87171',
-    fontSize: 13,
-    marginBottom: 2,
-  },
-  errorHint: {
-    color: '#737373',
-    fontSize: 12,
-  },
-  errorDetails: {
-    color: '#525252',
-    fontSize: 11,
-    marginTop: 4,
-    fontFamily: 'Menlo',
-  },
-  retryButton: {
-    marginTop: 10,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#404040',
-  },
-  retryButtonPressed: {
-    backgroundColor: '#1f1f1f',
-  },
-  retryLabel: {
-    color: '#e5e5e5',
-    fontSize: 12,
-  },
-  kvList: {
-    gap: 6,
-  },
-  kvRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  kvLabel: {
-    color: '#737373',
-    fontSize: 12,
-    width: 90,
-  },
-  kvValue: {
-    color: '#d4d4d4',
-    fontSize: 12,
-    flexShrink: 1,
-    fontFamily: 'Menlo',
-  },
-});
+function makeStyles(theme: Theme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.bg,
+    },
+    center: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: space[6],
+      gap: space[3],
+    },
+    scrollContent: {
+      padding: space[5],
+      paddingBottom: space[14],
+      gap: space[6],
+    },
+    muted: {
+      fontFamily,
+      fontSize: fontSize.body,
+      color: theme.text3,
+    },
+    brand: {
+      fontFamily,
+      fontSize: fontSize.h1,
+      fontWeight: fontWeight.extrabold,
+      letterSpacing: letterSpacing.h1,
+      color: theme.text,
+    },
+    heroTagline: {
+      fontFamily,
+      fontSize: fontSize.h2,
+      fontWeight: fontWeight.bold,
+      color: theme.text,
+      textAlign: 'center',
+    },
+    heroDescription: {
+      fontFamily,
+      fontSize: fontSize.body,
+      color: theme.text2,
+      textAlign: 'center',
+    },
+    heroButton: {
+      alignSelf: 'stretch',
+      marginTop: space[4],
+    },
+    loginPrompt: {
+      fontFamily,
+      fontSize: fontSize.caption,
+      color: theme.text3,
+    },
+    greetingBlock: {
+      gap: space[1],
+    },
+    eyebrow: {
+      fontFamily,
+      fontSize: fontSize.caption,
+      fontWeight: fontWeight.semibold,
+      color: theme.text3,
+      marginBottom: space[1],
+    },
+    greeting: {
+      fontFamily,
+      fontSize: fontSize.h1,
+      fontWeight: fontWeight.extrabold,
+      letterSpacing: letterSpacing.h1,
+      color: theme.text,
+      lineHeight: fontSize.h1 * 1.15,
+    },
+    statsCard: {
+      backgroundColor: theme.subtle,
+      borderRadius: radius.xl,
+      padding: space[6],
+    },
+    caption: {
+      fontFamily,
+      fontSize: fontSize.caption,
+      fontWeight: fontWeight.semibold,
+      color: theme.text3,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: theme.hairline,
+      marginVertical: space[5],
+    },
+    statsRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: space[3],
+    },
+    errorBox: {
+      backgroundColor: `${theme.semantic.danger}14`,
+      borderRadius: radius.lg,
+      padding: space[5],
+      gap: space[2],
+    },
+    errorTitle: {
+      fontFamily,
+      fontSize: fontSize.body,
+      fontWeight: fontWeight.bold,
+      color: theme.semantic.danger,
+    },
+    emptyBlock: {
+      alignItems: 'center',
+      padding: space[8],
+      gap: space[3],
+    },
+    emptyTitle: {
+      fontFamily,
+      fontSize: fontSize.title,
+      fontWeight: fontWeight.bold,
+      letterSpacing: letterSpacing.title,
+      color: theme.text,
+      marginTop: space[2],
+    },
+    recentBlock: {
+      gap: space[3],
+    },
+    sectionTitle: {
+      fontFamily,
+      fontSize: fontSize.title,
+      fontWeight: fontWeight.bold,
+      letterSpacing: letterSpacing.title,
+      color: theme.text,
+    },
+    recentCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: space[4],
+      borderRadius: radius.lg,
+      backgroundColor: theme.subtle,
+    },
+    recentCardPressed: {
+      opacity: 0.85,
+    },
+    recentCardLabel: {
+      fontFamily,
+      fontSize: fontSize.body,
+      fontWeight: fontWeight.semibold,
+      color: theme.text,
+      flexShrink: 1,
+    },
+    recentCardDate: {
+      fontFamily,
+      fontSize: fontSize.caption,
+      color: theme.text3,
+    },
+  });
+}
