@@ -82,17 +82,29 @@ export function getRefreshTokenStorage(): SecureTokenStorage {
 export interface TokenState {
   accessToken: string | null;
   refreshToken: string | null;
+  /**
+   * accessToken 만료 epoch ms (`Date.now() + expiresIn * 1000`).
+   * 401 인터셉터가 proactive refresh 를 트리거할 때 참조 (Phase 2).
+   * 메모리 한정 — 앱 재시작 시 유실, 토큰만 storage 에 보존된다.
+   */
+  accessTokenExpiresAt: number | null;
   hydrated: boolean;
   hydrate: () => Promise<void>;
   setAccessToken: (token: string | null) => Promise<void>;
   setRefreshToken: (token: string | null) => Promise<void>;
-  setTokens: (tokens: { accessToken: string; refreshToken: string }) => Promise<void>;
+  setTokens: (tokens: {
+    accessToken: string;
+    refreshToken: string;
+    /** access TTL (초). 백엔드 `TokenResponse.expiresIn`. */
+    expiresIn?: number;
+  }) => Promise<void>;
   clear: () => Promise<void>;
 }
 
 export const useTokenStore = create<TokenState>((set) => ({
   accessToken: null,
   refreshToken: null,
+  accessTokenExpiresAt: null,
   hydrated: false,
   hydrate: async () => {
     const [access, refresh] = await Promise.all([
@@ -117,18 +129,20 @@ export const useTokenStore = create<TokenState>((set) => ({
     }
     set({ refreshToken: token });
   },
-  setTokens: async ({ accessToken, refreshToken }) => {
+  setTokens: async ({ accessToken, refreshToken, expiresIn }) => {
     await Promise.all([
       activeAccessStorage.set(accessToken),
       activeRefreshStorage.set(refreshToken),
     ]);
-    set({ accessToken, refreshToken });
+    const accessTokenExpiresAt =
+      typeof expiresIn === 'number' ? Date.now() + expiresIn * 1000 : null;
+    set({ accessToken, refreshToken, accessTokenExpiresAt });
   },
   clear: async () => {
     await Promise.all([
       activeAccessStorage.remove(),
       activeRefreshStorage.remove(),
     ]);
-    set({ accessToken: null, refreshToken: null });
+    set({ accessToken: null, refreshToken: null, accessTokenExpiresAt: null });
   },
 }));

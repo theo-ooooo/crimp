@@ -81,7 +81,10 @@ export default function LoginScreen(): JSX.Element {
   const submitIdToken = async (idToken: string) => {
     setErrorMessage(null);
     try {
-      await exchange.mutateAsync({ provider: 'KAKAO', idToken });
+      await exchange.mutateAsync({ provider: 'kakao', idToken });
+      // I2: 성공 시 dev 토큰 입력 cleanup — 다음 진입 때 stale 값이 남지 않도록.
+      setDevToken('');
+      setDevOpen(false);
       navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
     } catch (err) {
       setErrorMessage(toUserMessage(err));
@@ -282,7 +285,7 @@ function makeStyles(theme: Theme) {
     errorBody: {
       fontFamily,
       fontSize: fontSize.caption,
-      color: theme.text,
+      color: theme.text2, // I3: HomeScreen errorBox 와 일관 (muted body)
     },
     devSection: {
       gap: space[3],

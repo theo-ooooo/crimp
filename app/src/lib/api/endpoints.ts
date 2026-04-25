@@ -50,7 +50,7 @@ export function exchangeOauth(
 ): Promise<TokenResponse> {
   return apiRequest({
     method: 'POST',
-    path: `/api/v1/auth/oauth/${provider.toLowerCase()}`,
+    path: `/api/v1/auth/oauth/${provider}`,
     body: { idToken },
     schema: TokenResponseSchema,
     signal,

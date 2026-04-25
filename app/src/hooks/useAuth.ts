@@ -41,6 +41,7 @@ export function useExchangeOauth() {
       await setTokens({
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
+        expiresIn: tokens.expiresIn,
       });
       qc.invalidateQueries({ queryKey: ['me'] });
     },

@@ -37,4 +37,6 @@ export type TokenPairBody = {
 /**
  * 백엔드가 지원하는 OAuth provider. 백엔드 `OauthProvider` enum 과 1:1 대응.
  */
-export type OauthProvider = 'KAKAO' | 'APPLE' | 'GOOGLE';
+// 백엔드 `parseProvider` 가 대소문자 모두 받지만, URL path 와 동일한 lowercase 로 통일해
+// 클라이언트 단에서 변환을 제거한다.
+export type OauthProvider = 'kakao' | 'apple' | 'google';
