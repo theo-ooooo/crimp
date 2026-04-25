@@ -103,3 +103,18 @@ body {
     background-position: -200% 0;
   }
 }
+
+/*
+ * Bottom sheet enter 애니메이션 — LogAttemptSheet 전용.
+ * `prefers-reduced-motion` 가드는 컴포넌트 레벨(`useReducedMotion`)에서 처리.
+ */
+@keyframes crimp-sheet-in {
+  from {
+    transform: translateY(8%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
