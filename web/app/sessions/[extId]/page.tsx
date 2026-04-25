@@ -502,7 +502,7 @@ function LogAttemptForm({
         <button
           type="submit"
           disabled={mutation.isPending}
-          className="inline-flex h-12 items-center gap-2 rounded-full bg-accent px-6 text-body font-bold text-white shadow-xs transition-transform duration-fast ease-standard active:scale-[0.98] disabled:bg-subtle-2 disabled:text-text-3"
+          className="inline-flex h-12 items-center gap-2 rounded-full bg-accent px-6 text-body font-bold text-accent-on shadow-xs transition-transform duration-fast ease-standard active:scale-[0.98] disabled:bg-subtle-2 disabled:text-text-3"
         >
           <CrimpIcon.plus s={16} />
           {mutation.isPending

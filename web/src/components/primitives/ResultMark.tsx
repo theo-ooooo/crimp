@@ -33,7 +33,7 @@ interface GlyphDef {
 const GLYPHS: Record<ResultKind, GlyphDef> = {
   SEND: {
     bg: colors.accent.base,
-    fg: '#FFFFFF',
+    fg: colors.accent.on,
     glyph: (
       <path
         d="m4 9 3 3 7-8"

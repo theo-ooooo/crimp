@@ -29,7 +29,7 @@ const BASE_CLASSES = [
 ].join(' ');
 
 const PRIMARY_CLASSES = [
-  'bg-accent text-white font-bold',
+  'bg-accent text-accent-on font-bold',
   'disabled:bg-subtle-2 disabled:text-text-3',
 ].join(' ');
 

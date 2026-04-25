@@ -66,7 +66,7 @@ export default function SessionsPage(): JSX.Element {
           </div>
           <Link
             href="/sessions/new"
-            className="inline-flex h-11 items-center gap-1.5 rounded-full bg-accent px-4 text-body font-bold text-white shadow-xs transition-transform duration-fast ease-standard active:scale-[0.98]"
+            className="inline-flex h-11 items-center gap-1.5 rounded-full bg-accent px-4 text-body font-bold text-accent-on shadow-xs transition-transform duration-fast ease-standard active:scale-[0.98]"
           >
             <CrimpIcon.plus s={16} />
             {t('session.list.newButton')}
