@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Climp · Boulder · Logo System</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #f0eee9;
+    --paper: #ffffff;
+    --ink: #0F1419;
+    --ink2: #4E5968;
+    --ink3: #8B95A1;
+    --hairline: #E5E8EB;
+    --lime: #C9F84B;
+    --lime-dark: #A8DA1F;
+    --orange: #FF6B35;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; background: var(--bg); font-family: "Pretendard Variable", system-ui, sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+  .page { max-width: 1320px; margin: 0 auto; padding: 56px 48px 80px; }
+  .header { display:flex; align-items:flex-end; justify-content:space-between; padding-bottom: 28px; border-bottom: 1px solid var(--hairline); margin-bottom: 40px; }
+  .eyebrow { font-size: 12px; font-weight: 700; color: var(--ink3); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; font-family: "JetBrains Mono", monospace; }
+  .h-title { font-size: 48px; font-weight: 800; letter-spacing: -0.045em; line-height: 1; }
+  .h-sub { font-size: 14px; color: var(--ink2); font-weight: 500; max-width: 380px; line-height: 1.6; text-align: right; }
+
+  .section-label { display:flex; align-items: baseline; justify-content: space-between; margin: 56px 0 20px; }
+  .section-label .num { font-size: 13px; font-weight: 700; color: var(--ink3); letter-spacing: 0.08em; font-family: "JetBrains Mono", monospace; }
+  .section-label .name { font-size: 22px; font-weight: 800; letter-spacing: -0.025em; }
+  .section-label .desc { font-size: 13px; color: var(--ink3); font-weight: 500; }
+
+  .card { background: var(--paper); border-radius: 22px; overflow: hidden; box-shadow: 0 1px 3px rgba(15,20,25,0.04), 0 4px 16px rgba(15,20,25,0.04); position: relative; }
+  .card-label { position: absolute; top: 16px; left: 20px; font-size: 11px; font-weight: 700; color: var(--ink3); letter-spacing: 0.1em; font-family: "JetBrains Mono", monospace; z-index: 2; }
+  .card-meta  { position: absolute; bottom: 16px; right: 20px; font-size: 11px; font-weight: 600; color: var(--ink3); letter-spacing: 0.04em; font-family: "JetBrains Mono", monospace; z-index: 2; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+  .center { display:flex; align-items: center; justify-content: center; }
+  .min-h-300 { min-height: 300px; }
+  .min-h-220 { min-height: 220px; }
+
+  /* The Boulder mark — reusable boulder polygon */
+  .footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--hairline); display:flex; justify-content:space-between; align-items:baseline; font-size: 12px; color: var(--ink3); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<!-- Reusable boulder svg defs -->
+<svg width="0" height="0" style="position: absolute;">
+  <defs>
+    <symbol id="boulder-mark" viewBox="0 0 380 220">
+      <polygon points="50,180 30,120 70,40 160,20 250,30 320,80 350,150 320,200 200,210 110,200" fill="currentColor"/>
+    </symbol>
+    <symbol id="boulder-with-text" viewBox="0 0 380 220">
+      <polygon points="50,180 30,120 70,40 160,20 250,30 320,80 350,150 320,200 200,210 110,200" fill="#0F1419"/>
+      <text x="190" y="130" text-anchor="middle" font-family="Pretendard Variable, system-ui" font-weight="900" font-size="58" letter-spacing="-0.06em" fill="#C9F84B">climp</text>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="page">
+
+  <header class="header">
+    <div>
+      <div class="eyebrow">Climp · Boulder · Identity v1.0</div>
+      <div class="h-title">5번 · BOULDER 풀시스템</div>
+    </div>
+    <div class="h-sub">
+      등반의 대상 — 바위 그 자체가 마크. 라임 그라운드 위 검은 실루엣, 그 안의 환한 워드마크.
+    </div>
+  </header>
+
+  <!-- 01 PRIMARY -->
+  <div class="section-label">
+    <div><span class="num">01</span> &nbsp;<span class="name">프라이머리</span></div>
+    <div class="desc">기본 — 라임 위 검은 바위 + 라임 워드마크</div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card center min-h-300" style="background: var(--lime);">
+      <div class="card-label">PRIMARY · LIME</div>
+      <svg width="380" height="220" viewBox="0 0 380 220">
+        <use href="#boulder-with-text"/>
+      </svg>
+      <div class="card-meta">380×220</div>
+    </div>
+    <div class="card center min-h-300" style="background: var(--ink);">
+      <div class="card-label" style="color: rgba(255,255,255,0.5);">PRIMARY · DARK</div>
+      <svg width="380" height="220" viewBox="0 0 380 220">
+        <polygon points="50,180 30,120 70,40 160,20 250,30 320,80 350,150 320,200 200,210 110,200" fill="#C9F84B"/>
+        <text x="190" y="130" text-anchor="middle" font-family="Pretendard Variable, system-ui" font-weight="900" font-size="58" letter-spacing="-0.06em" fill="#0F1419">climp</text>
+      </svg>
+      <div class="card-meta" style="color: rgba(255,255,255,0.5);">380×220</div>
+    </div>
+  </div>
+
+  <!-- 02 LOCKUPS -->
+  <div class="section-label">
+    <div><span class="num">02</span> &nbsp;<span class="name">락업</span></div>
+    <div class="desc">심볼 + 워드마크 · 수평 / 수직 / 워드마크 단독</div>
+  </div>
+
+  <div class="grid-3">
+    <!-- horizontal -->
+    <div class="card center min-h-220">
+      <div class="card-label">HORIZONTAL</div>
+      <div style="display:flex; align-items: center; gap: 16px;">
+        <svg width="56" height="56" viewBox="0 0 380 220" style="color: var(--ink);"><use href="#boulder-mark"/></svg>
+        <div style="font-size: 44px; font-weight: 900; letter-spacing: -0.06em; line-height: 1;">climp</div>
+      </div>
+      <div class="card-meta">H-LOCKUP</div>
+    </div>
+    <!-- vertical -->
+    <div class="card center min-h-220">
+      <div class="card-label">VERTICAL</div>
+      <div style="display:flex; flex-direction: column; align-items: center; gap: 14px;">
+        <svg width="64" height="64" viewBox="0 0 380 220" style="color: var(--ink);"><use href="#boulder-mark"/></svg>
+        <div style="font-size: 32px; font-weight: 900; letter-spacing: -0.06em;">climp</div>
+      </div>
+      <div class="card-meta">V-LOCKUP</div>
+    </div>
+    <!-- wordmark only -->
+    <div class="card center min-h-220">
+      <div class="card-label">WORDMARK</div>
+      <div style="font-size: 64px; font-weight: 900; letter-spacing: -0.06em;">climp</div>
+      <div class="card-meta">WORDMARK</div>
+    </div>
+  </div>
+
+  <!-- 03 APP ICONS -->
+  <div class="section-label">
+    <div><span class="num">03</span> &nbsp;<span class="name">앱 아이콘</span></div>
+    <div class="desc">iOS · 라이트/다크/라임 3종</div>
+  </div>
+
+  <div class="grid-3">
+    <div class="card center min-h-220" style="background: var(--bg);">
+      <div class="card-label">iOS · LIME</div>
+      <div style="width: 156px; height: 156px; border-radius: 36px; background: var(--lime); display:flex; align-items: center; justify-content: center; box-shadow: 0 14px 36px rgba(168,218,31,0.3), inset 0 1px 0 rgba(255,255,255,0.5);">
+        <svg width="100" height="100" viewBox="0 0 380 220" style="color: var(--ink);"><use href="#boulder-mark"/></svg>
+      </div>
+      <div class="card-meta">PRIMARY</div>
+    </div>
+    <div class="card center min-h-220" style="background: var(--bg);">
+      <div class="card-label">iOS · DARK</div>
+      <div style="width: 156px; height: 156px; border-radius: 36px; background: linear-gradient(160deg, #0F1419, #1E2530); display:flex; align-items: center; justify-content: center; box-shadow: 0 14px 36px rgba(15,20,25,0.25), inset 0 1px 0 rgba(255,255,255,0.08);">
+        <svg width="100" height="100" viewBox="0 0 380 220" style="color: var(--lime);"><use href="#boulder-mark"/></svg>
+      </div>
+      <div class="card-meta">DARK</div>
+    </div>
+    <div class="card center min-h-220" style="background: var(--bg);">
+      <div class="card-label">iOS · CREAM</div>
+      <div style="width: 156px; height: 156px; border-radius: 36px; background: var(--paper); display:flex; align-items: center; justify-content: center; box-shadow: 0 14px 36px rgba(15,20,25,0.08), inset 0 0 0 1px var(--hairline);">
+        <svg width="100" height="100" viewBox="0 0 380 220" style="color: var(--ink);"><use href="#boulder-mark"/></svg>
+      </div>
+      <div class="card-meta">LIGHT</div>
+    </div>
+  </div>
+
+  <!-- 04 SCALE -->
+  <div class="section-label">
+    <div><span class="num">04</span> &nbsp;<span class="name">스케일</span></div>
+    <div class="desc">96px → 16px · 16px 이하는 심볼만</div>
+  </div>
+
+  <div class="card" style="padding: 32px 40px 36px;">
+    <div class="card-label">SCALE LADDER</div>
+    <div style="display:flex; align-items: flex-end; gap: 44px; flex-wrap: wrap; padding: 16px 0 4px;">
+      <div style="display:flex; flex-direction: column; align-items: center; gap: 12px;">
+        <div style="height: 100px; display:flex; align-items: flex-end;">
+          <div style="display:flex; align-items: center; gap: 12px;">
+            <svg width="52" height="52" viewBox="0 0 380 220" style="color: var(--ink);"><use href="#boulder-mark"/></svg>
+            <div style="font-size: 50px; font-weight: 900; letter-spacing: -0.06em; line-height: 1;">climp</div>
+          </div>
+        </div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink3);">64px</div>
+      </div>
+      <div style="display:flex; flex-direction: column; align-items: center; gap: 12px;">
+        <div style="height: 100px; display:flex; align-items: flex-end;">
+          <div style="display:flex; align-items: center; gap: 8px;">
+            <svg width="34" height="34" viewBox="0 0 380 220" style="color: var(--ink);"><use href="#boulder-mark"/></svg>
+            <div style="font-size: 32px; font-weight: 900; letter-spacing: -0.06em; line-height: 1;">climp</div>
+          </div>
+        </div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink3);">40px</div>
+      </div>
+      <div style="display:flex; flex-direction: column; align-items: center; gap: 12px;">
+        <div style="height: 100px; display:flex; align-items: flex-end;">
+          <div style="display:flex; align-items: center; gap: 6px;">
+            <svg width="22" height="22" viewBox="0 0 380 220" style="color: var(--ink);"><use href="#boulder-mark"/></svg>
+            <div style="font-size: 19px; font-weight: 900; letter-spacing: -0.05em; line-height: 1;">climp</div>
+          </div>
+        </div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink3);">24px</div>
+      </div>
+      <div style="display:flex; flex-direction: column; align-items: center; gap: 12px;">
+        <div style="height: 100px; display:flex; align-items: flex-end;">
+          <svg width="16" height="16" viewBox="0 0 380 220" style="color: var(--ink);"><use href="#boulder-mark"/></svg>
+        </div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink3);">16px · 심볼만</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 05 IN CONTEXT -->
+  <div class="section-label">
+    <div><span class="num">05</span> &nbsp;<span class="name">실제 컨텍스트</span></div>
+    <div class="desc">스플래시 · 네비게이션 · 파비콘</div>
+  </div>
+
+  <div class="grid-3">
+    <!-- Splash -->
+    <div class="card" style="min-height: 360px; background: var(--lime); position: relative; overflow: hidden;">
+      <div class="card-label">SPLASH</div>
+      <div style="position: absolute; inset: 0; display:flex; align-items: center; justify-content: center;">
+        <svg width="120" height="80" viewBox="0 0 380 220" style="color: var(--ink);"><use href="#boulder-mark"/></svg>
+      </div>
+      <div style="position: absolute; bottom: 24px; left: 0; right: 0; text-align: center; font-size: 11px; font-weight: 700; color: var(--ink); letter-spacing: 0.06em; opacity: 0.6;">매달리는 순간을 기록</div>
+    </div>
+
+    <!-- Web nav -->
+    <div class="card" style="min-height: 360px; background: var(--paper); padding: 0; overflow: hidden;">
+      <div class="card-label">WEB NAV</div>
+      <div style="padding: 22px 24px; border-bottom: 1px solid var(--hairline); display:flex; align-items: center; gap: 28px; margin-top: 18px;">
+        <div style="display:flex; align-items: center; gap: 8px;">
+          <svg width="22" height="22" viewBox="0 0 380 220" style="color: var(--ink);"><use href="#boulder-mark"/></svg>
+          <div style="font-size: 19px; font-weight: 900; letter-spacing: -0.05em;">climp</div>
+        </div>
+        <div style="display:flex; gap: 20px; font-size: 13px; font-weight: 600; color: var(--ink2);">
+          <span>홈</span><span>세션</span><span>암장</span><span>피드</span>
+        </div>
+      </div>
+      <div style="padding: 28px 24px;">
+        <div style="font-size: 11px; font-weight: 700; color: var(--ink3); letter-spacing: 0.08em; margin-bottom: 6px; font-family: 'JetBrains Mono', monospace;">DASHBOARD</div>
+        <div style="font-size: 22px; font-weight: 800; letter-spacing: -0.025em;">이번 주 14회 완등</div>
+      </div>
+    </div>
+
+    <!-- Favicon row -->
+    <div class="card center" style="min-height: 360px; background: var(--bg); flex-direction: column; gap: 22px; display:flex;">
+      <div class="card-label">FAVICON</div>
+      <div style="display:flex; align-items: center; gap: 8px; padding: 7px 12px 7px 8px; background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+        <svg width="14" height="14" viewBox="0 0 380 220" style="color: var(--ink);"><use href="#boulder-mark"/></svg>
+        <div style="font-size: 11px; font-weight: 600; color: var(--ink2);">climp.app · 홈</div>
+        <svg width="10" height="10" viewBox="0 0 10 10" stroke="var(--ink3)" stroke-width="1.5" fill="none"><path d="M2 2l6 6M8 2l-6 6"/></svg>
+      </div>
+      <div style="display:flex; gap: 10px;">
+        <div style="width: 36px; height: 36px; border-radius: 8px; background: var(--lime); display:flex; align-items: center; justify-content: center;">
+          <svg width="22" height="22" viewBox="0 0 380 220" style="color: var(--ink);"><use href="#boulder-mark"/></svg>
+        </div>
+        <div style="width: 36px; height: 36px; border-radius: 8px; background: var(--ink); display:flex; align-items: center; justify-content: center;">
+          <svg width="22" height="22" viewBox="0 0 380 220" style="color: var(--lime);"><use href="#boulder-mark"/></svg>
+        </div>
+        <div style="width: 36px; height: 36px; border-radius: 8px; background: var(--paper); display:flex; align-items: center; justify-content: center; box-shadow: inset 0 0 0 1px var(--hairline);">
+          <svg width="22" height="22" viewBox="0 0 380 220" style="color: var(--ink);"><use href="#boulder-mark"/></svg>
+        </div>
+      </div>
+      <div class="card-meta">FAVICON · TILES</div>
+    </div>
+  </div>
+
+  <!-- 06 COLOR -->
+  <div class="section-label">
+    <div><span class="num">06</span> &nbsp;<span class="name">컬러</span></div>
+    <div class="desc">3색 · 그 외 금지</div>
+  </div>
+
+  <div style="display:flex; gap: 12px;">
+    <div style="flex:1; aspect-ratio: 2 / 1; background: var(--lime); border-radius: 14px; padding: 16px; display:flex; flex-direction: column; justify-content: space-between; color: var(--ink);">
+      <div style="font-size: 13px; font-weight: 800; letter-spacing: -0.02em;">Lime · Ground</div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; opacity: 0.6;">#C9F84B</div>
+    </div>
+    <div style="flex:1; aspect-ratio: 2 / 1; background: var(--ink); border-radius: 14px; padding: 16px; display:flex; flex-direction: column; justify-content: space-between; color: #fff;">
+      <div style="font-size: 13px; font-weight: 800; letter-spacing: -0.02em;">Ink · Boulder</div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; opacity: 0.6;">#0F1419</div>
+    </div>
+    <div style="flex:1; aspect-ratio: 2 / 1; background: var(--paper); border-radius: 14px; padding: 16px; display:flex; flex-direction: column; justify-content: space-between; color: var(--ink); box-shadow: inset 0 0 0 1px var(--hairline);">
+      <div style="font-size: 13px; font-weight: 800; letter-spacing: -0.02em;">Paper</div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; opacity: 0.6;">#FFFFFF</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div>Climp · Boulder · v1.0 · 2026.04</div>
+    <div style="font-family: 'JetBrains Mono', monospace; letter-spacing: 0.04em;">approved direction</div>
+  </div>
+</div>
+
+</body>
+</html>

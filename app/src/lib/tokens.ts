@@ -1,5 +1,5 @@
 /**
- * Crimp 디자인 토큰 (Variant A · Toss 블루) — React Native.
+ * Crimp 디자인 토큰 (Variant A · 라임) — React Native.
  * 단일 진실원: `docs/design/tokens.json`. 수동 동기.
  *
  * 사용 원칙:
@@ -12,18 +12,18 @@ import { Platform } from 'react-native';
 import type { TextStyle, ViewStyle } from 'react-native';
 
 const accent = {
-  base: '#3182F6',
-  soft: '#E8F2FE',
-  ink: '#1B64DA',
-  flash: '#5B9BFF',
-  on: '#FFFFFF', // accent 위에 얹히는 전경(텍스트·아이콘) — 대비비 4.5+ 보장
+  base: '#C9F84B',
+  soft: '#EEFCC1',
+  ink: '#0F1419',
+  flash: '#D8FB6E',
+  on: '#0F1419', // accent 위에 얹히는 전경(텍스트·아이콘) — 대비비 4.5+ 보장
 } as const;
 
 const semantic = {
   success: '#12B886',
   warning: '#FAB005',
   danger: '#E03131',
-  info: '#3182F6', // accent 재사용 — 정보성 피드백은 accent 와 같은 톤
+  info: '#C9F84B', // accent 재사용 — 정보성 피드백은 accent 와 같은 톤
 } as const;
 
 const hold = {

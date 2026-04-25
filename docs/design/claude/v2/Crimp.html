@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>climp — Design Canvas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+  html, body { margin: 0; padding: 0; background: #f0eee9; font-family: "Pretendard Variable", Pretendard, system-ui, sans-serif; }
+  * { box-sizing: border-box; }
+  @keyframes crimp-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  @keyframes crimp-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.85); } }
+  @keyframes crimp-flash {
+    0% { opacity: 0; transform: scale(0.96); }
+    15% { opacity: 1; transform: scale(1); }
+    80% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(1.02); }
+  }
+  @keyframes crimp-flash-text {
+    0% { opacity: 0; transform: translateY(12px) scale(0.95); }
+    20% { opacity: 1; transform: translateY(0) scale(1); }
+    80% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-6px) scale(1.02); }
+  }
+  @keyframes crimp-sheet-in {
+    0% { transform: translateY(100%); }
+    100% { transform: translateY(0); }
+  }
+  /* tweak panel */
+  .tweaks {
+    position: fixed; right: 16px; bottom: 16px; z-index: 1000;
+    background: rgba(15,20,25,0.92); color: #fff;
+    padding: 14px 16px; border-radius: 14px;
+    font-family: "Pretendard Variable", Pretendard, system-ui, sans-serif;
+    backdrop-filter: blur(20px) saturate(180%);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    display: none; flex-direction: column; gap: 10px; min-width: 220px;
+  }
+  .tweaks.on { display: flex; }
+  .tweaks h4 { margin: 0 0 4px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; opacity: 0.6; text-transform: uppercase; }
+  .tweaks .row { display: flex; gap: 6px; }
+  .tweaks button {
+    flex: 1; padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.05); color: #fff; cursor: pointer;
+    font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: -0.01em;
+  }
+  .tweaks button.on { background: #fff; color: #0F1419; border-color: #fff; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- Tweak panel (hidden by default; shown when user toggles Tweaks) -->
+<div class="tweaks" id="tweaks">
+  <h4>Theme</h4>
+  <div class="row" data-group="theme">
+    <button data-v="light">Light</button>
+    <button data-v="dark">Dark</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="tokens.jsx"></script>
+<script type="text/babel" src="primitives.jsx"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="screens-ios.jsx"></script>
+<script type="text/babel" src="screens-ios-2.jsx"></script>
+<script type="text/babel" src="screens-ios-3.jsx"></script>
+<script type="text/babel" src="screens-web.jsx"></script>
+
+<script type="text/babel">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "light"
+}/*EDITMODE-END*/;
+
+function App() {
+  const [theme, setTheme] = React.useState(TWEAK_DEFAULTS.theme || 'light');
+  const [flashingA, setFlashingA] = React.useState(false);
+  const [flashingB, setFlashingB] = React.useState(false);
+  const [startStepA, setStartStepA] = React.useState(1);
+  const [startStepB, setStartStepB] = React.useState(1);
+
+  // tokens
+  const tA = resolveTokens(theme, 'lime');     // restrained — primary lime
+  const tB = resolveTokens(theme, 'orange');   // bold
+
+  // live timer display
+  const [elapsed, setElapsed] = React.useState(5027); // seconds
+  React.useEffect(() => {
+    const id = setInterval(() => setElapsed(e => e + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const fmtElapsed = (s) => {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+  };
+
+  // SEND flash trigger
+  const triggerFlash = (which) => {
+    if (which === 'A') { setFlashingA(true); setTimeout(() => setFlashingA(false), 1200); }
+    else { setFlashingB(true); setTimeout(() => setFlashingB(false), 1200); }
+  };
+
+  // Camera/log sheet state for live demo on canvas
+  const [logOpenA, setLogOpenA] = React.useState(false);
+  const [camOpenA, setCamOpenA] = React.useState(false);
+  const [recA, setRecA] = React.useState(false);
+
+  // Tweak panel wiring
+  React.useEffect(() => {
+    const panel = document.getElementById('tweaks');
+    const onMsg = (e) => {
+      if (!e.data) return;
+      if (e.data.type === '__activate_edit_mode') panel.classList.add('on');
+      if (e.data.type === '__deactivate_edit_mode') panel.classList.remove('on');
+    };
+    window.addEventListener('message', onMsg);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+
+    const syncBtns = () => {
+      panel.querySelectorAll('[data-group="theme"] button').forEach(b => {
+        b.classList.toggle('on', b.dataset.v === theme);
+      });
+    };
+    syncBtns();
+    const onClick = (e) => {
+      const btn = e.target.closest('button[data-v]');
+      if (!btn) return;
+      const group = btn.parentElement.dataset.group;
+      if (group === 'theme') {
+        setTheme(btn.dataset.v);
+        window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { theme: btn.dataset.v } }, '*');
+      }
+    };
+    panel.addEventListener('click', onClick);
+    return () => {
+      window.removeEventListener('message', onMsg);
+      panel.removeEventListener('click', onClick);
+    };
+  }, [theme]);
+
+  // Re-sync button states when theme changes
+  React.useEffect(() => {
+    document.querySelectorAll('#tweaks [data-group="theme"] button').forEach(b => {
+      b.classList.toggle('on', b.dataset.v === theme);
+    });
+  }, [theme]);
+
+  return (
+    <DesignCanvas>
+      {/* =================== ROW 1 · iOS — 절제된 · Toss 블루 ==================== */}
+      <DCSection id="ios-a" title="iOS · A · 절제된 (Toss-blue)" subtitle="균형 잡힌 타이포 · 56px 숫자 · 블루 포인트">
+        <DCArtboard id="home-a" label="홈" width={390} height={844}>
+          <CrimpDevice tokens={tA}>
+            <HomeScreen tokens={tA} variant="restrained"/>
+          </CrimpDevice>
+        </DCArtboard>
+
+        <DCArtboard id="start1-a" label="세션 시작 · 1 암장" width={390} height={844}>
+          <CrimpDevice tokens={tA}>
+            <SessionStartScreen tokens={tA} step={1}/>
+          </CrimpDevice>
+        </DCArtboard>
+
+        <DCArtboard id="start2-a" label="세션 시작 · 2 시간" width={390} height={844}>
+          <CrimpDevice tokens={tA}>
+            <SessionStartScreen tokens={tA} step={2}/>
+          </CrimpDevice>
+        </DCArtboard>
+
+        <DCArtboard id="start3-a" label="세션 시작 · 3 확인" width={390} height={844}>
+          <CrimpDevice tokens={tA}>
+            <SessionStartScreen tokens={tA} step={3}/>
+          </CrimpDevice>
+        </DCArtboard>
+
+        <DCArtboard id="live-a" label="세션 라이브" width={390} height={844}>
+          <CrimpDevice tokens={tA}>
+            <SessionLiveScreen tokens={tA} variant="restrained" elapsed={fmtElapsed(elapsed)} onSend={() => triggerFlash('A')} flashing={flashingA}/>
+          </CrimpDevice>
+        </DCArtboard>
+
+        <DCArtboard id="send-a" label="완등 순간 ✨" width={390} height={844}>
+          <CrimpDevice tokens={tA}>
+            <SessionLiveScreen tokens={tA} variant="restrained" elapsed={fmtElapsed(elapsed)} onSend={() => triggerFlash('A')} flashing={true}/>
+          </CrimpDevice>
+        </DCArtboard>
+      </DCSection>
+
+      {/* =================== ROW 2 · iOS — 과감한 · 오렌지 ==================== */}
+      <DCSection id="ios-b" title="iOS · B · 과감한 (climb-orange)" subtitle="헤드라인 숫자 120px+ · 오렌지 포인트 · 시각적 임팩트">
+        <DCArtboard id="home-b" label="홈" width={390} height={844}>
+          <CrimpDevice tokens={tB}>
+            <HomeScreen tokens={tB} variant="bold"/>
+          </CrimpDevice>
+        </DCArtboard>
+
+        <DCArtboard id="start1-b" label="세션 시작 · 1 암장" width={390} height={844}>
+          <CrimpDevice tokens={tB}>
+            <SessionStartScreen tokens={tB} step={1}/>
+          </CrimpDevice>
+        </DCArtboard>
+
+        <DCArtboard id="start2-b" label="세션 시작 · 2 시간" width={390} height={844}>
+          <CrimpDevice tokens={tB}>
+            <SessionStartScreen tokens={tB} step={2}/>
+          </CrimpDevice>
+        </DCArtboard>
+
+        <DCArtboard id="start3-b" label="세션 시작 · 3 확인" width={390} height={844}>
+          <CrimpDevice tokens={tB}>
+            <SessionStartScreen tokens={tB} step={3}/>
+          </CrimpDevice>
+        </DCArtboard>
+
+        <DCArtboard id="live-b" label="세션 라이브" width={390} height={844}>
+          <CrimpDevice tokens={tB}>
+            <SessionLiveScreen tokens={tB} variant="bold" elapsed={fmtElapsed(elapsed)} onSend={() => triggerFlash('B')} flashing={flashingB}/>
+          </CrimpDevice>
+        </DCArtboard>
+
+        <DCArtboard id="send-b" label="완등 순간 ✨" width={390} height={844}>
+          <CrimpDevice tokens={tB}>
+            <SessionLiveScreen tokens={tB} variant="bold" elapsed={fmtElapsed(elapsed)} onSend={() => triggerFlash('B')} flashing={true}/>
+          </CrimpDevice>
+        </DCArtboard>
+      </DCSection>
+
+      {/* =================== ROW · 시도 기록 플로우 (카메라) ==================== */}
+      <DCSection id="log-flow" title="시도 기록 플로우 · 카메라" subtitle="시트 → 카메라 → 녹화 → 저장">
+        <DCArtboard id="log-sheet" label="1. 기록 시트" width={390} height={844}>
+          <CrimpDevice tokens={tA}>
+            <SessionLiveScreen tokens={tA} variant="restrained" elapsed={fmtElapsed(elapsed)}/>
+            <LogAttemptSheet tokens={tA}/>
+          </CrimpDevice>
+        </DCArtboard>
+        <DCArtboard id="cam-idle" label="2. 카메라 준비" width={390} height={844}>
+          <CrimpDevice tokens={tA}>
+            <CameraSheet tokens={tA} mode="video" recording={false}/>
+          </CrimpDevice>
+        </DCArtboard>
+        <DCArtboard id="cam-rec" label="3. 녹화 중" width={390} height={844}>
+          <CrimpDevice tokens={tA}>
+            <CameraSheet tokens={tA} mode="video" recording={true}/>
+          </CrimpDevice>
+        </DCArtboard>
+        <DCArtboard id="cam-photo" label="사진 모드" width={390} height={844}>
+          <CrimpDevice tokens={tA}>
+            <CameraSheet tokens={tA} mode="photo" recording={false}/>
+          </CrimpDevice>
+        </DCArtboard>
+        <DCArtboard id="interactive" label="인터랙티브 — 탭!" width={390} height={844}>
+          <CrimpDevice tokens={tA}>
+            <SessionLiveScreen tokens={tA} variant="restrained" elapsed={fmtElapsed(elapsed)}
+              onSend={() => setLogOpenA(true)} flashing={flashingA}/>
+            {logOpenA && !camOpenA && (
+              <LogAttemptSheet tokens={tA}
+                onClose={() => setLogOpenA(false)}
+                onCamera={() => { setCamOpenA(true); setRecA(false); }}
+                onSave={() => { setLogOpenA(false); triggerFlash('A'); }}/>
+            )}
+            {camOpenA && (
+              <CameraSheet tokens={tA} mode="video" recording={recA}
+                onClose={() => setCamOpenA(false)}
+                onShoot={() => recA ? (setRecA(false), setCamOpenA(false)) : setRecA(true)}/>
+            )}
+          </CrimpDevice>
+        </DCArtboard>
+      </DCSection>
+
+      {/* =================== ROW · 기타 페이지 ==================== */}
+      <DCSection id="more" title="기타 페이지 (iOS)" subtitle="로그인 · 내 세션 · 암장 검색 · 암장 상세 · 프로필 · 피드">
+        <DCArtboard id="login" label="로그인" width={390} height={844}>
+          <CrimpDevice tokens={tA}><LoginScreen tokens={tA}/></CrimpDevice>
+        </DCArtboard>
+        <DCArtboard id="sessions" label="내 세션" width={390} height={844}>
+          <CrimpDevice tokens={tA}><MySessionsScreen tokens={tA} variant="restrained"/></CrimpDevice>
+        </DCArtboard>
+        <DCArtboard id="gym-search" label="암장 검색" width={390} height={844}>
+          <CrimpDevice tokens={tA}><GymSearchScreen tokens={tA}/></CrimpDevice>
+        </DCArtboard>
+        <DCArtboard id="gym-detail" label="암장 상세" width={390} height={844}>
+          <CrimpDevice tokens={tA}><GymDetailScreen tokens={tA}/></CrimpDevice>
+        </DCArtboard>
+        <DCArtboard id="profile" label="프로필" width={390} height={844}>
+          <CrimpDevice tokens={tA}><ProfileScreen tokens={tA} variant="restrained"/></CrimpDevice>
+        </DCArtboard>
+        <DCArtboard id="feed" label="피드" width={390} height={844}>
+          <CrimpDevice tokens={tA}><FeedScreen tokens={tA}/></CrimpDevice>
+        </DCArtboard>
+      </DCSection>
+
+      {/* =================== ROW · 기타 (과감·오렌지 B) ==================== */}
+      <DCSection id="more-b" title="기타 페이지 · B·오렌지" subtitle="과감한 수자 스케일">
+        <DCArtboard id="login-b" label="로그인" width={390} height={844}>
+          <CrimpDevice tokens={tB}><LoginScreen tokens={tB}/></CrimpDevice>
+        </DCArtboard>
+        <DCArtboard id="sessions-b" label="내 세션" width={390} height={844}>
+          <CrimpDevice tokens={tB}><MySessionsScreen tokens={tB} variant="bold"/></CrimpDevice>
+        </DCArtboard>
+        <DCArtboard id="gym-search-b" label="암장 검색" width={390} height={844}>
+          <CrimpDevice tokens={tB}><GymSearchScreen tokens={tB}/></CrimpDevice>
+        </DCArtboard>
+        <DCArtboard id="gym-detail-b" label="암장 상세" width={390} height={844}>
+          <CrimpDevice tokens={tB}><GymDetailScreen tokens={tB}/></CrimpDevice>
+        </DCArtboard>
+        <DCArtboard id="profile-b" label="프로필" width={390} height={844}>
+          <CrimpDevice tokens={tB}><ProfileScreen tokens={tB} variant="bold"/></CrimpDevice>
+        </DCArtboard>
+        <DCArtboard id="feed-b" label="피드" width={390} height={844}>
+          <CrimpDevice tokens={tB}><FeedScreen tokens={tB}/></CrimpDevice>
+        </DCArtboard>
+      </DCSection>
+
+      {/* =================== ROW 3 · Web — 두 가지 강도 ==================== */}
+      <DCSection id="web" title="Web · 대시보드" subtitle="반응형 웹 — 같은 토큰으로 · A 절제 vs B 과감">
+        <DCArtboard id="web-a" label="Web · A · 절제된 (Toss-blue)" width={1180} height={820}>
+          <WebFrame tokens={tA}>
+            <WebDashboard tokens={tA} variant="restrained"/>
+          </WebFrame>
+        </DCArtboard>
+
+        <DCArtboard id="web-b" label="Web · B · 과감한 (오렌지)" width={1180} height={820}>
+          <WebFrame tokens={tB}>
+            <WebDashboard tokens={tB} variant="bold"/>
+          </WebFrame>
+        </DCArtboard>
+      </DCSection>
+
+      {/* =================== ROW 4 · Tokens + Components ==================== */}
+      <DCSection id="tokens" title="디자인 토큰 · 컴포넌트" subtitle="그레이드 · 결과 마크 · 홀드 · 타이포 스케일">
+        <DCArtboard id="grades" label="V-Scale 그레이드" width={520} height={320}>
+          <TokenSheet tokens={tA}>
+            <div style={{ fontSize: 13, color: tA.text3, fontWeight: 600, marginBottom: 14, letterSpacing: '-0.01em' }}>V-SCALE · 연속 난이도 그라디언트</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {['V0','V1','V2','V3','V4','V5','V6','V7','V8','V9','V10'].map(v => (
+                <GradeBadge key={v} v={v} size="lg" tokens={tA}/>
+              ))}
+            </div>
+            <div style={{ marginTop: 24, fontSize: 12, color: tA.text3, lineHeight: 1.6, fontWeight: 500 }}>
+              같은 크로마 · L값만 선형 하강 (oklch). Font/YDS 스케일도 같은 규칙으로 확장.
+            </div>
+          </TokenSheet>
+        </DCArtboard>
+
+        <DCArtboard id="results" label="결과 마크" width={520} height={320}>
+          <TokenSheet tokens={tA}>
+            <div style={{ fontSize: 13, color: tA.text3, fontWeight: 600, marginBottom: 18, letterSpacing: '-0.01em' }}>RESULT MARK · 아이콘+컬러 병행</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {['SEND','FLASH','ONSIGHT','TRY','FAIL'].map(k => (
+                <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <ResultMark kind={k} size={32} tokens={tA}/>
+                  <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em' }}>{k}</div>
+                  <span style={{ flex: 1 }}/>
+                  <span style={{ fontSize: 12, color: tA.text3, fontWeight: 500 }}>
+                    {k === 'SEND' && '완등'}
+                    {k === 'FLASH' && '첫 시도 완등'}
+                    {k === 'ONSIGHT' && '온사이트'}
+                    {k === 'TRY' && '시도'}
+                    {k === 'FAIL' && '실패'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </TokenSheet>
+        </DCArtboard>
+
+        <DCArtboard id="holds" label="홀드 컬러" width={520} height={320}>
+          <TokenSheet tokens={tA}>
+            <div style={{ fontSize: 13, color: tA.text3, fontWeight: 600, marginBottom: 18, letterSpacing: '-0.01em' }}>HOLD COLORS · 실제 홀드 10종</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16, rowGap: 18 }}>
+              {[
+                ['red','빨강'],['blue','파랑'],['yellow','노랑'],['green','초록'],['white','흰색'],
+                ['black','검정'],['pink','핑크'],['orange','주황'],['purple','보라'],['gray','회색'],
+              ].map(([c, ko]) => (
+                <div key={c} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                  <HoldDot color={c} size={36} tokens={tA}/>
+                  <div style={{ fontSize: 11, color: tA.text3, fontWeight: 600 }}>{ko}</div>
+                </div>
+              ))}
+            </div>
+          </TokenSheet>
+        </DCArtboard>
+
+        <DCArtboard id="type" label="타이포 스케일" width={520} height={440}>
+          <TokenSheet tokens={tA}>
+            <div style={{ fontSize: 13, color: tA.text3, fontWeight: 600, marginBottom: 18, letterSpacing: '-0.01em' }}>TYPE · Pretendard + Inter</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              {[
+                { lbl: 'Display · 800 · -0.05em', fs: 72, w: 800, ls: -0.05, txt: '14회 완등' },
+                { lbl: 'H1 · 800 · -0.04em', fs: 32, w: 800, ls: -0.04, txt: '이번 주 3회 붙었어요' },
+                { lbl: 'Title · 700 · -0.02em', fs: 18, w: 700, ls: -0.02, txt: '시도 타임라인' },
+                { lbl: 'Body · 500 · -0.01em', fs: 15, w: 500, ls: -0.01, txt: '잘했어요, 기록했어요' },
+                { lbl: 'Caption · 600 · 0em', fs: 12, w: 600, ls: 0, txt: '방금 · 서울볼더스 성수' },
+              ].map((r, i) => (
+                <div key={i}>
+                  <div style={{ fontSize: 10, color: tA.text3, fontWeight: 600, letterSpacing: '0.04em', marginBottom: 4 }}>{r.lbl}</div>
+                  <div style={{ fontSize: r.fs, fontWeight: r.w, letterSpacing: `${r.ls}em`, lineHeight: 1.15, color: tA.text, fontVariantNumeric: 'tabular-nums' }}>
+                    {r.txt}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </TokenSheet>
+        </DCArtboard>
+
+        <DCArtboard id="components" label="컴포넌트" width={360} height={560}>
+          <TokenSheet tokens={tA}>
+            <div style={{ fontSize: 13, color: tA.text3, fontWeight: 600, marginBottom: 18, letterSpacing: '-0.01em' }}>COMPONENTS</div>
+
+            <div style={{ fontSize: 11, color: tA.text3, fontWeight: 700, letterSpacing: '0.04em', marginBottom: 8 }}>BUTTON</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+              <PrimaryButton tokens={tA} style={{ height: 48 }}>Primary</PrimaryButton>
+              <SecondaryButton tokens={tA} style={{ height: 48 }}>Secondary</SecondaryButton>
+            </div>
+
+            <div style={{ fontSize: 11, color: tA.text3, fontWeight: 700, letterSpacing: '0.04em', marginBottom: 8 }}>CHIP</div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
+              <Chip tokens={tA} active>볼더링</Chip>
+              <Chip tokens={tA}>리드</Chip>
+              <Chip tokens={tA}>V4-V6</Chip>
+              <Chip tokens={tA}>서울</Chip>
+            </div>
+
+            <div style={{ fontSize: 11, color: tA.text3, fontWeight: 700, letterSpacing: '0.04em', marginBottom: 8 }}>INPUT</div>
+            <div style={{ padding: '14px 16px', background: tA.subtle, borderRadius: 14, fontSize: 15, color: tA.text3, marginBottom: 20 }}>
+              닉네임 입력
+            </div>
+
+            <div style={{ fontSize: 11, color: tA.text3, fontWeight: 700, letterSpacing: '0.04em', marginBottom: 8 }}>SKELETON</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <Skeleton w="70%" h={16} tokens={tA}/>
+              <Skeleton w="90%" h={12} tokens={tA}/>
+              <Skeleton w="40%" h={12} tokens={tA}/>
+            </div>
+          </TokenSheet>
+        </DCArtboard>
+      </DCSection>
+
+      <DCPostIt top={20} left={60} rotate={-3} width={200}>
+        완등 순간 아트보드 (✨) 를 focus 로 열어 SEND 플래시 애니를 확인하세요. 또는 라이브 세션의 시도 기록 버튼을 탭.
+      </DCPostIt>
+      <DCPostIt top={900} left={90} rotate={2} width={220}>
+        A · 절제됨 = Toss 블루 · 숫자 56px
+        B · 과감함 = 오렌지 · 숫자 120px+
+        <br/>Tweaks 에서 Light/Dark 토글
+      </DCPostIt>
+    </DesignCanvas>
+  );
+}
+
+// Token sheet wrapper — simple paper card
+function TokenSheet({ children, tokens }) {
+  return (
+    <div style={{
+      width: '100%', height: '100%', padding: '24px 28px',
+      background: tokens.bg, color: tokens.text,
+      fontFamily: tokens.font.family,
+    }}>{children}</div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+
+</body>
+</html>
