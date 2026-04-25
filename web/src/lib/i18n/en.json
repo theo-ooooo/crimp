@@ -190,6 +190,41 @@
       "loadMore": "Load more"
     }
   },
+  "feed": {
+    "title": "Feed",
+    "entryCardTitle": "Browse the feed",
+    "entryCardDescription": "Friends, popular, and your gym at a glance.",
+    "refreshAria": "Refresh feed",
+    "loadMore": "Load more",
+    "loadingMore": "Loading more...",
+    "errorTitle": "Failed to load feed",
+    "loginRequiredTitle": "Login required",
+    "loginRequiredDescription": "Sign in to browse the feed.",
+    "filter": {
+      "label": "Feed filter",
+      "friends": "Friends",
+      "popular": "Popular",
+      "myGym": "My gym"
+    },
+    "empty": {
+      "friendsTitle": "You don't follow anyone yet",
+      "friendsDescription": "Follow climbers to see their activity here.",
+      "myGymTitle": "Your home gym isn't set",
+      "myGymDescription": "Set your main gym in your profile to populate this feed.",
+      "popularTitle": "No popular posts yet",
+      "popularDescription": "Log your first attempt today to fill the feed."
+    },
+    "card": {
+      "likesAria": "Likes",
+      "commentsAria": "Comments"
+    },
+    "time": {
+      "justNow": "just now",
+      "minutesAgo": "{{n}}m ago",
+      "hoursAgo": "{{n}}h ago",
+      "daysAgo": "{{n}}d ago"
+    }
+  },
   "error": {
     "transport": "Something went wrong. Please try again in a moment.",
     "authRequired": "You need to sign in for this action.",
