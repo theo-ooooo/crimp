@@ -10,6 +10,7 @@ import DesignPrimitivesScreen from './src/screens/DesignPrimitivesScreen';
 import GymDetailScreen from './src/screens/GymDetailScreen';
 import GymSearchScreen from './src/screens/GymSearchScreen';
 import HomeScreen from './src/screens/HomeScreen';
+import LoginScreen from './src/screens/LoginScreen';
 import SessionDetailScreen from './src/screens/SessionDetailScreen';
 import SessionListScreen from './src/screens/SessionListScreen';
 import StartSessionScreen from './src/screens/StartSessionScreen';
@@ -47,6 +48,11 @@ export default function App(): JSX.Element {
               name="Home"
               component={HomeScreen}
               options={{ title: 'Crimp' }}
+            />
+            <Stack.Screen
+              name="Login"
+              component={LoginScreen}
+              options={{ title: t('auth.login.title') }}
             />
             <Stack.Screen
               name="SessionList"

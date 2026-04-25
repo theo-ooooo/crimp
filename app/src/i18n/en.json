@@ -158,6 +158,27 @@
       "errorTitle": "Failed to load gym"
     }
   },
+  "auth": {
+    "login": {
+      "title": "Sign in",
+      "tagline": "Your climbing, all in one place",
+      "kakaoCta": "Continue with Kakao",
+      "exchanging": "Signing in...",
+      "kakaoUnavailable": "Kakao login isn't wired yet. Use the dev id-token panel below.",
+      "kakaoNoIdToken": "Kakao didn't return an id token. Please try again.",
+      "nativeUnlinkedTitle": "Kakao native SDK not linked",
+      "nativeUnlinkedBody": "Will be enabled once the iOS/Android native projects are generated and the Kakao app key is registered.",
+      "devModeToggle": "Developer mode (paste idToken)",
+      "devModeHide": "Close developer mode",
+      "devModeHint": "For dev/testing. Paste an OAuth idToken trusted by the backend and submit.",
+      "devTokenLabel": "idToken",
+      "devTokenPlaceholder": "eyJhbGciOi...",
+      "devSubmit": "Submit token",
+      "errorTitle": "Sign-in failed",
+      "alreadyLoggedIn": "You are already signed in",
+      "goHome": "Go to home"
+    }
+  },
   "error": {
     "transport": "Something went wrong. Please try again in a moment.",
     "authRequired": "You need to sign in for this action.",

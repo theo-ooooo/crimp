@@ -1,5 +1,5 @@
 /**
- * Crimp 디자인 토큰 (Variant A · Toss 블루).
+ * Crimp 디자인 토큰 (Variant A · 라임).
  * 단일 진실원: `docs/design/tokens.json`. 수동 동기 — 토큰 변경 시 JSON 과 이 파일 동시 갱신.
  *
  * 사용 원칙:
@@ -10,11 +10,11 @@
 
 export const colors = {
   accent: {
-    base: '#3182F6',
-    soft: '#E8F2FE',
-    ink: '#1B64DA',
-    flash: '#5B9BFF',
-    on: '#FFFFFF',
+    base: '#C9F84B',
+    soft: '#EEFCC1',
+    ink: '#0F1419',
+    flash: '#D8FB6E',
+    on: '#0F1419',
   },
   light: {
     bg: '#FFFFFF',
@@ -42,7 +42,7 @@ export const colors = {
     success: '#12B886',
     warning: '#FAB005',
     danger: '#E03131',
-    info: '#3182F6',
+    info: '#C9F84B',
   },
   hold: {
     red: '#E03131',

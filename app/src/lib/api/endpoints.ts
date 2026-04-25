@@ -9,6 +9,11 @@ import {
   type UpdateAttemptBody,
 } from '@/lib/schemas/attempt';
 import {
+  TokenResponseSchema,
+  type OauthProvider,
+  type TokenResponse,
+} from '@/lib/schemas/auth';
+import {
   GymDetailSchema,
   GymListSchema,
   RouteListSchema,
@@ -29,6 +34,56 @@ import {
 } from '@/lib/schemas/session';
 
 import { apiRequest } from './client';
+
+// ===== Auth =====
+
+/**
+ * `POST /api/v1/auth/oauth/{provider}` — provider 가 발급한 idToken 을 백엔드에 제출하고
+ * Crimp JWT (access/refresh) 쌍을 받는다.
+ *
+ * provider 는 백엔드 `OauthProvider` enum 의 lower-case 표현 (`kakao`, `apple`, `google`).
+ */
+export function exchangeOauth(
+  provider: OauthProvider,
+  idToken: string,
+  signal?: AbortSignal,
+): Promise<TokenResponse> {
+  return apiRequest({
+    method: 'POST',
+    path: `/api/v1/auth/oauth/${provider}`,
+    body: { idToken },
+    schema: TokenResponseSchema,
+    signal,
+  });
+}
+
+/** `POST /api/v1/auth/refresh` — refresh 토큰으로 토큰 쌍을 재발급. */
+export function refreshTokens(
+  refreshToken: string,
+  signal?: AbortSignal,
+): Promise<TokenResponse> {
+  return apiRequest({
+    method: 'POST',
+    path: '/api/v1/auth/refresh',
+    body: { refreshToken },
+    schema: TokenResponseSchema,
+    signal,
+  });
+}
+
+/** `POST /api/v1/auth/logout` — refresh 토큰을 블랙리스트 처리. 204 응답. */
+export function logout(
+  refreshToken: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  return apiRequest({
+    method: 'POST',
+    path: '/api/v1/auth/logout',
+    body: { refreshToken },
+    schema: z.void(),
+    signal,
+  });
+}
 
 export function fetchHealth(signal?: AbortSignal): Promise<HealthResponse> {
   return apiRequest({
