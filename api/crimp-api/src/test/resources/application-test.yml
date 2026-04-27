@@ -20,3 +20,7 @@ app:
         client-id: test-client-id
         issuer: https://kauth.kakao.com
         jwks-uri: https://kauth.kakao.com/.well-known/jwks.json
+        # 테스트 기본값: code 교환은 비활성 (필요 시 개별 테스트가 override)
+        rest-api-key: ""
+        client-secret: ""
+        token-uri: https://kauth.kakao.com/oauth/token

@@ -6,19 +6,18 @@ import com.querydsl.jpa.impl.JPAQueryFactory;
 import io.crimp.core.entity.feed.QComment;
 import io.crimp.core.entity.user.QProfile;
 import io.crimp.core.entity.user.QUser;
-import org.springframework.context.annotation.Profile;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.SliceImpl;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
 /**
  * {@link CommentRepositoryCustom} QueryDSL 구현.
+ *
+ * <p>Spring Data JPA 명명 규칙 ({@code <CustomInterface>Impl}) 로 자동 결합.
+ * {@code @Repository} 미부착 — standalone bean 으로 중복 등록되면 타입 주입 시 모호성.
  */
-@Repository
-@Profile("!test")
 public class CommentRepositoryCustomImpl implements CommentRepositoryCustom {
 
     private final JPAQueryFactory queryFactory;

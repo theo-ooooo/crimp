@@ -82,9 +82,16 @@ app:
       issuer: https://crimp.local
     oauth:
       kakao:
+        # OIDC ID Token 검증 (모바일/JS SDK 가 직접 발급한 id_token)
         client-id: ${KAKAO_CLIENT_ID:placeholder-kakao-client-id}
         issuer: https://kauth.kakao.com
         jwks-uri: https://kauth.kakao.com/.well-known/jwks.json
+        # Authorization Code 교환 (웹 v2 redirect flow — 서버가 /oauth/token 호출)
+        # rest-api-key 가 비어 있으면 /auth/oauth/kakao/code 엔드포인트는
+        # KAKAO_OAUTH_NOT_CONFIGURED (503) 으로 응답한다.
+        rest-api-key: ${KAKAO_REST_API_KEY:}
+        client-secret: ${KAKAO_CLIENT_SECRET:}
+        token-uri: ${KAKAO_TOKEN_URI:https://kauth.kakao.com/oauth/token}
 
 logging:
   level:

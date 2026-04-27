@@ -14,25 +14,25 @@ import io.crimp.core.entity.log.QSessionAttempt;
 import io.crimp.core.entity.social.QFollow;
 import io.crimp.core.entity.user.QProfile;
 import io.crimp.core.entity.user.QUser;
-import org.springframework.context.annotation.Profile;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.SliceImpl;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
 /**
  * 피드 리포지토리 QueryDSL 구현 — FeedPost 루팅.
  *
- * <p>Spring Data JPA 명명 규칙 ({EntityRepo}Impl) 을 따라 {@code FeedPostRepository} 가
- * {@link FeedPostRepositoryCustom} 를 상속하면 본 클래스가 자동 결합된다.
+ * <p>Spring Data JPA 명명 규칙 ({@code <CustomInterface>Impl}) 을 따라
+ * {@code FeedPostRepository} 가 {@link FeedPostRepositoryCustom} 를 상속하면 본 클래스가
+ * 자동 결합된다. JPA 리포지토리 팩토리가 직접 인스턴스화하므로 별도 {@code @Repository}
+ * 또는 {@code @Component} 어노테이션 없음 (있으면 standalone bean 으로 중복 등록되어
+ * {@link FeedPostRepositoryCustom} 타입 주입 시 모호성 발생).
  *
- * <p>{@code @Profile("!test")} — 테스트 프로파일에서는 JPA autoconfig 가 비활성이라
- * {@link JPAQueryFactory} 빈이 없다. {@code QueryDslConfig} 와 동일 가드.
+ * <p>JPA autoconfig 가 비활성인 테스트 프로파일에서는 {@code FeedPostRepository} 자체가
+ * 등록되지 않아 본 클래스도 인스턴스화되지 않는다 ({@code QueryDslConfig} 의 {@code !test}
+ * 가드와 동일 효과).
  */
-@Repository
-@Profile("!test")
 public class FeedPostRepositoryCustomImpl implements FeedPostRepositoryCustom {
 
     private final JPAQueryFactory queryFactory;

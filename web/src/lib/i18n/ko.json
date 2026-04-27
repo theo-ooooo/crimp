@@ -30,7 +30,12 @@
       "devTokenLabel": "ID 토큰 (id_token)",
       "devSubmit": "토큰으로 로그인",
       "errorTitle": "로그인하지 못했어요",
-      "alreadyLoggedIn": "이미 로그인되어 있어요. 홈으로 이동합니다."
+      "alreadyLoggedIn": "이미 로그인되어 있어요. 홈으로 이동합니다.",
+      "callbackProcessing": "카카오 로그인 처리 중이에요…",
+      "callbackErrorTitle": "카카오 로그인을 마치지 못했어요",
+      "callbackStateMismatch": "보안 검증(state)에 실패했어요. 다시 시도해 주세요.",
+      "callbackInvalidParam": "카카오 응답이 올바르지 않아요. 다시 시도해 주세요.",
+      "retryCta": "다시 시도"
     }
   },
   "home": {
