@@ -68,6 +68,30 @@ export function exchangeOauth(
 }
 
 /**
+ * `POST /api/v1/auth/oauth/{provider}/code` — 웹 v2 redirect flow 의 authorization_code 교환.
+ *
+ * 브라우저는 `?code=...&state=...` 만 받고, 실제 provider /oauth/token 호출은
+ * 백엔드가 직접 수행한다. 본 호출은 서버측에서 받은 `code` 와 인가 단계의
+ * `redirectUri` 를 그대로 전달하면 백엔드가 id_token 을 받아 검증·JWT 발급.
+ *
+ * 키 미설정 시 `KAKAO_OAUTH_NOT_CONFIGURED` (HTTP 503).
+ */
+export function exchangeOauthCode(
+  provider: OauthProvider,
+  code: string,
+  redirectUri: string,
+  signal?: AbortSignal,
+): Promise<TokenResponse> {
+  return apiRequest({
+    method: 'POST',
+    path: `/api/v1/auth/oauth/${encodeURIComponent(provider)}/code`,
+    body: { code, redirectUri },
+    schema: TokenResponseSchema,
+    signal,
+  });
+}
+
+/**
  * `POST /api/v1/auth/refresh` — refresh 토큰으로 access·refresh 재발급.
  */
 export function refreshTokens(

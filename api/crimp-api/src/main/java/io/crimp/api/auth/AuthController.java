@@ -36,6 +36,24 @@ public class AuthController {
         return TokenResponse.of(tokens);
     }
 
+    /**
+     * 웹 v2 redirect flow 전용 — authorization_code 를 백엔드에서 provider 토큰
+     * 엔드포인트로 교환 후 id_token 검증·JWT 발급.
+     *
+     * <p>요청 본문:
+     * <pre>{ "code": "...", "redirectUri": "https://app.crimp/login/callback" }</pre>
+     *
+     * <p>provider 키가 미설정이면 {@code KAKAO_OAUTH_NOT_CONFIGURED} 503.
+     */
+    @PostMapping("/oauth/{provider}/code")
+    public TokenResponse exchangeCode(
+            @PathVariable String provider,
+            @RequestBody OauthCodeExchangeRequest req) {
+        OauthProvider p = parseProvider(provider);
+        AuthTokens tokens = authService.exchangeCode(p, req.code(), req.redirectUri());
+        return TokenResponse.of(tokens);
+    }
+
     @PostMapping("/refresh")
     public TokenResponse refresh(@RequestBody TokenPair req) {
         AuthTokens tokens = authService.refresh(req.refreshToken());
@@ -50,12 +68,27 @@ public class AuthController {
 
     @ExceptionHandler(AuthException.class)
     public ResponseEntity<ApiResponse<Void>> handleAuth(AuthException e) {
-        int status = switch (e.code()) {
-            case "AUTH_PROVIDER_UNSUPPORTED" -> 400;
-            case "AUTH_INVALID", "AUTH_USER_MISSING" -> 401;
-            default -> 401;
-        };
+        int status = statusOf(e.code());
         return ResponseEntity.status(status).body(ApiResponse.failure(ErrorBody.of(e.code(), e.getMessage())));
+    }
+
+    /**
+     * AuthException code → HTTP status 매핑.
+     *
+     * <ul>
+     *   <li>{@code AUTH_PROVIDER_UNSUPPORTED} → 400</li>
+     *   <li>{@code *_OAUTH_NOT_CONFIGURED} → 503 (외부 의존성 미구성, 일시적 503 으로 안내)</li>
+     *   <li>그 외 인증 실패 → 401</li>
+     * </ul>
+     */
+    private static int statusOf(String code) {
+        if ("AUTH_PROVIDER_UNSUPPORTED".equals(code)) {
+            return 400;
+        }
+        if (code != null && code.endsWith("_OAUTH_NOT_CONFIGURED")) {
+            return 503;
+        }
+        return 401;
     }
 
     private static OauthProvider parseProvider(String raw) {
@@ -67,6 +100,9 @@ public class AuthController {
     }
 
     public record OauthExchangeRequest(@NotBlank String idToken) {}
+
+    /** 웹 v2 redirect flow 의 code 교환 요청. */
+    public record OauthCodeExchangeRequest(@NotBlank String code, @NotBlank String redirectUri) {}
 
     public record TokenPair(@NotBlank String refreshToken) {}
 

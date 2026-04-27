@@ -7,21 +7,29 @@ import { useCallback, useEffect, useState } from 'react';
 import { PrimaryButton, Skeleton } from '@/components/primitives';
 import { useExchangeOauth } from '@/hooks/useAuth';
 import { toUserMessage } from '@/lib/api/errorMessage';
+import { generateOauthState, saveOauthState } from '@/lib/auth/kakaoOauthState';
 import { t } from '@/lib/i18n';
 import { useAccessToken, useTokenStore } from '@/store/tokenStore';
 
 /**
- * `/login` — Kakao OIDC 소셜 로그인 + 개발자 모드 ID 토큰 폴백.
+ * `/login` — Kakao OIDC 소셜 로그인 (v2 redirect) + 개발자 모드 ID 토큰 폴백.
  *
- * 흐름:
+ * 흐름 (v2 redirect — Kakao JS SDK 2.7.x 기준):
  * 1) Kakao JS SDK 를 CDN 으로 로드 (`afterInteractive`, SRI integrity 적용).
  * 2) `Kakao.init(NEXT_PUBLIC_KAKAO_APP_KEY)` — 키 미설정 시 카카오 버튼은 비활성화.
- * 3) `Kakao.Auth.login({ scope: 'openid' })` 팝업 → 응답 객체에서 `id_token` 추출.
- * 4) `POST /api/v1/auth/oauth/kakao` 로 교환 → `tokenStore.setTokens` → `/` 이동.
+ * 3) 사용자가 카카오 버튼을 클릭하면 `state` (CSRF 가드) 를 sessionStorage 에
+ *    저장한 뒤 `Kakao.Auth.authorize({ redirectUri, scope:'openid', state })` 호출.
+ *    브라우저가 카카오 로그인 페이지로 redirect.
+ * 4) 카카오가 `redirectUri` (= `/login/callback`) 로 `?code=...&state=...` 와
+ *    함께 돌려보내면 `/login/callback` 페이지가 state 검증 → 백엔드
+ *    `POST /api/v1/auth/oauth/kakao/code` 로 code 교환 → 토큰 저장 → `/` 이동.
+ *
+ * 왜 redirect? — Kakao JS SDK v2.x 에서 popup 기반 `Auth.login` 이 제거되었기 때문.
+ * v1.x 의 `Auth.login({success,fail})` 은 v2.x 에서 호출 시 `TypeError`.
  *
  * 개발자 모드(접이식) — Kakao 앱키 발급 전 또는 백엔드 단독 검증용:
  *  - 사용자가 직접 발급받은 OIDC `id_token` 을 textarea 에 붙여넣고 제출.
- *  - 동일한 `useExchangeOauth` 뮤테이션 사용.
+ *  - 기존 `useExchangeOauth` 뮤테이션 (id_token 직접 교환) 사용.
  *
  * SSR 가드: hydration 전에는 placeholder 만 노출. 로그인 상태에서 진입 시 `/` 로 즉시 이동.
  */
@@ -36,20 +44,22 @@ const KAKAO_SDK_INTEGRITY =
 
 // ===== Kakao SDK 타입 (CDN 로드되는 전역 객체용 최소 선언) =====
 //
-// TODO(auth): Kakao SDK API 계약 검증 — https://developers.kakao.com/docs/latest/ko/kakaologin/js
-// `Kakao.Auth.login` 의 success 콜백은 v2.7.x 기준으로 OIDC 응답 객체를 받으며,
-// `scope: 'openid'` 요청 시 `id_token` 필드가 포함된다. CI 환경에서 직접 검증이
-// 어려우므로 응답을 unknown 으로 받아 런타임 가드로 안전하게 추출한다.
+// 참고: https://developers.kakao.com/docs/latest/ko/kakaologin/js
+// v2.x 에서 `Kakao.Auth.authorize` 는 redirect 기반이며 success/fail 콜백을 받지 않는다
+// (브라우저 자체가 redirectUri 로 이동). 응답은 `redirectUri` 페이지의 query string
+// (`?code=...&state=...&error=...`) 으로 전달된다.
 
 interface KakaoSdk {
   init: (appKey: string) => void;
   isInitialized: () => boolean;
   Auth: {
-    login: (opts: {
+    /** v2.x — redirect 기반 인가. 호출 즉시 브라우저가 Kakao 로그인 페이지로 이동한다. */
+    authorize: (opts: {
+      redirectUri: string;
       scope?: string;
+      state?: string;
       throughTalk?: boolean;
-      success?: (auth: unknown) => void;
-      fail?: (err: unknown) => void;
+      prompts?: string;
     }) => void;
   };
 }
@@ -58,33 +68,6 @@ declare global {
   interface Window {
     Kakao?: KakaoSdk;
   }
-}
-
-function extractIdToken(authObj: unknown): string | null {
-  if (!authObj || typeof authObj !== 'object') return null;
-  const record = authObj as Record<string, unknown>;
-  // 표준 OIDC 응답 키 + 일부 SDK 버전 대비 camelCase 만 시도. PascalCase 변형은 표준에
-  // 없으므로 제외.
-  const candidates = [record.id_token, record.idToken];
-  for (const c of candidates) {
-    if (typeof c === 'string' && c.length > 0) return c;
-  }
-  return null;
-}
-
-/**
- * Kakao SDK 가 fail 콜백에 넘기는 객체는 `{error, error_description}` 같은 형태일 수 있다.
- * `toUserMessage` 가 일관되게 처리하도록 Error 인스턴스로 정규화한다.
- */
-function normalizeKakaoError(err: unknown): Error {
-  if (err instanceof Error) return err;
-  if (err && typeof err === 'object') {
-    const r = err as Record<string, unknown>;
-    const desc = typeof r.error_description === 'string' ? r.error_description : null;
-    const code = typeof r.error === 'string' ? r.error : null;
-    return new Error(desc ?? code ?? 'Kakao SDK error');
-  }
-  return new Error(typeof err === 'string' ? err : 'Kakao SDK error');
 }
 
 export default function LoginPage(): JSX.Element {
@@ -107,7 +90,7 @@ export default function LoginPage(): JSX.Element {
     }
   }, [hydrated, accessToken, router]);
 
-  // I3: id_token → 백엔드 교환 + 성공 시 홈으로 — 두 진입점(카카오·dev) 공통 헬퍼.
+  // 개발자 모드 전용 — id_token 직접 교환.
   const submitIdToken = useCallback(
     (idToken: string) => {
       exchange.mutate(
@@ -124,6 +107,13 @@ export default function LoginPage(): JSX.Element {
     [exchange, router],
   );
 
+  /**
+   * Kakao 로그인 — v2 redirect.
+   *
+   * (1) state 생성 + sessionStorage 저장,
+   * (2) `Kakao.Auth.authorize` 호출 → 브라우저가 Kakao 로 redirect.
+   * 후속 처리는 `/login/callback` 페이지가 담당.
+   */
   const handleKakaoLogin = useCallback(() => {
     setKakaoError(null);
     if (typeof window === 'undefined') return;
@@ -133,24 +123,16 @@ export default function LoginPage(): JSX.Element {
       setKakaoError(new Error('Kakao SDK is not ready'));
       return;
     }
-    sdk.Auth.login({
+    const state = generateOauthState();
+    saveOauthState(state);
+    const redirectUri = `${window.location.origin}/login/callback`;
+    sdk.Auth.authorize({
+      redirectUri,
       scope: 'openid',
-      throughTalk: false,
-      success: (authObj: unknown) => {
-        const idToken = extractIdToken(authObj);
-        if (!idToken) {
-          console.error('[login] kakao-id-token-missing', authObj);
-          setKakaoError(new Error('id_token missing in Kakao response'));
-          return;
-        }
-        submitIdToken(idToken);
-      },
-      fail: (err: unknown) => {
-        console.error('[login] kakao-auth-fail', err);
-        setKakaoError(normalizeKakaoError(err));
-      },
+      state,
     });
-  }, [submitIdToken]);
+    // authorize 는 동기적으로 location 변경 → 이 라인 이후 코드는 실행되지 않을 가능성이 높다.
+  }, []);
 
   const handleDevSubmit = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {

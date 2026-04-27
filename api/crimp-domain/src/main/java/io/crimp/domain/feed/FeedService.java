@@ -1,6 +1,6 @@
 package io.crimp.domain.feed;
 
-import io.crimp.core.repository.feed.FeedPostRepositoryCustom;
+import io.crimp.core.repository.feed.FeedPostRepository;
 import io.crimp.core.repository.feed.FeedQueryMode;
 import io.crimp.core.repository.feed.FeedRow;
 import io.crimp.core.repository.user.ProfileRepository;
@@ -41,10 +41,13 @@ public class FeedService {
     private static final Pattern HOLD_PATTERN =
             Pattern.compile("\"hold\"\\s*:\\s*\"([^\"]+)\"");
 
-    private final FeedPostRepositoryCustom feedRepository;
+    // Spring Data JPA 가 custom fragment 를 별도 빈으로도 등록해 FeedPostRepositoryCustom
+    // 타입 주입 시 모호성 발생 → composed repository (FeedPostRepository) 를 직접 주입.
+    // FeedPostRepository extends JpaRepository, FeedPostRepositoryCustom 이라 메서드는 모두 사용 가능.
+    private final FeedPostRepository feedRepository;
     private final ProfileRepository profileRepository;
 
-    public FeedService(FeedPostRepositoryCustom feedRepository, ProfileRepository profileRepository) {
+    public FeedService(FeedPostRepository feedRepository, ProfileRepository profileRepository) {
         this.feedRepository = feedRepository;
         this.profileRepository = profileRepository;
     }

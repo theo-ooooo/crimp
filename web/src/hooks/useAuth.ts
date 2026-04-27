@@ -2,7 +2,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { exchangeOauth, logout as logoutRequest } from '@/lib/api';
+import { exchangeOauth, exchangeOauthCode, logout as logoutRequest } from '@/lib/api';
 import type { OauthProvider, TokenResponse } from '@/lib/schemas/auth';
 import { useTokenStore } from '@/store/tokenStore';
 
@@ -25,6 +25,33 @@ export function useExchangeOauth() {
   const setTokens = useTokenStore((s) => s.setTokens);
   return useMutation<TokenResponse, Error, ExchangeOauthVars>({
     mutationFn: ({ provider, idToken }) => exchangeOauth(provider, idToken),
+    onSuccess: (tokens) => {
+      setTokens({
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+      });
+    },
+  });
+}
+
+export interface ExchangeOauthCodeVars {
+  provider: OauthProvider;
+  code: string;
+  redirectUri: string;
+}
+
+/**
+ * 웹 v2 redirect flow 전용 — `?code=` 를 백엔드 JWT 로 교환.
+ *
+ * 카카오 JS SDK v2.x 부터 popup 기반 `Auth.login` 이 제거되었기 때문에 웹은
+ * `Auth.authorize` 로 redirect → callback 페이지에서 `code` 추출 → 본 뮤테이션 호출
+ * 의 흐름을 사용한다. 결과는 기존 `useExchangeOauth` 와 동일한 토큰 쌍.
+ */
+export function useExchangeOauthCode() {
+  const setTokens = useTokenStore((s) => s.setTokens);
+  return useMutation<TokenResponse, Error, ExchangeOauthCodeVars>({
+    mutationFn: ({ provider, code, redirectUri }) =>
+      exchangeOauthCode(provider, code, redirectUri),
     onSuccess: (tokens) => {
       setTokens({
         accessToken: tokens.accessToken,

@@ -31,13 +31,16 @@
 
 | 단계 | 방법 |
 | --- | --- |
-| 소셜 로그인 | `POST /api/v1/auth/oauth/{provider}` (provider: `kakao`/`apple`/`google`) |
+| 소셜 로그인 (id_token 직접 교환) | `POST /api/v1/auth/oauth/{provider}` (provider: `kakao`/`apple`/`google`) — 모바일/JS SDK 가 직접 받은 OIDC `id_token` 을 본문 `idToken` 으로 전달 |
+| 소셜 로그인 (code 교환) | `POST /api/v1/auth/oauth/{provider}/code` — 웹 v2 redirect flow 전용. 본문 `{ code, redirectUri }`. 서버가 provider `/oauth/token` 호출 후 id_token 을 검증해 JWT 발급 |
 | 토큰 재발급 | `POST /api/v1/auth/refresh` |
 | 로그아웃 | `POST /api/v1/auth/logout` (refresh 블랙리스트) |
 | 이후 요청 | `Authorization: Bearer {accessToken}` |
 
 - Access: 15분, Refresh: 14일
 - Refresh는 Redis에 `refresh:{userId}:{jti}` 저장, 로테이션 방식
+- code 교환 엔드포인트는 provider REST API 키가 환경 변수 (`KAKAO_REST_API_KEY` 등) 로
+  설정되지 않았을 때 `KAKAO_OAUTH_NOT_CONFIGURED` (HTTP 503) 으로 명시 응답한다.
 
 ## 4. 공통 응답 포맷 (응답 봉투 스펙)
 
@@ -112,7 +115,7 @@
 | 422 | `UNPROCESSABLE_ENTITY` | 비즈니스 규칙 위반 |
 | 429 | `RATE_LIMITED` | 레이트 리밋 |
 | 500 | `INTERNAL_ERROR` | 내부 오류 |
-| 503 | `DEPENDENCY_UNAVAILABLE` | 외부 의존성 장애 |
+| 503 | `DEPENDENCY_UNAVAILABLE` / `KAKAO_OAUTH_NOT_CONFIGURED` | 외부 의존성 장애 / provider OAuth 키 미설정 |
 
 - 에러 `code`는 `UPPER_SNAKE_CASE` 고정 enum, 문서화된 집합만 사용
 - 유저에게 직접 보여줘도 되는 문구는 `message`, 기술적 디버깅은 `details`
@@ -157,7 +160,8 @@
 ### 인증 (`/api/v1/auth`)
 | Method | Path | 설명 |
 | --- | --- | --- |
-| POST | `/api/v1/auth/oauth/{provider}` | 소셜 로그인 교환 |
+| POST | `/api/v1/auth/oauth/{provider}` | 소셜 로그인 교환 (모바일/JS SDK id_token) |
+| POST | `/api/v1/auth/oauth/{provider}/code` | 웹 v2 redirect flow — authorization code 교환 (서버 → provider /oauth/token) |
 | POST | `/api/v1/auth/refresh` | 토큰 재발급 |
 | POST | `/api/v1/auth/logout` | 로그아웃 |
 
