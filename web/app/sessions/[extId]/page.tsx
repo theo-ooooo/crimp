@@ -44,7 +44,7 @@ import type { Session } from '@/lib/schemas/session';
 export default function SessionDetailPage(): JSX.Element {
   const params = useParams<{ extId: string }>();
   const extId = params?.extId;
-  const { accessToken } = useRequireAuth();
+  const accessToken = useRequireAuth();
 
   const sessionQuery = useSessionQuery(accessToken, extId);
   const attemptsQuery = useAttemptsQuery(accessToken, extId);

@@ -27,7 +27,7 @@ import type { Session } from '@/lib/schemas/session';
  * 기존 훅·에러 처리·커서 페이지네이션·hydration 가드는 그대로 유지한다.
  */
 export default function SessionsPage(): JSX.Element {
-  const { accessToken } = useRequireAuth();
+  const accessToken = useRequireAuth();
   const {
     data,
     error,

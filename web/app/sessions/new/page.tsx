@@ -52,7 +52,7 @@ function NewSessionSkeleton(): JSX.Element {
 function NewSessionPageInner(): JSX.Element {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { accessToken } = useRequireAuth();
+  const accessToken = useRequireAuth();
   const mutation = useStartSession(accessToken);
 
   const selectedGymExtId = searchParams?.get('gymExtId') ?? null;

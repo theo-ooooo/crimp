@@ -31,7 +31,7 @@ import type { FeedFilter, FeedItem } from '@/lib/schemas/feed';
 const DEFAULT_FILTER: FeedFilter = 'friends';
 
 export default function FeedPage(): JSX.Element {
-  const { accessToken } = useRequireAuth();
+  const accessToken = useRequireAuth();
 
   // 필터 상태는 쿼리 파라미터가 아니라 컴포넌트 로컬 상태로 관리한다.
   // 향후 공유 URL · 딥링크 요구가 생기면 useSearchParams 기반으로 이전.

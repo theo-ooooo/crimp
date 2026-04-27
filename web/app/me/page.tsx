@@ -27,7 +27,7 @@ import type { MeStats } from '@/lib/schemas/meStats';
  * 인증/hydration 가드는 기존과 동일.
  */
 export default function MePage(): JSX.Element {
-  const { accessToken } = useRequireAuth();
+  const accessToken = useRequireAuth();
 
   // hydration 전 OR 토큰 없음(redirect 대기) → 동일 skeleton.
   // 짧은 한 프레임 동안만 보이므로 별도 LoginRequired 화면은 두지 않는다.
