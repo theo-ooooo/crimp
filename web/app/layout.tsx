@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
+import { TopNav } from '@/components/nav/TopNav';
 import ko from '@/lib/i18n/ko.json';
 import { QueryProvider } from '@/lib/query/QueryProvider';
 
@@ -37,7 +38,14 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <QueryProvider>{children}</QueryProvider>
+        <QueryProvider>
+          {/*
+            TopNav 는 클라이언트 컴포넌트이며, 로그인 상태일 때만 렌더링한다.
+            hydration 전 / 비로그인 / 로그인 페이지에서는 자체적으로 null 을 반환.
+          */}
+          <TopNav />
+          {children}
+        </QueryProvider>
       </body>
     </html>
   );
