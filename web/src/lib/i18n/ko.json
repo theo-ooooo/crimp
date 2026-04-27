@@ -110,6 +110,10 @@
       "confirmCta": "설정",
       "cancel": "취소",
       "errorTitle": "내 암장을 변경하지 못했어요"
+    },
+    "logout": {
+      "cta": "로그아웃",
+      "loading": "로그아웃 중…"
     }
   },
   "session": {
