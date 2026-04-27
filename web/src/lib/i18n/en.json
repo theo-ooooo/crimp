@@ -76,8 +76,6 @@
   "me": {
     "title": "My profile",
     "eyebrow": "Profile",
-    "loginRequiredTitle": "Login required",
-    "loginRequiredDescription": "Please login first. In dev mode, set localStorage key 'crimp.accessToken'.",
     "labelExtId": "User ID",
     "labelNickname": "Nickname",
     "labelBio": "Bio",
@@ -147,8 +145,6 @@
     },
     "detail": {
       "title": "Session detail",
-      "loginRequiredTitle": "Login required",
-      "loginRequiredDescription": "Login is required to view session detail.",
       "labelGym": "Gym",
       "labelStartedAt": "Started",
       "labelEndedAt": "Ended",
@@ -249,8 +245,6 @@
     "loadMore": "Load more",
     "loadingMore": "Loading more...",
     "errorTitle": "Failed to load feed",
-    "loginRequiredTitle": "Login required",
-    "loginRequiredDescription": "Sign in to browse the feed.",
     "filter": {
       "label": "Feed filter",
       "friends": "Friends",

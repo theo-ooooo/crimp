@@ -18,12 +18,12 @@ import {
 } from '@/components/session/CameraSheet';
 import { LogAttemptSheet } from '@/components/session/LogAttemptSheet';
 import { useAttemptsQuery } from '@/hooks/useAttempts';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { useEndSession, useSessionQuery } from '@/hooks/useSessions';
 import { toUserMessage } from '@/lib/api/errorMessage';
 import { t } from '@/lib/i18n';
 import { type Attempt } from '@/lib/schemas/attempt';
 import type { Session } from '@/lib/schemas/session';
-import { useAccessToken, useTokenStore } from '@/store/tokenStore';
 
 /**
  * `/sessions/[extId]` — 세션 상세 + 시도 로그 화면.
@@ -44,8 +44,7 @@ import { useAccessToken, useTokenStore } from '@/store/tokenStore';
 export default function SessionDetailPage(): JSX.Element {
   const params = useParams<{ extId: string }>();
   const extId = params?.extId;
-  const hydrated = useTokenStore((s) => s.hydrated);
-  const accessToken = useAccessToken();
+  const accessToken = useRequireAuth();
 
   const sessionQuery = useSessionQuery(accessToken, extId);
   const attemptsQuery = useAttemptsQuery(accessToken, extId);
@@ -59,21 +58,9 @@ export default function SessionDetailPage(): JSX.Element {
   // 시트가 닫힐 때 false 로 리셋. 실 mediaId 전송은 F5.
   const [mediaAttached, setMediaAttached] = useState<boolean>(false);
 
-  if (!hydrated) {
-    return <HydrationGate />;
-  }
-
+  // hydration 전 OR 토큰 없음(redirect 대기) → 동일 skeleton.
   if (!accessToken) {
-    return (
-      <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-4 bg-bg px-6">
-        <h1 className="text-h1 font-extrabold text-text">
-          {t('session.detail.loginRequiredTitle')}
-        </h1>
-        <p className="text-body text-text-2">
-          {t('session.detail.loginRequiredDescription')}
-        </p>
-      </main>
-    );
+    return <HydrationGate />;
   }
 
   if (!extId) {
