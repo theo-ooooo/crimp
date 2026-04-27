@@ -68,11 +68,22 @@ export default function App(): JSX.Element {
             // 자동 애니메이트한다 (별도 navigation.reset 호출 없이도 동작).
             <RootStack.Navigator>
               {accessToken === null ? (
-                <RootStack.Screen
-                  name="Login"
-                  component={LoginScreen}
-                  options={{ title: t('auth.login.title') }}
-                />
+                <>
+                  <RootStack.Screen
+                    name="Login"
+                    component={LoginScreen}
+                    options={{ title: t('auth.login.title') }}
+                  />
+                  {/*
+                   * DesignPrimitives 는 dev 전용 deep-link 대상. 비인증 상태에서도
+                   * 접근 가능해야 디자인 토큰 점검이 가능하다 (PR #68 회귀 fix).
+                   */}
+                  <RootStack.Screen
+                    name="DesignPrimitives"
+                    component={DesignPrimitivesScreen}
+                    options={{ title: 'Design Primitives' }}
+                  />
+                </>
               ) : (
                 <>
                   {/*

@@ -255,49 +255,7 @@ function LoggedInView({ accessToken, navigation, styles, theme }: LoggedInProps)
         </View>
       )}
 
-      {/* 피드 진입 카드 (Phase 1.5 BottomTabs 도입 전 placeholder — PR #55) */}
-      <Pressable
-        onPress={() => navigation.navigate('Feed')}
-        accessibilityRole="button"
-        accessibilityLabel={t('feed.openCta')}
-        style={({ pressed }) => [
-          styles.entryCard,
-          pressed ? styles.entryCardPressed : null,
-        ]}
-      >
-        <View style={styles.entryIcon}>
-          <CrimpIcon.feed size={20} color={theme.text} />
-        </View>
-        <View style={styles.entryBody}>
-          <Text style={styles.entryTitle}>{t('feed.openCta')}</Text>
-          <Text style={styles.entrySubtitle}>
-            {t('feed.openCtaDescription')}
-          </Text>
-        </View>
-        <CrimpIcon.chevR size={18} color={theme.text3} />
-      </Pressable>
-
-      {/* 프로필 진입 카드 (PR #61) */}
-      <Pressable
-        onPress={() => navigation.navigate('Profile')}
-        accessibilityRole="button"
-        accessibilityLabel={t('profile.openCta')}
-        style={({ pressed }) => [
-          styles.entryCard,
-          pressed ? styles.entryCardPressed : null,
-        ]}
-      >
-        <View style={styles.entryIcon}>
-          <CrimpIcon.profile size={20} color={theme.text} />
-        </View>
-        <View style={styles.entryBody}>
-          <Text style={styles.entryTitle}>{t('profile.openCta')}</Text>
-          <Text style={styles.entrySubtitle}>
-            {t('profile.openCtaDescription')}
-          </Text>
-        </View>
-        <CrimpIcon.chevR size={18} color={theme.text3} />
-      </Pressable>
+      {/* PR #68 BottomTabs 도입으로 피드/프로필 진입 카드는 탭바가 대체. */}
     </ScrollView>
   );
 }
@@ -575,43 +533,8 @@ function makeStyles(theme: Theme) {
       color: theme.text3,
       marginTop: 2,
     },
-    /** 피드/프로필 진입 카드 (Phase 1.5 placeholder, mock 의 BottomTabs 와 동일 정보 밀도) */
-    entryCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: space[3],
-      padding: space[4],
-      borderRadius: radius.lg,
-      backgroundColor: theme.subtle,
-    },
-    entryCardPressed: {
-      opacity: 0.85,
-    },
-    entryIcon: {
-      width: 36,
-      height: 36,
-      borderRadius: radius.full,
-      backgroundColor: theme.chip,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    entryBody: {
-      flex: 1,
-      minWidth: 0,
-      gap: 2,
-    },
-    entryTitle: {
-      fontFamily,
-      fontSize: fontSize.body,
-      fontWeight: fontWeight.bold,
-      color: theme.text,
-      letterSpacing: letterSpacing.body,
-    },
-    entrySubtitle: {
-      fontFamily,
-      fontSize: fontSize.caption,
-      fontWeight: fontWeight.medium,
-      color: theme.text3,
-    },
+    /* 피드/프로필 진입 카드 (entryCard*, entryIcon, entryBody, entryTitle, entrySubtitle) 는
+       PR #68 BottomTabs 도입으로 JSX 와 함께 제거. 같은 placeholder 가 다시 필요하면 mock 의
+       카드 스타일을 다시 도입한다. */
   });
 }
