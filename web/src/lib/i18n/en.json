@@ -62,7 +62,6 @@
     "labelNickname": "Nickname",
     "labelBio": "Bio",
     "labelLevelSelf": "Self-rated level",
-    "labelMainGymId": "Main gym ID",
     "labelAvatarMediaId": "Avatar media ID",
     "empty": "-",
     "errorTitle": "Failed to load your profile",

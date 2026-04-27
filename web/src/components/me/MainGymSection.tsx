@@ -11,7 +11,7 @@
  *   PATCH `/me/profile` `{ clearMainGym: true }`.
  */
 
-import { useState, type FC } from 'react';
+import { useEffect, useRef, useState, type FC } from 'react';
 
 import { SecondaryButton } from '@/components/primitives';
 import { useUpdateProfileMutation } from '@/hooks/useUpdateProfile';
@@ -198,6 +198,61 @@ const ConfirmDialog: FC<ConfirmDialogProps> = ({
 }) => {
   // 가벼운 모달 — picker 와 달리 단일 메시지 + 두 버튼만 필요하므로
   // 별도 sheet 로 분리하지 않고 인라인 다이얼로그로 처리.
+  // I1: focus trap + autoFocus + Esc — picker 와 일관성. (LogAttemptSheet 패턴 차용)
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isSubmitting) {
+        onCancel();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const root = dialogRef.current;
+      if (!root) return;
+      const focusables = root.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (!active || !root.contains(active)) {
+        e.preventDefault();
+        first.focus();
+        return;
+      }
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [isSubmitting, onCancel]);
+
+  // 마운트 시 취소 버튼에 자동 포커스 (실수 destructive 클릭 방지).
+  useEffect(() => {
+    const root = dialogRef.current;
+    if (!root) return;
+    const cancelBtn = root.querySelector<HTMLButtonElement>('button[data-confirm-cancel="true"]');
+    cancelBtn?.focus();
+  }, []);
+
+  // I2: body scroll lock — 다이얼로그 표시 동안 배경 스크롤 차단.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
   return (
     <div
       role="dialog"
@@ -212,6 +267,7 @@ const ConfirmDialog: FC<ConfirmDialogProps> = ({
       }}
     >
       <div
+        ref={dialogRef}
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-sm rounded-2xl bg-bg p-6 shadow-md"
       >
@@ -235,6 +291,7 @@ const ConfirmDialog: FC<ConfirmDialogProps> = ({
             type="button"
             onClick={onCancel}
             disabled={isSubmitting}
+            data-confirm-cancel="true"
             className="inline-flex h-11 flex-1 items-center justify-center rounded-lg bg-subtle text-sm font-semibold text-text transition-transform duration-fast ease-standard active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
             style={{ WebkitTapHighlightColor: 'transparent' }}
           >

@@ -105,6 +105,16 @@ export const MainGymPickerDialog: FC<MainGymPickerDialogProps> = ({
     input?.focus();
   }, [open]);
 
+  // I2: body scroll lock — 다이얼로그 표시 동안 배경 스크롤 차단.
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
   if (!open) return null;
 
   return (

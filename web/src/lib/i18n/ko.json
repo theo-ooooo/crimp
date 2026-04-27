@@ -62,7 +62,6 @@
     "labelNickname": "닉네임",
     "labelBio": "소개",
     "labelLevelSelf": "자가 등급",
-    "labelMainGymId": "주 암장 ID",
     "labelAvatarMediaId": "프로필 이미지 ID",
     "empty": "-",
     "errorTitle": "내 정보를 불러오지 못했습니다",
