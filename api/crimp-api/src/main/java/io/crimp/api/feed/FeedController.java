@@ -15,8 +15,9 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 피드 화면 API.
  *
- * <p>GET {@code /api/v1/feed} — 등반 시도 기반 read-only 피드. 좋아요·댓글 도메인 도입 전까지
- * SessionAttempt 를 view-projection 으로 노출한다.
+ * <p>GET {@code /api/v1/feed} — FeedPost 기반 read-only 피드. 시도 자동 게시
+ * (SEND/FLASH/ONSIGHT) 와 사용자 자유 글이 같은 테이블을 공유하며, items.extId 는
+ * FeedPost.extId, nextCursor 는 FeedPost.id 다.
  *
  * <p>인증: {@link CrimpPrincipal} 필수 (SecurityConfig 의 anyRequest().authenticated 적용).
  */
@@ -35,7 +36,7 @@ public class FeedController {
      * 피드 목록.
      *
      * @param filter "popular"(기본) / "my-gym" / "friends". 인식 불가 값은 popular 로 폴백.
-     * @param cursor 이전 페이지 마지막 attempt.id (없으면 첫 페이지)
+     * @param cursor 이전 페이지 마지막 feed_post.id (없으면 첫 페이지)
      * @param size   페이지 크기 (default 20, max 50)
      */
     @GetMapping("/feed")

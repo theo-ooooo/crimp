@@ -1,28 +1,44 @@
 package io.crimp.domain.log;
 
 import io.crimp.common.id.UlidGenerator;
+import io.crimp.core.entity.enums.AttemptResult;
+import io.crimp.core.entity.enums.PostVisibility;
+import io.crimp.core.entity.feed.FeedPost;
 import io.crimp.core.entity.log.ClimbingSession;
 import io.crimp.core.entity.log.SessionAttempt;
+import io.crimp.core.repository.feed.FeedPostRepository;
 import io.crimp.core.repository.log.ClimbingSessionRepository;
 import io.crimp.core.repository.log.SessionAttemptRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @org.springframework.context.annotation.Profile("!test")
 public class AttemptService {
 
+    /**
+     * 시도 자동 게시 트리거 결과 코드 — 성공한 시도만 피드에 노출한다.
+     * FAIL/TRY 는 게시 대상이 아니다.
+     */
+    private static final Set<AttemptResult> AUTO_PUBLISH_RESULTS =
+            EnumSet.of(AttemptResult.SEND, AttemptResult.FLASH, AttemptResult.ONSIGHT);
+
     private final ClimbingSessionRepository sessionRepository;
     private final SessionAttemptRepository attemptRepository;
+    private final FeedPostRepository feedPostRepository;
 
     public AttemptService(
             ClimbingSessionRepository sessionRepository,
-            SessionAttemptRepository attemptRepository) {
+            SessionAttemptRepository attemptRepository,
+            FeedPostRepository feedPostRepository) {
         this.sessionRepository = sessionRepository;
         this.attemptRepository = attemptRepository;
+        this.feedPostRepository = feedPostRepository;
     }
 
     @Transactional
@@ -53,7 +69,35 @@ public class AttemptService {
         if (cmd.tagsJson() != null) attempt.updateTagsJson(cmd.tagsJson());
 
         attemptRepository.save(attempt);
+
+        // 자동 게시: 동일 트랜잭션에서 FeedPost 도 같이 생성. 실패하면 시도 저장도 롤백되어
+        // 카운터/피드 일관성이 유지된다.
+        autoPublishToFeed(attempt, userId);
+
         return toView(attempt);
+    }
+
+    /**
+     * SEND/FLASH/ONSIGHT 시도에 대해 1:1 FeedPost 생성. 이미 attempt_id 로 게시된 row 가 있으면
+     * 멱등 skip. 동일 attempt 가 두 번 들어오는 일은 정상 흐름에서는 없지만, 재시도/리플레이를
+     * defense-in-depth 로 가드.
+     */
+    private void autoPublishToFeed(SessionAttempt attempt, long userId) {
+        if (!AUTO_PUBLISH_RESULTS.contains(attempt.getResult())) {
+            return;
+        }
+        if (feedPostRepository.findByAttemptId(attempt.getId()).isPresent()) {
+            return;
+        }
+        FeedPost post = FeedPost.fromAttempt(
+                UlidGenerator.next(),
+                userId,
+                attempt.getNote(), // 시도 메모를 그대로 게시 본문으로
+                attempt.getSessionId(),
+                attempt.getId(),
+                attempt.getGymId(),
+                PostVisibility.PUBLIC);
+        feedPostRepository.save(post);
     }
 
     @Transactional(readOnly = true)
@@ -79,12 +123,39 @@ public class AttemptService {
         if (cmd.mediaId() != null) attempt.updateMediaId(cmd.mediaId());
         if (cmd.note() != null) attempt.updateNote(cmd.note());
         if (cmd.tagsJson() != null) attempt.updateTagsJson(cmd.tagsJson());
+
+        // I1: result PATCH 가 자동 게시 정책에 영향. SEND/FLASH/ONSIGHT 로 전환되면 신규 게시,
+        // 반대로 FAIL/TRY 로 전환되면 기존 게시를 soft-delete 하여 피드에서 숨긴다.
+        // 같은 result 유지면 멱등(autoPublishToFeed 의 findByAttemptId 가드).
+        ClimbingSession session = sessionRepository.findById(attempt.getSessionId())
+                .orElseThrow(() -> new SessionException("ATTEMPT_NOT_FOUND",
+                        "Attempt " + attemptExtId + " not found"));
+        if (AUTO_PUBLISH_RESULTS.contains(attempt.getResult())) {
+            autoPublishToFeed(attempt, session.getUserId());
+        } else {
+            feedPostRepository.findByAttemptId(attempt.getId())
+                    .ifPresent(post -> {
+                        if (!post.isDeleted()) {
+                            post.softDelete();
+                        }
+                    });
+        }
         return toView(attempt);
     }
 
     @Transactional
     public void delete(long userId, String attemptExtId) {
         SessionAttempt attempt = fetchOwnedAttempt(userId, attemptExtId);
+        // B1: 자동 게시된 FeedPost 도 같은 트랜잭션에서 soft-delete. V908 의 FK 가
+        // ON DELETE SET NULL 로 정의돼 있어 attempt hard-delete 가 거절되진 않지만,
+        // 피드에 "유령" post (attempt_id NULL, content=note) 가 남는 것을 방지하려면
+        // 명시적으로 게시 가시성을 차단한다. 정상 사용자 의도: "내 시도 삭제 = 피드에서도 사라짐".
+        feedPostRepository.findByAttemptId(attempt.getId())
+                .ifPresent(post -> {
+                    if (!post.isDeleted()) {
+                        post.softDelete();
+                    }
+                });
         attemptRepository.delete(attempt);
     }
 

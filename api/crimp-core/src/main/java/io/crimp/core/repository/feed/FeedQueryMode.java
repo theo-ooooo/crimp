@@ -7,10 +7,10 @@ package io.crimp.core.repository.feed;
  * 위해 core 레이어에 별도 정의했다. 매핑은 도메인 서비스가 담당한다.
  */
 public enum FeedQueryMode {
-    /** 글로벌 SEND/FLASH/ONSIGHT — 좋아요 도메인 도입 전 임시 인기 정렬. */
+    /** 글로벌 SEND/FLASH/ONSIGHT — 자동 게시된 시도 기반 인기 정렬. */
     POPULAR,
-    /** 특정 gymId 시도만 — gymIdFilter 인자가 반드시 채워져야 한다. */
+    /** 특정 gymId 게시물만 — gymIdFilter 인자가 반드시 채워져야 한다. */
     MY_GYM,
-    /** 요청자가 팔로잉 중인 사용자들의 시도. */
+    /** 요청자가 팔로잉 중인 사용자들의 게시물. */
     FRIENDS
 }

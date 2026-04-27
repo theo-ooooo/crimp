@@ -2,8 +2,8 @@ package io.crimp.domain.feed;
 
 import io.crimp.core.entity.enums.AttemptResult;
 import io.crimp.core.entity.user.Profile;
+import io.crimp.core.repository.feed.FeedPostRepositoryCustom;
 import io.crimp.core.repository.feed.FeedQueryMode;
-import io.crimp.core.repository.feed.FeedRepositoryCustom;
 import io.crimp.core.repository.feed.FeedRow;
 import io.crimp.core.repository.user.ProfileRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,13 +30,13 @@ import static org.mockito.Mockito.when;
 
 class FeedServiceTest {
 
-    private FeedRepositoryCustom feedRepository;
+    private FeedPostRepositoryCustom feedRepository;
     private ProfileRepository profileRepository;
     private FeedService service;
 
     @BeforeEach
     void setUp() {
-        feedRepository = mock(FeedRepositoryCustom.class);
+        feedRepository = mock(FeedPostRepositoryCustom.class);
         profileRepository = mock(ProfileRepository.class);
         service = new FeedService(feedRepository, profileRepository);
     }
@@ -179,12 +179,6 @@ class FeedServiceTest {
     void hold_color_regex_does_not_falsely_match_escaped_quote_inside_value() {
         // 리뷰 I2 회귀 가드: 사용자 입력이 tagsJson 으로 흘러 들어가 escape 된 `\"hold\":\"..\"`
         // 가 들어와도 정규식이 false-positive 매칭하지 않음을 보장.
-        //
-        // 입력 실제 char: `{"note":"used \"hold\":\"trick\""}` — `\"hold\"` 형태에서
-        // 닫는 `"` 앞이 `\` 라서 `"hold"\s*:\s*"..."` 패턴이 매칭 실패 → null.
-        //
-        // F5 에서 ObjectMapper / 전용 컬럼으로 교체하면 자연 소멸하지만, 그 전까지 본 테스트가
-        // regex 강건성을 lock-in.
         FeedRow row = baseRow()
                 .withTagsJson("{\"note\":\"used \\\"hold\\\":\\\"trick\\\"\"}")
                 .build();
@@ -220,10 +214,10 @@ class FeedServiceTest {
     // --- nextCursor / hasNext ---
 
     @Test
-    void next_cursor_set_to_last_item_id_when_has_next() {
-        // 두 개의 row, hasNext=true → 마지막 item 의 attemptId 가 nextCursor 가 되어야 함.
-        FeedRow r1 = baseRow().withAttemptId(100L).build();
-        FeedRow r2 = baseRow().withAttemptId(50L).build();
+    void next_cursor_set_to_last_feed_post_id_when_has_next() {
+        // 두 개의 row, hasNext=true → 마지막 item 의 feedPostId 가 nextCursor 가 되어야 함.
+        FeedRow r1 = baseRow().withFeedPostId(100L).build();
+        FeedRow r2 = baseRow().withFeedPostId(50L).build();
         when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
                 .thenReturn(slice(List.of(r1, r2), true));
 
@@ -235,7 +229,7 @@ class FeedServiceTest {
 
     @Test
     void next_cursor_null_when_no_more_pages() {
-        FeedRow r1 = baseRow().withAttemptId(100L).build();
+        FeedRow r1 = baseRow().withFeedPostId(100L).build();
         when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
                 .thenReturn(slice(List.of(r1), false));
 
@@ -251,6 +245,45 @@ class FeedServiceTest {
         FeedPage page = service.listFeed(1L, FeedFilter.POPULAR, null, null);
         assertThat(page.nextCursor()).isNull();
         assertThat(page.items()).isEmpty();
+    }
+
+    // --- liked / counts pass-through ---
+
+    @Test
+    void liked_flag_pass_through() {
+        FeedRow r1 = baseRow().withLiked(true).build();
+        FeedRow r2 = baseRow().withLiked(false).build();
+        when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
+                .thenReturn(slice(List.of(r1, r2), false));
+
+        FeedPage page = service.listFeed(1L, FeedFilter.POPULAR, null, null);
+        assertThat(page.items().get(0).liked()).isTrue();
+        assertThat(page.items().get(1).liked()).isFalse();
+    }
+
+    @Test
+    void like_and_comment_counts_pass_through() {
+        FeedRow row = baseRow().withLikeCount(7L).withCommentCount(3L).build();
+        when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
+                .thenReturn(slice(List.of(row), false));
+
+        FeedPage page = service.listFeed(1L, FeedFilter.POPULAR, null, null);
+        assertThat(page.items().get(0).likes()).isEqualTo(7L);
+        assertThat(page.items().get(0).comments()).isEqualTo(3L);
+    }
+
+    @Test
+    void item_extId_uses_feed_post_extId_not_attempt_extId() {
+        // 응답 shape 변경 회귀 가드: items.extId 는 feed_post.ext_id 로 의미 전환됨.
+        FeedRow row = baseRow()
+                .withFeedPostExtId("01HFEEDPOST0000000000000001")
+                .withAttemptExtId("01HATTEMPT0000000000000099")
+                .build();
+        when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
+                .thenReturn(slice(List.of(row), false));
+
+        FeedPage page = service.listFeed(1L, FeedFilter.POPULAR, null, null);
+        assertThat(page.items().get(0).extId()).isEqualTo("01HFEEDPOST0000000000000001");
     }
 
     // --- POPULAR / FRIENDS 패스스루 ---
@@ -303,6 +336,8 @@ class FeedServiceTest {
 
     /** FeedRow 는 record 이므로 모든 필드를 기본값으로 채우는 빌더가 테스트 가독성에 도움. */
     private static class FeedRowBuilder {
+        private long feedPostId = 1000L;
+        private String feedPostExtId = "01HFEEDPOST0000000000000001";
         private Long attemptId = 1L;
         private String attemptExtId = "01HATTEMPT0000000000000001";
         private long userId = 1L;
@@ -315,14 +350,24 @@ class FeedServiceTest {
         private String tagsJson = null;
         private String note = null;
         private Instant loggedAt = Instant.parse("2026-04-25T07:00:00Z");
+        private long likeCount = 0L;
+        private long commentCount = 0L;
+        private boolean liked = false;
 
-        FeedRowBuilder withAttemptId(Long v) { this.attemptId = v; return this; }
+        FeedRowBuilder withFeedPostId(long v) { this.feedPostId = v; return this; }
+        FeedRowBuilder withFeedPostExtId(String v) { this.feedPostExtId = v; return this; }
+        FeedRowBuilder withAttemptExtId(String v) { this.attemptExtId = v; return this; }
         FeedRowBuilder withUserId(long v) { this.userId = v; return this; }
         FeedRowBuilder withTagsJson(String v) { this.tagsJson = v; return this; }
+        FeedRowBuilder withLikeCount(long v) { this.likeCount = v; return this; }
+        FeedRowBuilder withCommentCount(long v) { this.commentCount = v; return this; }
+        FeedRowBuilder withLiked(boolean v) { this.liked = v; return this; }
 
         FeedRow build() {
-            return new FeedRow(attemptId, attemptExtId, userId, userExtId, nickname, gymName,
-                    result, gradeValue, gradeNumeric, tagsJson, note, loggedAt);
+            return new FeedRow(feedPostId, feedPostExtId, attemptId, attemptExtId,
+                    userId, userExtId, nickname, gymName,
+                    result, gradeValue, gradeNumeric, tagsJson, note, loggedAt,
+                    likeCount, commentCount, liked);
         }
     }
 }
