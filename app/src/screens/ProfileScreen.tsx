@@ -18,6 +18,7 @@ import {
 import { CrimpIcon, Skeleton } from '@/components/primitives';
 import { useGymsQuery } from '@/hooks/useGyms';
 import { useMeQuery } from '@/hooks/useMe';
+import { useMeStatsQuery } from '@/hooks/useMeStats';
 import { useUpdateProfile } from '@/hooks/useUpdateProfile';
 import { toUserMessage } from '@/lib/api/errorMessage';
 import { t } from '@/lib/i18n';
@@ -34,21 +35,27 @@ import {
 import { useReducedMotion } from '@/lib/useReducedMotion';
 import { useTokens } from '@/lib/useTokens';
 import type { GymItem } from '@/lib/schemas/gym';
+import type { Me } from '@/lib/schemas/me';
+import type { MeStats } from '@/lib/schemas/meStats';
 import { useTokenStore } from '@/store/tokenStore';
 
 /**
  * 프로필 화면.
  *
- * Phase 1 구성:
- * - 닉네임 / 자기소개 / 레벨 (읽기 전용 표시)
- * - 내 암장 표시 / 변경 / 해제 — 본 PR 의 핵심.
+ * 디자인 출처: docs/design/claude/v2/screens-ios-2.jsx:384 (`ProfileScreen`)
  *
- * PR #59 백엔드 contract 정합:
- * - `me.mainGym = { extId, name, brand? } | null` 을 그대로 표시한다.
- * - 변경: `PATCH /me/profile` 본문에 `mainGymExtId` 를 보낸다.
- * - 해제: `PATCH /me/profile` 본문에 `clearMainGym: true` 를 보낸다.
+ * Mock 레이아웃 정렬 (v2):
+ * - 헤더 row: 아바타(이니셜 그라데이션) + 닉네임 22px 800 + 보조 (bio)
+ * - 통계 row: 완등 / 세션 / (친구는 도메인 미도입 — 생략) 3개 인라인
+ * - Hero: 최고 그레이드 큰 숫자 (accent 색상, 80px display)
+ * - 내 암장 카드 (PR #61 — 기존 동작 그대로 유지)
  *
- * 더 이상 picker 비활성화/캐시 워크어라운드는 필요 없다.
+ * Phase 1 한계로 mock 의 그레이드 분포 / 배지 / 친구 카운트 / 설정 아이콘은 생략.
+ *
+ * 비즈니스 로직 무변경:
+ * - useMeQuery / useUpdateProfile mutation / pull-to-refresh 동일
+ * - MainGymPickerModal 호출 / mainGym 변경·해제 흐름 동일
+ * - me/stats 표시는 추가 (useMeStatsQuery — HomeScreen 과 동일 캐시 키 재사용).
  */
 export default function ProfileScreen(): JSX.Element {
   const theme = useTokens();
@@ -86,6 +93,7 @@ type LoggedInProps = {
 
 function LoggedInProfile({ accessToken, styles, theme }: LoggedInProps): JSX.Element {
   const meQuery = useMeQuery(accessToken);
+  const statsQuery = useMeStatsQuery(accessToken);
   const me = meQuery.data;
   // PR #59: 백엔드가 해석된 mainGym 객체를 그대로 내려준다 (extId/name/brand).
   // mainGymId 만 있고 mainGym 이 없는 케이스는 백엔드가 비활성/삭제로 판정한 상태.
@@ -140,7 +148,10 @@ function LoggedInProfile({ accessToken, styles, theme }: LoggedInProps): JSX.Ele
     meQuery.refetch().catch(() => {
       /* 에러는 meQuery.error 로 노출 */
     });
-  }, [meQuery]);
+    statsQuery.refetch().catch(() => {
+      /* stats 실패는 stats 영역만 가려진다 */
+    });
+  }, [meQuery, statsQuery]);
 
   if (meQuery.isLoading) {
     return (
@@ -180,20 +191,19 @@ function LoggedInProfile({ accessToken, styles, theme }: LoggedInProps): JSX.Ele
           />
         }
       >
-        {/* 닉네임 / 레벨 */}
-        <View style={styles.headerBlock}>
+        {/* eyebrow + 헤더 row (mock: 아바타 72/72 그라데이션 원 + 닉네임/bio) */}
+        <View style={styles.headerEyebrowBlock}>
           <Text style={styles.eyebrow}>{t('profile.title')}</Text>
-          <Text style={styles.nickname}>
-            {me?.nickname ?? t('home.nicknameFallback')}
-          </Text>
-          {me?.levelSelf !== null && me?.levelSelf !== undefined ? (
-            <Text style={styles.levelText}>
-              {t('profile.level')}: V{Math.max(0, me.levelSelf)}
-            </Text>
-          ) : null}
         </View>
+        <ProfileHeaderRow me={me ?? null} styles={styles} theme={theme} />
 
-        {/* 내 암장 카드 */}
+        {/* 통계 row — me/stats 데이터로 완등 / 세션 / 최고 표시 */}
+        <ProfileStatsRow stats={statsQuery.data ?? null} loading={statsQuery.isLoading} styles={styles} />
+
+        {/* Hero — 최고 그레이드 큰 숫자 (mock subtle bg / radius 20 / V6 80px accent) */}
+        <ProfileTopGradeHero stats={statsQuery.data ?? null} styles={styles} theme={theme} />
+
+        {/* 내 암장 카드 (PR #61 — 시각만 유지) */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>{t('me.mainGym.title')}</Text>
           <View style={styles.cardRow}>
@@ -299,6 +309,155 @@ function LoggedInProfile({ accessToken, styles, theme }: LoggedInProps): JSX.Ele
         />
       ) : null}
     </>
+  );
+}
+
+// =====================================================================================
+// Profile header / stats / hero — mock 정렬용 sub-components
+// =====================================================================================
+
+/**
+ * 닉네임 / 아바타 row.
+ * Mock: 72/72 원형 그라데이션 + 닉네임 22px 800 + bio 13px text3.
+ *
+ * RN 은 단색 background 만 지원 (linear-gradient 미지원). accent.base 단색으로 근사하고,
+ * 후속에 react-native-svg 도입 시 그라데이션으로 교체.
+ */
+function ProfileHeaderRow({
+  me,
+  styles,
+  theme,
+}: {
+  me: Me | null;
+  styles: StylesT;
+  theme: Theme;
+}): JSX.Element {
+  const nickname = me?.nickname ?? t('home.nicknameFallback');
+  const initial = nickname.trim().slice(0, 1) || '?';
+  const bio = me?.bio ?? null;
+  return (
+    <View style={styles.headerRow}>
+      <View style={styles.avatar}>
+        <Text style={styles.avatarText} accessibilityLabel={nickname}>
+          {initial}
+        </Text>
+      </View>
+      <View style={styles.headerRowBody}>
+        <Text style={styles.nickname} numberOfLines={1}>
+          {nickname}
+        </Text>
+        {bio !== null && bio.length > 0 ? (
+          <Text style={styles.bioText} numberOfLines={2}>
+            {bio}
+          </Text>
+        ) : me?.levelSelf !== null && me?.levelSelf !== undefined ? (
+          <Text style={styles.bioText}>
+            {t('profile.level')} V{Math.max(0, me.levelSelf)}
+          </Text>
+        ) : (
+          <Text style={[styles.bioText, { color: theme.text4 }]}>
+            {t('profile.bioFallback')}
+          </Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
+/**
+ * 통계 row — mock 의 friends bar 와 같은 인라인 레이아웃.
+ * "184 완등  47 세션  최고 V6" 식으로 굵은 숫자 + 작은 라벨.
+ */
+function ProfileStatsRow({
+  stats,
+  loading,
+  styles,
+}: {
+  stats: MeStats | null;
+  loading: boolean;
+  styles: StylesT;
+}): JSX.Element {
+  if (loading && !stats) {
+    return (
+      <View style={styles.statsRow}>
+        <Skeleton width={48} height={20} />
+        <View style={{ width: space[5] }} />
+        <Skeleton width={48} height={20} />
+        <View style={{ width: space[5] }} />
+        <Skeleton width={48} height={20} />
+      </View>
+    );
+  }
+  if (!stats) {
+    return <View style={styles.statsRow} />;
+  }
+  return (
+    <View style={styles.statsRow}>
+      <StatPill value={stats.totalSends} label={t('profile.statTotalSends')} styles={styles} />
+      <StatPill value={stats.totalSessions} label={t('profile.statTotalSessions')} styles={styles} />
+      <StatPill
+        value={stats.topGrade ?? t('profile.topGradeEmpty')}
+        label={t('profile.statTopGrade')}
+        styles={styles}
+      />
+    </View>
+  );
+}
+
+function StatPill({
+  value,
+  label,
+  styles,
+}: {
+  value: string | number;
+  label: string;
+  styles: StylesT;
+}): JSX.Element {
+  return (
+    <View style={styles.statPill}>
+      <Text style={styles.statPillValue}>{String(value)}</Text>
+      <Text style={styles.statPillLabel}>{label}</Text>
+    </View>
+  );
+}
+
+/**
+ * 최고 그레이드 hero card.
+ * Mock: subtle bg / radius 20 / 좌측 80px accent 색 큰 숫자, 우측 trend marker.
+ *
+ * Phase 1 에서 stats 의 topGrade 가 null 이면 "—" + 안내 문구.
+ * 주: mock 의 "신기록" 트렌드 비교는 백엔드에서 weekTopGrade vs prevWeekTopGrade 가
+ * 추가될 때 도입. 현재는 정적 라벨.
+ */
+function ProfileTopGradeHero({
+  stats,
+  styles,
+  theme,
+}: {
+  stats: MeStats | null;
+  styles: StylesT;
+  theme: Theme;
+}): JSX.Element {
+  const topGrade = stats?.topGrade ?? null;
+  return (
+    <View style={styles.heroCard}>
+      <Text style={styles.heroCaption}>{t('profile.topGradeHeroTitle')}</Text>
+      <View style={styles.heroRow}>
+        <Text
+          style={[
+            styles.heroNumber,
+            topGrade === null ? { color: theme.text3 } : null,
+          ]}
+        >
+          {topGrade ?? t('profile.topGradeEmpty')}
+        </Text>
+        {topGrade === null ? (
+          <Text style={styles.heroSubtext}>
+            {t('profile.topGradeEmptyHint')}
+          </Text>
+        ) : null}
+      </View>
+    </View>
   );
 }
 
@@ -625,8 +784,10 @@ function makeStyles(theme: Theme) {
       padding: space[6],
       gap: space[3],
     },
+    /** Mock paddingTop 64 + paddingBottom 110 (BottomTabs). RN 미도입 → 14. */
     scrollContent: {
-      padding: space[5],
+      paddingHorizontal: space[5],
+      paddingTop: space[6],
       paddingBottom: space[14],
       gap: space[5],
     },
@@ -641,7 +802,8 @@ function makeStyles(theme: Theme) {
       fontWeight: fontWeight.bold,
       color: theme.text,
     },
-    headerBlock: {
+    /** Eyebrow row — mock 의 settings icon 자리는 Phase 1 에서 생략. */
+    headerEyebrowBlock: {
       gap: space[1],
     },
     eyebrow: {
@@ -650,19 +812,110 @@ function makeStyles(theme: Theme) {
       fontWeight: fontWeight.semibold,
       color: theme.text3,
     },
+    /** Mock: padding 20/20/0, gap 16. */
+    headerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space[4],
+    },
+    /** Mock 아바타 72/72 원형 + accent 단색 (그라데이션은 svg 도입 후 추후) */
+    avatar: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: theme.accent.base,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarText: {
+      fontFamily,
+      fontSize: 28,
+      fontWeight: fontWeight.extrabold,
+      letterSpacing: -1.12,
+      color: theme.accent.on,
+      includeFontPadding: false,
+    },
+    headerRowBody: {
+      flex: 1,
+      minWidth: 0,
+      gap: 2,
+    },
+    /** Mock 닉네임 22px 800 letterSpacing -0.03em. */
     nickname: {
       fontFamily,
-      fontSize: fontSize.h1,
+      fontSize: 22,
       fontWeight: fontWeight.extrabold,
-      letterSpacing: letterSpacing.h1,
+      letterSpacing: -0.66,
       color: theme.text,
     },
-    levelText: {
+    bioText: {
       fontFamily,
-      fontSize: fontSize.body,
-      fontWeight: fontWeight.semibold,
-      color: theme.text2,
+      fontSize: 13,
+      fontWeight: fontWeight.medium,
+      color: theme.text3,
     },
+    /** Mock 통계 row: padding 16/20/0, fontSize 13, gap 22 (≒ space[5]). */
+    statsRow: {
+      flexDirection: 'row',
+      gap: space[5],
+      flexWrap: 'wrap',
+    },
+    statPill: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      gap: space[1],
+    },
+    statPillValue: {
+      fontFamily,
+      fontSize: 13,
+      fontWeight: fontWeight.extrabold,
+      color: theme.text,
+      letterSpacing: -0.13,
+      includeFontPadding: false,
+    },
+    statPillLabel: {
+      fontFamily,
+      fontSize: 13,
+      fontWeight: fontWeight.semibold,
+      color: theme.text3,
+    },
+    /** Hero — 최고 그레이드 카드. Mock: subtle bg / radius 20 / padding 22. */
+    heroCard: {
+      backgroundColor: theme.subtle,
+      borderRadius: radius.xl,
+      padding: space[5],
+      gap: space[2],
+    },
+    heroCaption: {
+      fontFamily,
+      fontSize: fontSize.caption,
+      fontWeight: fontWeight.bold,
+      color: theme.text3,
+      letterSpacing: -0.12,
+    },
+    heroRow: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      gap: space[4],
+    },
+    /** Mock 80px 800 letterSpacing -0.06em accent base. */
+    heroNumber: {
+      fontFamily,
+      fontSize: 80,
+      fontWeight: fontWeight.extrabold,
+      letterSpacing: -4.8,
+      lineHeight: 80 * 0.9,
+      color: theme.accent.base,
+      includeFontPadding: false,
+    },
+    heroSubtext: {
+      fontFamily,
+      fontSize: fontSize.caption,
+      fontWeight: fontWeight.medium,
+      color: theme.text3,
+      flexShrink: 1,
+    },
+    /** 내 암장 카드 (PR #61 — 시각 그대로 유지) */
     card: {
       backgroundColor: theme.subtle,
       borderRadius: radius.xl,
@@ -706,7 +959,7 @@ function makeStyles(theme: Theme) {
       fontSize: fontSize.body,
       fontWeight: fontWeight.semibold,
       color: theme.text,
-      letterSpacing: -0.15,
+      letterSpacing: letterSpacing.body,
     },
     gymLabelMuted: {
       color: theme.text3,
@@ -742,7 +995,7 @@ function makeStyles(theme: Theme) {
       fontSize: fontSize.body,
       fontWeight: fontWeight.bold,
       color: theme.accent.on,
-      letterSpacing: -0.15,
+      letterSpacing: letterSpacing.body,
     },
     ctaButtonDanger: {
       paddingVertical: space[3],
@@ -757,7 +1010,7 @@ function makeStyles(theme: Theme) {
       fontSize: fontSize.body,
       fontWeight: fontWeight.bold,
       color: theme.semantic.danger,
-      letterSpacing: -0.15,
+      letterSpacing: letterSpacing.body,
     },
     savingRow: {
       flexDirection: 'row',
@@ -859,7 +1112,7 @@ function makeModalStyles(theme: Theme) {
       fontSize: fontSize.body,
       fontWeight: fontWeight.medium,
       color: theme.text,
-      letterSpacing: -0.15,
+      letterSpacing: letterSpacing.body,
       padding: 0,
     },
     searchClear: {
@@ -936,7 +1189,7 @@ function makeRowStyles(theme: Theme) {
       fontSize: fontSize.body,
       fontWeight: fontWeight.bold,
       color: theme.text,
-      letterSpacing: -0.15,
+      letterSpacing: letterSpacing.body,
     },
     address: {
       fontFamily,
