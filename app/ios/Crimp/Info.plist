@@ -22,6 +22,15 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<!--
+	  Kakao 네이티브 SDK placeholder. RNKakaoLogins.swift:24 가 init 시 KAKAO_APP_KEY 를
+	  force-unwrap (`appKey!`) 로 읽어 nil 이면 즉시 크래시. 실제 카카오 로그인은 PR #49
+	  의 dev-token 폴백으로 동작하므로, 네이티브 SDK 정식 등록 전까지는 placeholder 만
+	  세팅해 앱 부팅 크래시를 방지한다. 실 로그인은 후속 PR 에서 Kakao Developer 콘솔
+	  발급 키로 교체 + LSApplicationQueriesSchemes / CFBundleURLTypes 추가.
+	-->
+	<key>KAKAO_APP_KEY</key>
+	<string>PLACEHOLDER_KAKAO_APP_KEY</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSAppTransportSecurity</key>
