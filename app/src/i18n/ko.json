@@ -13,6 +13,20 @@
     "delete": "삭제",
     "empty": "-"
   },
+  "nav": {
+    "home": "홈",
+    "feed": "피드",
+    "sessions": "세션",
+    "gyms": "암장",
+    "profile": "프로필",
+    "a11y": {
+      "home": "홈 탭",
+      "feed": "피드 탭",
+      "sessions": "세션 탭",
+      "gyms": "암장 탭",
+      "profile": "프로필 탭"
+    }
+  },
   "home": {
     "tagline": "클라이머를 위한 디지털 홈",
     "description": "암장·루트·등반 로그·크루·아웃도어를 한 곳에서.",
