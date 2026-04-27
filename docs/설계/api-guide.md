@@ -192,20 +192,24 @@
 | GET | `/api/v1/me/stats` | 홈 대시보드 집계 (주간 + 라이프타임) — **주 경계는 KST 기준** |
 | GET | `/api/v1/me/stats/monthly` | 월별 통계 (예정) |
 
-### 피드 (`/api/v1/feed-posts`)
+### 피드 (`/api/v1/feed`, `/api/v1/feed-posts`, `/api/v1/comments`)
 | Method | Path | 설명 |
 | --- | --- | --- |
-| GET | `/api/v1/feed?filter=popular\|my-gym\|friends&cursor=&size=` | 피드 (popular 기본 / my-gym = Profile.mainGymId / friends = Follow 기반). likes·comments 는 Phase 1.5 placeholder 0. |
-| GET | `/api/v1/feed-posts` | 전체·필터 피드 |
-| POST | `/api/v1/feed-posts` | 피드 작성 |
-| GET | `/api/v1/feed-posts/{extId}` | 게시물 상세 |
-| PATCH | `/api/v1/feed-posts/{extId}` | 게시물 수정 |
-| DELETE | `/api/v1/feed-posts/{extId}` | 게시물 삭제 |
-| POST | `/api/v1/feed-posts/{extId}:like` | 좋아요 |
-| DELETE | `/api/v1/feed-posts/{extId}:like` | 좋아요 취소 |
-| GET | `/api/v1/feed-posts/{extId}/comments` | 댓글 목록 |
-| POST | `/api/v1/feed-posts/{extId}/comments` | 댓글 작성 |
-| DELETE | `/api/v1/comments/{extId}` | 댓글 삭제 |
+| GET | `/api/v1/feed?filter=popular\|my-gym\|friends&cursor=&size=` | 피드 (popular 기본 / my-gym = Profile.mainGymId / friends = Follow 기반). items.extId 는 **feed_post.ext_id** (V908 후 의미 전환), liked / likes / comments 실데이터. |
+| POST | `/api/v1/feed-posts/{extId}/like` | 좋아요 추가 (멱등) → `{ liked: true, likeCount: N }` |
+| DELETE | `/api/v1/feed-posts/{extId}/like` | 좋아요 취소 (멱등) → `{ liked: false, likeCount: N }` |
+| GET | `/api/v1/feed-posts/{extId}/comments?cursor=&size=` | 댓글 목록 (Comment.id ASC, forward 페이지네이션) |
+| POST | `/api/v1/feed-posts/{extId}/comments` | 댓글 작성 — `{ content: 1..1000, parentExtId? }` |
+| DELETE | `/api/v1/comments/{extId}` | 댓글 삭제 (본인만, soft delete, 204) |
+| GET | `/api/v1/feed-posts` | 전체·필터 피드 (예정) |
+| POST | `/api/v1/feed-posts` | 피드 작성 (예정 — 자유 글) |
+| GET | `/api/v1/feed-posts/{extId}` | 게시물 상세 (예정) |
+| PATCH | `/api/v1/feed-posts/{extId}` | 게시물 수정 (예정) |
+| DELETE | `/api/v1/feed-posts/{extId}` | 게시물 삭제 (예정) |
+
+> **자동 게시 정책**: `POST /sessions/{extId}/attempts` 에서 `result ∈ {SEND, FLASH, ONSIGHT}`
+> 인 시도가 기록되면 동일 트랜잭션에서 `feed_posts` 행이 자동 생성된다 (`visibility=PUBLIC`,
+> `attempt_id` UNIQUE 1:1, V908). `FAIL`/`TRY` 는 게시되지 않는다.
 
 ### 미디어 (`/api/v1/media`)
 | Method | Path | 설명 |

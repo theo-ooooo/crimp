@@ -1,7 +1,7 @@
 package io.crimp.domain.feed;
 
+import io.crimp.core.repository.feed.FeedPostRepositoryCustom;
 import io.crimp.core.repository.feed.FeedQueryMode;
-import io.crimp.core.repository.feed.FeedRepositoryCustom;
 import io.crimp.core.repository.feed.FeedRow;
 import io.crimp.core.repository.user.ProfileRepository;
 import org.springframework.context.annotation.Profile;
@@ -18,8 +18,9 @@ import java.util.regex.Pattern;
 /**
  * 피드 도메인 서비스.
  *
- * <p>v1 스코프: SessionAttempt 위 view-projection 만 합성. 별도 FeedPost / Like / Comment
- * 도메인은 후속 PR. 좋아요·댓글 카운트는 placeholder {@code 0L}.
+ * <p>v2 스코프: {@code feed_posts} 루팅. 시도 기록 시(SEND/FLASH/ONSIGHT) 자동 게시되어
+ * {@link io.crimp.core.entity.feed.FeedPost} 가 생성되며, 본 서비스는 이를 기반으로 read-only
+ * 슬라이스를 합성한다. liked / likes / comments 는 모두 실제 데이터.
  *
  * <p>page size: null 또는 0 이하면 {@value #DEFAULT_PAGE_SIZE}, {@value #MAX_PAGE_SIZE}
  * 초과는 클램프.
@@ -40,10 +41,10 @@ public class FeedService {
     private static final Pattern HOLD_PATTERN =
             Pattern.compile("\"hold\"\\s*:\\s*\"([^\"]+)\"");
 
-    private final FeedRepositoryCustom feedRepository;
+    private final FeedPostRepositoryCustom feedRepository;
     private final ProfileRepository profileRepository;
 
-    public FeedService(FeedRepositoryCustom feedRepository, ProfileRepository profileRepository) {
+    public FeedService(FeedPostRepositoryCustom feedRepository, ProfileRepository profileRepository) {
         this.feedRepository = feedRepository;
         this.profileRepository = profileRepository;
     }
@@ -76,7 +77,7 @@ public class FeedService {
                 .toList();
 
         Long nextCursor = slice.hasNext() && !slice.getContent().isEmpty()
-                ? slice.getContent().get(slice.getContent().size() - 1).attemptId()
+                ? slice.getContent().get(slice.getContent().size() - 1).feedPostId()
                 : null;
 
         return new FeedPage(items, nextCursor, pageSize);
@@ -123,7 +124,7 @@ public class FeedService {
         // FeedRow.userId 는 primitive long — INNER JOIN + NOT NULL PK 로 null 가능성 컴파일
         // 타임 제거. silent fallback (hue=180) 으로 회귀가 가려지는 위험 차단.
         return new FeedItemView(
-                row.attemptExtId(),
+                row.feedPostExtId(),
                 row.userExtId(),
                 row.nickname(),
                 avatarColorHue(row.userId()),
@@ -133,8 +134,9 @@ public class FeedService {
                 row.gradeNumeric(),
                 extractHoldColor(row.tagsJson()),
                 row.note(),
-                0L,
-                0L,
+                row.likeCount(),
+                row.commentCount(),
+                row.liked(),
                 row.loggedAt());
     }
 }

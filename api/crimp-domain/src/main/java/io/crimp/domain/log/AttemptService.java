@@ -1,28 +1,44 @@
 package io.crimp.domain.log;
 
 import io.crimp.common.id.UlidGenerator;
+import io.crimp.core.entity.enums.AttemptResult;
+import io.crimp.core.entity.enums.PostVisibility;
+import io.crimp.core.entity.feed.FeedPost;
 import io.crimp.core.entity.log.ClimbingSession;
 import io.crimp.core.entity.log.SessionAttempt;
+import io.crimp.core.repository.feed.FeedPostRepository;
 import io.crimp.core.repository.log.ClimbingSessionRepository;
 import io.crimp.core.repository.log.SessionAttemptRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @org.springframework.context.annotation.Profile("!test")
 public class AttemptService {
 
+    /**
+     * 시도 자동 게시 트리거 결과 코드 — 성공한 시도만 피드에 노출한다.
+     * FAIL/TRY 는 게시 대상이 아니다.
+     */
+    private static final Set<AttemptResult> AUTO_PUBLISH_RESULTS =
+            EnumSet.of(AttemptResult.SEND, AttemptResult.FLASH, AttemptResult.ONSIGHT);
+
     private final ClimbingSessionRepository sessionRepository;
     private final SessionAttemptRepository attemptRepository;
+    private final FeedPostRepository feedPostRepository;
 
     public AttemptService(
             ClimbingSessionRepository sessionRepository,
-            SessionAttemptRepository attemptRepository) {
+            SessionAttemptRepository attemptRepository,
+            FeedPostRepository feedPostRepository) {
         this.sessionRepository = sessionRepository;
         this.attemptRepository = attemptRepository;
+        this.feedPostRepository = feedPostRepository;
     }
 
     @Transactional
@@ -53,7 +69,35 @@ public class AttemptService {
         if (cmd.tagsJson() != null) attempt.updateTagsJson(cmd.tagsJson());
 
         attemptRepository.save(attempt);
+
+        // 자동 게시: 동일 트랜잭션에서 FeedPost 도 같이 생성. 실패하면 시도 저장도 롤백되어
+        // 카운터/피드 일관성이 유지된다.
+        autoPublishToFeed(attempt, userId);
+
         return toView(attempt);
+    }
+
+    /**
+     * SEND/FLASH/ONSIGHT 시도에 대해 1:1 FeedPost 생성. 이미 attempt_id 로 게시된 row 가 있으면
+     * 멱등 skip. 동일 attempt 가 두 번 들어오는 일은 정상 흐름에서는 없지만, 재시도/리플레이를
+     * defense-in-depth 로 가드.
+     */
+    private void autoPublishToFeed(SessionAttempt attempt, long userId) {
+        if (!AUTO_PUBLISH_RESULTS.contains(attempt.getResult())) {
+            return;
+        }
+        if (feedPostRepository.findByAttemptId(attempt.getId()).isPresent()) {
+            return;
+        }
+        FeedPost post = FeedPost.fromAttempt(
+                UlidGenerator.next(),
+                userId,
+                attempt.getNote(), // 시도 메모를 그대로 게시 본문으로
+                attempt.getSessionId(),
+                attempt.getId(),
+                attempt.getGymId(),
+                PostVisibility.PUBLIC);
+        feedPostRepository.save(post);
     }
 
     @Transactional(readOnly = true)

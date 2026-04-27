@@ -1,12 +1,16 @@
 package io.crimp.domain.log;
 
 import io.crimp.core.entity.enums.AttemptResult;
+import io.crimp.core.entity.enums.PostVisibility;
+import io.crimp.core.entity.feed.FeedPost;
 import io.crimp.core.entity.log.ClimbingSession;
 import io.crimp.core.entity.log.SessionAttempt;
+import io.crimp.core.repository.feed.FeedPostRepository;
 import io.crimp.core.repository.log.ClimbingSessionRepository;
 import io.crimp.core.repository.log.SessionAttemptRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.lang.reflect.Field;
 import java.time.Instant;
@@ -16,7 +20,9 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -24,20 +30,28 @@ class AttemptServiceTest {
 
     private ClimbingSessionRepository sessionRepo;
     private SessionAttemptRepository attemptRepo;
+    private FeedPostRepository feedPostRepo;
     private AttemptService service;
 
     @BeforeEach
     void setUp() {
         sessionRepo = mock(ClimbingSessionRepository.class);
         attemptRepo = mock(SessionAttemptRepository.class);
-        service = new AttemptService(sessionRepo, attemptRepo);
+        feedPostRepo = mock(FeedPostRepository.class);
+        service = new AttemptService(sessionRepo, attemptRepo, feedPostRepo);
     }
 
     @Test
     void log_creates_attempt_under_owned_session() {
         ClimbingSession s = session(100L, "01HSESS", 42L, false);
         when(sessionRepo.findByExtId("01HSESS")).thenReturn(Optional.of(s));
-        when(attemptRepo.save(any(SessionAttempt.class))).thenAnswer(i -> i.getArgument(0));
+        when(attemptRepo.save(any(SessionAttempt.class))).thenAnswer(i -> {
+            SessionAttempt arg = i.getArgument(0);
+            // 저장 시 id 부여 (FK 무결성 시뮬레이션)
+            setField(arg, "id", 1234L);
+            return arg;
+        });
+        when(feedPostRepo.findByAttemptId(anyLong())).thenReturn(Optional.empty());
 
         var cmd = new LogAttemptCommand(
                 null, 7L, "V3", new java.math.BigDecimal("3.0"),
@@ -143,6 +157,128 @@ class AttemptServiceTest {
 
         service.delete(42L, "01HATT");
         verify(attemptRepo).delete(a);
+    }
+
+    // --- 자동 게시 (auto-publish) ---
+
+    @Test
+    void log_send_auto_publishes_feed_post() {
+        ClimbingSession s = session(100L, "01HSESS", 42L, false);
+        when(sessionRepo.findByExtId("01HSESS")).thenReturn(Optional.of(s));
+        when(attemptRepo.save(any(SessionAttempt.class))).thenAnswer(i -> {
+            SessionAttempt arg = i.getArgument(0);
+            setField(arg, "id", 555L);
+            return arg;
+        });
+        when(feedPostRepo.findByAttemptId(555L)).thenReturn(Optional.empty());
+
+        var cmd = new LogAttemptCommand(
+                null, 7L, "V3", null, AttemptResult.SEND, 1, null, "기념 등반", null, null);
+        service.log(42L, "01HSESS", cmd);
+
+        ArgumentCaptor<FeedPost> postCap = ArgumentCaptor.forClass(FeedPost.class);
+        verify(feedPostRepo).save(postCap.capture());
+        FeedPost saved = postCap.getValue();
+        assertThat(saved.getAttemptId()).isEqualTo(555L);
+        assertThat(saved.getUserId()).isEqualTo(42L);
+        assertThat(saved.getGymId()).isEqualTo(7L);
+        assertThat(saved.getSessionId()).isEqualTo(100L);
+        assertThat(saved.getContent()).isEqualTo("기념 등반");
+        assertThat(saved.getVisibility()).isEqualTo(PostVisibility.PUBLIC);
+        assertThat(saved.getExtId()).hasSize(26);
+    }
+
+    @Test
+    void log_flash_auto_publishes() {
+        ClimbingSession s = session(100L, "01HSESS", 42L, false);
+        when(sessionRepo.findByExtId("01HSESS")).thenReturn(Optional.of(s));
+        when(attemptRepo.save(any(SessionAttempt.class))).thenAnswer(i -> {
+            SessionAttempt arg = i.getArgument(0);
+            setField(arg, "id", 1L);
+            return arg;
+        });
+        when(feedPostRepo.findByAttemptId(anyLong())).thenReturn(Optional.empty());
+
+        var cmd = new LogAttemptCommand(
+                null, null, null, null, AttemptResult.FLASH, 1, null, null, null, null);
+        service.log(42L, "01HSESS", cmd);
+
+        verify(feedPostRepo).save(any(FeedPost.class));
+    }
+
+    @Test
+    void log_onsight_auto_publishes() {
+        ClimbingSession s = session(100L, "01HSESS", 42L, false);
+        when(sessionRepo.findByExtId("01HSESS")).thenReturn(Optional.of(s));
+        when(attemptRepo.save(any(SessionAttempt.class))).thenAnswer(i -> {
+            SessionAttempt arg = i.getArgument(0);
+            setField(arg, "id", 1L);
+            return arg;
+        });
+        when(feedPostRepo.findByAttemptId(anyLong())).thenReturn(Optional.empty());
+
+        var cmd = new LogAttemptCommand(
+                null, null, null, null, AttemptResult.ONSIGHT, 1, null, null, null, null);
+        service.log(42L, "01HSESS", cmd);
+
+        verify(feedPostRepo).save(any(FeedPost.class));
+    }
+
+    @Test
+    void log_fail_does_not_auto_publish() {
+        ClimbingSession s = session(100L, "01HSESS", 42L, false);
+        when(sessionRepo.findByExtId("01HSESS")).thenReturn(Optional.of(s));
+        when(attemptRepo.save(any(SessionAttempt.class))).thenAnswer(i -> {
+            SessionAttempt arg = i.getArgument(0);
+            setField(arg, "id", 1L);
+            return arg;
+        });
+
+        var cmd = new LogAttemptCommand(
+                null, null, null, null, AttemptResult.FAIL, 1, null, null, null, null);
+        service.log(42L, "01HSESS", cmd);
+
+        verify(feedPostRepo, never()).save(any(FeedPost.class));
+        // findByAttemptId 도 호출되지 않아야 — result 가 자동 게시 대상 아니면 즉시 skip.
+        verify(feedPostRepo, never()).findByAttemptId(anyLong());
+    }
+
+    @Test
+    void log_try_does_not_auto_publish() {
+        ClimbingSession s = session(100L, "01HSESS", 42L, false);
+        when(sessionRepo.findByExtId("01HSESS")).thenReturn(Optional.of(s));
+        when(attemptRepo.save(any(SessionAttempt.class))).thenAnswer(i -> {
+            SessionAttempt arg = i.getArgument(0);
+            setField(arg, "id", 1L);
+            return arg;
+        });
+
+        var cmd = new LogAttemptCommand(
+                null, null, null, null, AttemptResult.TRY, 1, null, null, null, null);
+        service.log(42L, "01HSESS", cmd);
+
+        verify(feedPostRepo, never()).save(any(FeedPost.class));
+    }
+
+    @Test
+    void log_idempotent_when_feed_post_already_exists_for_attempt() {
+        // defense-in-depth: 동일 attempt_id 로 이미 게시된 row 가 있다면 두 번째 자동 게시 skip.
+        // 정상 흐름에서는 매 호출마다 새 attempt id 가 부여되어 발생하지 않지만, 재시도/리플레이
+        // 가드.
+        ClimbingSession s = session(100L, "01HSESS", 42L, false);
+        when(sessionRepo.findByExtId("01HSESS")).thenReturn(Optional.of(s));
+        when(attemptRepo.save(any(SessionAttempt.class))).thenAnswer(i -> {
+            SessionAttempt arg = i.getArgument(0);
+            setField(arg, "id", 999L);
+            return arg;
+        });
+        when(feedPostRepo.findByAttemptId(999L)).thenReturn(Optional.of(mock(FeedPost.class)));
+
+        var cmd = new LogAttemptCommand(
+                null, null, null, null, AttemptResult.SEND, 1, null, null, null, null);
+        service.log(42L, "01HSESS", cmd);
+
+        verify(feedPostRepo, never()).save(any(FeedPost.class));
     }
 
     // --- helpers ---
