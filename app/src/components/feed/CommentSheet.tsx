@@ -42,8 +42,8 @@ import type { Comment } from '@/lib/schemas/feed';
  *
  * 기능:
  * - 댓글 목록 (useInfiniteQuery, 커서 기반)
- * - 댓글 작성 (1..1000자)
- * - 본인 댓글 삭제 (long-press → confirm Alert)
+ * - 댓글 작성 (1..1000자, 카운터 표기)
+ * - 본인 댓글 삭제 (인라인 "삭제" 링크 → confirm Alert; 롱프레스 메뉴는 후속)
  *
  * 접근성/UX:
  * - useReducedMotion → animationType 'none' 폴백
@@ -239,6 +239,19 @@ export function CommentSheet({
                 accessibilityLabel={t('feed.comment.placeholder')}
                 editable={!createMutation.isPending}
               />
+              {/* I5: 1000자 제한 카운터. 초과 임박 시 시각적 강조 (가까워질수록 강조). */}
+              <Text
+                style={[
+                  styles.charCounter,
+                  draft.length >= MAX_CONTENT
+                    ? styles.charCounterMax
+                    : null,
+                ]}
+                accessibilityLiveRegion="polite"
+                allowFontScaling={false}
+              >
+                {draft.length} / {MAX_CONTENT}
+              </Text>
               <Pressable
                 onPress={onSubmit}
                 disabled={submitDisabled}
@@ -295,7 +308,14 @@ type CommentRowProps = {
   onDelete: (commentExtId: string) => void;
 };
 
-function CommentRow({ comment, isMine, onDelete }: CommentRowProps): JSX.Element {
+// I1: composer 의 onChangeText 가 매 키스트로크마다 부모를 리렌더하므로 모든 보이는 row
+// 가 함께 리렌더된다. comment + isMine + onDelete 만 변하지 않으면 row 도 그대로 두기 위해
+// React.memo 로 래핑.
+const CommentRow = React.memo(function CommentRow({
+  comment,
+  isMine,
+  onDelete,
+}: CommentRowProps): JSX.Element {
   const theme = useTokens();
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
@@ -335,7 +355,7 @@ function CommentRow({ comment, isMine, onDelete }: CommentRowProps): JSX.Element
       </View>
     </View>
   );
-}
+});
 
 function ErrorBox({
   error,
@@ -584,6 +604,21 @@ function makeStyles(theme: Theme) {
       fontSize: 14,
       fontWeight: fontWeight.medium,
       textAlignVertical: 'top',
+    },
+    charCounter: {
+      fontFamily,
+      fontSize: 11,
+      fontWeight: fontWeight.medium,
+      color: theme.text4,
+      marginLeft: space[2],
+      alignSelf: 'center',
+      minWidth: 56,
+      textAlign: 'right',
+      fontVariant: ['tabular-nums'],
+    },
+    charCounterMax: {
+      color: theme.semantic.danger,
+      fontWeight: fontWeight.bold,
     },
     submitBtn: {
       paddingHorizontal: space[3],

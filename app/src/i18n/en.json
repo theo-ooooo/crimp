@@ -159,7 +159,9 @@
     },
     "card": {
       "likesAria": "Likes",
-      "commentsAria": "Comments"
+      "commentsAria": "Comments",
+      "likeAriaPressed": "Unlike",
+      "likeAriaUnpressed": "Like"
     },
     "comment": {
       "title": "Comments",
@@ -169,10 +171,7 @@
       "submitting": "Posting...",
       "deleteCta": "Delete",
       "deleteConfirm": "Delete this comment?",
-      "likeAriaPressed": "Unlike",
-      "likeAriaUnpressed": "Like",
-      "errorTitle": "Failed to load comments",
-      "openCta": "View comments"
+      "errorTitle": "Failed to load comments"
     }
   },
   "gym": {

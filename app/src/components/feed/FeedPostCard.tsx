@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import {
+  Alert,
   Platform,
   Pressable,
   StyleSheet,
@@ -16,6 +17,7 @@ import {
   ResultMark,
 } from '@/components/primitives';
 import { useLikeToggleMutation } from '@/hooks/useLikeToggle';
+import { toUserMessage } from '@/lib/api/errorMessage';
 import { t } from '@/lib/i18n';
 import {
   fontFamily,
@@ -159,7 +161,16 @@ export function FeedPostCard({
   const onLikePress = () => {
     // 비로그인 또는 진행 중이면 무시. accessToken 부재는 Pressable disabled 로도 막힘.
     if (!accessToken || likeMutation.isPending) {return;}
-    likeMutation.mutate({ postExtId: item.extId, next: !item.liked });
+    likeMutation.mutate(
+      { postExtId: item.extId, next: !item.liked },
+      {
+        // I2: 401/실패 시 silent rollback 만 하면 사용자가 변화를 인지 못함.
+        // 토스트 시스템이 도입되기 전까지 Alert 로 명시. (TODO: 글로벌 toast → Alert 교체.)
+        onError: (err) => {
+          Alert.alert(t('feed.errorTitle'), toUserMessage(err));
+        },
+      },
+    );
   };
 
   const onCommentCellPress = () => {
@@ -223,8 +234,8 @@ export function FeedPostCard({
           }}
           accessibilityLabel={`${
             item.liked
-              ? t('feed.comment.likeAriaPressed')
-              : t('feed.comment.likeAriaUnpressed')
+              ? t('feed.card.likeAriaPressed')
+              : t('feed.card.likeAriaUnpressed')
           }, ${item.likes}`}
           // 셀 자체가 16+카운트 정도라 작다. 위·아래 8 / 좌우 6 hitSlop 으로 권고치 보강.
           hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}

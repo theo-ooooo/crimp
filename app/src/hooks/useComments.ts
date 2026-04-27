@@ -90,9 +90,11 @@ function patchFeedItemComments(
  * 댓글 작성 mutation.
  *
  * 성공 시:
- * - 해당 게시글의 댓글 목록 캐시를 invalidate (재요청으로 정렬·페이지 정합 보장).
+ * - **(B2 수정)** 댓글 목록의 마지막 페이지 끝에 새 댓글을 직접 append.
+ *   백엔드가 `id ASC + id > cursor` forward 페이지네이션이라 invalidateQueries 만으로는
+ *   같은 cursor 시퀀스로 재fetch → 새 댓글 id 가 cursor 보다 커서 invisible. setQueryData
+ *   로 마지막 페이지 끝에 push 해야 즉시 보인다.
  * - 모든 피드 캐시의 `comments` 카운트 +1 (낙관 갱신; 빠른 시각 피드백).
- *   서버 진실값은 다음 피드 refetch 에서 정합화된다.
  */
 export function useCreateCommentMutation(
   accessToken: string | null,
@@ -113,9 +115,34 @@ export function useCreateCommentMutation(
       }
       return createComment(accessToken, postExtId, content, parentExtId);
     },
-    onSuccess: () => {
+    onSuccess: (created) => {
       if (!postExtId) {return;}
-      qc.invalidateQueries({ queryKey: commentsQueryKey(postExtId) });
+      // 댓글 목록의 마지막 페이지에 직접 append. 페이지가 0개면 첫 페이지 신규 생성.
+      qc.setQueryData<InfiniteData<CommentList, number | null>>(
+        commentsQueryKey(postExtId),
+        (prev) => {
+          if (!prev || prev.pages.length === 0) {
+            return {
+              pageParams: [null],
+              pages: [
+                {
+                  items: [created],
+                  page: { nextCursor: null, size: COMMENTS_PAGE_SIZE },
+                },
+              ],
+            };
+          }
+          const lastIdx = prev.pages.length - 1;
+          const lastPage = prev.pages[lastIdx];
+          if (!lastPage) {return prev;}
+          const updatedLast: CommentList = {
+            items: [...lastPage.items, created],
+            page: lastPage.page,
+          };
+          const nextPages = prev.pages.slice(0, lastIdx).concat(updatedLast);
+          return { ...prev, pages: nextPages };
+        },
+      );
       // 피드 카드의 `comments` 카운트 +1.
       const queries = qc.getQueriesData<InfiniteData<FeedList, number | null>>({
         queryKey: FEED_QUERY_KEY_ROOT,
@@ -134,7 +161,8 @@ export function useCreateCommentMutation(
  * 댓글 삭제 mutation. 본인 댓글만 백엔드에서 허용 (403 시 ApiError).
  *
  * 성공 시:
- * - 댓글 목록 캐시를 invalidate.
+ * - 댓글 목록 캐시에서 해당 extId 를 직접 제거 (B2 와 동일 이유 — invalidate 만으로는
+ *   cursor 시퀀스 재fetch 시 일관성 미보장).
  * - 피드 캐시의 `comments` 카운트 -1.
  */
 export function useDeleteCommentMutation(
@@ -149,9 +177,22 @@ export function useDeleteCommentMutation(
       }
       return deleteComment(accessToken, commentExtId);
     },
-    onSuccess: () => {
+    onSuccess: (_void, variables) => {
       if (!postExtId) {return;}
-      qc.invalidateQueries({ queryKey: commentsQueryKey(postExtId) });
+      qc.setQueryData<InfiniteData<CommentList, number | null>>(
+        commentsQueryKey(postExtId),
+        (prev) => {
+          if (!prev) {return prev;}
+          const nextPages = prev.pages.map((page) => {
+            const filtered = page.items.filter(
+              (c) => c.extId !== variables.commentExtId,
+            );
+            if (filtered.length === page.items.length) {return page;}
+            return { ...page, items: filtered };
+          });
+          return { ...prev, pages: nextPages };
+        },
+      );
       const queries = qc.getQueriesData<InfiniteData<FeedList, number | null>>({
         queryKey: FEED_QUERY_KEY_ROOT,
       });

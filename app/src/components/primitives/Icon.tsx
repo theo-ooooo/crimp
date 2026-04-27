@@ -23,7 +23,11 @@ type IconDef = {
   glyph: string;
   /** glyph 를 container 대비 얼마나 키울지 (기본 0.62) */
   scale?: number;
-  /** fill prop 이 true 일 때도 동일 글리프 쓸지. 현재 모든 아이콘은 동일 글리프 사용 */
+  /**
+   * fill prop 이 true 일 때 사용할 별도 글리프. 정의되어 있으면 글리프 자체를 채워진
+   * 모양으로 교체하고 컨테이너 배경은 칠하지 않는다 (예: 빈 하트 ♡ → 채운 하트 ♥).
+   * 정의 없으면 컨테이너 배경 페인트 폴백 (기존 동작).
+   */
   fillGlyph?: string;
 };
 
@@ -53,7 +57,7 @@ const iconDefs = {
   trend: { glyph: '\u2197', scale: 0.9 },
   dots: { glyph: '\u22EF', scale: 0.95 },
   target: { glyph: '\u25CE', scale: 0.9 },
-  heart: { glyph: '\u2661', scale: 0.95 }, // ♡ — 빈 하트, 색 적용 가능
+  heart: { glyph: '\u2661', fillGlyph: '\u2665', scale: 0.95 }, // ♡ → ♥ (fill)
   chat: { glyph: '\u2750', scale: 0.85 }, // ❐ 말풍선 근사 (모노크롬 박스)
 } as const satisfies Record<string, IconDef>;
 
@@ -62,15 +66,23 @@ export type IconName = keyof typeof iconDefs;
 function createIcon(name: IconName) {
   return function Icon({ size = 24, color, fill = false }: IconProps): JSX.Element {
     const theme = useTokens();
-    const def = iconDefs[name];
+    // `as IconDef` — `as const satisfies` 가 각 항목을 좁은 literal 타입으로 두는 탓에
+    // optional `fillGlyph` 접근 시 TS 가 실패. 공통 IconDef 로 widening 하여 안전 접근.
+    const def = iconDefs[name] as IconDef;
     const scale = def.scale ?? 0.62;
     const fg = color ?? theme.text;
     const styles = useMemo(() => makeStyles(size, scale), [size, scale]);
 
-    const containerStyle: ViewStyle | null = fill
-      ? { backgroundColor: fg, borderRadius: size * 0.2 }
-      : null;
-    const glyphColor = fill ? theme.bg : fg;
+    // fillGlyph 가 정의된 아이콘 (예: heart ♡→♥) 은 글리프 교체로 채움 표현.
+    // 그렇지 않으면 컨테이너 배경 페인트 폴백.
+    const fillGlyph = def.fillGlyph;
+    const useGlyphSwap = fill && fillGlyph !== undefined;
+    const containerStyle: ViewStyle | null =
+      fill && !useGlyphSwap
+        ? { backgroundColor: fg, borderRadius: size * 0.2 }
+        : null;
+    const glyphColor = fill && !useGlyphSwap ? theme.bg : fg;
+    const renderedGlyph = useGlyphSwap && fillGlyph ? fillGlyph : def.glyph;
 
     return (
       <View
@@ -82,7 +94,7 @@ function createIcon(name: IconName) {
           allowFontScaling={false}
           style={[styles.glyph, { color: glyphColor }]}
         >
-          {def.glyph}
+          {renderedGlyph}
         </Text>
       </View>
     );
