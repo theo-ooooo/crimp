@@ -160,6 +160,19 @@
     "card": {
       "likesAria": "Likes",
       "commentsAria": "Comments"
+    },
+    "comment": {
+      "title": "Comments",
+      "empty": "No comments yet. Be the first to comment.",
+      "placeholder": "Write a comment",
+      "submit": "Post",
+      "submitting": "Posting...",
+      "deleteCta": "Delete",
+      "deleteConfirm": "Delete this comment?",
+      "likeAriaPressed": "Unlike",
+      "likeAriaUnpressed": "Like",
+      "errorTitle": "Failed to load comments",
+      "openCta": "View comments"
     }
   },
   "gym": {

@@ -12,9 +12,11 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Skeleton } from '@/components/primitives';
+import { CommentSheet } from '@/components/feed/CommentSheet';
 import { FeedFilterTabs } from '@/components/feed/FeedFilterTabs';
 import { FeedPostCard } from '@/components/feed/FeedPostCard';
 import { useFeedQuery } from '@/hooks/useFeed';
+import { useMeQuery } from '@/hooks/useMe';
 import { toUserMessage } from '@/lib/api/errorMessage';
 import { t } from '@/lib/i18n';
 import {
@@ -55,8 +57,15 @@ export default function FeedScreen(): JSX.Element {
   const hydrated = useTokenStore((s) => s.hydrated);
   const accessToken = useTokenStore((s) => s.accessToken);
   const [filter, setFilter] = useState<FeedFilter>(DEFAULT_FEED_FILTER);
+  // 댓글 시트 — 한 번에 한 게시글만. null 이면 닫힘.
+  const [commentPostExtId, setCommentPostExtId] = useState<string | null>(null);
 
   const styles = useMemo(() => makeStyles(theme), [theme]);
+
+  // 댓글 행에서 본인 댓글 식별용 — Me 가 캐싱되어 있으면 즉시, 없으면 fetch.
+  // 실패해도 시트 자체 동작은 영향 없음 (삭제 CTA 만 숨김).
+  const meQuery = useMeQuery(accessToken);
+  const currentUserExtId = meQuery.data?.extId ?? null;
 
   const {
     data,
@@ -83,6 +92,14 @@ export default function FeedScreen(): JSX.Element {
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
+  const onCommentPress = useCallback((postExtId: string) => {
+    setCommentPostExtId(postExtId);
+  }, []);
+
+  const onCommentSheetClose = useCallback(() => {
+    setCommentPostExtId(null);
+  }, []);
+
   // hydrate 전: tokenStore 가 아직 SecureStore 를 읽지 못한 상태. 깜빡임 방지로 로딩만.
   if (!hydrated) {
     return (
@@ -106,7 +123,11 @@ export default function FeedScreen(): JSX.Element {
 
   const renderItem: ListRenderItem<FeedItem> = ({ item }) => (
     <View style={styles.cardWrap}>
-      <FeedPostCard item={item} />
+      <FeedPostCard
+        item={item}
+        accessToken={accessToken}
+        onCommentPress={onCommentPress}
+      />
     </View>
   );
 
@@ -161,6 +182,14 @@ export default function FeedScreen(): JSX.Element {
           onEndReachedThreshold={0.3}
         />
       )}
+
+      <CommentSheet
+        visible={commentPostExtId !== null}
+        postExtId={commentPostExtId}
+        accessToken={accessToken}
+        currentUserExtId={currentUserExtId}
+        onClose={onCommentSheetClose}
+      />
     </View>
   );
 }

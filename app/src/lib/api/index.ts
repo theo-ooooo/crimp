@@ -21,4 +21,8 @@ export {
   fetchGym,
   fetchGymRoutes,
   fetchFeed,
+  togglePostLike,
+  fetchComments,
+  createComment,
+  deleteComment,
 } from './endpoints';

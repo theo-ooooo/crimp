@@ -160,6 +160,19 @@
     "card": {
       "likesAria": "좋아요",
       "commentsAria": "댓글"
+    },
+    "comment": {
+      "title": "댓글",
+      "empty": "아직 댓글이 없어요. 가장 먼저 남겨보세요.",
+      "placeholder": "댓글을 입력하세요",
+      "submit": "게시",
+      "submitting": "게시 중...",
+      "deleteCta": "삭제",
+      "deleteConfirm": "이 댓글을 삭제할까요?",
+      "likeAriaPressed": "좋아요 취소",
+      "likeAriaUnpressed": "좋아요",
+      "errorTitle": "댓글을 불러오지 못했어요",
+      "openCta": "댓글 보기"
     }
   },
   "gym": {

@@ -14,9 +14,15 @@ import {
   type TokenResponse,
 } from '@/lib/schemas/auth';
 import {
+  CommentListSchema,
+  CommentSchema,
   FeedListSchema,
+  LikeToggleResponseSchema,
+  type Comment,
+  type CommentList,
   type FeedFilter,
   type FeedList,
+  type LikeToggleResponse,
 } from '@/lib/schemas/feed';
 import {
   GymDetailSchema,
@@ -386,6 +392,97 @@ export function fetchGymRoutes(
     path: `/api/v1/gyms/${encodeURIComponent(gymExtId)}/routes${qs ? `?${qs}` : ''}`,
     accessToken,
     schema: RouteListSchema,
+    signal,
+  });
+}
+
+// ===== Social (좋아요·댓글) =====
+
+/**
+ * `POST/DELETE /api/v1/feed-posts/{extId}/like` — 좋아요 토글.
+ *
+ * 단일 함수로 두 동작을 합쳐 호출부 분기를 단순화한다. action 은 명시적으로 받아
+ * 호출 의도를 명확히 한다 (현재 상태 → 반대 동작 자동 추론하지 않음).
+ */
+export function togglePostLike(
+  accessToken: string,
+  postExtId: string,
+  action: 'like' | 'unlike',
+  signal?: AbortSignal,
+): Promise<LikeToggleResponse> {
+  return apiRequest({
+    method: action === 'like' ? 'POST' : 'DELETE',
+    path: `/api/v1/feed-posts/${encodeURIComponent(postExtId)}/like`,
+    accessToken,
+    schema: LikeToggleResponseSchema,
+    signal,
+  });
+}
+
+/**
+ * `GET /api/v1/feed-posts/{extId}/comments?cursor=&size=` — 댓글 목록 (커서 페이지).
+ */
+export function fetchComments(
+  accessToken: string,
+  postExtId: string,
+  cursor?: number | null,
+  size?: number,
+  signal?: AbortSignal,
+): Promise<CommentList> {
+  const params = new URLSearchParams();
+  if (cursor !== undefined && cursor !== null) {
+    params.set('cursor', String(cursor));
+  }
+  if (size !== undefined) {
+    params.set('size', String(size));
+  }
+  const qs = params.toString();
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/feed-posts/${encodeURIComponent(postExtId)}/comments${qs ? `?${qs}` : ''}`,
+    accessToken,
+    schema: CommentListSchema,
+    signal,
+  });
+}
+
+/**
+ * `POST /api/v1/feed-posts/{extId}/comments` — 댓글 작성.
+ *
+ * `parentExtId` 가 주어지면 대댓글, 그렇지 않으면 일반 댓글.
+ */
+export function createComment(
+  accessToken: string,
+  postExtId: string,
+  content: string,
+  parentExtId?: string | null,
+  signal?: AbortSignal,
+): Promise<Comment> {
+  return apiRequest({
+    method: 'POST',
+    path: `/api/v1/feed-posts/${encodeURIComponent(postExtId)}/comments`,
+    accessToken,
+    body: { content, parentExtId: parentExtId ?? null },
+    schema: CommentSchema,
+    signal,
+  });
+}
+
+/**
+ * `DELETE /api/v1/comments/{extId}` — 댓글 삭제 (본인만, 백엔드에서 강제).
+ *
+ * 204 No Content 응답.
+ */
+export function deleteComment(
+  accessToken: string,
+  commentExtId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  return apiRequest({
+    method: 'DELETE',
+    path: `/api/v1/comments/${encodeURIComponent(commentExtId)}`,
+    accessToken,
+    schema: z.void(),
     signal,
   });
 }

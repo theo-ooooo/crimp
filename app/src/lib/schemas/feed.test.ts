@@ -1,9 +1,13 @@
 import {
+  CommentListSchema,
+  CommentSchema,
+  CreateCommentBodySchema,
   DEFAULT_FEED_FILTER,
   FEED_FILTERS,
   FeedFilterSchema,
   FeedItemSchema,
   FeedListSchema,
+  LikeToggleResponseSchema,
 } from './feed';
 
 /**
@@ -51,6 +55,7 @@ describe('FeedItemSchema', () => {
     note: '드디어 V5 첫 완등!',
     likes: 24,
     comments: 6,
+    liked: false,
     loggedAt: '2026-04-25T07:00:00Z',
   };
 
@@ -60,10 +65,17 @@ describe('FeedItemSchema', () => {
     expect(parsed.avatarColorHue).toBe(250);
     expect(parsed.gymName).toBe('서울볼더스 성수');
     expect(parsed.gradeNumeric).toBe(5);
+    expect(parsed.liked).toBe(false);
+  });
+
+  it('parses an item with liked=true', () => {
+    const parsed = FeedItemSchema.parse({ ...fullItem, liked: true });
+    expect(parsed.liked).toBe(true);
   });
 
   it('parses an item where nullable keys are missing (NON_NULL serialization)', () => {
     // 백엔드는 null 필드 자체를 직렬화에서 제외 → 클라가 받는 JSON 에 키가 없을 수 있다.
+    // primitive boolean 인 `liked` 는 NON_NULL 직렬화 대상이 아니라 항상 직렬화된다.
     const partial = {
       extId: fullItem.extId,
       userExtId: fullItem.userExtId,
@@ -72,6 +84,7 @@ describe('FeedItemSchema', () => {
       result: 'TRY',
       likes: 0,
       comments: 0,
+      liked: false,
       loggedAt: fullItem.loggedAt,
     };
     const parsed = FeedItemSchema.parse(partial);
@@ -118,6 +131,12 @@ describe('FeedItemSchema', () => {
     expect(() => FeedItemSchema.parse({ ...fullItem, likes: -1 })).toThrow();
     expect(() => FeedItemSchema.parse({ ...fullItem, comments: -1 })).toThrow();
   });
+
+  it('rejects when liked is missing', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { liked, ...rest } = fullItem;
+    expect(() => FeedItemSchema.parse(rest)).toThrow();
+  });
 });
 
 describe('FeedListSchema', () => {
@@ -142,6 +161,7 @@ describe('FeedListSchema', () => {
           result: 'FAIL',
           likes: 0,
           comments: 0,
+          liked: false,
           loggedAt: '2026-04-25T00:00:00Z',
         },
       ],
@@ -156,6 +176,129 @@ describe('FeedListSchema', () => {
       FeedListSchema.parse({
         page: { nextCursor: null, size: 20 },
       }),
+    ).toThrow();
+  });
+});
+
+describe('LikeToggleResponseSchema', () => {
+  it('parses a like-on response', () => {
+    const parsed = LikeToggleResponseSchema.parse({ liked: true, likeCount: 7 });
+    expect(parsed.liked).toBe(true);
+    expect(parsed.likeCount).toBe(7);
+  });
+
+  it('parses a like-off response with zero count', () => {
+    const parsed = LikeToggleResponseSchema.parse({ liked: false, likeCount: 0 });
+    expect(parsed.liked).toBe(false);
+    expect(parsed.likeCount).toBe(0);
+  });
+
+  it('rejects negative likeCount', () => {
+    expect(() =>
+      LikeToggleResponseSchema.parse({ liked: false, likeCount: -1 }),
+    ).toThrow();
+  });
+
+  it('rejects when liked is missing', () => {
+    expect(() => LikeToggleResponseSchema.parse({ likeCount: 1 })).toThrow();
+  });
+});
+
+describe('CommentSchema', () => {
+  const fullComment = {
+    extId: '01J9CMTABCDEFGHIJKLMN0001',
+    userExtId: '01J9USR0000000000000000001',
+    userNickname: '도윤',
+    avatarColorHue: 110,
+    content: '축하해요!',
+    createdAt: '2026-04-25T08:30:00Z',
+    parentExtId: null,
+  };
+
+  it('parses a top-level comment with explicit null parent', () => {
+    const parsed = CommentSchema.parse(fullComment);
+    expect(parsed.extId).toBe(fullComment.extId);
+    expect(parsed.parentExtId).toBeNull();
+  });
+
+  it('parses a reply with parentExtId set', () => {
+    const parsed = CommentSchema.parse({
+      ...fullComment,
+      parentExtId: '01J9CMTPARENT000000000000A',
+    });
+    expect(parsed.parentExtId).toBe('01J9CMTPARENT000000000000A');
+  });
+
+  it('parses a comment where nullable keys are missing (NON_NULL serialization)', () => {
+    // userNickname / parentExtId 가 누락된 케이스 — 백엔드가 null 직렬화 생략 시.
+    const partial = {
+      extId: fullComment.extId,
+      userExtId: fullComment.userExtId,
+      avatarColorHue: 0,
+      content: 'gg',
+      createdAt: fullComment.createdAt,
+    };
+    const parsed = CommentSchema.parse(partial);
+    expect(parsed.userNickname).toBeUndefined();
+    expect(parsed.parentExtId).toBeUndefined();
+  });
+
+  it('rejects invalid avatarColorHue', () => {
+    expect(() =>
+      CommentSchema.parse({ ...fullComment, avatarColorHue: 360 }),
+    ).toThrow();
+  });
+});
+
+describe('CommentListSchema', () => {
+  it('parses an empty page', () => {
+    const list = CommentListSchema.parse({
+      items: [],
+      page: { nextCursor: null, size: 20 },
+    });
+    expect(list.items).toEqual([]);
+    expect(list.page.nextCursor).toBeNull();
+  });
+
+  it('parses a populated page', () => {
+    const list = CommentListSchema.parse({
+      items: [
+        {
+          extId: 'C',
+          userExtId: 'U',
+          userNickname: 'a',
+          avatarColorHue: 0,
+          content: 'hello',
+          createdAt: '2026-04-25T00:00:00Z',
+        },
+      ],
+      page: { nextCursor: 9, size: 20 },
+    });
+    expect(list.items).toHaveLength(1);
+    expect(list.page.nextCursor).toBe(9);
+  });
+});
+
+describe('CreateCommentBodySchema', () => {
+  it('accepts content within length bounds', () => {
+    expect(CreateCommentBodySchema.parse({ content: 'hi' }).content).toBe('hi');
+  });
+
+  it('accepts an explicit parentExtId for a reply', () => {
+    const parsed = CreateCommentBodySchema.parse({
+      content: 're',
+      parentExtId: '01J9CMTPARENT000000000000A',
+    });
+    expect(parsed.parentExtId).toBe('01J9CMTPARENT000000000000A');
+  });
+
+  it('rejects empty content', () => {
+    expect(() => CreateCommentBodySchema.parse({ content: '' })).toThrow();
+  });
+
+  it('rejects content over 1000 chars', () => {
+    expect(() =>
+      CreateCommentBodySchema.parse({ content: 'x'.repeat(1001) }),
     ).toThrow();
   });
 });
