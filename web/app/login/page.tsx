@@ -14,6 +14,11 @@ import { useAccessToken, useTokenStore } from '@/store/tokenStore';
 /**
  * `/login` — Kakao OIDC 소셜 로그인 (v2 redirect) + 개발자 모드 ID 토큰 폴백.
  *
+ * 디자인 (`docs/design/claude/v2/screens-ios-2.jsx:6-48` LoginScreen):
+ * - 상단: 브랜드 마크 "Crimp" + 큰 2줄 헤드라인 + 보조 카피
+ * - 하단: 카카오 시작 버튼 + (Phase 1.5) Apple/이메일 보조 + 약관 안내
+ * - Apple/이메일은 본 PR 에서 미구현 — 카카오만 노출, 나머지는 후속.
+ *
  * 흐름 (v2 redirect — Kakao JS SDK 2.7.x 기준):
  * 1) Kakao JS SDK 를 CDN 으로 로드 (`afterInteractive`, SRI integrity 적용).
  * 2) `Kakao.init(NEXT_PUBLIC_KAKAO_APP_KEY)` — 키 미설정 시 카카오 버튼은 비활성화.
@@ -150,10 +155,13 @@ export default function LoginPage(): JSX.Element {
       <main
         aria-busy="true"
         aria-live="polite"
-        className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-4 bg-bg px-6 py-10"
+        className="mx-auto flex min-h-screen max-w-2xl flex-col justify-between bg-bg px-6 pb-10 pt-24"
       >
-        <Skeleton h={20} w="35%" />
-        <Skeleton h={32} w="70%" />
+        <div className="flex flex-col gap-4">
+          <Skeleton h={32} w="35%" />
+          <Skeleton h={48} w="80%" />
+          <Skeleton h={48} w="60%" />
+        </div>
         <Skeleton h={56} r={16} />
       </main>
     );
@@ -164,7 +172,7 @@ export default function LoginPage(): JSX.Element {
     return (
       <main
         aria-live="polite"
-        className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-3 bg-bg px-6 py-10"
+        className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-3 bg-bg px-6 py-10"
       >
         <h1 className="text-h2 font-bold text-text">{t('common.brand')}</h1>
         <p className="text-body text-text-2">{t('auth.login.alreadyLoggedIn')}</p>
@@ -173,9 +181,12 @@ export default function LoginPage(): JSX.Element {
   }
 
   const errorToShow = exchange.error ?? kakaoError;
+  // i18n 의 "\n" 을 실제 줄바꿈으로 — JSON 에 직접 \n 적어도 되지만 일관성을 위해 split.
+  const headline = t('auth.login.headline');
+  const subTagline = t('auth.login.subTagline');
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-7 bg-bg px-6 py-10">
+    <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-between bg-bg px-5 pb-10 pt-24 sm:pt-32">
       {/* CDN 로드: 키가 있을 때만 init 시도. */}
       {hasAppKey ? (
         <Script
@@ -198,86 +209,31 @@ export default function LoginPage(): JSX.Element {
         />
       ) : null}
 
-      <header className="flex flex-col gap-2">
-        <p className="text-caption font-bold uppercase tracking-[0.3em] text-accent">
+      {/* 상단: 브랜드 + 큰 헤드라인 — mock paddingTop 120 / px 24 */}
+      <header className="flex flex-col gap-7 px-1">
+        <p
+          aria-label={t('common.brand')}
+          className="text-display font-extrabold tracking-[-0.06em] text-text"
+          style={{ fontSize: 56, lineHeight: 1 }}
+        >
           {t('common.brand')}
         </p>
-        <h1 className="text-h1 font-extrabold leading-snug tracking-[-0.04em] text-text">
-          {t('auth.login.title')}
-        </h1>
-        <p className="text-body text-text-2">{t('auth.login.tagline')}</p>
+        <div className="flex flex-col gap-3">
+          <h1 className="whitespace-pre-line text-[32px] font-extrabold leading-[1.2] tracking-[-0.04em] text-text">
+            {headline}
+          </h1>
+          <p className="whitespace-pre-line text-[15px] font-medium leading-[1.5] text-text-3">
+            {subTagline}
+          </p>
+        </div>
       </header>
 
-      <div className="flex flex-col gap-3">
-        <PrimaryButton
-          aria-label={t('auth.login.kakaoCta')}
-          onClick={handleKakaoLogin}
-          disabled={!hasAppKey || !sdkReady || exchange.isPending}
-        >
-          {t('auth.login.kakaoCta')}
-        </PrimaryButton>
-        {!hasAppKey ? (
-          <p className="text-caption text-text-3">
-            {t('auth.login.kakaoUnavailableHint')}
-          </p>
-        ) : null}
-      </div>
-
-      {/* 개발자 모드 — 접이식 */}
-      <section
-        aria-labelledby="login-dev-heading"
-        className="flex flex-col gap-3 rounded-2xl bg-subtle p-5 shadow-xs"
-      >
-        <button
-          type="button"
-          id="login-dev-heading"
-          aria-expanded={devMode}
-          aria-controls="login-dev-panel"
-          onClick={() => setDevMode((v) => !v)}
-          className="flex items-center justify-between text-left text-body font-semibold text-text"
-        >
-          <span>{t('auth.login.devModeToggle')}</span>
-          <span aria-hidden="true" className="text-text-3">
-            {devMode ? '−' : '+'}
-          </span>
-        </button>
-
-        {devMode ? (
-          <form
-            id="login-dev-panel"
-            onSubmit={handleDevSubmit}
-            className="flex flex-col gap-3"
-          >
-            <p className="text-caption text-text-3">
-              {t('auth.login.devModeHint')}
-            </p>
-            <label className="flex flex-col gap-2">
-              <span className="text-caption font-semibold text-text-3">
-                {t('auth.login.devTokenLabel')}
-              </span>
-              <textarea
-                value={devToken}
-                onChange={(e) => setDevToken(e.target.value)}
-                rows={4}
-                spellCheck={false}
-                autoCorrect="off"
-                autoCapitalize="off"
-                className="w-full resize-y rounded-lg border-0 bg-bg p-3 font-mono text-caption text-text placeholder:text-text-4 focus:outline-none focus:ring-2 focus:ring-accent"
-                placeholder="eyJhbGciOi..."
-              />
-            </label>
-            <PrimaryButton
-              type="submit"
-              disabled={!devToken.trim() || exchange.isPending}
-            >
-              {t('auth.login.devSubmit')}
-            </PrimaryButton>
-          </form>
-        ) : null}
-      </section>
-
+      {/* 중간: 에러 — 발생 시에만 노출. 디자인에는 없지만 UX 상 필요. */}
       {errorToShow ? (
-        <div role="alert" className="rounded-2xl bg-subtle p-4 shadow-xs">
+        <div
+          role="alert"
+          className="mx-1 mt-6 rounded-2xl bg-subtle p-4 shadow-xs"
+        >
           <p className="text-title font-bold text-danger">
             {t('auth.login.errorTitle')}
           </p>
@@ -286,6 +242,105 @@ export default function LoginPage(): JSX.Element {
           </p>
         </div>
       ) : null}
+
+      {/* 하단: 카카오 CTA + 약관 + dev mode 토글 — mock paddingBottom 60 / px 20 / gap 10 */}
+      <div className="flex flex-col gap-2.5 px-1 pt-8">
+        <button
+          type="button"
+          aria-label={t('auth.login.kakaoCta')}
+          onClick={handleKakaoLogin}
+          disabled={!hasAppKey || !sdkReady || exchange.isPending}
+          className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-lg text-[16px] font-bold tracking-[-0.02em] text-accent-on transition-transform duration-fast ease-standard active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-subtle-2 disabled:text-text-3"
+          style={{
+            backgroundColor: hasAppKey && sdkReady ? '#FEE500' : undefined,
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          <KakaoMark />
+          {t('auth.login.kakaoCta')}
+        </button>
+        {!hasAppKey ? (
+          <p className="text-caption text-text-3">
+            {t('auth.login.kakaoUnavailableHint')}
+          </p>
+        ) : null}
+
+        {/* 약관 안내 — 12px text-3, center, marginTop 12 */}
+        <p className="mt-3 px-2 text-center text-caption font-medium leading-[1.5] text-text-3">
+          {t('auth.login.termsNotice')}
+        </p>
+
+        {/* 개발자 모드 — 접이식 (디자인 mock 에는 없지만 백엔드 단독 검증용 유지) */}
+        <section
+          aria-labelledby="login-dev-heading"
+          className="mt-4 flex flex-col gap-3 rounded-2xl bg-subtle p-5 shadow-xs"
+        >
+          <button
+            type="button"
+            id="login-dev-heading"
+            aria-expanded={devMode}
+            aria-controls="login-dev-panel"
+            onClick={() => setDevMode((v) => !v)}
+            className="flex items-center justify-between text-left text-body font-semibold text-text"
+          >
+            <span>{t('auth.login.devModeToggle')}</span>
+            <span aria-hidden="true" className="text-text-3">
+              {devMode ? '−' : '+'}
+            </span>
+          </button>
+
+          {devMode ? (
+            <form
+              id="login-dev-panel"
+              onSubmit={handleDevSubmit}
+              className="flex flex-col gap-3"
+            >
+              <p className="text-caption text-text-3">
+                {t('auth.login.devModeHint')}
+              </p>
+              <label className="flex flex-col gap-2">
+                <span className="text-caption font-semibold text-text-3">
+                  {t('auth.login.devTokenLabel')}
+                </span>
+                <textarea
+                  value={devToken}
+                  onChange={(e) => setDevToken(e.target.value)}
+                  rows={4}
+                  spellCheck={false}
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  className="w-full resize-y rounded-md border-0 bg-bg p-3 font-mono text-caption text-text placeholder:text-text-4 focus:outline-none focus:ring-2 focus:ring-accent"
+                  placeholder="eyJhbGciOi..."
+                />
+              </label>
+              <PrimaryButton
+                type="submit"
+                disabled={!devToken.trim() || exchange.isPending}
+              >
+                {t('auth.login.devSubmit')}
+              </PrimaryButton>
+            </form>
+          ) : null}
+        </section>
+      </div>
     </main>
+  );
+}
+
+/**
+ * 카카오 브랜드 마크 — mock 의 단순 ellipse 와 동일한 placeholder.
+ * 정식 카카오 talk 아이콘은 가이드라인상 라이센스 필요해 추후 교체.
+ */
+function KakaoMark(): JSX.Element {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 18 18"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <ellipse cx="9" cy="8" rx="7.5" ry="6.5" fill="currentColor" />
+    </svg>
   );
 }
