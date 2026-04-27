@@ -1,5 +1,8 @@
+'use client';
+
 import type { ZodType } from 'zod';
 
+import { TokenResponseSchema } from '@/lib/schemas/auth';
 import { ApiEnvelopeSchema } from '@/lib/schemas/error';
 import { useTokenStore } from '@/store/tokenStore';
 
@@ -57,11 +60,17 @@ async function postRefresh(refreshToken: string): Promise<{ accessToken: string;
   if (!envelope.success || envelope.data.status === false) {
     throw new Error('refresh failed: invalid envelope');
   }
-  const data = envelope.data.data as { accessToken?: string; refreshToken?: string } | null;
-  if (!data?.accessToken || !data.refreshToken) {
-    throw new Error('refresh failed: missing tokens');
+  // R1: 캐스트 대신 TokenResponseSchema 로 검증 — 백엔드가 응답 shape 를 바꾸면
+  // 여기서 명확한 ApiSchemaError 가 아니라 일반 throw 로 끝나지만, 적어도 잘못된
+  // 토큰을 그대로 store 에 저장하는 사고는 막는다.
+  const parsed = TokenResponseSchema.safeParse(envelope.data.data);
+  if (!parsed.success) {
+    throw new Error('refresh failed: response did not match TokenResponse schema');
   }
-  return { accessToken: data.accessToken, refreshToken: data.refreshToken };
+  return {
+    accessToken: parsed.data.accessToken,
+    refreshToken: parsed.data.refreshToken,
+  };
 }
 
 function ensureRefresh(refreshToken: string) {
@@ -204,7 +213,12 @@ async function doRequest<TBody, TResponse>(
         const fresh = await ensureRefresh(stored);
         useTokenStore.getState().setTokens(fresh);
         return doRequest({ ...options, accessToken: fresh.accessToken }, true);
-      } catch {
+      } catch (refreshErr) {
+        // R1: 사일런트 실패 방지 — 진단을 위해 dev console 에 한 줄 남긴다. 사용자
+        // UI 는 이미 onAuthFailure 가 /login 으로 보내므로 추가 노출은 없음.
+        if (typeof console !== 'undefined') {
+          console.warn('[apiRequest] refresh failed:', refreshErr);
+        }
         onAuthFailure();
         throw new ApiError(response.status, envelope.data.error);
       }
