@@ -30,7 +30,12 @@
       "devTokenLabel": "ID token (id_token)",
       "devSubmit": "Sign in with token",
       "errorTitle": "Sign-in failed",
-      "alreadyLoggedIn": "Already signed in. Redirecting to home."
+      "alreadyLoggedIn": "Already signed in. Redirecting to home.",
+      "callbackProcessing": "Finishing Kakao sign-in…",
+      "callbackErrorTitle": "We couldn't finish the Kakao sign-in",
+      "callbackStateMismatch": "Security check (state) failed. Please try again.",
+      "callbackInvalidParam": "Kakao response was invalid. Please try again.",
+      "retryCta": "Try again"
     }
   },
   "home": {

@@ -30,6 +30,7 @@ public class AuthService {
     private final OauthIdentityRepository oauthIdentityRepository;
     private final ProfileRepository profileRepository;
     private final Map<OauthProvider, OauthIdTokenVerifier> verifiers;
+    private final Map<OauthProvider, OauthCodeExchanger> codeExchangers;
     private final JwtProvider jwtProvider;
     private final JwtProperties jwtProperties;
     private final RefreshTokenStore refreshStore;
@@ -39,6 +40,7 @@ public class AuthService {
             OauthIdentityRepository oauthIdentityRepository,
             ProfileRepository profileRepository,
             List<OauthIdTokenVerifier> verifierList,
+            List<OauthCodeExchanger> codeExchangerList,
             JwtProvider jwtProvider,
             JwtProperties jwtProperties,
             RefreshTokenStore refreshStore
@@ -48,6 +50,8 @@ public class AuthService {
         this.profileRepository = profileRepository;
         this.verifiers = verifierList.stream().collect(
                 java.util.stream.Collectors.toMap(OauthIdTokenVerifier::supports, v -> v));
+        this.codeExchangers = codeExchangerList.stream().collect(
+                java.util.stream.Collectors.toMap(OauthCodeExchanger::supports, v -> v));
         this.jwtProvider = jwtProvider;
         this.jwtProperties = jwtProperties;
         this.refreshStore = refreshStore;
@@ -74,6 +78,43 @@ public class AuthService {
         user.markLoggedIn();
 
         return issueTokens(user);
+    }
+
+    /**
+     * 웹 v2 redirect 흐름 — provider authorization_code 교환.
+     *
+     * <p>(1) provider /oauth/token 으로 code → id_token 교환,
+     * (2) 기존 {@link OauthIdTokenVerifier} 로 id_token 검증,
+     * (3) 사용자 매칭/생성 → JWT 발급. 결과는 기존 {@link #exchange} 와 동일한
+     * {@link AuthTokens} 형태.
+     *
+     * <p>provider 키가 미설정이면 {@code KAKAO_OAUTH_NOT_CONFIGURED} (provider 명 prefix
+     * 적용) 으로 차단한다 — 운영 키 발급 전 단계에서도 500 대신 503 으로 명시 응답.
+     */
+    @Transactional
+    public AuthTokens exchangeCode(OauthProvider provider, String code, String redirectUri) {
+        OauthCodeExchanger exchanger = codeExchangers.get(provider);
+        if (exchanger == null) {
+            throw new AuthException("AUTH_PROVIDER_UNSUPPORTED",
+                    "Unsupported provider for code exchange: " + provider);
+        }
+        if (!exchanger.isConfigured()) {
+            // provider 별 prefix — 현 시점은 KAKAO 만 지원.
+            throw new AuthException(
+                    provider.name() + "_OAUTH_NOT_CONFIGURED",
+                    provider + " OAuth client credentials are not configured");
+        }
+        String idToken;
+        try {
+            idToken = exchanger.exchange(code, redirectUri);
+        } catch (RuntimeException e) {
+            throw new AuthException("AUTH_INVALID",
+                    "Authorization code exchange failed: " + e.getMessage());
+        }
+        if (idToken == null || idToken.isBlank()) {
+            throw new AuthException("AUTH_INVALID", "Provider returned empty id_token");
+        }
+        return exchange(provider, idToken);
     }
 
     @Transactional(readOnly = true)

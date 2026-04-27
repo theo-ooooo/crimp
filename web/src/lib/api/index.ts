@@ -3,6 +3,7 @@ export { apiRequest } from './client';
 export { ApiError, ApiSchemaError, ApiTransportError } from './errors';
 export {
   exchangeOauth,
+  exchangeOauthCode,
   refreshTokens,
   logout,
   fetchHealth,

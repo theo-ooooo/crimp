@@ -33,6 +33,7 @@ class AuthServiceTest {
     private OauthIdentityRepository oauthRepo;
     private ProfileRepository profileRepo;
     private OauthIdTokenVerifier kakaoVerifier;
+    private OauthCodeExchanger kakaoExchanger;
     private JwtProvider jwtProvider;
     private JwtProperties jwtProps;
     private InMemoryRefreshStore refreshStore;
@@ -47,6 +48,10 @@ class AuthServiceTest {
         kakaoVerifier = mock(OauthIdTokenVerifier.class);
         when(kakaoVerifier.supports()).thenReturn(OauthProvider.KAKAO);
 
+        kakaoExchanger = mock(OauthCodeExchanger.class);
+        when(kakaoExchanger.supports()).thenReturn(OauthProvider.KAKAO);
+        when(kakaoExchanger.isConfigured()).thenReturn(true);
+
         jwtProps = new JwtProperties(
                 "unit-test-secret-at-least-32-bytes-long-for-hs256-signing!",
                 900L, 1_209_600L, "https://crimp.test");
@@ -54,7 +59,8 @@ class AuthServiceTest {
 
         refreshStore = new InMemoryRefreshStore();
 
-        service = new AuthService(userRepo, oauthRepo, profileRepo, List.of(kakaoVerifier),
+        service = new AuthService(userRepo, oauthRepo, profileRepo,
+                List.of(kakaoVerifier), List.of(kakaoExchanger),
                 jwtProvider, jwtProps, refreshStore);
     }
 
@@ -119,6 +125,97 @@ class AuthServiceTest {
         assertThatThrownBy(() -> service.exchange(OauthProvider.KAKAO, "x"))
                 .isInstanceOf(AuthException.class)
                 .satisfies(e -> assertThat(((AuthException) e).code()).isEqualTo("AUTH_INVALID"));
+    }
+
+    // ===== exchangeCode (웹 v2 redirect flow) =====
+
+    @Test
+    void exchangeCode_existingUser_issuesTokens() {
+        when(kakaoExchanger.exchange("auth-code-1", "https://app/callback"))
+                .thenReturn("verified-id-token");
+
+        OauthUserInfo info = new OauthUserInfo(OauthProvider.KAKAO, "kakao-uid-1", "a@b.com");
+        when(kakaoVerifier.verify("verified-id-token")).thenReturn(info);
+
+        OauthIdentity identity = OauthIdentity.link(10L, OauthProvider.KAKAO, "kakao-uid-1");
+        setField(identity, "userId", 10L);
+        when(oauthRepo.findByProviderAndProviderUid(OauthProvider.KAKAO, "kakao-uid-1"))
+                .thenReturn(Optional.of(identity));
+
+        User existing = User.create("01HXXXXXXX", "hash", null);
+        setField(existing, "id", 10L);
+        when(userRepo.findById(10L)).thenReturn(Optional.of(existing));
+
+        AuthTokens tokens = service.exchangeCode(
+                OauthProvider.KAKAO, "auth-code-1", "https://app/callback");
+
+        assertThat(tokens.accessToken()).isNotBlank();
+        assertThat(tokens.refreshToken()).isNotBlank();
+        verify(userRepo, never()).save(any());
+    }
+
+    @Test
+    void exchangeCode_newUser_createsAndIssues() {
+        when(kakaoExchanger.exchange(eq("c"), eq("https://app/callback")))
+                .thenReturn("verified-id-token");
+        OauthUserInfo info = new OauthUserInfo(OauthProvider.KAKAO, "new-uid", null);
+        when(kakaoVerifier.verify("verified-id-token")).thenReturn(info);
+        when(oauthRepo.findByProviderAndProviderUid(OauthProvider.KAKAO, "new-uid"))
+                .thenReturn(Optional.empty());
+        when(userRepo.save(any(User.class))).thenAnswer(inv -> {
+            User u = inv.getArgument(0);
+            setField(u, "id", 999L);
+            return u;
+        });
+
+        AuthTokens tokens = service.exchangeCode(
+                OauthProvider.KAKAO, "c", "https://app/callback");
+
+        assertThat(tokens.accessToken()).isNotBlank();
+        verify(userRepo).save(any(User.class));
+        verify(oauthRepo).save(any(OauthIdentity.class));
+    }
+
+    @Test
+    void exchangeCode_kakaoCallFails_throws_AUTH_INVALID() {
+        when(kakaoExchanger.exchange(any(), any()))
+                .thenThrow(new RuntimeException("Kakao 401 invalid_grant"));
+
+        assertThatThrownBy(() -> service.exchangeCode(
+                OauthProvider.KAKAO, "bad-code", "https://app/callback"))
+                .isInstanceOf(AuthException.class)
+                .satisfies(e -> assertThat(((AuthException) e).code()).isEqualTo("AUTH_INVALID"));
+    }
+
+    @Test
+    void exchangeCode_emptyIdTokenFromProvider_throws_AUTH_INVALID() {
+        when(kakaoExchanger.exchange(any(), any())).thenReturn("");
+
+        assertThatThrownBy(() -> service.exchangeCode(
+                OauthProvider.KAKAO, "code", "https://app/callback"))
+                .isInstanceOf(AuthException.class)
+                .satisfies(e -> assertThat(((AuthException) e).code()).isEqualTo("AUTH_INVALID"));
+    }
+
+    @Test
+    void exchangeCode_notConfigured_throws_KAKAO_OAUTH_NOT_CONFIGURED() {
+        when(kakaoExchanger.isConfigured()).thenReturn(false);
+
+        assertThatThrownBy(() -> service.exchangeCode(
+                OauthProvider.KAKAO, "code", "https://app/callback"))
+                .isInstanceOf(AuthException.class)
+                .satisfies(e -> assertThat(((AuthException) e).code())
+                        .isEqualTo("KAKAO_OAUTH_NOT_CONFIGURED"));
+    }
+
+    @Test
+    void exchangeCode_unsupportedProvider_throws() {
+        // APPLE 은 OauthCodeExchanger 미등록
+        assertThatThrownBy(() -> service.exchangeCode(
+                OauthProvider.APPLE, "code", "https://app/callback"))
+                .isInstanceOf(AuthException.class)
+                .satisfies(e -> assertThat(((AuthException) e).code())
+                        .isEqualTo("AUTH_PROVIDER_UNSUPPORTED"));
     }
 
     @Test
