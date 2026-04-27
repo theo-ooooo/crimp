@@ -245,7 +245,9 @@
     "loginRequiredTitle": "Login required",
     "loginRequiredDescription": "Sign in to view your profile.",
     "loadErrorTitle": "Failed to load profile",
-    "errorTitle": "Update failed"
+    "errorTitle": "Update failed",
+    "logout": "Sign out",
+    "logoutLoading": "Signing out…"
   },
   "me": {
     "mainGym": {
