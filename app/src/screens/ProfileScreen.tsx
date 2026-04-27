@@ -103,6 +103,15 @@ function LoggedInProfile({ accessToken, styles, theme }: LoggedInProps): JSX.Ele
         { mainGymExtId: gym.extId },
         {
           onSuccess: () => setPickerOpen(false),
+          // I3: picker 가 열려있는 동안 mutation error 는 ProfileScreen 의 errorBox 가
+          // 모달 backdrop 너머라 보이지 않는다 → Alert 로 명시 노출. picker 는 그대로 열려있어
+          // 사용자가 다른 암장을 다시 선택할 수 있다.
+          onError: (err) => {
+            Alert.alert(
+              t('profile.errorTitle'),
+              toUserMessage(err),
+            );
+          },
         },
       );
     },
@@ -124,6 +133,14 @@ function LoggedInProfile({ accessToken, styles, theme }: LoggedInProps): JSX.Ele
       ],
     );
   }, [updateMutation]);
+
+  // I4: pull-to-refresh — me 쿼리 재조회. 모든 hooks 는 early return 전에 위치해야
+  // rules-of-hooks 준수.
+  const onRefresh = useCallback(() => {
+    meQuery.refetch().catch(() => {
+      /* 에러는 meQuery.error 로 노출 */
+    });
+  }, [meQuery]);
 
   if (meQuery.isLoading) {
     return (
@@ -155,6 +172,13 @@ function LoggedInProfile({ accessToken, styles, theme }: LoggedInProps): JSX.Ele
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={meQuery.isRefetching}
+            onRefresh={onRefresh}
+            tintColor={theme.text2}
+          />
+        }
       >
         {/* 닉네임 / 레벨 */}
         <View style={styles.headerBlock}>
@@ -262,13 +286,18 @@ function LoggedInProfile({ accessToken, styles, theme }: LoggedInProps): JSX.Ele
         </View>
       </ScrollView>
 
-      <MainGymPickerModal
-        visible={pickerOpen}
-        currentGymExtId={mainGym?.extId ?? null}
-        saving={updateMutation.isPending}
-        onClose={() => setPickerOpen(false)}
-        onSelect={onPickerSelect}
-      />
+      {/* I1: picker 가 닫혀있을 때 mount 자체를 막아 useGymsQuery 가 ProfileScreen
+          진입 직후에 즉시 발화되지 않도록. visible 가 toggle 되면 모달은 매번 재마운트되며
+          애니메이션은 RN Modal 의 동작상 그대로 유지. */}
+      {pickerOpen ? (
+        <MainGymPickerModal
+          visible={pickerOpen}
+          currentGymExtId={mainGym?.extId ?? null}
+          saving={updateMutation.isPending}
+          onClose={() => setPickerOpen(false)}
+          onSelect={onPickerSelect}
+        />
+      ) : null}
     </>
   );
 }
@@ -371,7 +400,7 @@ function MainGymPickerModal({
         active={
           currentGymExtId !== null && item.extId === currentGymExtId
         }
-        onPress={() => handleRowPress(item)}
+        onSelect={handleRowPress}
       />
     ),
     [handleRowPress, currentGymExtId],
@@ -506,14 +535,16 @@ function MainGymPickerModal({
   );
 }
 
+// I2: row 가 gym 자체를 onSelect 에 넘겨주므로, 부모는 인라인 클로저 없이 stable
+// handler 하나만 내려보낼 수 있다 → React.memo 가 무력화되지 않음.
 const GymPickerRow = React.memo(function GymPickerRow({
   gym,
   active,
-  onPress,
+  onSelect,
 }: {
   gym: GymItem;
   active: boolean;
-  onPress: () => void;
+  onSelect: (gym: GymItem) => void;
 }): JSX.Element {
   const theme = useTokens();
   const styles = useMemo(() => makeRowStyles(theme), [theme]);
@@ -526,9 +557,14 @@ const GymPickerRow = React.memo(function GymPickerRow({
     a11yParts.push(gym.address);
   }
 
+  // 콜백은 row 안에서 useCallback 으로 wrap — gym/onSelect 변하지 않으면 안정.
+  const handlePress = useCallback(() => {
+    onSelect(gym);
+  }, [gym, onSelect]);
+
   return (
     <Pressable
-      onPress={onPress}
+      onPress={handlePress}
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       accessibilityLabel={a11yParts.join(', ')}

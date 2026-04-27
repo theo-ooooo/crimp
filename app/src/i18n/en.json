@@ -219,7 +219,8 @@
     "level": "Level",
     "loginRequiredTitle": "Login required",
     "loginRequiredDescription": "Sign in to view your profile.",
-    "loadErrorTitle": "Failed to load profile"
+    "loadErrorTitle": "Failed to load profile",
+    "errorTitle": "Update failed"
   },
   "me": {
     "mainGym": {
