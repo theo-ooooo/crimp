@@ -24,7 +24,12 @@ const BigDecimalLikeNullable = z
   .nullable()
   .optional();
 
-/** 백엔드 `GymListResponse.GymItem`. 목록 카드에서 사용. */
+/** 백엔드 `GymListResponse.GymItem`. 목록 카드에서 사용.
+ *
+ * 클라이언트는 ULID `extId` 만 사용. 내부 PK 는 노출하지 않는다.
+ * (PR #59 에서 PATCH `/me/profile` 가 `mainGymExtId` 를 받게 되면서
+ * numeric id 우회가 더 이상 필요 없어짐.)
+ */
 export const GymItemSchema = z.object({
   extId: z.string(),
   name: z.string(),

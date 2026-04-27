@@ -7,6 +7,7 @@ export {
   logout,
   fetchHealth,
   fetchMe,
+  updateMyProfile,
   fetchMeStats,
   fetchMySessions,
   fetchSession,
@@ -26,3 +27,4 @@ export {
   createComment,
   deleteComment,
 } from './endpoints';
+export type { UpdateProfileBody } from './endpoints';

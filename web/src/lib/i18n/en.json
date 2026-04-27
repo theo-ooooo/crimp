@@ -62,10 +62,26 @@
     "labelNickname": "Nickname",
     "labelBio": "Bio",
     "labelLevelSelf": "Self-rated level",
-    "labelMainGymId": "Main gym ID",
     "labelAvatarMediaId": "Avatar media ID",
     "empty": "-",
-    "errorTitle": "Failed to load your profile"
+    "errorTitle": "Failed to load your profile",
+    "mainGym": {
+      "title": "My gym",
+      "unset": "Not set",
+      "setCta": "Set my gym",
+      "editCta": "Change",
+      "clearCta": "Clear",
+      "clearConfirmTitle": "Clear your main gym?",
+      "clearConfirmBody": "Your main gym will be unset. You can set it again later.",
+      "clearConfirmCta": "Clear",
+      "pickerTitle": "Pick a gym",
+      "pickerSearchPlaceholder": "Search by name or address",
+      "confirmTitle": "Set this as your main gym?",
+      "confirmBody": "We'll set {{name}} as your main gym.",
+      "confirmCta": "Set",
+      "cancel": "Cancel",
+      "errorTitle": "Failed to update your main gym"
+    }
   },
   "session": {
     "list": {
@@ -248,6 +264,8 @@
     "sessionInvalid": "Session data is invalid.",
     "attemptNotFound": "Attempt not found.",
     "gymNotFound": "Gym not found.",
+    "mainGymNotFound": "The selected gym is no longer available.",
+    "mainGymInvalid": "Main gym request is invalid.",
     "attemptInvalid": "Attempt data is invalid.",
     "generic": "Request failed."
   }
