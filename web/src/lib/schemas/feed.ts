@@ -29,7 +29,7 @@ export const FEED_FILTERS: readonly FeedFilter[] = [
 
 /** 피드 한 아이템 — 백엔드 `FeedItemResponse` 와 동기. */
 export const FeedItemSchema = z.object({
-  /** 시도 extId (ULID) — list key 및 상세 라우팅 안정 키. */
+  /** 피드 포스트 extId (ULID) — list key 및 좋아요/댓글 API 의 `{extId}` 경로. */
   extId: z.string(),
   /** 작성자 extId (ULID) — 프로필 라우팅용. */
   userExtId: z.string(),
@@ -48,6 +48,8 @@ export const FeedItemSchema = z.object({
   // long → JSON number. 음수가 올 일은 없지만 계약 범위 보존.
   likes: z.number().int(),
   comments: z.number().int(),
+  /** 호출자(현재 사용자)가 이 포스트를 좋아요했는지. v2 (PR #56) 부터 추가. */
+  liked: z.boolean(),
   loggedAt: z.string(),
 });
 
@@ -68,3 +70,56 @@ export const FeedListSchema = z.object({
 });
 
 export type FeedList = z.infer<typeof FeedListSchema>;
+
+// ─────────────────────────────────────────────────────────────
+// Like / Comment (PR #56 — `SocialController`)
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * `POST/DELETE /api/v1/feed-posts/{extId}/like` 응답.
+ * 백엔드 `LikeToggleResponse(boolean liked, long likeCount)` 와 동기.
+ */
+export const LikeToggleResponseSchema = z.object({
+  liked: z.boolean(),
+  // long → JSON number. 카운터는 양의 정수.
+  likeCount: z.number().int(),
+});
+
+export type LikeToggleResponse = z.infer<typeof LikeToggleResponseSchema>;
+
+/**
+ * 댓글 한 건 — 백엔드 `CommentResponse` 와 동기.
+ *
+ * `parentExtId` 는 대댓글이면 부모 댓글의 ext_id, 일반 댓글이면 null.
+ * UI Phase 1.5 에서는 대댓글 트리 렌더는 미구현 — 평탄 리스트만 노출.
+ */
+export const CommentSchema = z.object({
+  extId: z.string(),
+  userExtId: z.string(),
+  userNickname: z.string().nullable(),
+  avatarColorHue: z.number().int(),
+  content: z.string(),
+  createdAt: z.string(),
+  parentExtId: z.string().nullable(),
+});
+
+export type Comment = z.infer<typeof CommentSchema>;
+
+/** 댓글 목록 — `CommentListResponse` 와 동기. */
+export const CommentListSchema = z.object({
+  items: z.array(CommentSchema),
+  page: FeedPageMetaSchema,
+});
+
+export type CommentList = z.infer<typeof CommentListSchema>;
+
+/**
+ * `POST /api/v1/feed-posts/{extId}/comments` 본문.
+ * 서버 검증: content 1..1000, parentExtId nullable.
+ */
+export const CreateCommentBodySchema = z.object({
+  content: z.string().min(1).max(1000),
+  parentExtId: z.string().nullable().optional(),
+});
+
+export type CreateCommentBody = z.infer<typeof CreateCommentBodySchema>;

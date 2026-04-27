@@ -217,7 +217,19 @@
     "card": {
       "likesAria": "Likes",
       "commentsAria": "Comments",
-      "postAria": "{{nickname}}'s attempt"
+      "postAria": "{{nickname}}'s attempt",
+      "likeAriaPressed": "Unlike",
+      "likeAriaUnpressed": "Like"
+    },
+    "comment": {
+      "title": "Comments",
+      "empty": "Be the first to comment",
+      "placeholder": "Leave a kind comment",
+      "submit": "Post",
+      "submitting": "Posting...",
+      "deleteCta": "Delete",
+      "deleteConfirm": "Delete this comment?",
+      "errorTitle": "Failed to load comments"
     },
     "time": {
       "justNow": "just now",
