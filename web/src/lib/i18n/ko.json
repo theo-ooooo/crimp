@@ -190,6 +190,42 @@
       "loadMore": "더 보기"
     }
   },
+  "feed": {
+    "title": "피드",
+    "entryCardTitle": "피드 둘러보기",
+    "entryCardDescription": "친구·인기·내 암장 활동을 한눈에.",
+    "refreshAria": "피드 새로고침",
+    "loadMore": "더 보기",
+    "loadingMore": "더 불러오는 중...",
+    "errorTitle": "피드를 불러오지 못했어요",
+    "loginRequiredTitle": "로그인 필요",
+    "loginRequiredDescription": "피드를 보려면 로그인이 필요합니다.",
+    "filter": {
+      "label": "피드 필터",
+      "friends": "친구",
+      "popular": "인기",
+      "myGym": "내 암장"
+    },
+    "empty": {
+      "friendsTitle": "팔로우한 클라이머가 없어요",
+      "friendsDescription": "친구를 팔로우하면 활동이 이곳에 모여요.",
+      "myGymTitle": "내 암장이 설정되지 않았어요",
+      "myGymDescription": "프로필에서 자주 가는 암장을 설정해 보세요.",
+      "popularTitle": "아직 인기 게시물이 없어요",
+      "popularDescription": "오늘 첫 시도를 기록하고 피드를 채워보세요."
+    },
+    "card": {
+      "likesAria": "좋아요",
+      "commentsAria": "댓글",
+      "postAria": "{{nickname}} 의 시도 기록"
+    },
+    "time": {
+      "justNow": "방금 전",
+      "minutesAgo": "{{n}}분 전",
+      "hoursAgo": "{{n}}시간 전",
+      "daysAgo": "{{n}}일 전"
+    }
+  },
   "error": {
     "transport": "일시적 오류가 발생했어요. 잠시 후 다시 시도해 주세요.",
     "authRequired": "로그인이 필요한 작업이에요.",

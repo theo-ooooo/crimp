@@ -14,6 +14,11 @@ import {
   type UpdateAttemptBody,
 } from '@/lib/schemas/attempt';
 import {
+  FeedListSchema,
+  type FeedFilter,
+  type FeedList,
+} from '@/lib/schemas/feed';
+import {
   GymDetailSchema,
   GymListSchema,
   RouteListSchema,
@@ -357,6 +362,42 @@ export function fetchGym(
     method: 'GET',
     path: `/api/v1/gyms/${encodeURIComponent(extId)}`,
     schema: GymDetailSchema,
+    signal,
+  });
+}
+
+// ===== Feed =====
+
+/**
+ * `GET /api/v1/feed` — 피드 목록 (Bearer 필요, 커서 기반 페이지네이션).
+ *
+ * - `filter`: "popular" (기본) / "my-gym" / "friends". 미인식 값은 서버에서 popular 로 폴백.
+ * - `cursor`: 직전 응답 `page.nextCursor` 를 그대로 전달. 첫 호출에선 `null`.
+ * - `size`: 서버 기본값 사용 시 생략 (서버 default 20, max 50).
+ */
+export function fetchFeed(
+  accessToken: string,
+  filter?: FeedFilter | null,
+  cursor?: number | null,
+  size?: number,
+  signal?: AbortSignal,
+): Promise<FeedList> {
+  const params = new URLSearchParams();
+  if (filter !== undefined && filter !== null) {
+    params.set('filter', filter);
+  }
+  if (cursor !== undefined && cursor !== null) {
+    params.set('cursor', String(cursor));
+  }
+  if (size !== undefined) {
+    params.set('size', String(size));
+  }
+  const qs = params.toString();
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/feed${qs ? `?${qs}` : ''}`,
+    accessToken,
+    schema: FeedListSchema,
     signal,
   });
 }

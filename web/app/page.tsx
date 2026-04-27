@@ -145,6 +145,28 @@ function LoggedIn({ accessToken }: { accessToken: string }): JSX.Element {
         </span>
       </PrimaryButton>
 
+      {/* Feed entry — Phase 1.5 임시 진입 카드. BottomTabs 도입 시 제거 예정. */}
+      <Link
+        href="/feed"
+        aria-label={t('feed.entryCardTitle')}
+        className="flex items-center justify-between gap-3 rounded-2xl bg-subtle p-5 shadow-xs transition-transform duration-fast ease-standard hover:shadow-sm active:scale-[0.99]"
+      >
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent-ink">
+            <CrimpIcon.feed s={20} />
+          </div>
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <p className="truncate text-body font-bold text-text">
+              {t('feed.entryCardTitle')}
+            </p>
+            <p className="truncate text-caption font-medium text-text-3">
+              {t('feed.entryCardDescription')}
+            </p>
+          </div>
+        </div>
+        <CrimpIcon.chevR s={18} className="shrink-0 text-text-3" />
+      </Link>
+
       {/* Recent sessions */}
       <section
         aria-labelledby="home-recent-sessions"
