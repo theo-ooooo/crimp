@@ -224,18 +224,21 @@
   "me": {
     "mainGym": {
       "title": "내 암장",
-      "unset": "미설정 — 설정하러 가기",
-      "setUnknownLabel": "설정됨",
+      "unset": "미설정",
+      "brandFallback": "브랜드 미등록",
       "setCta": "내 암장 설정",
       "editCta": "내 암장 변경",
       "clearCta": "내 암장 해제",
+      "clearConfirmTitle": "내 암장 해제",
+      "clearConfirmBody": "내 암장 설정을 해제할까요?",
       "pickerTitle": "내 암장 선택",
       "pickerSearchPlaceholder": "암장 이름·지역으로 검색",
-      "pickerUnsupported": "이 암장은 아직 내 암장으로 설정할 수 없어요. 백엔드 업데이트가 필요해요.",
       "confirmCta": "확인",
       "cancel": "취소",
       "saving": "저장 중...",
-      "errorTitle": "내 암장을 변경하지 못했어요"
+      "errorTitle": "내 암장을 변경하지 못했어요",
+      "errorNotFound": "선택한 암장을 찾을 수 없어요. 다른 암장을 선택해 주세요.",
+      "errorInvalidRequest": "요청 형식이 올바르지 않아요. 잠시 후 다시 시도해 주세요."
     }
   },
   "auth": {

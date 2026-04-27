@@ -118,8 +118,12 @@ export function fetchMe(accessToken: string, signal?: AbortSignal): Promise<Me> 
 /**
  * `PATCH /api/v1/me/profile` — 내 프로필 부분 수정.
  *
- * 모든 필드 선택. 본 PR 에서는 `mainGymId` 만 사용 (내 암장 설정/해제). 응답은 갱신된
- * `MeResponse` (= `Me` 스키마와 동일).
+ * 모든 필드 선택. 주 암장 변경은 PR #59 contract 를 따른다:
+ * - `mainGymExtId` (ULID 26자) — 권장 경로.
+ * - `clearMainGym: true` — 명시 해제 (mainGymExtId/mainGymId 와 동시 설정 시 400).
+ * - `mainGymId` (Long) — 호환 경로.
+ *
+ * 응답은 갱신된 `MeResponse` (= `Me` 스키마와 동일).
  */
 export function updateMyProfile(
   accessToken: string,

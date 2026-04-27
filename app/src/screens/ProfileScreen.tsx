@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Modal,
   Platform,
@@ -38,16 +39,16 @@ import { useTokenStore } from '@/store/tokenStore';
 /**
  * 프로필 화면.
  *
- * Phase 1 의 최소 구성:
- * - 닉네임 / 자기소개 레벨(읽기 전용 표시)
- * - 내 암장 (mainGymId) 표시 / 변경 / 해제 — 본 PR 의 핵심.
+ * Phase 1 구성:
+ * - 닉네임 / 자기소개 / 레벨 (읽기 전용 표시)
+ * - 내 암장 표시 / 변경 / 해제 — 본 PR 의 핵심.
  *
- * 내 암장 변경은 `MainGymPickerModal` 시트로 처리한다 (별도 화면 ↑↓ 전환 비용 회피).
+ * PR #59 백엔드 contract 정합:
+ * - `me.mainGym = { extId, name, brand? } | null` 을 그대로 표시한다.
+ * - 변경: `PATCH /me/profile` 본문에 `mainGymExtId` 를 보낸다.
+ * - 해제: `PATCH /me/profile` 본문에 `clearMainGym: true` 를 보낸다.
  *
- * 백엔드 `MeResponse` 는 `mainGymId` (number | null) 만 반환하므로, 현재 설정된 암장의
- * 표시 이름은 사용자가 직접 시트에서 선택한 직후의 GymItem 을 메모리 캐시에 보관해
- * 보여 준다. 페이지 재진입 시 mainGymId 만 있고 이름을 모르면 "설정됨" placeholder 만
- * 노출 — 백엔드가 expanded gym 응답을 추가하는 후속 PR 에서 해소 (TODO: F-mainGym-expand).
+ * 더 이상 picker 비활성화/캐시 워크어라운드는 필요 없다.
  */
 export default function ProfileScreen(): JSX.Element {
   const theme = useTokens();
@@ -86,31 +87,22 @@ type LoggedInProps = {
 function LoggedInProfile({ accessToken, styles, theme }: LoggedInProps): JSX.Element {
   const meQuery = useMeQuery(accessToken);
   const me = meQuery.data;
-  const mainGymId = me?.mainGymId ?? null;
+  // PR #59: 백엔드가 해석된 mainGym 객체를 그대로 내려준다 (extId/name/brand).
+  // mainGymId 만 있고 mainGym 이 없는 케이스는 백엔드가 비활성/삭제로 판정한 상태.
+  const mainGym = me?.mainGym ?? null;
+  const hasMainGym = mainGym !== null && mainGym !== undefined;
 
   const [pickerOpen, setPickerOpen] = useState<boolean>(false);
-
-  // 사용자가 시트에서 선택한 GymItem 을 기억 — mainGymId 만 받는 백엔드 응답을 보완.
-  const [cachedGym, setCachedGym] = useState<GymItem | null>(null);
-
-  // 외부 요인(다른 기기)으로 mainGymId 가 해제되면 캐시도 비운다.
-  useEffect(() => {
-    if (mainGymId === null && cachedGym !== null) {
-      setCachedGym(null);
-    }
-  }, [mainGymId, cachedGym]);
 
   const updateMutation = useUpdateProfile(accessToken);
 
   const onPickerSelect = useCallback(
-    (gym: GymItem, internalId: number) => {
+    (gym: GymItem) => {
+      // PR #59: extId 기반 변경 — 백엔드가 numeric id 로 해석한다.
       updateMutation.mutate(
-        { mainGymId: internalId },
+        { mainGymExtId: gym.extId },
         {
-          onSuccess: () => {
-            setCachedGym(gym);
-            setPickerOpen(false);
-          },
+          onSuccess: () => setPickerOpen(false),
         },
       );
     },
@@ -118,34 +110,20 @@ function LoggedInProfile({ accessToken, styles, theme }: LoggedInProps): JSX.Ele
   );
 
   const onClearMainGym = useCallback(() => {
-    // 백엔드 `UserService.updateMyProfile` 가 `cmd.mainGymId() != null` 일 때만 갱신해
-    // 명시 null 로 해제 가능 — 단, 현재 백엔드 구현은 null 을 전달해도 변경 없음 (no-op).
-    // 진정한 해제 동작은 후속 백엔드 PR 에서 sentinel(`clearMainGym: true`) 도입 후 활성화.
-    // (TODO: F-mainGym-clear)
-    // 현재는 사용자 의도를 보존하기 위해 PATCH 는 보내되, 응답 mainGymId 가 여전히 차 있어
-    // UI 가 동기화되지 않을 수 있다는 점을 캐시 무효화로 사전 표시한다.
-    updateMutation.mutate(
-      { mainGymId: null },
-      {
-        onSuccess: (updated) => {
-          if (updated.mainGymId === null) {
-            setCachedGym(null);
-          }
+    Alert.alert(
+      t('me.mainGym.clearConfirmTitle'),
+      t('me.mainGym.clearConfirmBody'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('me.mainGym.clearCta'),
+          style: 'destructive',
+          // PR #59: 명시 해제는 sentinel(`clearMainGym: true`) 로 전송.
+          onPress: () => updateMutation.mutate({ clearMainGym: true }),
         },
-      },
+      ],
     );
   }, [updateMutation]);
-
-  // 표시할 암장 라벨 결정.
-  const mainGymLabel: string = (() => {
-    if (mainGymId === null) {
-      return t('me.mainGym.unset');
-    }
-    if (cachedGym !== null) {
-      return cachedGym.name;
-    }
-    return t('me.mainGym.setUnknownLabel');
-  })();
 
   if (meQuery.isLoading) {
     return (
@@ -199,15 +177,28 @@ function LoggedInProfile({ accessToken, styles, theme }: LoggedInProps): JSX.Ele
               <View style={styles.gymIconCircle}>
                 <CrimpIcon.pin size={20} color={theme.text2} />
               </View>
-              <Text
-                style={[
-                  styles.gymLabel,
-                  mainGymId === null ? styles.gymLabelMuted : null,
-                ]}
-                numberOfLines={2}
-              >
-                {mainGymLabel}
-              </Text>
+              <View style={styles.gymLabelBlock}>
+                {hasMainGym ? (
+                  <>
+                    <Text style={styles.gymLabel} numberOfLines={2}>
+                      {mainGym.name}
+                    </Text>
+                    {/* brand 키는 NON_NULL 정책으로 누락될 수 있다 — 표시는 있을 때만. */}
+                    {mainGym.brand !== null && mainGym.brand !== undefined ? (
+                      <Text style={styles.gymBrand} numberOfLines={1}>
+                        {mainGym.brand}
+                      </Text>
+                    ) : null}
+                  </>
+                ) : (
+                  <Text
+                    style={[styles.gymLabel, styles.gymLabelMuted]}
+                    numberOfLines={1}
+                  >
+                    {t('me.mainGym.unset')}
+                  </Text>
+                )}
+              </View>
             </View>
           </View>
 
@@ -217,9 +208,9 @@ function LoggedInProfile({ accessToken, styles, theme }: LoggedInProps): JSX.Ele
               onPress={() => setPickerOpen(true)}
               accessibilityRole="button"
               accessibilityLabel={
-                mainGymId === null
-                  ? t('me.mainGym.setCta')
-                  : t('me.mainGym.editCta')
+                hasMainGym
+                  ? t('me.mainGym.editCta')
+                  : t('me.mainGym.setCta')
               }
               style={({ pressed }) => [
                 styles.ctaButton,
@@ -227,12 +218,12 @@ function LoggedInProfile({ accessToken, styles, theme }: LoggedInProps): JSX.Ele
               ]}
             >
               <Text style={styles.ctaButtonLabel}>
-                {mainGymId === null
-                  ? t('me.mainGym.setCta')
-                  : t('me.mainGym.editCta')}
+                {hasMainGym
+                  ? t('me.mainGym.editCta')
+                  : t('me.mainGym.setCta')}
               </Text>
             </Pressable>
-            {mainGymId !== null ? (
+            {hasMainGym ? (
               <Pressable
                 onPress={onClearMainGym}
                 disabled={updateMutation.isPending}
@@ -273,7 +264,7 @@ function LoggedInProfile({ accessToken, styles, theme }: LoggedInProps): JSX.Ele
 
       <MainGymPickerModal
         visible={pickerOpen}
-        currentGymId={mainGymId}
+        currentGymExtId={mainGym?.extId ?? null}
         saving={updateMutation.isPending}
         onClose={() => setPickerOpen(false)}
         onSelect={onPickerSelect}
@@ -288,17 +279,17 @@ function LoggedInProfile({ accessToken, styles, theme }: LoggedInProps): JSX.Ele
 
 type MainGymPickerModalProps = {
   visible: boolean;
-  currentGymId: number | null;
+  currentGymExtId: string | null;
   saving: boolean;
   onClose: () => void;
-  onSelect: (gym: GymItem, internalId: number) => void;
+  onSelect: (gym: GymItem) => void;
 };
 
 const SEARCH_DEBOUNCE_MS = 300;
 
 function MainGymPickerModal({
   visible,
-  currentGymId,
+  currentGymExtId,
   saving,
   onClose,
   onSelect,
@@ -309,14 +300,12 @@ function MainGymPickerModal({
 
   const [searchText, setSearchText] = useState<string>('');
   const [debouncedQ, setDebouncedQ] = useState<string>('');
-  const [pickError, setPickError] = useState<string | null>(null);
 
-  // 시트 닫힐 때 검색어/에러 초기화 — 다음 진입 시 깨끗한 상태.
+  // 시트 닫힐 때 검색어 초기화 — 다음 진입 시 깨끗한 상태.
   useEffect(() => {
     if (!visible) {
       setSearchText('');
       setDebouncedQ('');
-      setPickError(null);
     }
   }, [visible]);
 
@@ -369,16 +358,8 @@ function MainGymPickerModal({
 
   const handleRowPress = useCallback(
     (gym: GymItem) => {
-      // GymItem.id 는 백엔드 응답에 포함되지 않는 한 undefined. 백엔드가 mainGymId(Long)
-      // 을 PATCH 본문으로 받기에 내부 PK 가 가용해진 뒤에만 활성화된다.
-      // (TODO: F-gym-internal-id — backend 가 GymItem 응답에 `id` 필드 추가)
-      const internalId = typeof gym.id === 'number' ? gym.id : null;
-      if (internalId === null) {
-        setPickError(t('me.mainGym.pickerUnsupported'));
-        return;
-      }
-      setPickError(null);
-      onSelect(gym, internalId);
+      // PR #59: extId 직접 사용 — 더 이상 내부 PK 가용 여부를 검사할 필요 없다.
+      onSelect(gym);
     },
     [onSelect],
   );
@@ -388,14 +369,12 @@ function MainGymPickerModal({
       <GymPickerRow
         gym={item}
         active={
-          typeof item.id === 'number' &&
-          currentGymId !== null &&
-          item.id === currentGymId
+          currentGymExtId !== null && item.extId === currentGymExtId
         }
         onPress={() => handleRowPress(item)}
       />
     ),
-    [handleRowPress, currentGymId],
+    [handleRowPress, currentGymExtId],
   );
 
   const handleClose = () => {
@@ -467,12 +446,6 @@ function MainGymPickerModal({
               ) : null}
             </View>
           </View>
-
-          {pickError !== null ? (
-            <View style={styles.pickErrorBox}>
-              <Text style={styles.pickErrorText}>{pickError}</Text>
-            </View>
-          ) : null}
 
           {isLoading ? (
             <View style={styles.content}>
@@ -687,8 +660,12 @@ function makeStyles(theme: Theme) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    gymLabel: {
+    gymLabelBlock: {
       flex: 1,
+      minWidth: 0,
+      gap: 2,
+    },
+    gymLabel: {
       fontFamily,
       fontSize: fontSize.body,
       fontWeight: fontWeight.semibold,
@@ -698,6 +675,12 @@ function makeStyles(theme: Theme) {
     gymLabelMuted: {
       color: theme.text3,
       fontWeight: fontWeight.medium,
+    },
+    gymBrand: {
+      fontFamily,
+      fontSize: fontSize.caption,
+      fontWeight: fontWeight.medium,
+      color: theme.text3,
     },
     ctaRow: {
       flexDirection: 'row',
@@ -874,19 +857,6 @@ function makeModalStyles(theme: Theme) {
     footer: {
       paddingVertical: space[4],
       alignItems: 'center',
-    },
-    pickErrorBox: {
-      marginHorizontal: space[5],
-      marginBottom: space[3],
-      backgroundColor: withAlpha(theme.semantic.warning, 0.12),
-      borderRadius: radius.md,
-      padding: space[3],
-    },
-    pickErrorText: {
-      fontFamily,
-      fontSize: 13,
-      fontWeight: fontWeight.semibold,
-      color: theme.semantic.warning,
     },
     savingFooter: {
       flexDirection: 'row',

@@ -224,18 +224,21 @@
   "me": {
     "mainGym": {
       "title": "Home gym",
-      "unset": "Not set — tap to set",
-      "setUnknownLabel": "Set",
+      "unset": "Not set",
+      "brandFallback": "Brand not listed",
       "setCta": "Set home gym",
       "editCta": "Change home gym",
       "clearCta": "Unset",
+      "clearConfirmTitle": "Unset home gym",
+      "clearConfirmBody": "Unset your home gym?",
       "pickerTitle": "Pick your home gym",
       "pickerSearchPlaceholder": "Search by gym name or area",
-      "pickerUnsupported": "This gym can't be set yet. Backend update required.",
       "confirmCta": "Confirm",
       "cancel": "Cancel",
       "saving": "Saving...",
-      "errorTitle": "Failed to change home gym"
+      "errorTitle": "Failed to change home gym",
+      "errorNotFound": "The selected gym was not found. Please pick another.",
+      "errorInvalidRequest": "Invalid request. Please try again in a moment."
     }
   },
   "auth": {

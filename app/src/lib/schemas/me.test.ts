@@ -11,6 +11,8 @@ import { MeSchema, UpdateProfileBodySchema } from './me';
  * 있으나, 동일 컨벤션으로 작성해 후속 PR 에서 jest 가 활성화되면 즉시 동작하도록 둔다.
  */
 
+const VALID_GYM_EXT_ID = '01J9USR0000000000000000099'; // 26자 ULID 형태
+
 describe('MeSchema', () => {
   const fullMe = {
     extId: '01J9USR0000000000000000001',
@@ -18,6 +20,11 @@ describe('MeSchema', () => {
     bio: '취미 클라이밍 1년차',
     levelSelf: 5,
     mainGymId: 1042,
+    mainGym: {
+      extId: VALID_GYM_EXT_ID,
+      name: '클라임파크 강남점',
+      brand: '클라임파크',
+    },
     avatarMediaId: 99,
   };
 
@@ -26,6 +33,9 @@ describe('MeSchema', () => {
     expect(parsed.extId).toBe(fullMe.extId);
     expect(parsed.nickname).toBe('서지우');
     expect(parsed.mainGymId).toBe(1042);
+    expect(parsed.mainGym?.extId).toBe(VALID_GYM_EXT_ID);
+    expect(parsed.mainGym?.name).toBe('클라임파크 강남점');
+    expect(parsed.mainGym?.brand).toBe('클라임파크');
     expect(parsed.levelSelf).toBe(5);
   });
 
@@ -36,10 +46,12 @@ describe('MeSchema', () => {
       bio: null,
       levelSelf: null,
       mainGymId: null,
+      mainGym: null,
       avatarMediaId: null,
     });
     expect(parsed.nickname).toBeNull();
     expect(parsed.mainGymId).toBeNull();
+    expect(parsed.mainGym).toBeNull();
   });
 
   it('parses a Me where nullable keys are omitted (NON_NULL serialization)', () => {
@@ -48,6 +60,32 @@ describe('MeSchema', () => {
     expect(parsed.extId).toBe(fullMe.extId);
     expect(parsed.nickname).toBeUndefined();
     expect(parsed.mainGymId).toBeUndefined();
+    expect(parsed.mainGym).toBeUndefined();
+  });
+
+  it('parses a mainGym whose brand key is omitted (브랜드 미등록 암장 + NON_NULL)', () => {
+    // I5: 브랜드가 null 인 암장은 응답에서 brand 키 자체가 누락된다.
+    const parsed = MeSchema.parse({
+      ...fullMe,
+      mainGym: {
+        extId: VALID_GYM_EXT_ID,
+        name: '동네 작은 암장',
+      },
+    });
+    expect(parsed.mainGym?.extId).toBe(VALID_GYM_EXT_ID);
+    expect(parsed.mainGym?.brand).toBeUndefined();
+  });
+
+  it('parses a mainGym whose brand is explicit null', () => {
+    const parsed = MeSchema.parse({
+      ...fullMe,
+      mainGym: {
+        extId: VALID_GYM_EXT_ID,
+        name: '동네 작은 암장',
+        brand: null,
+      },
+    });
+    expect(parsed.mainGym?.brand).toBeNull();
   });
 
   it('rejects out-of-range levelSelf (Byte 범위 위반)', () => {
@@ -60,6 +98,15 @@ describe('MeSchema', () => {
     const { extId, ...rest } = fullMe;
     expect(() => MeSchema.parse(rest)).toThrow();
   });
+
+  it('rejects mainGym missing required name', () => {
+    expect(() =>
+      MeSchema.parse({
+        ...fullMe,
+        mainGym: { extId: VALID_GYM_EXT_ID },
+      }),
+    ).toThrow();
+  });
 });
 
 describe('UpdateProfileBodySchema', () => {
@@ -67,14 +114,51 @@ describe('UpdateProfileBodySchema', () => {
     expect(() => UpdateProfileBodySchema.parse({})).not.toThrow();
   });
 
-  it('accepts mainGymId as a positive integer', () => {
-    const parsed = UpdateProfileBodySchema.parse({ mainGymId: 42 });
-    expect(parsed.mainGymId).toBe(42);
+  it('accepts mainGymExtId as a 26-char ULID', () => {
+    const parsed = UpdateProfileBodySchema.parse({
+      mainGymExtId: VALID_GYM_EXT_ID,
+    });
+    expect(parsed.mainGymExtId).toBe(VALID_GYM_EXT_ID);
   });
 
-  it('accepts mainGymId as null (백엔드가 sentinel 도입 후 활성화 예정)', () => {
-    const parsed = UpdateProfileBodySchema.parse({ mainGymId: null });
-    expect(parsed.mainGymId).toBeNull();
+  it('accepts clearMainGym=true', () => {
+    const parsed = UpdateProfileBodySchema.parse({ clearMainGym: true });
+    expect(parsed.clearMainGym).toBe(true);
+  });
+
+  it('rejects clearMainGym=true combined with mainGymExtId (백엔드 INVALID_MAIN_GYM_REQUEST 사전 차단)', () => {
+    expect(() =>
+      UpdateProfileBodySchema.parse({
+        clearMainGym: true,
+        mainGymExtId: VALID_GYM_EXT_ID,
+      }),
+    ).toThrow();
+  });
+
+  it('rejects clearMainGym=true combined with mainGymId', () => {
+    expect(() =>
+      UpdateProfileBodySchema.parse({
+        clearMainGym: true,
+        mainGymId: 1,
+      }),
+    ).toThrow();
+  });
+
+  it('rejects mainGymExtId shorter than 26 chars', () => {
+    expect(() =>
+      UpdateProfileBodySchema.parse({ mainGymExtId: 'X' }),
+    ).toThrow();
+  });
+
+  it('rejects mainGymExtId longer than 26 chars', () => {
+    expect(() =>
+      UpdateProfileBodySchema.parse({ mainGymExtId: 'X'.repeat(27) }),
+    ).toThrow();
+  });
+
+  it('still accepts legacy mainGymId path (backend 호환)', () => {
+    const parsed = UpdateProfileBodySchema.parse({ mainGymId: 42 });
+    expect(parsed.mainGymId).toBe(42);
   });
 
   it('rejects nickname shorter than 2 chars', () => {

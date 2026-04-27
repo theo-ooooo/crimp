@@ -18,6 +18,9 @@ const CODE_TO_KEY: Record<string, MessageKey> = {
   SESSION_INVALID: 'error.sessionInvalid',
   ATTEMPT_NOT_FOUND: 'error.attemptNotFound',
   ATTEMPT_INVALID: 'error.attemptInvalid',
+  // PR #59: 주 암장 관련 백엔드 에러 코드.
+  MAIN_GYM_NOT_FOUND: 'me.mainGym.errorNotFound',
+  INVALID_MAIN_GYM_REQUEST: 'me.mainGym.errorInvalidRequest',
 };
 
 export function toUserMessage(err: unknown): string {

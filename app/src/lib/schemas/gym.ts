@@ -28,14 +28,6 @@ export type GymPage = z.infer<typeof GymPageSchema>;
 // ===== Gym 목록 아이템 =====
 
 export const GymItemSchema = z.object({
-  /**
-   * 내부 PK (Long). 현재 백엔드 GymController.GymItem 응답에는 미포함이지만,
-   * `mainGymId` 같은 PATCH 본문은 내부 PK 를 요구한다. 백엔드가 응답에 `id` 필드를
-   * 추가하면 곧바로 활용되도록 optional 로 미리 받아 둔다.
-   * (TODO: F-gym-internal-id — 백엔드 GymItem 응답에 `id` 필드 추가 후 nullable
-   * 옵셔널 정리.)
-   */
-  id: z.number().int().nullable().optional(),
   extId: z.string(),
   name: z.string(),
   brand: z.string().nullable(),
