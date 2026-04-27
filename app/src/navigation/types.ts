@@ -38,6 +38,11 @@ export type RootStackParamList = {
    * 디자인 프리미티브 미리보기 (네비게이션 버튼 없이 딥링크/개발 모드 전용).
    */
   DesignPrimitives: undefined;
+  /**
+   * 피드 화면 (v2 디자인). 인증 필수 — 화면 내부에서 gate 처리.
+   * 임시로 HomeScreen 의 진입 카드에서 navigate. BottomTabs 도입은 별개 PR.
+   */
+  Feed: undefined;
 };
 
 export type RootStackNavigationProp<RouteName extends keyof RootStackParamList> =

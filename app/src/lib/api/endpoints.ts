@@ -14,6 +14,11 @@ import {
   type TokenResponse,
 } from '@/lib/schemas/auth';
 import {
+  FeedListSchema,
+  type FeedFilter,
+  type FeedList,
+} from '@/lib/schemas/feed';
+import {
   GymDetailSchema,
   GymListSchema,
   RouteListSchema,
@@ -306,6 +311,39 @@ export function fetchGyms(
     method: 'GET',
     path: `/api/v1/gyms${qs ? `?${qs}` : ''}`,
     schema: GymListSchema,
+    signal,
+  });
+}
+
+// ===== Feed =====
+
+/**
+ * `GET /api/v1/feed?filter=popular|friends|my-gym&cursor=...&size=...` — 피드 목록.
+ *
+ * - 인증 필수 (백엔드 SecurityConfig 의 anyRequest().authenticated 적용).
+ * - filter 미전달 시 백엔드 기본값 `popular`. 우리는 명시적으로 항상 보내 호출 의도 명확화.
+ * - cursor 는 이전 페이지 마지막 attempt.id (Long).
+ */
+export function fetchFeed(
+  accessToken: string,
+  filter: FeedFilter,
+  cursor?: number | null,
+  size?: number,
+  signal?: AbortSignal,
+): Promise<FeedList> {
+  const params = new URLSearchParams();
+  params.set('filter', filter);
+  if (cursor !== undefined && cursor !== null) {
+    params.set('cursor', String(cursor));
+  }
+  if (size !== undefined) {
+    params.set('size', String(size));
+  }
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/feed?${params.toString()}`,
+    accessToken,
+    schema: FeedListSchema,
     signal,
   });
 }

@@ -53,6 +53,8 @@ const iconDefs = {
   trend: { glyph: '\u2197', scale: 0.9 },
   dots: { glyph: '\u22EF', scale: 0.95 },
   target: { glyph: '\u25CE', scale: 0.9 },
+  heart: { glyph: '\u2661', scale: 0.95 }, // ♡ — 빈 하트, 색 적용 가능
+  chat: { glyph: '\u2750', scale: 0.85 }, // ❐ 말풍선 근사 (모노크롬 박스)
 } as const satisfies Record<string, IconDef>;
 
 export type IconName = keyof typeof iconDefs;
@@ -125,4 +127,6 @@ export const CrimpIcon: Record<IconName, (props: IconProps) => JSX.Element> = {
   trend: createIcon('trend'),
   dots: createIcon('dots'),
   target: createIcon('target'),
+  heart: createIcon('heart'),
+  chat: createIcon('chat'),
 };
