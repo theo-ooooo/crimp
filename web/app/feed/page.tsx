@@ -22,28 +22,24 @@ import { FeedFilterTabs } from '@/components/feed/FeedFilterTabs';
 import { FeedPostCard } from '@/components/feed/FeedPostCard';
 import { useFeedQuery } from '@/hooks/useFeed';
 import { useMeQuery } from '@/hooks/useMe';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { toUserMessage } from '@/lib/api/errorMessage';
 import { t } from '@/lib/i18n';
 import type { FeedFilter, FeedItem } from '@/lib/schemas/feed';
-import { useAccessToken, useTokenStore } from '@/store/tokenStore';
 
 /** 디자인 mock 의 기본 active 탭. */
 const DEFAULT_FILTER: FeedFilter = 'friends';
 
 export default function FeedPage(): JSX.Element {
-  const hydrated = useTokenStore((s) => s.hydrated);
-  const accessToken = useAccessToken();
+  const { accessToken } = useRequireAuth();
 
   // 필터 상태는 쿼리 파라미터가 아니라 컴포넌트 로컬 상태로 관리한다.
   // 향후 공유 URL · 딥링크 요구가 생기면 useSearchParams 기반으로 이전.
   const [filter, setFilter] = useState<FeedFilter>(DEFAULT_FILTER);
 
-  if (!hydrated) {
-    return <HydrationGate />;
-  }
-
+  // hydration 전 OR 토큰 없음(redirect 대기) → 동일 skeleton.
   if (!accessToken) {
-    return <LoginRequired />;
+    return <HydrationGate />;
   }
 
   return (
@@ -182,19 +178,6 @@ function HydrationGate(): JSX.Element {
         <Skeleton h={140} r={18} />
         <Skeleton h={140} r={18} />
       </div>
-    </main>
-  );
-}
-
-function LoginRequired(): JSX.Element {
-  return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-3 bg-bg px-6">
-      <h1 className="text-h1 font-extrabold text-text">
-        {t('feed.loginRequiredTitle')}
-      </h1>
-      <p className="text-body text-text-2">
-        {t('feed.loginRequiredDescription')}
-      </p>
     </main>
   );
 }

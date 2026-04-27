@@ -76,8 +76,6 @@
   "me": {
     "title": "내 프로필",
     "eyebrow": "프로필",
-    "loginRequiredTitle": "로그인 필요",
-    "loginRequiredDescription": "먼저 로그인이 필요합니다. 임시 개발 모드에서는 localStorage 의 'crimp.accessToken' 값을 설정하세요.",
     "labelExtId": "사용자 ID",
     "labelNickname": "닉네임",
     "labelBio": "소개",
@@ -143,8 +141,6 @@
     },
     "detail": {
       "title": "세션 상세",
-      "loginRequiredTitle": "로그인 필요",
-      "loginRequiredDescription": "세션 상세를 보려면 로그인이 필요합니다.",
       "labelGym": "암장",
       "labelStartedAt": "시작",
       "labelEndedAt": "종료",
@@ -245,8 +241,6 @@
     "loadMore": "더 보기",
     "loadingMore": "더 불러오는 중...",
     "errorTitle": "피드를 불러오지 못했어요",
-    "loginRequiredTitle": "로그인 필요",
-    "loginRequiredDescription": "피드를 보려면 로그인이 필요합니다.",
     "filter": {
       "label": "피드 필터",
       "friends": "친구",

@@ -9,11 +9,11 @@ import {
   SecondaryButton,
   Skeleton,
 } from '@/components/primitives';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { useSessionsQuery } from '@/hooks/useSessions';
 import { toUserMessage } from '@/lib/api/errorMessage';
 import { t } from '@/lib/i18n';
 import type { Session } from '@/lib/schemas/session';
-import { useAccessToken, useTokenStore } from '@/store/tokenStore';
 
 /**
  * `/sessions` — 내 세션 목록.
@@ -27,8 +27,7 @@ import { useAccessToken, useTokenStore } from '@/store/tokenStore';
  * 기존 훅·에러 처리·커서 페이지네이션·hydration 가드는 그대로 유지한다.
  */
 export default function SessionsPage(): JSX.Element {
-  const hydrated = useTokenStore((s) => s.hydrated);
-  const accessToken = useAccessToken();
+  const { accessToken } = useRequireAuth();
   const {
     data,
     error,
@@ -38,12 +37,9 @@ export default function SessionsPage(): JSX.Element {
     fetchNextPage,
   } = useSessionsQuery(accessToken);
 
-  if (!hydrated) {
-    return <HydrationGate />;
-  }
-
+  // hydration 전 OR 토큰 없음(redirect 대기) → 동일 skeleton.
   if (!accessToken) {
-    return <LoginRequired />;
+    return <HydrationGate />;
   }
 
   const sessions: Session[] = data?.pages.flatMap((p) => p.items) ?? [];
@@ -124,18 +120,6 @@ function HydrationGate(): JSX.Element {
   );
 }
 
-function LoginRequired(): JSX.Element {
-  return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-4 bg-bg px-6">
-      <h1 className="text-h1 font-extrabold text-text">
-        {t('me.loginRequiredTitle')}
-      </h1>
-      <p className="text-body text-text-2">
-        {t('me.loginRequiredDescription')}
-      </p>
-    </main>
-  );
-}
 
 function ListSkeleton(): JSX.Element {
   return (

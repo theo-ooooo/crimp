@@ -4,11 +4,11 @@ import { CrimpIcon, Skeleton } from '@/components/primitives';
 import { MainGymSection } from '@/components/me/MainGymSection';
 import { useMeQuery } from '@/hooks/useMe';
 import { useMeStatsQuery } from '@/hooks/useMeStats';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { toUserMessage } from '@/lib/api/errorMessage';
 import { t } from '@/lib/i18n';
 import type { Me } from '@/lib/schemas/me';
 import type { MeStats } from '@/lib/schemas/meStats';
-import { useAccessToken, useTokenStore } from '@/store/tokenStore';
 
 /**
  * `/me` — 내 프로필.
@@ -24,15 +24,12 @@ import { useAccessToken, useTokenStore } from '@/store/tokenStore';
  * 인증/hydration 가드는 기존과 동일.
  */
 export default function MePage(): JSX.Element {
-  const hydrated = useTokenStore((s) => s.hydrated);
-  const accessToken = useAccessToken();
+  const { accessToken } = useRequireAuth();
 
-  if (!hydrated) {
-    return <HydrationGate />;
-  }
-
+  // hydration 전 OR 토큰 없음(redirect 대기) → 동일 skeleton.
+  // 짧은 한 프레임 동안만 보이므로 별도 LoginRequired 화면은 두지 않는다.
   if (!accessToken) {
-    return <LoginRequired />;
+    return <HydrationGate />;
   }
 
   return <Loaded accessToken={accessToken} />;
@@ -55,19 +52,6 @@ function HydrationGate(): JSX.Element {
       </div>
       <Skeleton h={140} r={20} />
       <Skeleton h={120} r={20} />
-    </main>
-  );
-}
-
-function LoginRequired(): JSX.Element {
-  return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-4 bg-bg px-5">
-      <h1 className="text-h1 font-extrabold text-text">
-        {t('me.loginRequiredTitle')}
-      </h1>
-      <p className="text-body text-text-2">
-        {t('me.loginRequiredDescription')}
-      </p>
     </main>
   );
 }

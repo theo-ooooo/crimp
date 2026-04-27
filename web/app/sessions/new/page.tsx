@@ -9,10 +9,10 @@ import {
   PrimaryButton,
   Skeleton,
 } from '@/components/primitives';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { useStartSession } from '@/hooks/useSessions';
 import { toUserMessage } from '@/lib/api/errorMessage';
 import { t } from '@/lib/i18n';
-import { useAccessToken, useTokenStore } from '@/store/tokenStore';
 
 /**
  * `/sessions/new` — 새 세션 시작 폼.
@@ -52,8 +52,7 @@ function NewSessionSkeleton(): JSX.Element {
 function NewSessionPageInner(): JSX.Element {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const hydrated = useTokenStore((s) => s.hydrated);
-  const accessToken = useAccessToken();
+  const { accessToken } = useRequireAuth();
   const mutation = useStartSession(accessToken);
 
   const selectedGymExtId = searchParams?.get('gymExtId') ?? null;
@@ -80,26 +79,9 @@ function NewSessionPageInner(): JSX.Element {
     router.replace('/sessions/new');
   };
 
-  if (!hydrated) {
-    return (
-      <main className="mx-auto flex min-h-screen max-w-xl flex-col justify-center gap-3 bg-bg px-6">
-        <Skeleton h={32} w="40%" />
-        <Skeleton h={16} w="60%" />
-      </main>
-    );
-  }
-
+  // hydration 전 OR 토큰 없음(redirect 대기) → 동일 skeleton.
   if (!accessToken) {
-    return (
-      <main className="mx-auto flex min-h-screen max-w-xl flex-col justify-center gap-4 bg-bg px-6">
-        <h1 className="text-h1 font-extrabold text-text">
-          {t('me.loginRequiredTitle')}
-        </h1>
-        <p className="text-body text-text-2">
-          {t('me.loginRequiredDescription')}
-        </p>
-      </main>
-    );
+    return <NewSessionSkeleton />;
   }
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
