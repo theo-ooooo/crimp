@@ -10,7 +10,6 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import {
-  BigStat,
   CrimpIcon,
   PrimaryButton,
   SecondaryButton,
@@ -50,6 +49,22 @@ function toMonthDay(iso: string): string {
   return iso.length >= 10 ? iso.slice(5) : iso;
 }
 
+/**
+ * 홈 대시보드.
+ *
+ * 디자인 출처: docs/design/claude/v2/screens-ios.jsx:55 (`HomeScreen`)
+ *
+ * Mock 레이아웃 정렬:
+ * - 인사말 블록 (eyebrow text3 14px / headline 26px 800 + accent 강조)
+ * - 큰 통계 카드 (subtle bg, radius 20, padding 24/22) — 좌측 큰 숫자, 우측 최고 그레이드
+ * - 주 CTA "세션 시작하기" (PrimaryButton)
+ * - 최근 세션 섹션 (제목 + "전체" 링크) — 카드 row: 아이콘 / 이름·시간 / 그레이드·count
+ * - 피드/프로필 진입 카드 (Phase 1.5 BottomTabs 도입 전 placeholder; PR #55, #61 정합)
+ *
+ * 비즈니스 로직 무변경:
+ * - useMeQuery / useMeStatsQuery / useSessionsQuery 동일 호출
+ * - 토큰 hydrate 가드, LoggedOutView 분기 동일
+ */
 export default function HomeScreen(): JSX.Element {
   const theme = useTokens();
   const navigation = useNavigation<Nav>();
@@ -119,16 +134,17 @@ function LoggedInView({ accessToken, navigation, styles, theme }: LoggedInProps)
       style={styles.container}
       contentContainerStyle={styles.scrollContent}
     >
-      {/* 인사말 */}
+      {/* Greeting (mock: padding 24/20/8, eyebrow 14px text3, headline 26px 800) */}
       <View style={styles.greetingBlock}>
         <Text style={styles.eyebrow}>{t('home.eyebrow')}</Text>
         <Text style={styles.greeting}>
-          {fill(t('home.greeting'), { nickname })}
+          {fill(t('home.greetingHeadline'), { nickname })}
         </Text>
         {stats ? (
           <Text style={styles.greeting}>
+            {/* "이번 주 N회 붙었어요" — accent 색 강조는 inline 분리. */}
             {t('home.weeklyHeadlinePrefix')}
-            <Text style={[styles.greeting, { color: theme.accent.base }]}>
+            <Text style={[styles.greeting, styles.greetingAccent]}>
               {stats.weekSends}
             </Text>
             {t('home.weeklyHeadlineSuffix')}
@@ -136,14 +152,14 @@ function LoggedInView({ accessToken, navigation, styles, theme }: LoggedInProps)
         ) : null}
       </View>
 
-      {/* 큰 통계 카드 */}
+      {/* Big stats card (mock: subtle bg, radius 20, padding 24/22, 좌측 56px 큰 숫자) */}
       {statsQuery.isLoading ? (
         <View style={styles.statsCard}>
           <Skeleton width="40%" height={14} />
           <View style={{ height: space[4] }} />
           <Skeleton width="60%" height={56} />
-          <View style={{ height: space[6] }} />
-          <Skeleton width="100%" height={48} />
+          <View style={{ height: space[4] }} />
+          <Skeleton width="100%" height={20} />
         </View>
       ) : statsQuery.error ? (
         <View style={styles.errorBox}>
@@ -152,90 +168,44 @@ function LoggedInView({ accessToken, navigation, styles, theme }: LoggedInProps)
         </View>
       ) : stats ? (
         <View style={styles.statsCard}>
-          <Text style={styles.caption}>
+          <Text style={styles.statsCardCaption}>
             {fill(t('home.weekCaption'), {
               start: toMonthDay(stats.weekRange.start),
               end: toMonthDay(stats.weekRange.end),
             })}
           </Text>
-          <View style={{ height: space[4] }} />
-          <BigStat
-            value={stats.weekSends}
-            unit={t('home.weekSendsUnit') || undefined}
-            label={t('home.weekSendsLabel')}
-            scale="xl"
-          />
-          <View style={styles.divider} />
-          <View style={styles.statsRow}>
-            <BigStat
-              value={stats.totalSessions}
-              label={t('home.totalSessionsLabel')}
-              scale="sm"
-            />
-            <BigStat
-              value={stats.totalSends}
-              label={t('home.totalSendsLabel')}
-              scale="sm"
-            />
-            <BigStat
-              value={stats.topGrade ?? t('home.topGradeEmpty')}
-              label={t('home.topGradeLabel')}
-              scale="sm"
-            />
+          <View style={styles.statsCardRow}>
+            {/* 좌측: 큰 완등 수 + 보조 라인 ("완등 · 세션 N회") */}
+            <View style={styles.statsCardLeft}>
+              <Text style={styles.statsBigNumber}>{stats.weekSends}</Text>
+              <Text style={styles.statsCardSubLabel}>
+                {fill(t('home.weekSendsCardSummary'), {
+                  n: stats.weekSessions,
+                })}
+              </Text>
+            </View>
+            {/* 우측: 최고 그레이드 + 라벨 */}
+            <View style={styles.statsCardRight}>
+              <Text style={styles.statsTopGrade}>
+                {stats.topGrade ?? t('home.topGradeEmpty')}
+              </Text>
+              <Text style={styles.statsCardSubLabel}>
+                {t('home.topGradeCardLabel')}
+              </Text>
+            </View>
           </View>
         </View>
       ) : null}
 
-      {/* 주 CTA */}
-      <PrimaryButton onPress={() => navigation.navigate('StartSession')}>
+      {/* 주 CTA — mock: padding 20px, PrimaryButton */}
+      <PrimaryButton
+        onPress={() => navigation.navigate('StartSession')}
+        accessibilityLabel={t('home.ctaStartSession')}
+      >
         {t('home.ctaStartSession')}
       </PrimaryButton>
 
-      {/* 피드 진입 (임시 카드 — BottomTabs 도입 전 placeholder). */}
-      <Pressable
-        onPress={() => navigation.navigate('Feed')}
-        accessibilityRole="button"
-        accessibilityLabel={t('feed.openCta')}
-        style={({ pressed }) => [
-          styles.feedEntryCard,
-          pressed ? styles.feedEntryCardPressed : null,
-        ]}
-      >
-        <View style={styles.feedEntryIcon}>
-          <CrimpIcon.feed size={20} color={theme.text} />
-        </View>
-        <View style={styles.feedEntryBody}>
-          <Text style={styles.feedEntryTitle}>{t('feed.openCta')}</Text>
-          <Text style={styles.feedEntrySubtitle}>
-            {t('feed.openCtaDescription')}
-          </Text>
-        </View>
-        <CrimpIcon.chevR size={18} color={theme.text3} />
-      </Pressable>
-
-      {/* 프로필 진입 (임시 카드 — BottomTabs 도입 전 placeholder). */}
-      <Pressable
-        onPress={() => navigation.navigate('Profile')}
-        accessibilityRole="button"
-        accessibilityLabel={t('profile.openCta')}
-        style={({ pressed }) => [
-          styles.feedEntryCard,
-          pressed ? styles.feedEntryCardPressed : null,
-        ]}
-      >
-        <View style={styles.feedEntryIcon}>
-          <CrimpIcon.profile size={20} color={theme.text} />
-        </View>
-        <View style={styles.feedEntryBody}>
-          <Text style={styles.feedEntryTitle}>{t('profile.openCta')}</Text>
-          <Text style={styles.feedEntrySubtitle}>
-            {t('profile.openCtaDescription')}
-          </Text>
-        </View>
-        <CrimpIcon.chevR size={18} color={theme.text3} />
-      </Pressable>
-
-      {/* 최근 세션 */}
+      {/* 최근 세션 (mock: 헤더 18px 700 + 우측 "전체" link / 카드 행) */}
       {stats && stats.totalSessions === 0 ? (
         <View style={styles.emptyBlock}>
           <CrimpIcon.flame size={48} color={theme.accent.base} />
@@ -244,12 +214,30 @@ function LoggedInView({ accessToken, navigation, styles, theme }: LoggedInProps)
         </View>
       ) : (
         <View style={styles.recentBlock}>
-          <Text style={styles.sectionTitle}>{t('home.recentSessionsTitle')}</Text>
+          <View style={styles.recentHeader}>
+            <Text style={styles.sectionTitle}>
+              {t('home.recentSessionsTitle')}
+            </Text>
+            <Pressable
+              onPress={() => navigation.navigate('SessionList')}
+              accessibilityRole="button"
+              accessibilityLabel={t('home.recentSessionsSeeAll')}
+              hitSlop={8}
+              style={({ pressed }) => [
+                styles.recentSeeAllPress,
+                pressed ? styles.recentSeeAllPressed : null,
+              ]}
+            >
+              <Text style={styles.recentSeeAllLabel}>
+                {t('home.recentSessionsSeeAll')}
+              </Text>
+            </Pressable>
+          </View>
           {sessionsQuery.isLoading ? (
             <>
-              <Skeleton height={64} radius={radius.lg} />
+              <Skeleton height={72} radius={radius.lg} />
               <View style={{ height: space[2] }} />
-              <Skeleton height={64} radius={radius.lg} />
+              <Skeleton height={72} radius={radius.lg} />
             </>
           ) : recent.length > 0 ? (
             recent.map((s) => (
@@ -257,6 +245,7 @@ function LoggedInView({ accessToken, navigation, styles, theme }: LoggedInProps)
                 key={s.extId}
                 session={s}
                 styles={styles}
+                theme={theme}
                 onPress={() =>
                   navigation.navigate('SessionDetail', { extId: s.extId })
                 }
@@ -265,18 +254,72 @@ function LoggedInView({ accessToken, navigation, styles, theme }: LoggedInProps)
           ) : null}
         </View>
       )}
+
+      {/* 피드 진입 카드 (Phase 1.5 BottomTabs 도입 전 placeholder — PR #55) */}
+      <Pressable
+        onPress={() => navigation.navigate('Feed')}
+        accessibilityRole="button"
+        accessibilityLabel={t('feed.openCta')}
+        style={({ pressed }) => [
+          styles.entryCard,
+          pressed ? styles.entryCardPressed : null,
+        ]}
+      >
+        <View style={styles.entryIcon}>
+          <CrimpIcon.feed size={20} color={theme.text} />
+        </View>
+        <View style={styles.entryBody}>
+          <Text style={styles.entryTitle}>{t('feed.openCta')}</Text>
+          <Text style={styles.entrySubtitle}>
+            {t('feed.openCtaDescription')}
+          </Text>
+        </View>
+        <CrimpIcon.chevR size={18} color={theme.text3} />
+      </Pressable>
+
+      {/* 프로필 진입 카드 (PR #61) */}
+      <Pressable
+        onPress={() => navigation.navigate('Profile')}
+        accessibilityRole="button"
+        accessibilityLabel={t('profile.openCta')}
+        style={({ pressed }) => [
+          styles.entryCard,
+          pressed ? styles.entryCardPressed : null,
+        ]}
+      >
+        <View style={styles.entryIcon}>
+          <CrimpIcon.profile size={20} color={theme.text} />
+        </View>
+        <View style={styles.entryBody}>
+          <Text style={styles.entryTitle}>{t('profile.openCta')}</Text>
+          <Text style={styles.entrySubtitle}>
+            {t('profile.openCtaDescription')}
+          </Text>
+        </View>
+        <CrimpIcon.chevR size={18} color={theme.text3} />
+      </Pressable>
     </ScrollView>
   );
 }
 
+/**
+ * 최근 세션 카드 — mock: padding 14/16, hairline border, radius 16
+ *
+ * 좌측: 36/44px subtle 배경 원형 핀 아이콘
+ * 중앙: 암장 이름 (15px 700) + 보조 텍스트 (12px 500 text3)
+ * 우측: GradeBadge sm + count "×N" — 백엔드 데이터로 보여줄 항목이 아직 없으므로
+ *      Phase 1 에서는 GradeBadge 만 표시 (count 는 후속 PR 에서 sessionStats 합류).
+ */
 function RecentSessionCard({
   session,
   onPress,
   styles,
+  theme,
 }: {
   session: Session;
   onPress: () => void;
   styles: ReturnType<typeof makeStyles>;
+  theme: Theme;
 }): JSX.Element {
   const label = session.gymNameRaw ?? t('session.list.itemGymFallback');
   const parsed = new Date(session.startedAt);
@@ -293,8 +336,17 @@ function RecentSessionCard({
       accessibilityRole="button"
       accessibilityLabel={label}
     >
-      <Text style={styles.recentCardLabel}>{label}</Text>
-      <Text style={styles.recentCardDate}>{startedAt}</Text>
+      <View style={styles.recentCardIcon}>
+        <CrimpIcon.pin size={20} color={theme.text3} />
+      </View>
+      <View style={styles.recentCardBody}>
+        <Text style={styles.recentCardLabel} numberOfLines={1}>
+          {label}
+        </Text>
+        <Text style={styles.recentCardDate} numberOfLines={1}>
+          {startedAt}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -311,8 +363,10 @@ function makeStyles(theme: Theme) {
       padding: space[6],
       gap: space[3],
     },
+    /** Mock: paddingTop 64, 좌우 20, paddingBottom 110. RN 은 BottomTabs 미도입이라 14. */
     scrollContent: {
-      padding: space[5],
+      paddingHorizontal: space[5],
+      paddingTop: space[6],
       paddingBottom: space[14],
       gap: space[6],
     },
@@ -350,44 +404,81 @@ function makeStyles(theme: Theme) {
       fontSize: fontSize.caption,
       color: theme.text3,
     },
+    /** Greeting block — mock gap: eyebrow 4 / headline lines 0 (snug). */
     greetingBlock: {
       gap: space[1],
     },
     eyebrow: {
       fontFamily,
-      fontSize: fontSize.caption,
+      fontSize: 14,
       fontWeight: fontWeight.semibold,
       color: theme.text3,
       marginBottom: space[1],
     },
     greeting: {
       fontFamily,
-      fontSize: fontSize.h1,
+      fontSize: fontSize.h2,
       fontWeight: fontWeight.extrabold,
-      letterSpacing: letterSpacing.h1,
+      letterSpacing: letterSpacing.h2,
       color: theme.text,
-      lineHeight: fontSize.h1 * 1.15,
+      lineHeight: fontSize.h2 * 1.15,
     },
+    greetingAccent: {
+      color: theme.accent.base,
+    },
+    /** Stats card — mock subtle bg / radius 20 / padding 24·22 / 큰 숫자 + 우측 그레이드 */
     statsCard: {
       backgroundColor: theme.subtle,
       borderRadius: radius.xl,
-      padding: space[6],
+      paddingVertical: space[6],
+      paddingHorizontal: space[5],
+      gap: space[3],
     },
-    caption: {
+    statsCardCaption: {
       fontFamily,
-      fontSize: fontSize.caption,
+      fontSize: 13,
       fontWeight: fontWeight.semibold,
       color: theme.text3,
     },
-    divider: {
-      height: 1,
-      backgroundColor: theme.hairline,
-      marginVertical: space[5],
-    },
-    statsRow: {
+    statsCardRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      gap: space[3],
+      alignItems: 'flex-end',
+    },
+    statsCardLeft: {
+      flexShrink: 1,
+      gap: space[1],
+    },
+    statsCardRight: {
+      alignItems: 'flex-end',
+      gap: space[1],
+    },
+    /** Mock: fontSize 56, weight 800, letterSpacing -0.05em, lineHeight 1, tabular-nums. */
+    statsBigNumber: {
+      fontFamily,
+      fontSize: 56,
+      fontWeight: fontWeight.extrabold,
+      letterSpacing: -2.8,
+      lineHeight: 56,
+      color: theme.text,
+      includeFontPadding: false,
+    },
+    /** Mock 우측 최고 그레이드: fontSize 32, weight 800, accent 색. */
+    statsTopGrade: {
+      fontFamily,
+      fontSize: 32,
+      fontWeight: fontWeight.extrabold,
+      letterSpacing: letterSpacing.h1,
+      lineHeight: 32,
+      color: theme.accent.base,
+      includeFontPadding: false,
+    },
+    statsCardSubLabel: {
+      fontFamily,
+      fontSize: 13,
+      fontWeight: fontWeight.semibold,
+      color: theme.text3,
+      marginTop: space[1],
     },
     errorBox: {
       backgroundColor: withAlpha(theme.semantic.danger, 0.08),
@@ -414,9 +505,16 @@ function makeStyles(theme: Theme) {
       color: theme.text,
       marginTop: space[2],
     },
+    /** 최근 세션 블록 — mock 28/20/8 패딩 후 카드 gap 10. */
     recentBlock: {
       gap: space[3],
     },
+    recentHeader: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      justifyContent: 'space-between',
+    },
+    /** Mock 섹션 제목: fontSize 18, weight 700, letterSpacing -0.02em. */
     sectionTitle: {
       fontFamily,
       fontSize: fontSize.title,
@@ -424,30 +522,61 @@ function makeStyles(theme: Theme) {
       letterSpacing: letterSpacing.title,
       color: theme.text,
     },
+    recentSeeAllPress: {
+      paddingVertical: space[1],
+    },
+    recentSeeAllPressed: {
+      opacity: 0.6,
+    },
+    recentSeeAllLabel: {
+      fontFamily,
+      fontSize: 13,
+      fontWeight: fontWeight.semibold,
+      color: theme.text3,
+    },
+    /** Mock 최근 세션 카드: padding 14/16, hairline border, radius 16, row gap 12. */
     recentCard: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: space[4],
+      gap: space[3],
+      paddingVertical: space[3],
+      paddingHorizontal: space[4],
       borderRadius: radius.lg,
-      backgroundColor: theme.subtle,
+      backgroundColor: theme.bg,
+      borderWidth: 1,
+      borderColor: theme.hairline,
     },
     recentCardPressed: {
       opacity: 0.85,
     },
+    recentCardIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: radius.md,
+      backgroundColor: theme.subtle,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    recentCardBody: {
+      flex: 1,
+      minWidth: 0,
+    },
     recentCardLabel: {
       fontFamily,
       fontSize: fontSize.body,
-      fontWeight: fontWeight.semibold,
+      fontWeight: fontWeight.bold,
+      letterSpacing: letterSpacing.body,
       color: theme.text,
-      flexShrink: 1,
     },
     recentCardDate: {
       fontFamily,
       fontSize: fontSize.caption,
+      fontWeight: fontWeight.medium,
       color: theme.text3,
+      marginTop: 2,
     },
-    feedEntryCard: {
+    /** 피드/프로필 진입 카드 (Phase 1.5 placeholder, mock 의 BottomTabs 와 동일 정보 밀도) */
+    entryCard: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: space[3],
@@ -455,10 +584,10 @@ function makeStyles(theme: Theme) {
       borderRadius: radius.lg,
       backgroundColor: theme.subtle,
     },
-    feedEntryCardPressed: {
+    entryCardPressed: {
       opacity: 0.85,
     },
-    feedEntryIcon: {
+    entryIcon: {
       width: 36,
       height: 36,
       borderRadius: radius.full,
@@ -466,19 +595,19 @@ function makeStyles(theme: Theme) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    feedEntryBody: {
+    entryBody: {
       flex: 1,
       minWidth: 0,
       gap: 2,
     },
-    feedEntryTitle: {
+    entryTitle: {
       fontFamily,
       fontSize: fontSize.body,
       fontWeight: fontWeight.bold,
       color: theme.text,
-      letterSpacing: -0.15,
+      letterSpacing: letterSpacing.body,
     },
-    feedEntrySubtitle: {
+    entrySubtitle: {
       fontFamily,
       fontSize: fontSize.caption,
       fontWeight: fontWeight.medium,

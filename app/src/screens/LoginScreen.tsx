@@ -48,6 +48,19 @@ try {
   kakaoLogin = null;
 }
 
+/**
+ * 로그인 화면.
+ *
+ * 디자인 출처: docs/design/claude/v2/screens-ios-2.jsx:6 (`LoginScreen`)
+ *
+ * Mock 레이아웃:
+ * - 상단(hero): 브랜드 마크 + 큰 H1 헤드라인 + 보조 문구
+ * - 하단(CTA): 카카오 1차 버튼 + 약관 안내
+ * - 사이 영역(scroll): notice / error / dev-mode 토글 (PR #49 의 dev token 폴백 보존)
+ *
+ * 행위는 무변경 — 기존 `useExchangeOauth` mutation, `kakaoLogin` 폴백 require, dev 토큰
+ * 패널, 이미 로그인 시 홈 redirect 는 그대로 유지하고 시각만 v2 mock 에 맞춘다.
+ */
 export default function LoginScreen(): JSX.Element {
   const theme = useTokens();
   const navigation = useNavigation<Nav>();
@@ -126,11 +139,22 @@ export default function LoginScreen(): JSX.Element {
       contentContainerStyle={styles.scrollContent}
       keyboardShouldPersistTaps="handled"
     >
+      {/* Hero — 브랜드 + 헤드라인 (mock: paddingTop 120, padding 0 24) */}
       <View style={styles.heroBlock}>
-        <Text style={styles.brand}>{t('common.brand')}</Text>
-        <Text style={styles.tagline}>{t('auth.login.tagline')}</Text>
+        <Text style={styles.brand} accessibilityRole="header">
+          {t('common.brand')}
+        </Text>
+        <Text style={styles.headline}>
+          {t('auth.login.headlineLine1')}
+          {'\n'}
+          {t('auth.login.headlineLine2')}
+        </Text>
+        <Text style={styles.subDescription}>
+          {t('auth.login.subDescription')}
+        </Text>
       </View>
 
+      {/* 네이티브 SDK 미연결 알림 (dev 빌드 한정) */}
       {kakaoLogin === null ? (
         <View style={styles.noticeCard} accessibilityRole="alert">
           <Text style={styles.noticeTitle}>{t('auth.login.nativeUnlinkedTitle')}</Text>
@@ -138,6 +162,7 @@ export default function LoginScreen(): JSX.Element {
         </View>
       ) : null}
 
+      {/* CTA + 약관 (mock: 하단 padding 0 20, gap 10) */}
       <View style={styles.ctaBlock}>
         <PrimaryButton
           onPress={onKakaoPress}
@@ -148,6 +173,7 @@ export default function LoginScreen(): JSX.Element {
             ? t('auth.login.exchanging')
             : t('auth.login.kakaoCta')}
         </PrimaryButton>
+        <Text style={styles.termsNotice}>{t('auth.login.termsNotice')}</Text>
       </View>
 
       {errorMessage ? (
@@ -157,7 +183,7 @@ export default function LoginScreen(): JSX.Element {
         </View>
       ) : null}
 
-      {/* Dev 모드 폴백 */}
+      {/* Dev 모드 폴백 — Phase 1 동안 유지 (PR #49). */}
       <View style={styles.devSection}>
         <Pressable
           onPress={() => setDevOpen((v) => !v)}
@@ -217,15 +243,19 @@ function makeStyles(theme: Theme) {
       padding: space[6],
       gap: space[3],
     },
+    /**
+     * Mock paddingTop 120 + paddingBottom 60 ≒ space[20] (80) / space[14] (56).
+     * 모바일 safe-area + 작은 화면 호환을 위해 hero 영역 위쪽 80, 아래쪽 56.
+     */
     scrollContent: {
-      padding: space[5],
-      paddingTop: space[10],
+      paddingHorizontal: space[6],
+      paddingTop: space[20],
       paddingBottom: space[14],
-      gap: space[6],
+      gap: space[8],
     },
+    /** Hero block — 브랜드/헤드라인/설명. Mock gap: 32 + 12 ≒ space[8]/space[3]. */
     heroBlock: {
-      gap: space[2],
-      marginBottom: space[4],
+      gap: space[3],
     },
     brand: {
       fontFamily,
@@ -233,12 +263,24 @@ function makeStyles(theme: Theme) {
       fontWeight: fontWeight.extrabold,
       letterSpacing: letterSpacing.h1,
       color: theme.text,
+      marginBottom: space[2],
     },
-    tagline: {
+    /** Mock: fontSize 32, weight 800, letterSpacing -0.04em, lineHeight 1.2. */
+    headline: {
       fontFamily,
-      fontSize: fontSize.title,
+      fontSize: fontSize.h1,
+      fontWeight: fontWeight.extrabold,
+      letterSpacing: letterSpacing.h1,
+      color: theme.text,
+      lineHeight: fontSize.h1 * 1.2,
+    },
+    /** Mock: fontSize 15, color text3, weight 500, lineHeight 1.5. */
+    subDescription: {
+      fontFamily,
+      fontSize: fontSize.body,
       fontWeight: fontWeight.medium,
-      color: theme.text2,
+      color: theme.text3,
+      lineHeight: fontSize.body * 1.5,
     },
     alreadyLoggedIn: {
       fontFamily,
@@ -250,8 +292,18 @@ function makeStyles(theme: Theme) {
       alignSelf: 'stretch',
       marginTop: space[4],
     },
+    /** Mock 하단 CTA gap 10 + 약관 marginTop 12 ≒ space[3]. */
     ctaBlock: {
       gap: space[3],
+    },
+    /** Mock: fontSize 12, color text3, textAlign center, lineHeight 1.5. */
+    termsNotice: {
+      fontFamily,
+      fontSize: fontSize.caption,
+      color: theme.text3,
+      textAlign: 'center',
+      lineHeight: fontSize.caption * 1.5,
+      marginTop: space[2],
     },
     noticeCard: {
       backgroundColor: theme.subtle,
