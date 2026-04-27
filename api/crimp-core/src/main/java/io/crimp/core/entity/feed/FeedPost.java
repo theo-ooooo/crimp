@@ -25,9 +25,10 @@ import static lombok.AccessLevel.PROTECTED;
  * 이 아닌 명시적 code() 매핑은 {@code CodeEnumConverter} 부재로 별도 도입하지 않고 enum
  * 순서가 1·2·3 매핑되도록 정의되어 있음 — {@link PostVisibility} 정의 참조).
  *
- * <p>like_count / comment_count 는 디노멀 카운터다. {@code insertable=false / updatable=false}
- * 로 선언해 JPA 가 직접 SET 하지 않게 하고, 대신 {@code FeedPostRepository} 의 직접 UPDATE
- * 쿼리로 race-safe 하게 증감한다 (좋아요·댓글 토글 시 read-modify-write 회피).
+ * <p>like_count / comment_count 는 디노멀 카운터다. INSERT 시에는 0 으로 명시 초기화 (DB
+ * DEFAULT 의존 회피, 영속 컨텍스트 일관성 확보), 이후 변경은 {@code updatable=false} 로 막아
+ * JPA dirty-check 를 차단하고 {@code FeedPostRepository} 의 직접 UPDATE 쿼리로 race-safe
+ * 하게 증감한다 (좋아요·댓글 토글 시 read-modify-write 회피).
  */
 @Entity
 @Getter
@@ -61,10 +62,10 @@ public class FeedPost extends SoftDeletableEntity {
     @Column(name = "visibility", nullable = false)
     private PostVisibility visibility;
 
-    @Column(name = "like_count", nullable = false, insertable = false, updatable = false)
+    @Column(name = "like_count", nullable = false, updatable = false)
     private Integer likeCount;
 
-    @Column(name = "comment_count", nullable = false, insertable = false, updatable = false)
+    @Column(name = "comment_count", nullable = false, updatable = false)
     private Integer commentCount;
 
     private FeedPost(String extId, Long userId, String content, Long sessionId, Long attemptId,
@@ -76,6 +77,10 @@ public class FeedPost extends SoftDeletableEntity {
         this.attemptId = attemptId;
         this.gymId = gymId;
         this.visibility = visibility;
+        // B2: INSERT 시 카운터를 0 으로 명시 초기화. DB DEFAULT 0 에 의존하지 않고 영속
+        // 컨텍스트의 필드도 NULL 잔존 없이 0 으로 시작 (NPE 차단). 이후 증감은 직접 UPDATE.
+        this.likeCount = 0;
+        this.commentCount = 0;
     }
 
     /** 자유 글 — attempt 비종속 게시. */

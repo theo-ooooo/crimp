@@ -55,7 +55,11 @@ public class CommentRepositoryCustomImpl implements CommentRepositoryCustom {
                 .from(c)
                 .join(u).on(c.userId.eq(u.id))
                 .leftJoin(p).on(p.userId.eq(u.id))
-                .leftJoin(parent).on(c.parentId.eq(parent.id))
+                // I3: 부모가 soft-delete 된 경우 parentExtId 를 노출하지 않는다 (자식 응답이
+                // 더 이상 보이지 않는 부모를 참조하면 클라이언트의 "원댓글 보기" 가 404).
+                // ON 조건에서 deletedAt 필터를 결합하면 일치 실패 → projection 의 parent.extId
+                // 가 자연스럽게 NULL.
+                .leftJoin(parent).on(c.parentId.eq(parent.id).and(parent.deletedAt.isNull()))
                 .where(where)
                 .orderBy(c.id.asc())
                 .limit(pageSize + 1L)

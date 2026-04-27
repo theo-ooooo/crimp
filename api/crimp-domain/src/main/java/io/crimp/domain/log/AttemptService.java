@@ -123,12 +123,39 @@ public class AttemptService {
         if (cmd.mediaId() != null) attempt.updateMediaId(cmd.mediaId());
         if (cmd.note() != null) attempt.updateNote(cmd.note());
         if (cmd.tagsJson() != null) attempt.updateTagsJson(cmd.tagsJson());
+
+        // I1: result PATCH 가 자동 게시 정책에 영향. SEND/FLASH/ONSIGHT 로 전환되면 신규 게시,
+        // 반대로 FAIL/TRY 로 전환되면 기존 게시를 soft-delete 하여 피드에서 숨긴다.
+        // 같은 result 유지면 멱등(autoPublishToFeed 의 findByAttemptId 가드).
+        ClimbingSession session = sessionRepository.findById(attempt.getSessionId())
+                .orElseThrow(() -> new SessionException("ATTEMPT_NOT_FOUND",
+                        "Attempt " + attemptExtId + " not found"));
+        if (AUTO_PUBLISH_RESULTS.contains(attempt.getResult())) {
+            autoPublishToFeed(attempt, session.getUserId());
+        } else {
+            feedPostRepository.findByAttemptId(attempt.getId())
+                    .ifPresent(post -> {
+                        if (!post.isDeleted()) {
+                            post.softDelete();
+                        }
+                    });
+        }
         return toView(attempt);
     }
 
     @Transactional
     public void delete(long userId, String attemptExtId) {
         SessionAttempt attempt = fetchOwnedAttempt(userId, attemptExtId);
+        // B1: 자동 게시된 FeedPost 도 같은 트랜잭션에서 soft-delete. V908 의 FK 가
+        // ON DELETE SET NULL 로 정의돼 있어 attempt hard-delete 가 거절되진 않지만,
+        // 피드에 "유령" post (attempt_id NULL, content=note) 가 남는 것을 방지하려면
+        // 명시적으로 게시 가시성을 차단한다. 정상 사용자 의도: "내 시도 삭제 = 피드에서도 사라짐".
+        feedPostRepository.findByAttemptId(attempt.getId())
+                .ifPresent(post -> {
+                    if (!post.isDeleted()) {
+                        post.softDelete();
+                    }
+                });
         attemptRepository.delete(attempt);
     }
 

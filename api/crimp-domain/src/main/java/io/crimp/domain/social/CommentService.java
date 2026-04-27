@@ -99,11 +99,14 @@ public class CommentService {
         Comment comment = Comment.create(
                 UlidGenerator.next(), post.getId(), userId, parentId, content);
         commentRepository.save(comment);
+        // I4: flush 후 DB 의 CURRENT_TIMESTAMP 를 영속 컨텍스트로 끌어와 list 재조회와
+        // createdAt 을 일치시킨다. (이전: Instant.now() 로 ms 단위 어긋남 → 클라이언트의
+        // 시간 기준 정렬·매칭이 깨질 수 있었음.)
+        commentRepository.flush();
         feedPostRepository.incrementCommentCount(post.getId());
 
         // 작성자 정보는 응답에 같이 내려준다 — 클라이언트가 작성 직후 list 재호출 없이 즉시
-        // 카드 렌더링할 수 있도록. createdAt 은 엔티티 timestamp 가 아직 flush 전일 수 있어
-        // 서버 시각으로 채운다 (DB 의 CURRENT_TIMESTAMP 와 약간 차이날 수 있지만 표시 용도).
+        // 카드 렌더링할 수 있도록.
         Optional<User> userOpt = userRepository.findById(userId);
         Optional<io.crimp.core.entity.user.Profile> profileOpt = profileRepository.findById(userId);
         return new CommentView(
@@ -112,7 +115,7 @@ public class CommentService {
                 profileOpt.map(io.crimp.core.entity.user.Profile::getNickname).orElse(null),
                 avatarColorHue(userId),
                 comment.getContent(),
-                java.time.Instant.now(),
+                comment.getCreatedAt(),
                 resolvedParentExtId);
     }
 

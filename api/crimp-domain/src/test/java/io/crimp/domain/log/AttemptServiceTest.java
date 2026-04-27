@@ -154,9 +154,108 @@ class AttemptServiceTest {
         ClimbingSession s = session(100L, "01HSESS", 42L, false);
         when(attemptRepo.findByExtId("01HATT")).thenReturn(Optional.of(a));
         when(sessionRepo.findById(100L)).thenReturn(Optional.of(s));
+        when(feedPostRepo.findByAttemptId(1L)).thenReturn(Optional.empty());
 
         service.delete(42L, "01HATT");
         verify(attemptRepo).delete(a);
+        verify(feedPostRepo).findByAttemptId(1L);
+    }
+
+    @Test
+    void delete_attempt_with_auto_published_post_soft_deletes_post() {
+        // B1: 자동 게시된 SEND/FLASH/ONSIGHT 시도를 삭제하면 연결된 FeedPost 도 같이 soft-delete.
+        // FK ON DELETE SET NULL 도 V908 에 적용돼 있어 attempt hard-delete 가 거절되진 않지만,
+        // 피드에서 "유령" post 가 보이지 않도록 가시성을 명시 차단한다.
+        SessionAttempt a = attempt(1L, "01HATT", 100L, AttemptResult.SEND);
+        ClimbingSession s = session(100L, "01HSESS", 42L, false);
+        FeedPost post = FeedPost.fromAttempt(
+                "01HPOST", 42L, "test", 100L, 1L, 7L, PostVisibility.PUBLIC);
+        when(attemptRepo.findByExtId("01HATT")).thenReturn(Optional.of(a));
+        when(sessionRepo.findById(100L)).thenReturn(Optional.of(s));
+        when(feedPostRepo.findByAttemptId(1L)).thenReturn(Optional.of(post));
+
+        assertThat(post.isDeleted()).isFalse();
+        service.delete(42L, "01HATT");
+
+        assertThat(post.isDeleted()).isTrue();
+        verify(attemptRepo).delete(a);
+    }
+
+    @Test
+    void delete_attempt_with_already_softdeleted_post_is_idempotent() {
+        // 이미 soft-delete 된 FeedPost 는 다시 soft-delete 호출하지 않는다 (deletedAt 안 바뀜).
+        SessionAttempt a = attempt(1L, "01HATT", 100L, AttemptResult.SEND);
+        ClimbingSession s = session(100L, "01HSESS", 42L, false);
+        FeedPost post = FeedPost.fromAttempt(
+                "01HPOST", 42L, "test", 100L, 1L, 7L, PostVisibility.PUBLIC);
+        post.softDelete();
+        Instant deletedAtBefore = post.getDeletedAt();
+        when(attemptRepo.findByExtId("01HATT")).thenReturn(Optional.of(a));
+        when(sessionRepo.findById(100L)).thenReturn(Optional.of(s));
+        when(feedPostRepo.findByAttemptId(1L)).thenReturn(Optional.of(post));
+
+        service.delete(42L, "01HATT");
+
+        assertThat(post.getDeletedAt()).isEqualTo(deletedAtBefore);
+        verify(attemptRepo).delete(a);
+    }
+
+    // --- I1: PATCH result 자동 게시 재평가 ---
+
+    @Test
+    void update_fail_to_send_auto_publishes() {
+        // FAIL 로 기록 → SEND 로 PATCH → 자동 게시 트리거.
+        SessionAttempt a = attempt(1L, "01HATT", 100L, AttemptResult.FAIL);
+        ClimbingSession s = session(100L, "01HSESS", 42L, false);
+        when(attemptRepo.findByExtId("01HATT")).thenReturn(Optional.of(a));
+        when(sessionRepo.findById(100L)).thenReturn(Optional.of(s));
+        when(feedPostRepo.findByAttemptId(1L)).thenReturn(Optional.empty());
+
+        var cmd = new UpdateAttemptCommand(
+                null, null, null, null, AttemptResult.SEND, null, null, null, null);
+        service.update(42L, "01HATT", cmd);
+
+        verify(feedPostRepo).save(any(FeedPost.class));
+    }
+
+    @Test
+    void update_send_to_fail_soft_deletes_existing_post() {
+        // SEND 로 자동 게시된 시도를 FAIL 로 PATCH → 기존 FeedPost soft-delete (피드 숨김).
+        SessionAttempt a = attempt(1L, "01HATT", 100L, AttemptResult.SEND);
+        ClimbingSession s = session(100L, "01HSESS", 42L, false);
+        FeedPost post = FeedPost.fromAttempt(
+                "01HPOST", 42L, "test", 100L, 1L, 7L, PostVisibility.PUBLIC);
+        when(attemptRepo.findByExtId("01HATT")).thenReturn(Optional.of(a));
+        when(sessionRepo.findById(100L)).thenReturn(Optional.of(s));
+        when(feedPostRepo.findByAttemptId(1L)).thenReturn(Optional.of(post));
+
+        var cmd = new UpdateAttemptCommand(
+                null, null, null, null, AttemptResult.FAIL, null, null, null, null);
+        service.update(42L, "01HATT", cmd);
+
+        assertThat(post.isDeleted()).isTrue();
+        // FAIL 전환이라 신규 게시 호출은 없어야 함.
+        verify(feedPostRepo, never()).save(any(FeedPost.class));
+    }
+
+    @Test
+    void update_send_to_flash_idempotent_no_duplicate_post() {
+        // SEND → FLASH (둘 다 자동 게시 대상). 이미 게시된 post 가 있으니 멱등 skip.
+        SessionAttempt a = attempt(1L, "01HATT", 100L, AttemptResult.SEND);
+        ClimbingSession s = session(100L, "01HSESS", 42L, false);
+        FeedPost existing = FeedPost.fromAttempt(
+                "01HPOST", 42L, "test", 100L, 1L, 7L, PostVisibility.PUBLIC);
+        when(attemptRepo.findByExtId("01HATT")).thenReturn(Optional.of(a));
+        when(sessionRepo.findById(100L)).thenReturn(Optional.of(s));
+        when(feedPostRepo.findByAttemptId(1L)).thenReturn(Optional.of(existing));
+
+        var cmd = new UpdateAttemptCommand(
+                null, null, null, null, AttemptResult.FLASH, null, null, null, null);
+        service.update(42L, "01HATT", cmd);
+
+        // 이미 게시되어 있고, deleted 상태 아님 → 신규 save 도, soft-delete 도 없어야.
+        verify(feedPostRepo, never()).save(any(FeedPost.class));
+        assertThat(existing.isDeleted()).isFalse();
     }
 
     // --- 자동 게시 (auto-publish) ---

@@ -14,7 +14,8 @@ public interface CommentRepositoryCustom {
     /**
      * 게시물별 댓글 페이지(soft-deleted 제외).
      *
-     * <p>정렬: {@code Comment.id ASC} — ULID 라 시간 단조성 보장. cursor 가 null 이면 처음부터,
+     * <p>정렬: {@code Comment.id ASC} — BIGINT AUTO_INCREMENT 단일 시퀀스라 InnoDB 가
+     * 단조성을 보장한다. (ext_id 는 ULID 이지만 정렬 키는 id.) cursor 가 null 이면 처음부터,
      * 있으면 cursor 보다 큰 id 만 (forward 페이지네이션).
      *
      * @return Slice — pageSize+1 fetch 로 hasNext 추론

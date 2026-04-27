@@ -27,11 +27,16 @@ public interface FeedPostRepository extends JpaRepository<FeedPost, Long>, FeedP
     /**
      * 좋아요 카운터 증가. INSERT IGNORE 로 멱등 보장된 likes 삽입 후에만 호출되어야 race-safe.
      *
-     * @return 영향 받은 row 수 (정상 1, post 미존재/삭제 시 0)
+     * <p>I2 가드: {@code deletedAt IS NULL} 필터를 두지 않는다. 이유 — like row 가 이미
+     * INSERT 된 상태이므로 카운터는 항상 동기화돼야 한다. 게시가 동시에 soft-delete 되어도
+     * 카운터는 like 수를 정확히 반영하고, 피드 가시성은 별도 deletedAt 필터로 결정된다.
+     * (감소 쿼리도 동일 정책 — symmetry 유지.)
+     *
+     * @return 영향 받은 row 수 (정상 1, post 미존재 시 0)
      */
     @Modifying
     @Query("UPDATE FeedPost fp SET fp.likeCount = fp.likeCount + 1 " +
-            "WHERE fp.id = :postId AND fp.deletedAt IS NULL")
+            "WHERE fp.id = :postId")
     int incrementLikeCount(@Param("postId") long postId);
 
     /**
@@ -44,10 +49,15 @@ public interface FeedPostRepository extends JpaRepository<FeedPost, Long>, FeedP
             "WHERE id = :postId", nativeQuery = true)
     int decrementLikeCount(@Param("postId") long postId);
 
-    /** 댓글 카운터 증가. */
+    /**
+     * 댓글 카운터 증가.
+     *
+     * <p>I2 가드: like 와 동일 정책. comment row 가 이미 INSERT 된 상태이므로 카운터는 항상
+     * 댓글 수를 반영. 게시 가시성은 별도 deletedAt 필터로 결정.
+     */
     @Modifying
     @Query("UPDATE FeedPost fp SET fp.commentCount = fp.commentCount + 1 " +
-            "WHERE fp.id = :postId AND fp.deletedAt IS NULL")
+            "WHERE fp.id = :postId")
     int incrementCommentCount(@Param("postId") long postId);
 
     /** 댓글 카운터 감소. 0 이하 방지. */
