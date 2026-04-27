@@ -112,6 +112,10 @@
       "confirmCta": "Set",
       "cancel": "Cancel",
       "errorTitle": "Failed to update your main gym"
+    },
+    "logout": {
+      "cta": "Sign out",
+      "loading": "Signing out…"
     }
   },
   "session": {
