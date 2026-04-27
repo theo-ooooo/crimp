@@ -1,5 +1,6 @@
 'use client';
 
+import { MainGymSection } from '@/components/me/MainGymSection';
 import { useMeQuery } from '@/hooks/useMe';
 import { t } from '@/lib/i18n';
 import { useAccessToken, useTokenStore } from '@/store/tokenStore';
@@ -30,7 +31,7 @@ export default function MePage(): JSX.Element {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-6 px-6">
+    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-6 py-10">
       <h1 className="text-2xl font-semibold">{t('me.title')}</h1>
       {isLoading ? (
         <p className="text-sm text-neutral-400">{t('common.loading')}</p>
@@ -42,26 +43,33 @@ export default function MePage(): JSX.Element {
           </p>
         </div>
       ) : data ? (
-        <dl className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-2 text-sm">
-          <dt className="text-neutral-500">{t('me.labelExtId')}</dt>
-          <dd className="font-mono text-neutral-200">{data.extId}</dd>
-          <dt className="text-neutral-500">{t('me.labelNickname')}</dt>
-          <dd className="text-neutral-200">{data.nickname ?? t('me.empty')}</dd>
-          <dt className="text-neutral-500">{t('me.labelBio')}</dt>
-          <dd className="text-neutral-200">{data.bio ?? t('me.empty')}</dd>
-          <dt className="text-neutral-500">{t('me.labelLevelSelf')}</dt>
-          <dd className="text-neutral-200">
-            {data.levelSelf ?? t('me.empty')}
-          </dd>
-          <dt className="text-neutral-500">{t('me.labelMainGymId')}</dt>
-          <dd className="text-neutral-200">
-            {data.mainGymId ?? t('me.empty')}
-          </dd>
-          <dt className="text-neutral-500">{t('me.labelAvatarMediaId')}</dt>
-          <dd className="text-neutral-200">
-            {data.avatarMediaId ?? t('me.empty')}
-          </dd>
-        </dl>
+        <>
+          {/* 프로필 기본 정보 — Phase 1 표시용. 닉네임 등 편집 UI 는 별도 PR. */}
+          <dl className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-2 text-sm">
+            <dt className="text-neutral-500">{t('me.labelExtId')}</dt>
+            <dd className="font-mono text-neutral-200">{data.extId}</dd>
+            <dt className="text-neutral-500">{t('me.labelNickname')}</dt>
+            <dd className="text-neutral-200">
+              {data.nickname ?? t('me.empty')}
+            </dd>
+            <dt className="text-neutral-500">{t('me.labelBio')}</dt>
+            <dd className="text-neutral-200">{data.bio ?? t('me.empty')}</dd>
+            <dt className="text-neutral-500">{t('me.labelLevelSelf')}</dt>
+            <dd className="text-neutral-200">
+              {data.levelSelf ?? t('me.empty')}
+            </dd>
+            <dt className="text-neutral-500">{t('me.labelAvatarMediaId')}</dt>
+            <dd className="text-neutral-200">
+              {data.avatarMediaId ?? t('me.empty')}
+            </dd>
+          </dl>
+
+          {/* 내 암장 — 설정 / 변경 / 해제 UI. */}
+          <MainGymSection
+            accessToken={accessToken}
+            currentMainGym={data.mainGym ?? null}
+          />
+        </>
       ) : null}
     </main>
   );
