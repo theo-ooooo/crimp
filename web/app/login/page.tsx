@@ -250,7 +250,7 @@ export default function LoginPage(): JSX.Element {
           aria-label={t('auth.login.kakaoCta')}
           onClick={handleKakaoLogin}
           disabled={!hasAppKey || !sdkReady || exchange.isPending}
-          className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-lg text-[16px] font-bold tracking-[-0.02em] text-[#0F1419] transition-transform duration-fast ease-standard active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-subtle-2 disabled:text-text-3"
+          className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-lg text-[16px] font-bold tracking-[-0.02em] text-accent-on transition-transform duration-fast ease-standard active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-subtle-2 disabled:text-text-3"
           style={{
             backgroundColor: hasAppKey && sdkReady ? '#FEE500' : undefined,
             WebkitTapHighlightColor: 'transparent',
@@ -340,7 +340,7 @@ function KakaoMark(): JSX.Element {
       aria-hidden="true"
       focusable="false"
     >
-      <ellipse cx="9" cy="8" rx="7.5" ry="6.5" fill="#0F1419" />
+      <ellipse cx="9" cy="8" rx="7.5" ry="6.5" fill="currentColor" />
     </svg>
   );
 }
