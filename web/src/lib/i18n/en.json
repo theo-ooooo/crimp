@@ -19,6 +19,14 @@
     "delete": "Delete",
     "empty": "-"
   },
+  "nav": {
+    "ariaLabel": "Primary",
+    "home": "Home",
+    "feed": "Feed",
+    "sessions": "Sessions",
+    "gyms": "Gyms",
+    "profile": "Profile"
+  },
   "auth": {
     "login": {
       "title": "Ready to climb today?",
