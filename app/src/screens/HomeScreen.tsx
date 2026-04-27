@@ -191,6 +191,28 @@ function LoggedInView({ accessToken, navigation, styles, theme }: LoggedInProps)
         {t('home.ctaStartSession')}
       </PrimaryButton>
 
+      {/* 피드 진입 (임시 카드 — BottomTabs 도입 전 placeholder). */}
+      <Pressable
+        onPress={() => navigation.navigate('Feed')}
+        accessibilityRole="button"
+        accessibilityLabel={t('feed.openCta')}
+        style={({ pressed }) => [
+          styles.feedEntryCard,
+          pressed ? styles.feedEntryCardPressed : null,
+        ]}
+      >
+        <View style={styles.feedEntryIcon}>
+          <CrimpIcon.feed size={20} color={theme.text} />
+        </View>
+        <View style={styles.feedEntryBody}>
+          <Text style={styles.feedEntryTitle}>{t('feed.openCta')}</Text>
+          <Text style={styles.feedEntrySubtitle}>
+            {t('feed.openCtaDescription')}
+          </Text>
+        </View>
+        <CrimpIcon.chevR size={18} color={theme.text3} />
+      </Pressable>
+
       {/* 최근 세션 */}
       {stats && stats.totalSessions === 0 ? (
         <View style={styles.emptyBlock}>
@@ -401,6 +423,43 @@ function makeStyles(theme: Theme) {
     recentCardDate: {
       fontFamily,
       fontSize: fontSize.caption,
+      color: theme.text3,
+    },
+    feedEntryCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space[3],
+      padding: space[4],
+      borderRadius: radius.lg,
+      backgroundColor: theme.subtle,
+    },
+    feedEntryCardPressed: {
+      opacity: 0.85,
+    },
+    feedEntryIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: radius.full,
+      backgroundColor: theme.chip,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    feedEntryBody: {
+      flex: 1,
+      minWidth: 0,
+      gap: 2,
+    },
+    feedEntryTitle: {
+      fontFamily,
+      fontSize: fontSize.body,
+      fontWeight: fontWeight.bold,
+      color: theme.text,
+      letterSpacing: -0.15,
+    },
+    feedEntrySubtitle: {
+      fontFamily,
+      fontSize: fontSize.caption,
+      fontWeight: fontWeight.medium,
       color: theme.text3,
     },
   });
