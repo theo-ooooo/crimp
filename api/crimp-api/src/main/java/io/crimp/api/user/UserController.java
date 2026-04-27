@@ -48,7 +48,13 @@ public class UserController {
             @AuthenticationPrincipal CrimpPrincipal principal,
             @RequestBody @Valid UpdateProfileRequest req) {
         UpdateProfileCommand cmd = new UpdateProfileCommand(
-                req.nickname(), req.bio(), req.levelSelf(), req.mainGymId(), req.avatarMediaId());
+                req.nickname(),
+                req.bio(),
+                req.levelSelf(),
+                req.mainGymId(),
+                req.mainGymExtId(),
+                req.clearMainGym() != null && req.clearMainGym(),
+                req.avatarMediaId());
         return MeResponse.of(userService.updateMyProfile(principal.userId(), cmd));
     }
 
@@ -67,7 +73,7 @@ public class UserController {
     @ExceptionHandler(UserException.class)
     public ResponseEntity<ApiResponse<Void>> handleUser(UserException e) {
         int status = switch (e.code()) {
-            case "USER_NOT_FOUND", "PROFILE_MISSING" -> 404;
+            case "USER_NOT_FOUND", "PROFILE_MISSING", "MAIN_GYM_NOT_FOUND" -> 404;
             case "NICKNAME_TAKEN" -> 409;
             default -> 400;
         };
@@ -76,11 +82,24 @@ public class UserController {
 
     // --- DTOs ---
 
+    /**
+     * PATCH /me/profile 요청 바디.
+     *
+     * <p>주 암장 변경:
+     * <ul>
+     *   <li>{@code mainGymExtId} 권장 — ULID. 서버에서 numeric id 로 해석.
+     *   <li>{@code mainGymId} 호환 — 기존 클라이언트가 numeric id 직접 전달 시.
+     *   <li>{@code clearMainGym=true} — 주 암장 명시 해제 (null 로 설정).
+     *   <li>{@code clearMainGym=true} 와 mainGymExtId/mainGymId 동시 set 은 400 (INVALID_MAIN_GYM_REQUEST).
+     * </ul>
+     */
     public record UpdateProfileRequest(
             @Size(min = 2, max = 30) String nickname,
             @Size(max = 300) String bio,
             Byte levelSelf,
             Long mainGymId,
+            @Size(max = 26) String mainGymExtId,
+            Boolean clearMainGym,
             Long avatarMediaId
     ) {}
 
@@ -90,10 +109,29 @@ public class UserController {
             String bio,
             Byte levelSelf,
             Long mainGymId,
+            MainGymResponse mainGym,
             Long avatarMediaId
     ) {
         static MeResponse of(ProfileView v) {
-            return new MeResponse(v.extId(), v.nickname(), v.bio(), v.levelSelf(), v.mainGymId(), v.avatarMediaId());
+            return new MeResponse(
+                    v.extId(),
+                    v.nickname(),
+                    v.bio(),
+                    v.levelSelf(),
+                    v.mainGymId(),
+                    MainGymResponse.of(v.mainGym()),
+                    v.avatarMediaId());
+        }
+    }
+
+    /**
+     * 클라이언트 렌더용 최소 암장 정보. {@code GymItem} 의 부분집합.
+     * mainGymId 가 null 이거나 해당 암장이 더 이상 존재하지 않으면 null.
+     */
+    public record MainGymResponse(String extId, String name, String brand) {
+        static MainGymResponse of(ProfileView.MainGymView v) {
+            if (v == null) return null;
+            return new MainGymResponse(v.extId(), v.name(), v.brand());
         }
     }
 
