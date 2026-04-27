@@ -156,6 +156,10 @@
       "justNow": "방금",
       "minutesAgo": "{{m}}분 전",
       "hoursAgo": "{{h}}시간 전"
+    },
+    "card": {
+      "likesAria": "좋아요",
+      "commentsAria": "댓글"
     }
   },
   "gym": {

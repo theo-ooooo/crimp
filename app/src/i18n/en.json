@@ -156,6 +156,10 @@
       "justNow": "just now",
       "minutesAgo": "{{m}}m ago",
       "hoursAgo": "{{h}}h ago"
+    },
+    "card": {
+      "likesAria": "Likes",
+      "commentsAria": "Comments"
     }
   },
   "gym": {

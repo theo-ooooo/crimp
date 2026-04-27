@@ -67,11 +67,15 @@ function hueToBg(hue: number): string {
  *
  * - <1분: "방금"
  * - <60분: "{m}분 전"
- * - 같은 날: "{H}시간 전"
+ * - <24시간: "{h}시간 전"
  * - 그 외: 로컬 짧은 날짜 (ex. "04-25")
  *
- * SessionDetailScreen 의 헬퍼와 별도로 두되 후속 PR 에서 `lib/time.ts` 로 통합 가능 (TODO).
+ * TODO: `lib/time.ts` 로 추출 — 다음 화면(MySessions/SessionDetail) 에서 동일/유사
+ *   포맷이 또 필요해질 때. 지금은 Feed 만 사용하므로 로컬 유지. 통합 시 web 의
+ *   `relativeTime.ts` 와 placeholder 규약(`{{n}}` 통일) 도 함께 정리.
  */
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
 function formatTimeShort(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) {
@@ -85,8 +89,8 @@ function formatTimeShort(iso: string): string {
   if (diffMin < 60) {
     return t('feed.time.minutesAgo').replace('{{m}}', String(diffMin));
   }
-  const diffHour = Math.floor(diffMin / 60);
-  if (diffHour < 24) {
+  if (diffMs < ONE_DAY_MS) {
+    const diffHour = Math.floor(diffMin / 60);
     return t('feed.time.hoursAgo').replace('{{h}}', String(diffHour));
   }
   // 24시간 이상은 짧은 월-일 표시. 로컬화는 toLocaleDateString 에 위임.
@@ -102,7 +106,9 @@ export function FeedPostCard({ item }: FeedPostCardProps): JSX.Element {
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
   const avatarBg = hueToBg(item.avatarColorHue);
-  const avatarChar = item.userNickname.slice(0, 1);
+  // F4: surrogate pair (예: 이모지 닉네임) 를 안전하게 첫 글리프 추출.
+  // `.slice(0, 1)` 은 UTF-16 코드 유닛 1개라 surrogate pair 가 깨질 수 있다.
+  const avatarChar = Array.from(item.userNickname)[0] ?? '';
   const timeText = formatTimeShort(item.loggedAt);
   const subtitle = item.gymName ? `${timeText} · ${item.gymName}` : timeText;
   const result = item.result as AttemptResult;
@@ -113,11 +119,26 @@ export function FeedPostCard({ item }: FeedPostCardProps): JSX.Element {
   // 그 경우 HoldDot 의 raw color fallback 에 의지한다 (HoldDot.resolveColor 참고).
   const showHold = Boolean(item.holdColor);
 
+  // I1: `accessible=true` 부모는 자식 a11y 노드를 머지하므로, 시각으로만 노출되는
+  // 시간/암장/메모/카운트가 스크린리더 사용자에게 누락된다. 카드 1개의 의미 단위를
+  // 명시적 라벨로 풀어쓴다. (좋아요/댓글 라벨은 i18n 키 재사용)
+  const a11yParts: string[] = [
+    item.userNickname,
+    resultLabel,
+    grade ?? null,
+    item.gymName ?? null,
+    timeText,
+    item.note ?? null,
+    `${t('feed.card.likesAria')} ${item.likes}`,
+    `${t('feed.card.commentsAria')} ${item.comments}`,
+  ].filter((s): s is string => Boolean(s));
+  const a11yLabel = a11yParts.join(', ');
+
   return (
     <View
       style={styles.card}
       accessible
-      accessibilityLabel={`${item.userNickname} · ${resultLabel}${grade ? ` ${grade}` : ''}`}
+      accessibilityLabel={a11yLabel}
     >
       {/* 헤더: 아바타 · 닉네임/메타 · ResultMark */}
       <View style={styles.header}>

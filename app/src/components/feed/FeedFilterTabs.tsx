@@ -35,7 +35,9 @@ export function FeedFilterTabs({
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.row}
-      // 키보드 dismiss 가 우선이지만 이 화면에서는 keyboard 입력이 없어 default 로 둠.
+      // 후속 화면에서 검색 입력 등 keyboard 활성 상태로 진입할 가능성에 대비해
+      // 'handled' 로 두면 Chip 탭이 keyboard dismiss 없이 즉시 동작한다.
+      keyboardShouldPersistTaps="handled"
     >
       {FEED_FILTERS.map((filter) => {
         const active = filter === value;

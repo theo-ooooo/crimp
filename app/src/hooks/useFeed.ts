@@ -17,6 +17,12 @@ import type { FeedFilter, FeedList } from '@/lib/schemas/feed';
  */
 export const FEED_QUERY_KEY_ROOT = ['feed'] as const;
 
+/**
+ * 피드 페이지 크기 — 백엔드 default 와 동일하지만 명시적으로 노출해 호출부 추적성 ↑.
+ * 백엔드 (`FeedService.DEFAULT_PAGE_SIZE = 20`) 와 일치. 변경 시 양쪽 모두 갱신.
+ */
+export const FEED_PAGE_SIZE = 20;
+
 export function feedQueryKey(filter: FeedFilter) {
   return ['feed', filter] as const;
 }
@@ -24,7 +30,7 @@ export function feedQueryKey(filter: FeedFilter) {
 export function useFeedQuery(
   accessToken: string | null,
   filter: FeedFilter,
-  pageSize?: number,
+  pageSize: number = FEED_PAGE_SIZE,
 ) {
   return useInfiniteQuery<
     FeedList,
