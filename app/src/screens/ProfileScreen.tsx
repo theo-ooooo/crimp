@@ -326,6 +326,15 @@ function LoggedInProfile({ accessToken, styles, theme }: LoggedInProps): JSX.Ele
 function LogoutSection({ styles }: { styles: StylesT }): JSX.Element {
   const logout = useLogout();
   const [pending, setPending] = useState<boolean>(false);
+  // R1: navigation.reset 직후 LogoutSection 이 언마운트되므로 setPending(false) 가
+  // 무해하지만, mountedRef 가드로 명시적으로 차단해 의도를 분명히 한다.
+  const mountedRef = useRef<boolean>(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const onPress = useCallback(async () => {
     if (pending) {
@@ -335,8 +344,9 @@ function LogoutSection({ styles }: { styles: StylesT }): JSX.Element {
     try {
       await logout();
     } finally {
-      // navigation.reset 후 컴포넌트가 언마운트되더라도 state setter 자체는 안전.
-      setPending(false);
+      if (mountedRef.current) {
+        setPending(false);
+      }
     }
   }, [logout, pending]);
 
