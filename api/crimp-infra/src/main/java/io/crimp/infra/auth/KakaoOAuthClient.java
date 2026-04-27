@@ -1,6 +1,7 @@
 package io.crimp.infra.auth;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -38,6 +39,11 @@ public class KakaoOAuthClient {
     private final RestTemplate restTemplate;
     private final KakaoProperties props;
 
+    /**
+     * 운영 생성자 — Spring 이 RestTemplate 을 직접 만들어 주입한다.
+     * `@Autowired` 를 명시해야 두 생성자 중 어느 걸 쓸지 Spring 이 결정 가능.
+     */
+    @Autowired
     public KakaoOAuthClient(KakaoProperties props) {
         this(new RestTemplate(), props);
     }
