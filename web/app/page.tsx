@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import {
-  BigStat,
   CrimpIcon,
   PrimaryButton,
   Skeleton,
@@ -19,13 +18,18 @@ import type { Session } from '@/lib/schemas/session';
 import { useAccessToken, useTokenStore } from '@/store/tokenStore';
 
 /**
- * `/` — 홈 (Toss 톤 리디자인).
+ * `/` — 홈.
+ *
+ * 디자인 (`docs/design/claude/v2/screens-ios.jsx:55-151` HomeScreen — restrained):
+ * - 인사: 14px caption eyebrow → 26px h1 (안녕 NICKNAME, 이번 주 N회 붙었어요)
+ * - 큰 통계 카드: bg-subtle, rounded-xl(20), 좌측 56px 완등 + 우측 32px 최고 그레이드(accent)
+ * - CTA: 풀너비 PrimaryButton (▶ 세션 시작하기)
+ * - 최근 세션: 18px title + "전체" 링크 → border + rounded-2xl 카드 리스트 3개
  *
  * 상태 분기:
  * - hydration 전: 빈 placeholder (SSR mismatch 방지)
  * - 로그아웃: 브랜드 헤드라인 + 로그인 CTA
  * - 로그인 + 로딩: 스켈레톤
- * - 로그인 + 데이터: 인사 + 큰 통계 카드 + 세션 시작 CTA + 최근 세션 3개
  *
  * 데이터 소스:
  * - `/api/v1/me/stats` (`useMeStatsQuery`) — 이번 주/누적 카운트, 최고 그레이드
@@ -52,11 +56,11 @@ function HydrationGate(): JSX.Element {
     <main
       aria-busy="true"
       aria-live="polite"
-      className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 bg-bg px-6 py-10"
+      className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 bg-bg px-5 py-10"
     >
       <Skeleton h={20} w="35%" />
       <Skeleton h={32} w="70%" />
-      <Skeleton h={220} r={28} />
+      <Skeleton h={180} r={20} />
       <Skeleton h={56} r={16} />
     </main>
   );
@@ -64,11 +68,11 @@ function HydrationGate(): JSX.Element {
 
 function LoggedOut(): JSX.Element {
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-6 bg-bg px-6 py-10">
-      <p className="text-caption font-bold uppercase tracking-[0.3em] text-accent">
+    <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-6 bg-bg px-5 py-10">
+      <p className="text-caption font-bold uppercase tracking-[0.3em] text-accent-ink">
         {t('common.brand')}
       </p>
-      <h1 className="text-h1 font-extrabold leading-snug text-text">
+      <h1 className="text-h1 font-extrabold leading-snug tracking-[-0.04em] text-text">
         {t('home.loginPromptTitle')}
       </h1>
       <p className="text-body text-text-2">
@@ -95,34 +99,36 @@ function LoggedIn({ accessToken }: { accessToken: string }): JSX.Element {
 
   const nickname =
     meQuery.data?.nickname ?? t('home.greetingFallbackNickname');
-  const greetingPrimary = t('home.greeting').replace(
-    '{{nickname}}',
-    nickname,
-  );
 
   const stats = statsQuery.data;
   const recentSessions: Session[] =
     sessionsQuery.data?.pages.flatMap((p) => p.items).slice(0, 3) ?? [];
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-7 bg-bg px-6 py-10">
-      {/* Greeting */}
-      <header className="flex flex-col gap-2">
+    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 bg-bg px-5 py-10">
+      {/* Greeting — 14px caption eyebrow + 26px h1 (mock: padding 24/20 8) */}
+      <header className="flex flex-col gap-2 px-1">
         {statsQuery.isLoading ? (
           <>
+            <Skeleton h={16} w="40%" />
             <Skeleton h={28} w="55%" />
             <Skeleton h={28} w="80%" />
           </>
         ) : (
-          <h1 className="text-h1 font-extrabold leading-snug tracking-[-0.04em] text-text">
-            {greetingPrimary}
-            <br />
-            <WeeklyHeadline weekSends={stats?.weekSends ?? 0} />
-          </h1>
+          <>
+            <p className="text-body font-semibold text-text-3">
+              {t('home.greetingEyebrow')}
+            </p>
+            <h1 className="text-[26px] font-extrabold leading-[1.15] tracking-[-0.03em] text-text">
+              {t('home.greeting').replace('{{nickname}}', nickname)}
+              <br />
+              <WeeklyHeadline weekSends={stats?.weekSends ?? 0} />
+            </h1>
+          </>
         )}
       </header>
 
-      {/* Big stats card */}
+      {/* Big stats card — bg-subtle / rounded-xl(20) / 24x22 padding */}
       {statsQuery.isLoading ? (
         <StatsCardSkeleton />
       ) : statsQuery.error ? (
@@ -134,7 +140,7 @@ function LoggedIn({ accessToken }: { accessToken: string }): JSX.Element {
         <StatsCard stats={stats} />
       ) : null}
 
-      {/* CTA */}
+      {/* CTA — 풀너비 PrimaryButton (▶ 아이콘 + 텍스트) */}
       <PrimaryButton
         aria-label={t('home.ctaStartSession')}
         onClick={() => router.push('/sessions/new')}
@@ -149,14 +155,14 @@ function LoggedIn({ accessToken }: { accessToken: string }): JSX.Element {
       <Link
         href="/feed"
         aria-label={t('feed.entryCardTitle')}
-        className="flex items-center justify-between gap-3 rounded-2xl bg-subtle p-5 shadow-xs transition-transform duration-fast ease-standard hover:shadow-sm active:scale-[0.99]"
+        className="flex items-center justify-between gap-3 rounded-2xl border border-hairline bg-bg p-4 transition-transform duration-fast ease-standard hover:bg-subtle active:scale-[0.99]"
       >
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent-ink">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent-ink">
             <CrimpIcon.feed s={20} />
           </div>
           <div className="flex min-w-0 flex-col gap-0.5">
-            <p className="truncate text-body font-bold text-text">
+            <p className="truncate text-body font-bold tracking-[-0.02em] text-text">
               {t('feed.entryCardTitle')}
             </p>
             <p className="truncate text-caption font-medium text-text-3">
@@ -167,12 +173,12 @@ function LoggedIn({ accessToken }: { accessToken: string }): JSX.Element {
         <CrimpIcon.chevR s={18} className="shrink-0 text-text-3" />
       </Link>
 
-      {/* Recent sessions */}
+      {/* Recent sessions — title 18px + "전체" link, list border-hairline cards */}
       <section
         aria-labelledby="home-recent-sessions"
-        className="flex flex-col gap-3"
+        className="flex flex-col gap-2.5 pt-2"
       >
-        <div className="flex items-baseline justify-between">
+        <div className="flex items-baseline justify-between px-1">
           <h2
             id="home-recent-sessions"
             className="text-title font-bold tracking-[-0.02em] text-text"
@@ -217,62 +223,72 @@ function WeeklyHeadline({ weekSends }: { weekSends: number }): JSX.Element {
   return (
     <>
       {before ?? ''}
-      <span className="tabular-nums text-accent">{weekSends}</span>
+      <span className="tabular-nums text-accent-ink">{weekSends}</span>
       {after ?? ''}
     </>
   );
 }
 
-// BigStat 내부 label(`home.statsWeekSendsLabel`) 이 섹션 제목 역할을 하므로 추가 aria-label 로 중복시키지 않는다.
+/**
+ * 큰 통계 카드 — mock restrained variant 그대로 (`screens-ios.jsx:88-99`).
+ *
+ * 좌: 완등 56px + "완등 · 세션 N회" 13px caption
+ * 우: 최고 그레이드 32px (accent) + "최고 그레이드" 13px caption
+ */
 function StatsCard({ stats }: { stats: MeStats }): JSX.Element {
+  const weekRangeLabel = formatWeekRange(stats.weekRange);
+  const topGrade = stats.topGrade ?? t('common.empty');
+
   return (
-    <section className="flex flex-col gap-5 rounded-2xl bg-subtle p-6 shadow-xs">
-      <BigStat
-        scale="xl"
-        label={t('home.statsWeekSendsLabel')}
-        value={stats.weekSends}
-      />
-      <div className="h-px bg-hairline" aria-hidden="true" />
-      <div className="grid grid-cols-3 gap-3">
-        <SmallStat
-          label={t('home.statsTotalSessionsLabel')}
-          value={stats.totalSessions}
-        />
-        <SmallStat
-          label={t('home.statsTopGradeLabel')}
-          value={stats.topGrade ?? t('common.empty')}
-          accent={stats.topGrade !== null}
-        />
-        <SmallStat
-          label={t('home.statsTotalSendsLabel')}
-          value={stats.totalSends}
-        />
+    <section className="flex flex-col gap-3 rounded-xl bg-subtle p-6 shadow-xs">
+      <p className="text-body font-semibold text-text-3">
+        {weekRangeLabel}
+      </p>
+      <div className="flex items-end justify-between gap-4">
+        <div className="flex flex-col gap-1.5">
+          <p
+            className="font-extrabold tabular-nums tracking-[-0.05em] text-text"
+            style={{ fontSize: 56, lineHeight: 1 }}
+          >
+            {stats.weekSends}
+          </p>
+          <p className="text-body font-semibold text-text-3">
+            {t('home.statsWeekSendsLabel')} · {t('home.statsWeekSessionsLabel')}{' '}
+            <span className="tabular-nums">{stats.weekSessions}</span>
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1.5 text-right">
+          <p
+            className="font-extrabold tracking-[-0.04em] text-accent-ink"
+            style={{ fontSize: 32, lineHeight: 1 }}
+          >
+            {topGrade}
+          </p>
+          <p className="text-body font-semibold text-text-3">
+            {t('home.statsTopGradeLabel')}
+          </p>
+        </div>
       </div>
     </section>
   );
 }
 
-function SmallStat({
-  label,
-  value,
-  accent = false,
-}: {
-  label: string;
-  value: string | number;
-  accent?: boolean;
-}): JSX.Element {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <p className="text-caption font-semibold text-text-3">{label}</p>
-      <p
-        className={`text-h2 font-extrabold tracking-[-0.03em] tabular-nums ${
-          accent ? 'text-accent' : 'text-text'
-        }`}
-      >
-        {value}
-      </p>
-    </div>
-  );
+/**
+ * weekRange `{start, end}` 를 "이번 주 · 4월 20일–26일" 형태로 포맷.
+ * 잘못된 입력이면 "이번 주" fallback.
+ */
+function formatWeekRange(range: { start: string; end: string }): string {
+  const fallback = t('home.statsWeekRangeFallback');
+  try {
+    const s = new Date(range.start);
+    const e = new Date(range.end);
+    if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return fallback;
+    const fmt = (d: Date) =>
+      d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return `${fallback} · ${fmt(s)} – ${fmt(e)}`;
+  } catch {
+    return fallback;
+  }
 }
 
 function StatsCardSkeleton(): JSX.Element {
@@ -280,20 +296,18 @@ function StatsCardSkeleton(): JSX.Element {
     <div
       aria-busy="true"
       aria-live="polite"
-      className="flex flex-col gap-5 rounded-2xl bg-subtle p-6 shadow-xs"
+      className="flex flex-col gap-3 rounded-xl bg-subtle p-6 shadow-xs"
     >
-      <div className="flex flex-col gap-3">
-        <Skeleton h={14} w="35%" />
-        <Skeleton h={72} w="55%" />
-      </div>
-      <div className="h-px bg-hairline" aria-hidden="true" />
-      <div className="grid grid-cols-3 gap-3">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="flex flex-col gap-2">
-            <Skeleton h={12} w="65%" />
-            <Skeleton h={24} w="50%" />
-          </div>
-        ))}
+      <Skeleton h={14} w="40%" />
+      <div className="flex items-end justify-between gap-4">
+        <div className="flex flex-col gap-2">
+          <Skeleton h={56} w={96} />
+          <Skeleton h={14} w={120} />
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          <Skeleton h={32} w={72} />
+          <Skeleton h={14} w={80} />
+        </div>
       </div>
     </div>
   );
@@ -303,7 +317,10 @@ function RecentSessionsSkeleton(): JSX.Element {
   return (
     <ul aria-busy="true" aria-live="polite" className="flex flex-col gap-2.5">
       {[0, 1, 2].map((i) => (
-        <li key={i} className="rounded-2xl bg-subtle p-4 shadow-xs">
+        <li
+          key={i}
+          className="rounded-2xl border border-hairline bg-bg p-4"
+        >
           <div className="flex items-center justify-between gap-3">
             <Skeleton h={16} w="55%" />
             <Skeleton h={14} w={48} r={10} />
@@ -334,8 +351,8 @@ function ErrorCard({
 
 function EmptyState(): JSX.Element {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-2xl bg-subtle px-6 py-12 text-center shadow-xs">
-      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-bg text-accent">
+    <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-hairline bg-bg px-6 py-12 text-center">
+      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-subtle text-accent-ink">
         <CrimpIcon.flame s={28} />
       </div>
       <p className="text-title font-bold text-text">
@@ -348,35 +365,40 @@ function EmptyState(): JSX.Element {
   );
 }
 
+/**
+ * 최근 세션 카드 — mock `screens-ios.jsx:121-140` 의 padding/gap 대응.
+ * border-hairline + rounded-2xl + bg-bg (subtle 아님) — list item.
+ */
 function RecentSessionCard({ session }: { session: Session }): JSX.Element {
   const dateLabel = formatDateShort(session.startedAt);
   const ongoing = !session.endedAt;
   return (
     <Link
       href={`/sessions/${encodeURIComponent(session.extId)}`}
-      className="block rounded-2xl bg-subtle p-4 shadow-xs transition-transform duration-fast ease-standard hover:shadow-sm active:scale-[0.99]"
+      className="flex items-center gap-3 rounded-2xl border border-hairline bg-bg p-4 transition-colors duration-fast ease-standard hover:bg-subtle active:scale-[0.99]"
     >
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-col gap-1">
-          <p className="truncate text-body font-bold text-text">
-            {session.gymNameRaw ?? t('session.list.itemGymFallback')}
-          </p>
-          <p className="text-caption font-medium text-text-3 tabular-nums">
-            {dateLabel}
-          </p>
-        </div>
-        {ongoing ? (
-          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-accent-soft px-3 py-1 text-caption font-bold text-accent-ink">
-            <span
-              aria-hidden="true"
-              className="h-1.5 w-1.5 rounded-full bg-accent"
-            />
-            {t('session.detail.ongoingBadge')}
-          </span>
-        ) : (
-          <CrimpIcon.chevR s={18} className="shrink-0 text-text-3" />
-        )}
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-subtle text-text-3">
+        <CrimpIcon.pin s={20} />
       </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <p className="truncate text-body font-bold tracking-[-0.02em] text-text">
+          {session.gymNameRaw ?? t('session.list.itemGymFallback')}
+        </p>
+        <p className="text-caption font-medium text-text-3 tabular-nums">
+          {dateLabel}
+        </p>
+      </div>
+      {ongoing ? (
+        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-accent-soft px-3 py-1 text-caption font-bold text-accent-ink">
+          <span
+            aria-hidden="true"
+            className="h-1.5 w-1.5 rounded-full bg-accent"
+          />
+          {t('session.detail.ongoingBadge')}
+        </span>
+      ) : (
+        <CrimpIcon.chevR s={18} className="shrink-0 text-text-3" />
+      )}
     </Link>
   );
 }
