@@ -152,11 +152,7 @@ function LogoutSection(): JSX.Element {
 
   return (
     <section className="px-1 pt-2">
-      <SecondaryButton
-        onClick={onClick}
-        disabled={isPending}
-        className="h-12 text-body"
-      >
+      <SecondaryButton onClick={onClick} disabled={isPending}>
         {isPending ? t('me.logout.loading') : t('me.logout.cta')}
       </SecondaryButton>
     </section>
