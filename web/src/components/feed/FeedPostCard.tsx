@@ -47,10 +47,13 @@ export const FeedPostCard: FC<FeedPostCardProps> = ({ item }) => {
     ? `${timeLabel} · ${item.gymName}`
     : timeLabel;
 
+  // 결과 enum 한글 라벨 — 다른 화면(`sessions/[extId]`, `LogAttemptSheet`) 과 동일 키 사용.
+  const resultLabel = t(`attempt.result.${item.result}` as const);
+
   return (
     <article
       className="mb-3 flex flex-col rounded-[18px] border border-hairline bg-bg p-4"
-      aria-label={`${item.userNickname} 의 시도 기록`}
+      aria-label={t('feed.card.postAria').replace('{{nickname}}', item.userNickname)}
     >
       {/* 헤더 */}
       <div className="mb-2.5 flex items-center gap-2.5">
@@ -82,7 +85,7 @@ export const FeedPostCard: FC<FeedPostCardProps> = ({ item }) => {
             <HoldDot color={resolveHoldColor(item.holdColor)} size={14} />
           ) : null}
           <span className="text-xs font-bold tracking-[0.04em] text-text-3">
-            {item.result}
+            {resultLabel}
           </span>
         </div>
       )}

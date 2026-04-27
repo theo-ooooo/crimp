@@ -216,7 +216,8 @@
     },
     "card": {
       "likesAria": "좋아요",
-      "commentsAria": "댓글"
+      "commentsAria": "댓글",
+      "postAria": "{{nickname}} 의 시도 기록"
     },
     "time": {
       "justNow": "방금 전",

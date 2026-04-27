@@ -216,7 +216,8 @@
     },
     "card": {
       "likesAria": "Likes",
-      "commentsAria": "Comments"
+      "commentsAria": "Comments",
+      "postAria": "{{nickname}}'s attempt"
     },
     "time": {
       "justNow": "just now",

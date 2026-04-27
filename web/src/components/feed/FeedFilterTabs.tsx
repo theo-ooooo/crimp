@@ -8,6 +8,10 @@
  * - 활성 칩은 `bg-text / text-bg` (Chip 프리미티브 기본 active 스타일)
  *
  * 디자인 명세상 기본값은 `친구` (active) 이지만, 실제 active 값은 호출부 상태로 제어.
+ *
+ * a11y: `role=tablist` + `aria-selected` 패턴은 `tabpanel` / 키보드 내비게이션을
+ *   요구한다. 본 화면은 단일 콘텐츠 영역이고 Chip 프리미티브가 이미 `aria-pressed`
+ *   를 자동 부여하므로 ARIA 충돌 회피 위해 `role=toolbar` 로 노출 (그룹 라벨 유지).
  */
 
 import type { FC } from 'react';
@@ -41,7 +45,7 @@ export const FeedFilterTabs: FC<FeedFilterTabsProps> = ({
   onChange,
 }) => (
   <div
-    role="tablist"
+    role="toolbar"
     aria-label={t('feed.filter.label')}
     // 가로 스크롤 + 스크롤바 숨김(시각적). 키보드 포커스는 정상 동작.
     className="flex gap-1.5 overflow-x-auto px-5 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -51,8 +55,6 @@ export const FeedFilterTabs: FC<FeedFilterTabsProps> = ({
       return (
         <Chip
           key={tab.filter}
-          role="tab"
-          aria-selected={isActive}
           active={isActive}
           onClick={() => {
             if (!isActive) onChange(tab.filter);
