@@ -32,6 +32,19 @@ Xcode 가 xcconfig 를 자동 인식하지 않으므로 첫 셋업 시 수동 �
 
 빌드 시 `KAKAO_APP_KEY` 가 Info.plist 의 placeholder 로 치환된다.
 
+### 3-1. (선택) 빌드 시점 검증 스크립트
+
+xcconfig 셋업을 빠뜨리거나 키가 비어있을 때 빌드 단계에서 명시적 에러로 실패하도록 Run Script 를 추가한다.
+
+1. Xcode → 타겟 `Crimp` → **Build Phases** 탭.
+2. 좌상단 `+` → **`New Run Script Phase`** 추가, **`Compile Sources`** 보다 위로 드래그.
+3. Shell: `/bin/bash`, 본문에 다음:
+   ```bash
+   "${SRCROOT}/scripts/validate-kakao-key.sh"
+   ```
+
+빈 값 / placeholder / `$(KAKAO_APP_KEY)` 리터럴이 그대로 들어오면 빌드 실패 + 안내 메시지.
+
 ## 4. 시뮬레이터 / 실 디바이스 빌드
 
 ```bash
