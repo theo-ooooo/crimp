@@ -64,10 +64,10 @@ export default function MePage(): JSX.Element {
             </dd>
           </dl>
 
-          {/* 내 암장 — 설정 / 변경 UI. */}
+          {/* 내 암장 — 설정 / 변경 / 해제 UI. */}
           <MainGymSection
             accessToken={accessToken}
-            currentMainGymId={data.mainGymId}
+            currentMainGym={data.mainGym ?? null}
           />
         </>
       ) : null}

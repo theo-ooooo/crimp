@@ -69,12 +69,14 @@
     "mainGym": {
       "title": "My gym",
       "unset": "Not set",
-      "fallbackId": "ID #{{id}}",
       "setCta": "Set my gym",
       "editCta": "Change",
+      "clearCta": "Clear",
+      "clearConfirmTitle": "Clear your main gym?",
+      "clearConfirmBody": "Your main gym will be unset. You can set it again later.",
+      "clearConfirmCta": "Clear",
       "pickerTitle": "Pick a gym",
       "pickerSearchPlaceholder": "Search by name or address",
-      "pickerUnavailable": "This gym can't be selected right now",
       "confirmTitle": "Set this as your main gym?",
       "confirmBody": "We'll set {{name}} as your main gym.",
       "confirmCta": "Set",
@@ -263,6 +265,8 @@
     "sessionInvalid": "Session data is invalid.",
     "attemptNotFound": "Attempt not found.",
     "gymNotFound": "Gym not found.",
+    "mainGymNotFound": "The selected gym is no longer available.",
+    "mainGymInvalid": "Main gym request is invalid.",
     "attemptInvalid": "Attempt data is invalid.",
     "generic": "Request failed."
   }

@@ -4,9 +4,9 @@
  * 내 암장 선택 다이얼로그.
  *
  * - `useGymsQuery` 무한 스크롤로 암장을 검색·표시.
- * - 사용자는 항목을 탭해 선택. 선택 시 부모로 `{ id, extId, name }` 콜백.
- * - 백엔드 `Profile.mainGymId` 는 numeric Long 이므로, GymItem 응답에 `id` 가 없으면
- *   해당 항목은 disabled 처리하고 안내 문구 표시 (현재 백엔드 미노출 이슈 대응).
+ * - 사용자는 항목을 탭해 선택. 선택 시 부모로 `{ extId, name }` 콜백.
+ * - PR #59 contract — 서버는 `mainGymExtId` (ULID) 만 받으면 되므로
+ *   클라이언트는 numeric id 를 다루지 않는다.
  *
  * 접근성·모션 패턴은 `CommentDialog` 와 동일.
  */
@@ -29,8 +29,8 @@ import type { GymItem } from '@/lib/schemas/gym';
 export interface MainGymPickerDialogProps {
   open: boolean;
   onClose: () => void;
-  /** 사용자가 항목을 탭했을 때 호출. id 가 없으면 호출되지 않음 (백엔드 미노출 케이스). */
-  onSelect: (gym: { id: number; extId: string; name: string }) => void;
+  /** 사용자가 항목을 탭했을 때 호출. ULID `extId` 와 표시용 `name` 을 전달. */
+  onSelect: (gym: { extId: string; name: string }) => void;
 }
 
 function useReducedMotion(): boolean {
@@ -277,32 +277,20 @@ function PickerRow({
   gym: GymItem;
   onSelect: MainGymPickerDialogProps['onSelect'];
 }): JSX.Element {
-  // 백엔드 `GymItemResponse` 가 numeric `id` 를 노출하기 전까지는 선택 불가.
-  // (Profile.mainGymId 는 Long 이라 extId 만으로 PATCH 불가능.)
-  const disabled = gym.id == null;
-
   return (
     <button
       type="button"
-      disabled={disabled}
       onClick={() => {
-        if (gym.id == null) return;
-        onSelect({ id: gym.id, extId: gym.extId, name: gym.name });
+        onSelect({ extId: gym.extId, name: gym.name });
       }}
-      className="flex w-full items-start justify-between gap-3 rounded-2xl bg-subtle p-4 text-left shadow-xs transition-transform duration-fast ease-standard active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+      className="flex w-full items-start justify-between gap-3 rounded-2xl bg-subtle p-4 text-left shadow-xs transition-transform duration-fast ease-standard active:scale-[0.99]"
       style={{ WebkitTapHighlightColor: 'transparent' }}
-      aria-disabled={disabled || undefined}
     >
       <div className="flex min-w-0 flex-col gap-1">
         <p className="truncate text-title font-bold text-text">{gym.name}</p>
         <p className="truncate text-caption font-medium text-text-3">
           {gym.address ?? t('gym.list.addressFallback')}
         </p>
-        {disabled ? (
-          <p className="mt-1 text-caption font-semibold text-warning">
-            {t('me.mainGym.pickerUnavailable')}
-          </p>
-        ) : null}
       </div>
       {gym.brand ? (
         <span className="inline-flex shrink-0 items-center rounded-full bg-chip px-3 py-1 text-caption font-semibold text-text-2">

@@ -69,12 +69,14 @@
     "mainGym": {
       "title": "내 암장",
       "unset": "미설정",
-      "fallbackId": "ID #{{id}}",
       "setCta": "암장 설정",
       "editCta": "변경",
+      "clearCta": "해제",
+      "clearConfirmTitle": "내 암장을 해제할까요?",
+      "clearConfirmBody": "내 암장 설정이 비워집니다. 다시 설정할 수 있어요.",
+      "clearConfirmCta": "해제",
       "pickerTitle": "암장 선택",
       "pickerSearchPlaceholder": "암장 이름·주소로 검색",
-      "pickerUnavailable": "현재 선택할 수 없는 암장이에요",
       "confirmTitle": "이 암장을 내 암장으로 설정할까요?",
       "confirmBody": "{{name}} 을(를) 내 암장으로 설정합니다.",
       "confirmCta": "설정",
@@ -263,6 +265,8 @@
     "sessionInvalid": "세션 정보가 올바르지 않아요.",
     "attemptNotFound": "해당 시도를 찾을 수 없어요.",
     "gymNotFound": "해당 암장을 찾을 수 없어요.",
+    "mainGymNotFound": "선택한 암장을 더 이상 사용할 수 없어요.",
+    "mainGymInvalid": "내 암장 요청이 올바르지 않아요.",
     "attemptInvalid": "시도 정보가 올바르지 않아요.",
     "generic": "요청을 처리하지 못했어요."
   }

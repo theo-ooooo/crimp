@@ -23,6 +23,9 @@ const CODE_TO_KEY: Record<string, MessageKey> = {
   ATTEMPT_NOT_FOUND: 'error.attemptNotFound',
   ATTEMPT_INVALID: 'error.attemptInvalid',
   GYM_NOT_FOUND: 'error.gymNotFound',
+  // PR #59 — 주 암장 contract 에러
+  MAIN_GYM_NOT_FOUND: 'error.mainGymNotFound',
+  INVALID_MAIN_GYM_REQUEST: 'error.mainGymInvalid',
 };
 
 export function toUserMessage(err: unknown): string {

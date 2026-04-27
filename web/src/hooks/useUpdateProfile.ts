@@ -15,7 +15,8 @@ import { ME_QUERY_KEY } from './useMe';
  *
  * Phase 1 정책:
  *   - 단일 사용자 시점이므로 낙관 갱신은 도입하지 않는다 (응답 후 갱신만으로 충분).
- *   - 백엔드는 `null` 을 "변경 없음" 으로 해석하므로 실제로 필드를 비우려면 별도 API 가 필요.
+ *   - 주 암장 변경은 `mainGymExtId`, 해제는 `clearMainGym: true` 로 전달
+ *     (PR #59 contract — `UpdateProfileBody` 참조).
  */
 export function useUpdateProfileMutation(accessToken: string | null) {
   const qc = useQueryClient();

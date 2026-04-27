@@ -127,15 +127,25 @@ export function fetchMe(accessToken: string, signal?: AbortSignal): Promise<Me> 
 /**
  * `PATCH /api/v1/me/profile` (Bearer 필요) — 내 프로필 부분 수정.
  *
- * 모든 필드는 선택. `null` 을 보내면 백엔드는 "변경 없음" 으로 해석한다
- * (현재 `UserService.updateMyProfile` 은 `if (cmd.field() != null)` 가드).
- * 따라서 nullable 필드를 실제로 클리어하려면 백엔드 변경이 필요하다.
+ * 모든 필드는 선택이며 미포함 필드는 "변경 없음".
+ *
+ * 주 암장 (PR #59 contract):
+ *   - `mainGymExtId`: ULID 26자. 권장 — 서버가 numeric id 로 해석.
+ *   - `mainGymId`:    호환용 — 기존 클라이언트가 numeric id 를 직접 보낼 때.
+ *   - `clearMainGym=true`: 명시적 해제 (mainGymId 를 null 로 설정).
+ *     `mainGymExtId`/`mainGymId` 와 동시 set 시 400 (`INVALID_MAIN_GYM_REQUEST`).
+ *
+ * 서버 에러:
+ *   - 404 `MAIN_GYM_NOT_FOUND` — extId 미일치 / 비활성 암장.
+ *   - 400 `INVALID_MAIN_GYM_REQUEST` — clearMainGym + 다른 main gym 필드 동시 set.
  */
 export interface UpdateProfileBody {
   nickname?: string;
   bio?: string;
   levelSelf?: number;
   mainGymId?: number;
+  mainGymExtId?: string;
+  clearMainGym?: boolean;
   avatarMediaId?: number;
 }
 

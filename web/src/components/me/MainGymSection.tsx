@@ -3,15 +3,12 @@
 /**
  * `/me` 페이지의 "내 암장" 섹션.
  *
- * - 현재 설정된 mainGymId 를 보여준다 (값이 있으면 ID 표시, 없으면 "미설정").
- *   백엔드 `MeResponse` 가 numeric mainGymId 만 반환하므로 암장 이름은 picker 에서
- *   선택한 직후에만 알 수 있다 — 새로고침 후엔 ID 만 표시된다 (현재 한계).
- * - "변경" CTA → `MainGymPickerDialog` 오픈.
- * - 선택 후 confirm 다이얼로그 → "확인" 누르면 PATCH `/me/profile` 호출.
- *
- * 비고 (해제 미지원):
- *   현재 백엔드 `UserService.updateMyProfile` 은 `null` 을 "변경 없음" 으로 해석한다.
- *   따라서 mainGymId 를 실제로 비우는 UI 는 백엔드 변경 후 추가한다.
+ * - 백엔드가 해석한 `me.mainGym` 객체(`{ extId, name, brand }`)를 직접 표시.
+ *   값이 없으면 "미설정". (PR #59 — 더 이상 numeric id 노출 X.)
+ * - "변경" CTA → `MainGymPickerDialog` 오픈 → 선택 → 확인 다이얼로그 →
+ *   PATCH `/me/profile` `{ mainGymExtId }`.
+ * - "해제" CTA (현재 설정된 경우만 노출) → 확인 다이얼로그 →
+ *   PATCH `/me/profile` `{ clearMainGym: true }`.
  */
 
 import { useState, type FC } from 'react';
@@ -20,68 +17,77 @@ import { SecondaryButton } from '@/components/primitives';
 import { useUpdateProfileMutation } from '@/hooks/useUpdateProfile';
 import { toUserMessage } from '@/lib/api/errorMessage';
 import { t } from '@/lib/i18n';
+import type { MainGymRef } from '@/lib/schemas/me';
 
 import { MainGymPickerDialog } from './MainGymPickerDialog';
 
 export interface MainGymSectionProps {
   accessToken: string;
-  /** 현재 저장된 main gym 의 numeric id. null 이면 미설정. */
-  currentMainGymId: number | null;
+  /** 서버가 해석한 현재 mainGym. 미설정 또는 비활성 암장이면 null/undefined. */
+  currentMainGym: MainGymRef | null | undefined;
 }
 
 interface PendingSelection {
-  id: number;
   extId: string;
   name: string;
 }
 
 export const MainGymSection: FC<MainGymSectionProps> = ({
   accessToken,
-  currentMainGymId,
+  currentMainGym,
 }) => {
   const [pickerOpen, setPickerOpen] = useState<boolean>(false);
-  const [pending, setPending] = useState<PendingSelection | null>(null);
-  /** 직전에 선택해서 저장 성공한 항목 — picker 응답에서 받은 name 을 일회성으로 표시. */
-  const [lastSavedName, setLastSavedName] = useState<string | null>(null);
+  const [pendingSelect, setPendingSelect] =
+    useState<PendingSelection | null>(null);
+  const [pendingClear, setPendingClear] = useState<boolean>(false);
 
   const mutation = useUpdateProfileMutation(accessToken);
 
   const onPickerSelect = (gym: PendingSelection) => {
     setPickerOpen(false);
-    setPending(gym);
+    setPendingSelect(gym);
   };
 
-  const onConfirm = () => {
-    if (!pending) return;
+  const onConfirmSelect = () => {
+    if (!pendingSelect) return;
     mutation.mutate(
-      { mainGymId: pending.id },
+      { mainGymExtId: pendingSelect.extId },
       {
         onSuccess: () => {
-          setLastSavedName(pending.name);
-          setPending(null);
+          // me 캐시는 mutation onSuccess 가 갱신 — 다이얼로그만 닫으면 된다.
+          setPendingSelect(null);
         },
-        // onError 는 mutation.error 로 confirm 다이얼로그 안에서 표시 (아래 markup).
+        // onError 는 mutation.error 로 confirm 다이얼로그 안에서 표시.
       },
     );
   };
 
-  const onCancelConfirm = () => {
+  const onCancelSelect = () => {
     if (mutation.isPending) return;
-    setPending(null);
+    setPendingSelect(null);
     mutation.reset();
   };
 
-  // 표시 라벨: 직후 저장된 이름 → "ID: N" → "미설정".
-  const valueLabel = (() => {
-    if (lastSavedName) return lastSavedName;
-    if (currentMainGymId !== null) {
-      return t('me.mainGym.fallbackId').replace(
-        '{{id}}',
-        String(currentMainGymId),
-      );
-    }
-    return t('me.mainGym.unset');
-  })();
+  const onConfirmClear = () => {
+    mutation.mutate(
+      { clearMainGym: true },
+      {
+        onSuccess: () => {
+          setPendingClear(false);
+        },
+      },
+    );
+  };
+
+  const onCancelClear = () => {
+    if (mutation.isPending) return;
+    setPendingClear(false);
+    mutation.reset();
+  };
+
+  // 표시 라벨: 서버 해석된 mainGym.name → "미설정".
+  const valueLabel = currentMainGym?.name ?? t('me.mainGym.unset');
+  const hasMainGym = !!currentMainGym;
 
   return (
     <section
@@ -99,18 +105,31 @@ export const MainGymSection: FC<MainGymSectionProps> = ({
           <p className="truncate text-title font-bold text-text">
             {valueLabel}
           </p>
+          {currentMainGym?.brand ? (
+            <span className="mt-1 inline-flex w-fit items-center rounded-full bg-chip px-3 py-1 text-caption font-semibold text-text-2">
+              {currentMainGym.brand}
+            </span>
+          ) : null}
         </div>
       </div>
 
-      <div className="mt-4">
+      <div className="mt-4 flex flex-wrap gap-2">
         <SecondaryButton
           onClick={() => setPickerOpen(true)}
           className="h-11 text-sm"
         >
-          {currentMainGymId === null
-            ? t('me.mainGym.setCta')
-            : t('me.mainGym.editCta')}
+          {hasMainGym ? t('me.mainGym.editCta') : t('me.mainGym.setCta')}
         </SecondaryButton>
+        {hasMainGym ? (
+          <button
+            type="button"
+            onClick={() => setPendingClear(true)}
+            className="inline-flex h-11 items-center justify-center rounded-lg bg-transparent px-4 text-sm font-semibold text-text-2 transition-colors duration-fast ease-standard hover:bg-subtle-2"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
+          >
+            {t('me.mainGym.clearCta')}
+          </button>
+        ) : null}
       </div>
 
       <MainGymPickerDialog
@@ -119,15 +138,34 @@ export const MainGymSection: FC<MainGymSectionProps> = ({
         onSelect={onPickerSelect}
       />
 
-      {pending ? (
+      {pendingSelect ? (
         <ConfirmDialog
-          gymName={pending.name}
+          titleKey="me.mainGym.confirmTitle"
+          body={t('me.mainGym.confirmBody').replace(
+            '{{name}}',
+            pendingSelect.name,
+          )}
+          ctaKey="me.mainGym.confirmCta"
           isSubmitting={mutation.isPending}
           errorMessage={
             mutation.error ? toUserMessage(mutation.error) : null
           }
-          onConfirm={onConfirm}
-          onCancel={onCancelConfirm}
+          onConfirm={onConfirmSelect}
+          onCancel={onCancelSelect}
+        />
+      ) : null}
+
+      {pendingClear ? (
+        <ConfirmDialog
+          titleKey="me.mainGym.clearConfirmTitle"
+          body={t('me.mainGym.clearConfirmBody')}
+          ctaKey="me.mainGym.clearConfirmCta"
+          isSubmitting={mutation.isPending}
+          errorMessage={
+            mutation.error ? toUserMessage(mutation.error) : null
+          }
+          onConfirm={onConfirmClear}
+          onCancel={onCancelClear}
         />
       ) : null}
     </section>
@@ -135,7 +173,14 @@ export const MainGymSection: FC<MainGymSectionProps> = ({
 };
 
 interface ConfirmDialogProps {
-  gymName: string;
+  /** 다이얼로그 제목 i18n 키. */
+  titleKey:
+    | 'me.mainGym.confirmTitle'
+    | 'me.mainGym.clearConfirmTitle';
+  /** 사전 보간된 본문 텍스트. */
+  body: string;
+  /** 확인 버튼 라벨 i18n 키. */
+  ctaKey: 'me.mainGym.confirmCta' | 'me.mainGym.clearConfirmCta';
   isSubmitting: boolean;
   errorMessage: string | null;
   onConfirm: () => void;
@@ -143,7 +188,9 @@ interface ConfirmDialogProps {
 }
 
 const ConfirmDialog: FC<ConfirmDialogProps> = ({
-  gymName,
+  titleKey,
+  body,
+  ctaKey,
   isSubmitting,
   errorMessage,
   onConfirm,
@@ -172,11 +219,9 @@ const ConfirmDialog: FC<ConfirmDialogProps> = ({
           id="me-main-gym-confirm-title"
           className="text-h2 font-extrabold tracking-[-0.03em] text-text"
         >
-          {t('me.mainGym.confirmTitle')}
+          {t(titleKey)}
         </h3>
-        <p className="mt-2 text-body text-text-2">
-          {t('me.mainGym.confirmBody').replace('{{name}}', gymName)}
-        </p>
+        <p className="mt-2 text-body text-text-2">{body}</p>
         {errorMessage ? (
           <p
             role="alert"
@@ -202,9 +247,7 @@ const ConfirmDialog: FC<ConfirmDialogProps> = ({
             className="inline-flex h-11 flex-1 items-center justify-center rounded-lg bg-accent text-sm font-bold text-accent-ink transition-transform duration-fast ease-standard active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-subtle-2 disabled:text-text-3"
             style={{ WebkitTapHighlightColor: 'transparent' }}
           >
-            {isSubmitting
-              ? t('common.loading')
-              : t('me.mainGym.confirmCta')}
+            {isSubmitting ? t('common.loading') : t(ctaKey)}
           </button>
         </div>
       </div>
