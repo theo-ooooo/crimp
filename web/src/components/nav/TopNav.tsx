@@ -74,12 +74,13 @@ export function TopNav(): JSX.Element | null {
   // 3) 비로그인 상태에서는 노출하지 않는다.
   if (!hydrated) return null;
   if (!accessToken) return null;
-  if (pathname === '/login') return null;
+  // I3: /login 뿐 아니라 /login/callback (OAuth redirect 후 교환 진행 페이지) 도 hide.
+  if (pathname === '/login' || pathname.startsWith('/login/')) return null;
 
   return (
+    // I2: HTML5 <header> 가 암시적으로 banner role 을 가져 명시 role 제거 (redundant).
     <header
       className="sticky top-0 z-40 border-b border-hairline bg-bg/90 backdrop-blur supports-[backdrop-filter]:bg-bg/75"
-      role="banner"
     >
       <div className="mx-auto flex h-14 max-w-2xl items-center justify-between gap-2 px-4 sm:px-6">
         <Link
@@ -133,7 +134,11 @@ function NavLinkItem({ item, active }: NavLinkItemProps): JSX.Element {
         aria-current={active ? 'page' : undefined}
         className={[
           'relative flex h-11 items-center justify-center rounded-md px-2 sm:px-3',
+          // I4: 모바일 (sm 미만) 에선 라벨이 hidden 이라 text-caption 의 영향이 없지만,
+          // sm 이상에서 라벨이 노출될 때만 적용된다.
           'text-caption transition-colors duration-fast ease-standard sm:text-body',
+          // I1: 키보드 포커스 시각 표시 — focus-visible 로 마우스 클릭 시는 노출하지 않음.
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-bg',
           colorClass,
         ].join(' ')}
       >
