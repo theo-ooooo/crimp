@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 
 import { CrimpIcon, Skeleton } from '@/components/primitives';
+import { useLogout } from '@/hooks/useAuth';
 import { useGymsQuery } from '@/hooks/useGyms';
 import { useMeQuery } from '@/hooks/useMe';
 import { useMeStatsQuery } from '@/hooks/useMeStats';
@@ -294,6 +295,8 @@ function LoggedInProfile({ accessToken, styles, theme }: LoggedInProps): JSX.Ele
             </View>
           ) : null}
         </View>
+
+        <LogoutSection styles={styles} />
       </ScrollView>
 
       {/* I1: picker 가 닫혀있을 때 mount 자체를 막아 useGymsQuery 가 ProfileScreen
@@ -309,6 +312,50 @@ function LoggedInProfile({ accessToken, styles, theme }: LoggedInProps): JSX.Ele
         />
       ) : null}
     </>
+  );
+}
+
+// =====================================================================================
+// 로그아웃 섹션 — 화면 하단 단일 버튼.
+//
+// `useLogout` 가 백엔드 호출 (best-effort) → store.clear() → qc.clear() → navigation
+// reset(Login) 까지 모두 처리한다. 여기선 진행 중 상태만 로컬로 추적해 더블 탭 방지.
+// destructive 가 아니라 회복 가능한 액션이므로 별도 confirm 다이얼로그는 두지 않는다.
+// =====================================================================================
+
+function LogoutSection({ styles }: { styles: StylesT }): JSX.Element {
+  const logout = useLogout();
+  const [pending, setPending] = useState<boolean>(false);
+
+  const onPress = useCallback(async () => {
+    if (pending) {
+      return;
+    }
+    setPending(true);
+    try {
+      await logout();
+    } finally {
+      // navigation.reset 후 컴포넌트가 언마운트되더라도 state setter 자체는 안전.
+      setPending(false);
+    }
+  }, [logout, pending]);
+
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={pending}
+      accessibilityRole="button"
+      accessibilityLabel={t('profile.logout')}
+      style={({ pressed }) => [
+        styles.logoutButton,
+        pressed ? styles.logoutButtonPressed : null,
+        pending ? styles.logoutButtonDisabled : null,
+      ]}
+    >
+      <Text style={styles.logoutButtonLabel}>
+        {pending ? t('profile.logoutLoading') : t('profile.logout')}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -1029,6 +1076,28 @@ function makeStyles(theme: Theme) {
       fontSize: 13,
       fontWeight: fontWeight.bold,
       color: theme.semantic.danger,
+    },
+    /** 로그아웃 — subtle bg + text2 라벨. 회복 가능 액션이라 강조하지 않는다. */
+    logoutButton: {
+      paddingVertical: space[3],
+      paddingHorizontal: space[4],
+      borderRadius: radius.lg,
+      backgroundColor: theme.subtle,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    logoutButtonPressed: {
+      opacity: 0.85,
+    },
+    logoutButtonDisabled: {
+      opacity: 0.5,
+    },
+    logoutButtonLabel: {
+      fontFamily,
+      fontSize: fontSize.body,
+      fontWeight: fontWeight.semibold,
+      color: theme.text2,
+      letterSpacing: letterSpacing.body,
     },
     errorBox: {
       margin: space[5],
