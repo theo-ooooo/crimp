@@ -1,7 +1,10 @@
 'use client';
 
-import { CrimpIcon, Skeleton } from '@/components/primitives';
+import { useRouter } from 'next/navigation';
+
+import { CrimpIcon, SecondaryButton, Skeleton } from '@/components/primitives';
 import { MainGymSection } from '@/components/me/MainGymSection';
+import { useLogout } from '@/hooks/useAuth';
 import { useMeQuery } from '@/hooks/useMe';
 import { useMeStatsQuery } from '@/hooks/useMeStats';
 import { toUserMessage } from '@/lib/api/errorMessage';
@@ -121,7 +124,42 @@ function Loaded({ accessToken }: { accessToken: string }): JSX.Element {
           currentMainGym={meQuery.data.mainGym ?? null}
         />
       ) : null}
+
+      <LogoutSection />
     </main>
+  );
+}
+
+/**
+ * 로그아웃 섹션 — `/me` 마지막에 위치한 단일 버튼.
+ *
+ * - `useLogout` 가 서버 호출 후 `tokenStore.clear()` + `qc.clear()` 까지 처리하므로
+ *   여기선 mutate 만 호출하고 settled 시 `/login` 으로 replace.
+ * - 네트워크 실패해도 로컬 토큰은 정리되므로 결과와 무관하게 로그인 페이지로 이동.
+ * - destructive 가 아니라 회복 가능한 액션이므로 별도 confirm 다이얼로그는 두지 않는다.
+ */
+function LogoutSection(): JSX.Element {
+  const router = useRouter();
+  const { mutate, isPending } = useLogout();
+
+  const onClick = () => {
+    mutate(undefined, {
+      onSettled: () => {
+        router.replace('/login');
+      },
+    });
+  };
+
+  return (
+    <section className="px-1 pt-2">
+      <SecondaryButton
+        onClick={onClick}
+        disabled={isPending}
+        className="h-12 text-body"
+      >
+        {isPending ? t('me.logout.loading') : t('me.logout.cta')}
+      </SecondaryButton>
+    </section>
   );
 }
 
