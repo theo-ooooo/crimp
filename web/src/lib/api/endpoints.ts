@@ -14,9 +14,15 @@ import {
   type UpdateAttemptBody,
 } from '@/lib/schemas/attempt';
 import {
+  CommentListSchema,
+  CommentSchema,
   FeedListSchema,
+  LikeToggleResponseSchema,
+  type Comment,
+  type CommentList,
   type FeedFilter,
   type FeedList,
+  type LikeToggleResponse,
 } from '@/lib/schemas/feed';
 import {
   GymDetailSchema,
@@ -398,6 +404,98 @@ export function fetchFeed(
     path: `/api/v1/feed${qs ? `?${qs}` : ''}`,
     accessToken,
     schema: FeedListSchema,
+    signal,
+  });
+}
+
+// ===== Feed Post: Likes & Comments (PR #56 — SocialController) =====
+
+/**
+ * `POST /api/v1/feed-posts/{extId}/like` 또는 `DELETE` — 좋아요 토글.
+ *
+ * 단일 함수로 두 동사를 처리해 호출부의 분기를 줄인다 (UI 가 `liked` 상태에 따라
+ * action 만 결정). 응답은 두 동사 모두 `LikeToggleResponse` 형태.
+ */
+export function togglePostLike(
+  accessToken: string,
+  postExtId: string,
+  action: 'like' | 'unlike',
+  signal?: AbortSignal,
+): Promise<LikeToggleResponse> {
+  return apiRequest({
+    method: action === 'like' ? 'POST' : 'DELETE',
+    path: `/api/v1/feed-posts/${encodeURIComponent(postExtId)}/like`,
+    accessToken,
+    schema: LikeToggleResponseSchema,
+    signal,
+  });
+}
+
+/**
+ * `GET /api/v1/feed-posts/{extId}/comments` — 댓글 목록 (커서 페이지네이션).
+ *
+ * - `cursor`: 직전 응답 `page.nextCursor` 를 그대로 전달. 첫 호출에선 `null`.
+ * - `size`: 서버 기본값 사용 시 생략.
+ */
+export function fetchComments(
+  accessToken: string,
+  postExtId: string,
+  cursor?: number | null,
+  size?: number,
+  signal?: AbortSignal,
+): Promise<CommentList> {
+  const params = new URLSearchParams();
+  if (cursor !== undefined && cursor !== null) {
+    params.set('cursor', String(cursor));
+  }
+  if (size !== undefined) {
+    params.set('size', String(size));
+  }
+  const qs = params.toString();
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/feed-posts/${encodeURIComponent(postExtId)}/comments${qs ? `?${qs}` : ''}`,
+    accessToken,
+    schema: CommentListSchema,
+    signal,
+  });
+}
+
+/**
+ * `POST /api/v1/feed-posts/{extId}/comments` — 댓글 작성.
+ *
+ * `parentExtId` 는 대댓글일 때만 지정. UI Phase 1.5 는 평탄 리스트.
+ */
+export function createComment(
+  accessToken: string,
+  postExtId: string,
+  content: string,
+  parentExtId?: string | null,
+  signal?: AbortSignal,
+): Promise<Comment> {
+  return apiRequest({
+    method: 'POST',
+    path: `/api/v1/feed-posts/${encodeURIComponent(postExtId)}/comments`,
+    accessToken,
+    body: { content, parentExtId: parentExtId ?? null },
+    schema: CommentSchema,
+    signal,
+  });
+}
+
+/**
+ * `DELETE /api/v1/comments/{extId}` — 댓글 삭제 (본인만, 백엔드 강제). 204.
+ */
+export function deleteComment(
+  accessToken: string,
+  commentExtId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  return apiRequest({
+    method: 'DELETE',
+    path: `/api/v1/comments/${encodeURIComponent(commentExtId)}`,
+    accessToken,
+    schema: z.void(),
     signal,
   });
 }

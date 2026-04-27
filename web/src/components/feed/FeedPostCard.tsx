@@ -12,10 +12,12 @@
  * - 본문 14 medium, line-height 1.5
  * - 푸터: hairline top, gap 18, heart/comment 인라인 SVG
  *
- * 좋아요·댓글은 read-only (Phase 1.5). 클릭 핸들러는 추후 PR 에서 추가.
+ * v2 (PR #56):
+ *  - 하트는 `liked` 반영 + 클릭 시 `useLikeToggleMutation` (낙관적 업데이트는 훅 내부)
+ *  - 댓글 버튼 클릭 → `onOpenComments` 콜백 호출 (다이얼로그 오픈은 부모 책임)
  */
 
-import type { CSSProperties, FC } from 'react';
+import type { FC } from 'react';
 
 import {
   GradeBadge,
@@ -23,25 +25,27 @@ import {
   ResultMark,
   type HoldColorKey,
 } from '@/components/primitives';
+import { useLikeToggleMutation } from '@/hooks/useLikeToggle';
 import { t } from '@/lib/i18n';
 import { colors } from '@/lib/tokens';
 import type { FeedItem } from '@/lib/schemas/feed';
 import { formatRelativeTime } from '@/lib/format/relativeTime';
 
+import { Avatar } from './Avatar';
+
 export interface FeedPostCardProps {
   item: FeedItem;
+  /** Bearer 토큰 — 좋아요 뮤테이션에 필요. null 이면 토글 비활성. */
+  accessToken: string | null;
+  /** 댓글 버튼 클릭 핸들러. 부모(FeedPage) 가 다이얼로그를 연다. */
+  onOpenComments: (postExtId: string) => void;
 }
 
-export const FeedPostCard: FC<FeedPostCardProps> = ({ item }) => {
-  const initial = (item.userNickname.trim().charAt(0) || '?').toUpperCase();
-
-  // hue 는 0~359 범위로 정규화 (백엔드 계약상 정수 보장이지만 방어).
-  const safeHue = ((item.avatarColorHue % 360) + 360) % 360;
-  const avatarStyle: CSSProperties = {
-    background: `oklch(82% 0.06 ${safeHue})`,
-    color: 'var(--color-text)',
-  };
-
+export const FeedPostCard: FC<FeedPostCardProps> = ({
+  item,
+  accessToken,
+  onOpenComments,
+}) => {
   const timeLabel = formatRelativeTime(item.loggedAt);
   const metaCaption = item.gymName
     ? `${timeLabel} · ${item.gymName}`
@@ -50,6 +54,18 @@ export const FeedPostCard: FC<FeedPostCardProps> = ({ item }) => {
   // 결과 enum 한글 라벨 — 다른 화면(`sessions/[extId]`, `LogAttemptSheet`) 과 동일 키 사용.
   const resultLabel = t(`attempt.result.${item.result}` as const);
 
+  const likeMutation = useLikeToggleMutation(accessToken, item.extId);
+  const onLikeClick = () => {
+    if (!accessToken || likeMutation.isPending) return;
+    likeMutation.mutate({ currentlyLiked: item.liked });
+  };
+
+  // 좋아요 토글 버튼의 aria-label — 현재 상태에 따라 동작 안내가 바뀐다.
+  // (I2: 카드 일부이므로 `feed.card.*` namespace 가 정확.)
+  const likeAriaLabel = item.liked
+    ? t('feed.card.likeAriaPressed')
+    : t('feed.card.likeAriaUnpressed');
+
   return (
     <article
       className="mb-3 flex flex-col rounded-[18px] border border-hairline bg-bg p-4"
@@ -57,13 +73,7 @@ export const FeedPostCard: FC<FeedPostCardProps> = ({ item }) => {
     >
       {/* 헤더 */}
       <div className="mb-2.5 flex items-center gap-2.5">
-        <div
-          aria-hidden="true"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-extrabold"
-          style={avatarStyle}
-        >
-          {initial}
-        </div>
+        <Avatar nickname={item.userNickname} hue={item.avatarColorHue} size={36} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-bold tracking-[-0.02em] text-text">
             {item.userNickname}
@@ -99,8 +109,32 @@ export const FeedPostCard: FC<FeedPostCardProps> = ({ item }) => {
 
       {/* 푸터 (좋아요 · 댓글) */}
       <div className="mt-3 flex gap-[18px] border-t border-hairline pt-3">
-        <FooterMetric icon={<HeartIcon />} count={item.likes} ariaLabel={t('feed.card.likesAria')} />
-        <FooterMetric icon={<CommentIcon />} count={item.comments} ariaLabel={t('feed.card.commentsAria')} />
+        <button
+          type="button"
+          onClick={onLikeClick}
+          aria-pressed={item.liked}
+          aria-label={likeAriaLabel}
+          disabled={!accessToken || likeMutation.isPending}
+          className={
+            'flex items-center gap-1.5 border-0 bg-transparent p-0 text-[13px] font-semibold transition-colors duration-fast ease-standard active:scale-[0.96] disabled:cursor-not-allowed ' +
+            (item.liked ? 'text-danger' : 'text-text-2')
+          }
+          style={{ WebkitTapHighlightColor: 'transparent' }}
+        >
+          <HeartIcon filled={item.liked} />
+          <span className="tabular-nums">{item.likes}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onOpenComments(item.extId)}
+          aria-label={t('feed.card.commentsAria')}
+          className="flex items-center gap-1.5 border-0 bg-transparent p-0 text-[13px] font-semibold text-text-2 transition-colors duration-fast ease-standard active:scale-[0.96]"
+          style={{ WebkitTapHighlightColor: 'transparent' }}
+        >
+          <CommentIcon />
+          <span className="tabular-nums">{item.comments}</span>
+        </button>
       </div>
     </article>
   );
@@ -110,37 +144,19 @@ export const FeedPostCard: FC<FeedPostCardProps> = ({ item }) => {
 // 내부 helpers
 // ─────────────────────────────────────────────────────────────
 
-function FooterMetric({
-  icon,
-  count,
-  ariaLabel,
-}: {
-  icon: React.ReactNode;
-  count: number;
-  ariaLabel: string;
-}): JSX.Element {
-  return (
-    <div
-      className="flex items-center gap-1.5 text-[13px] font-semibold text-text-2"
-      aria-label={`${ariaLabel} ${count}`}
-    >
-      {icon}
-      <span className="tabular-nums">{count}</span>
-    </div>
-  );
-}
-
 /**
  * mock 의 stroke 하트 아이콘.
  * `docs/design/claude/v2/screens-ios-2.jsx:525` 와 동일한 path.
+ *
+ * `filled` 가 true 면 `currentColor` 로 채움 — 좋아요한 상태 시각 표현.
  */
-function HeartIcon(): JSX.Element {
+function HeartIcon({ filled }: { filled: boolean }): JSX.Element {
   return (
     <svg
       width="16"
       height="16"
       viewBox="0 0 16 16"
-      fill="none"
+      fill={filled ? 'currentColor' : 'none'}
       stroke="currentColor"
       strokeWidth="1.6"
       aria-hidden="true"
