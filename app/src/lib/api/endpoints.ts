@@ -33,7 +33,7 @@ import {
   type RouteList,
 } from '@/lib/schemas/gym';
 import { HealthResponseSchema, type HealthResponse } from '@/lib/schemas/health';
-import { MeSchema, type Me } from '@/lib/schemas/me';
+import { MeSchema, type Me, type UpdateProfileBody } from '@/lib/schemas/me';
 import { MeStatsSchema, type MeStats } from '@/lib/schemas/meStats';
 import {
   SessionListSchema,
@@ -110,6 +110,27 @@ export function fetchMe(accessToken: string, signal?: AbortSignal): Promise<Me> 
     method: 'GET',
     path: '/api/v1/me',
     accessToken,
+    schema: MeSchema,
+    signal,
+  });
+}
+
+/**
+ * `PATCH /api/v1/me/profile` — 내 프로필 부분 수정.
+ *
+ * 모든 필드 선택. 본 PR 에서는 `mainGymId` 만 사용 (내 암장 설정/해제). 응답은 갱신된
+ * `MeResponse` (= `Me` 스키마와 동일).
+ */
+export function updateMyProfile(
+  accessToken: string,
+  body: UpdateProfileBody,
+  signal?: AbortSignal,
+): Promise<Me> {
+  return apiRequest({
+    method: 'PATCH',
+    path: '/api/v1/me/profile',
+    accessToken,
+    body,
     schema: MeSchema,
     signal,
   });

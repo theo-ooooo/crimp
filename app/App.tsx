@@ -12,6 +12,7 @@ import GymDetailScreen from './src/screens/GymDetailScreen';
 import GymSearchScreen from './src/screens/GymSearchScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import LoginScreen from './src/screens/LoginScreen';
+import ProfileScreen from './src/screens/ProfileScreen';
 import SessionDetailScreen from './src/screens/SessionDetailScreen';
 import SessionListScreen from './src/screens/SessionListScreen';
 import StartSessionScreen from './src/screens/StartSessionScreen';
@@ -89,6 +90,11 @@ export default function App(): JSX.Element {
               name="Feed"
               component={FeedScreen}
               options={{ title: t('feed.title') }}
+            />
+            <Stack.Screen
+              name="Profile"
+              component={ProfileScreen}
+              options={{ title: t('profile.title') }}
             />
           </Stack.Navigator>
         </NavigationContainer>

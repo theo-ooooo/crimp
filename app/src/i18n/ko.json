@@ -211,6 +211,33 @@
       "errorTitle": "암장 정보를 불러오지 못했어요"
     }
   },
+  "profile": {
+    "title": "프로필",
+    "openCta": "프로필 열기",
+    "openCtaDescription": "닉네임·내 암장 등 내 정보 관리",
+    "nickname": "닉네임",
+    "level": "레벨",
+    "loginRequiredTitle": "로그인 필요",
+    "loginRequiredDescription": "프로필을 보려면 로그인이 필요합니다.",
+    "loadErrorTitle": "프로필을 불러오지 못했어요"
+  },
+  "me": {
+    "mainGym": {
+      "title": "내 암장",
+      "unset": "미설정 — 설정하러 가기",
+      "setUnknownLabel": "설정됨",
+      "setCta": "내 암장 설정",
+      "editCta": "내 암장 변경",
+      "clearCta": "내 암장 해제",
+      "pickerTitle": "내 암장 선택",
+      "pickerSearchPlaceholder": "암장 이름·지역으로 검색",
+      "pickerUnsupported": "이 암장은 아직 내 암장으로 설정할 수 없어요. 백엔드 업데이트가 필요해요.",
+      "confirmCta": "확인",
+      "cancel": "취소",
+      "saving": "저장 중...",
+      "errorTitle": "내 암장을 변경하지 못했어요"
+    }
+  },
   "auth": {
     "login": {
       "title": "로그인",

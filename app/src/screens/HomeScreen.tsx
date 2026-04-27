@@ -213,6 +213,28 @@ function LoggedInView({ accessToken, navigation, styles, theme }: LoggedInProps)
         <CrimpIcon.chevR size={18} color={theme.text3} />
       </Pressable>
 
+      {/* 프로필 진입 (임시 카드 — BottomTabs 도입 전 placeholder). */}
+      <Pressable
+        onPress={() => navigation.navigate('Profile')}
+        accessibilityRole="button"
+        accessibilityLabel={t('profile.openCta')}
+        style={({ pressed }) => [
+          styles.feedEntryCard,
+          pressed ? styles.feedEntryCardPressed : null,
+        ]}
+      >
+        <View style={styles.feedEntryIcon}>
+          <CrimpIcon.profile size={20} color={theme.text} />
+        </View>
+        <View style={styles.feedEntryBody}>
+          <Text style={styles.feedEntryTitle}>{t('profile.openCta')}</Text>
+          <Text style={styles.feedEntrySubtitle}>
+            {t('profile.openCtaDescription')}
+          </Text>
+        </View>
+        <CrimpIcon.chevR size={18} color={theme.text3} />
+      </Pressable>
+
       {/* 최근 세션 */}
       {stats && stats.totalSessions === 0 ? (
         <View style={styles.emptyBlock}>

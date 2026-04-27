@@ -7,6 +7,7 @@ export {
   logout,
   fetchHealth,
   fetchMe,
+  updateMyProfile,
   fetchMeStats,
   fetchMySessions,
   fetchSession,

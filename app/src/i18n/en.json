@@ -211,6 +211,33 @@
       "errorTitle": "Failed to load gym"
     }
   },
+  "profile": {
+    "title": "Profile",
+    "openCta": "Open profile",
+    "openCtaDescription": "Manage your nickname, home gym and more",
+    "nickname": "Nickname",
+    "level": "Level",
+    "loginRequiredTitle": "Login required",
+    "loginRequiredDescription": "Sign in to view your profile.",
+    "loadErrorTitle": "Failed to load profile"
+  },
+  "me": {
+    "mainGym": {
+      "title": "Home gym",
+      "unset": "Not set — tap to set",
+      "setUnknownLabel": "Set",
+      "setCta": "Set home gym",
+      "editCta": "Change home gym",
+      "clearCta": "Unset",
+      "pickerTitle": "Pick your home gym",
+      "pickerSearchPlaceholder": "Search by gym name or area",
+      "pickerUnsupported": "This gym can't be set yet. Backend update required.",
+      "confirmCta": "Confirm",
+      "cancel": "Cancel",
+      "saving": "Saving...",
+      "errorTitle": "Failed to change home gym"
+    }
+  },
   "auth": {
     "login": {
       "title": "Sign in",

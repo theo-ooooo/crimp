@@ -43,6 +43,11 @@ export type RootStackParamList = {
    * 임시로 HomeScreen 의 진입 카드에서 navigate. BottomTabs 도입은 별개 PR.
    */
   Feed: undefined;
+  /**
+   * 프로필 화면. 닉네임·레벨 표시(읽기 전용) + 내 암장 설정/변경/해제.
+   * 인증 필수 — 화면 내부에서 gate 처리. HomeScreen 의 카드에서 진입한다.
+   */
+  Profile: undefined;
 };
 
 export type RootStackNavigationProp<RouteName extends keyof RootStackParamList> =
