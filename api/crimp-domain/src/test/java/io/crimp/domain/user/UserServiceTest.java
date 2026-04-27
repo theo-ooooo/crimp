@@ -216,6 +216,50 @@ class UserServiceTest {
     }
 
     @Test
+    void updateMyProfile_mainGymExtId_and_mainGymId_both_set_throws_validation() {
+        // I1: mainGymExtId 와 mainGymId 동시 set 도 거부 (우선순위 silent 적용 회피).
+        var cmd = new UpdateProfileCommand(null, null, null, 7L, "01HGYM_X", false, null);
+        assertThatThrownBy(() -> service.updateMyProfile(1L, cmd))
+                .isInstanceOf(UserException.class)
+                .satisfies(e -> assertThat(((UserException) e).code()).isEqualTo("INVALID_MAIN_GYM_REQUEST"));
+        verify(userRepo, never()).findById(any());
+    }
+
+    @Test
+    void updateMyProfile_inactive_mainGym_extId_throws_404() {
+        // I3: CLOSED/PENDING gym 은 mainGym 으로 set 불가.
+        User user = user(1L, "01HU");
+        Profile profile = Profile.create(1L, "kk");
+        Gym closedGym = gym(7L, "01HGYM_CLOSED", "폐업한 암장", null);
+        setField(closedGym, "status", GymStatus.CLOSED);
+        when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+        when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
+        when(gymRepo.findByExtId("01HGYM_CLOSED")).thenReturn(Optional.of(closedGym));
+
+        var cmd = new UpdateProfileCommand(null, null, null, null, "01HGYM_CLOSED", false, null);
+        assertThatThrownBy(() -> service.updateMyProfile(1L, cmd))
+                .isInstanceOf(UserException.class)
+                .satisfies(e -> assertThat(((UserException) e).code()).isEqualTo("MAIN_GYM_NOT_FOUND"));
+    }
+
+    @Test
+    void getPublicProfile_does_not_resolve_mainGym() {
+        // I4: 공개 프로필은 mainGym 정보를 노출하지 않으므로 gymRepo 조회 자체가 발생하지 않아야.
+        User user = user(1L, "01HU");
+        Profile profile = Profile.create(1L, "kk");
+        profile.updateMainGym(7L);
+        when(userRepo.findByExtId("01HU")).thenReturn(Optional.of(user));
+        when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
+
+        ProfileView view = service.getPublicProfile("01HU");
+
+        assertThat(view.mainGymId()).isEqualTo(7L);
+        // mainGym 객체는 항상 null (공개 프로필 컨버터 사용)
+        assertThat(view.mainGym()).isNull();
+        verify(gymRepo, never()).findById(any());
+    }
+
+    @Test
     void getMe_returns_resolved_mainGym_object_when_set() {
         User user = user(1L, "01HU");
         Profile profile = Profile.create(1L, "kk");

@@ -1,5 +1,6 @@
 package io.crimp.domain.user;
 
+import io.crimp.core.entity.enums.GymStatus;
 import io.crimp.core.entity.gym.Gym;
 import io.crimp.core.entity.user.Profile;
 import io.crimp.core.entity.user.User;
@@ -38,7 +39,9 @@ public class UserService {
                 .orElseThrow(() -> new UserException("USER_NOT_FOUND", "User " + extId + " not found"));
         var profile = profileRepo.findById(user.getId())
                 .orElseThrow(() -> new UserException("PROFILE_MISSING", "Profile missing for " + extId));
-        return toView(user, profile);
+        // I4: PublicUserResponse 는 mainGym 정보를 노출하지 않으므로 resolve 호출은 낭비.
+        // toViewWithoutMainGym 으로 gym 조회를 생략한다.
+        return toViewWithoutMainGym(user, profile);
     }
 
     @Transactional
@@ -67,10 +70,12 @@ public class UserService {
         if (cmd.clearMainGym()) {
             profile.updateMainGym(null);
         } else if (cmd.mainGymExtId() != null) {
+            // I3: 활성 상태 (ACTIVE) 의 암장만 mainGym 으로 설정 가능. CLOSED/PENDING 은 거부.
             Gym gym = gymRepo.findByExtId(cmd.mainGymExtId())
+                    .filter(g -> g.getStatus() == GymStatus.ACTIVE)
                     .orElseThrow(() -> new UserException(
                             "MAIN_GYM_NOT_FOUND",
-                            "Gym not found: " + cmd.mainGymExtId()));
+                            "Gym not found or inactive: " + cmd.mainGymExtId()));
             profile.updateMainGym(gym.getId());
         } else if (cmd.mainGymId() != null) {
             profile.updateMainGym(cmd.mainGymId());
@@ -83,13 +88,24 @@ public class UserService {
 
     /**
      * 주 암장 입력 상호 배타 검증.
-     * clearMainGym=true 와 (mainGymExtId | mainGymId) 동시 set 은 의도가 모호하므로 거부.
+     *
+     * <ul>
+     *   <li>clearMainGym=true 와 (mainGymExtId | mainGymId) 동시 set — 의도 모호</li>
+     *   <li>mainGymExtId 와 mainGymId 동시 set — 우선순위 모호 (둘 다 set 했는데 한쪽이 silently
+     *       이긴다면 다른 쪽이 무시됐다는 신호를 클라이언트가 받지 못함)</li>
+     * </ul>
+     * 위 조합은 모두 INVALID_MAIN_GYM_REQUEST (400) 로 거부한다.
      */
     private static void validateMainGymInput(UpdateProfileCommand cmd) {
         if (cmd.clearMainGym() && (cmd.mainGymExtId() != null || cmd.mainGymId() != null)) {
             throw new UserException(
                     "INVALID_MAIN_GYM_REQUEST",
                     "clearMainGym cannot be combined with mainGymExtId or mainGymId");
+        }
+        if (cmd.mainGymExtId() != null && cmd.mainGymId() != null) {
+            throw new UserException(
+                    "INVALID_MAIN_GYM_REQUEST",
+                    "mainGymExtId and mainGymId cannot both be provided");
         }
     }
 
@@ -103,6 +119,21 @@ public class UserService {
                 profile.getLevelSelf(),
                 profile.getMainGymId(),
                 mainGym
+        );
+    }
+
+    /**
+     * 공개 프로필용 변환 — mainGym 정보를 항상 null 로 둔다 (PublicUserResponse 미노출).
+     */
+    private static ProfileView toViewWithoutMainGym(User user, Profile profile) {
+        return new ProfileView(
+                user.getExtId(),
+                profile.getNickname(),
+                profile.getBio(),
+                profile.getAvatarMediaId(),
+                profile.getLevelSelf(),
+                profile.getMainGymId(),
+                null
         );
     }
 

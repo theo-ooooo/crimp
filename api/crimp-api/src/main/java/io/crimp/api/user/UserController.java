@@ -98,7 +98,9 @@ public class UserController {
             @Size(max = 300) String bio,
             Byte levelSelf,
             Long mainGymId,
-            @Size(max = 26) String mainGymExtId,
+            // I2: ULID 정확히 26자 — 빈 문자열을 404 까지 보내지 않고 사전 차단.
+            // @Size 는 null 에 대해서는 bypass 되므로 optional 의미는 유지.
+            @Size(min = 26, max = 26) String mainGymExtId,
             Boolean clearMainGym,
             Long avatarMediaId
     ) {}
@@ -126,7 +128,11 @@ public class UserController {
 
     /**
      * 클라이언트 렌더용 최소 암장 정보. {@code GymItem} 의 부분집합.
-     * mainGymId 가 null 이거나 해당 암장이 더 이상 존재하지 않으면 null.
+     * mainGymId 가 null 이거나 해당 암장이 더 이상 존재하지 않으면 null (객체 자체가 누락).
+     *
+     * <p>I5: {@code brand} 는 nullable. 전역 {@code @JsonInclude(NON_NULL)} 정책을 따르므로
+     * brand 가 null 인 암장은 응답에서 키 자체가 누락된다 (예: {@code "mainGym": {"extId":"...","name":"..."}}).
+     * 클라이언트는 이를 "브랜드 미등록" 으로 표시한다.
      */
     public record MainGymResponse(String extId, String name, String brand) {
         static MainGymResponse of(ProfileView.MainGymView v) {
