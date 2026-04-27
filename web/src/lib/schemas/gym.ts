@@ -24,8 +24,16 @@ const BigDecimalLikeNullable = z
   .nullable()
   .optional();
 
-/** 백엔드 `GymListResponse.GymItem`. 목록 카드에서 사용. */
+/** 백엔드 `GymListResponse.GymItem`. 목록 카드에서 사용.
+ *
+ * `id` 는 내부 PK (numeric Long) — 현재 백엔드 GymItem 에는 미노출이지만,
+ * `Profile.mainGymId` 는 numeric id 만 받기 때문에 향후 GymItem 응답에 id 가
+ * 추가될 경우를 대비해 선택 필드로 미리 받아둔다. (없으면 undefined.)
+ *
+ * @see web/src/components/me/MainGymPickerDialog.tsx — id 부재 시 선택 불가 처리.
+ */
 export const GymItemSchema = z.object({
+  id: z.number().optional(),
   extId: z.string(),
   name: z.string(),
   brand: z.string().nullable().optional(),

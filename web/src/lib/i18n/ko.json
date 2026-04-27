@@ -65,7 +65,22 @@
     "labelMainGymId": "주 암장 ID",
     "labelAvatarMediaId": "프로필 이미지 ID",
     "empty": "-",
-    "errorTitle": "내 정보를 불러오지 못했습니다"
+    "errorTitle": "내 정보를 불러오지 못했습니다",
+    "mainGym": {
+      "title": "내 암장",
+      "unset": "미설정",
+      "fallbackId": "ID #{{id}}",
+      "setCta": "암장 설정",
+      "editCta": "변경",
+      "pickerTitle": "암장 선택",
+      "pickerSearchPlaceholder": "암장 이름·주소로 검색",
+      "pickerUnavailable": "현재 선택할 수 없는 암장이에요",
+      "confirmTitle": "이 암장을 내 암장으로 설정할까요?",
+      "confirmBody": "{{name}} 을(를) 내 암장으로 설정합니다.",
+      "confirmCta": "설정",
+      "cancel": "취소",
+      "errorTitle": "내 암장을 변경하지 못했어요"
+    }
   },
   "session": {
     "list": {

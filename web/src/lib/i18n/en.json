@@ -65,7 +65,22 @@
     "labelMainGymId": "Main gym ID",
     "labelAvatarMediaId": "Avatar media ID",
     "empty": "-",
-    "errorTitle": "Failed to load your profile"
+    "errorTitle": "Failed to load your profile",
+    "mainGym": {
+      "title": "My gym",
+      "unset": "Not set",
+      "fallbackId": "ID #{{id}}",
+      "setCta": "Set my gym",
+      "editCta": "Change",
+      "pickerTitle": "Pick a gym",
+      "pickerSearchPlaceholder": "Search by name or address",
+      "pickerUnavailable": "This gym can't be selected right now",
+      "confirmTitle": "Set this as your main gym?",
+      "confirmBody": "We'll set {{name}} as your main gym.",
+      "confirmCta": "Set",
+      "cancel": "Cancel",
+      "errorTitle": "Failed to update your main gym"
+    }
   },
   "session": {
     "list": {
