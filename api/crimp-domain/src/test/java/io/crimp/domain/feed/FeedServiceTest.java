@@ -2,7 +2,7 @@ package io.crimp.domain.feed;
 
 import io.crimp.core.entity.enums.AttemptResult;
 import io.crimp.core.entity.user.Profile;
-import io.crimp.core.repository.feed.FeedPostRepositoryCustom;
+import io.crimp.core.repository.feed.FeedPostRepository;
 import io.crimp.core.repository.feed.FeedQueryMode;
 import io.crimp.core.repository.feed.FeedRow;
 import io.crimp.core.repository.user.ProfileRepository;
@@ -30,13 +30,13 @@ import static org.mockito.Mockito.when;
 
 class FeedServiceTest {
 
-    private FeedPostRepositoryCustom feedRepository;
+    private FeedPostRepository feedRepository;
     private ProfileRepository profileRepository;
     private FeedService service;
 
     @BeforeEach
     void setUp() {
-        feedRepository = mock(FeedPostRepositoryCustom.class);
+        feedRepository = mock(FeedPostRepository.class);
         profileRepository = mock(ProfileRepository.class);
         service = new FeedService(feedRepository, profileRepository);
     }

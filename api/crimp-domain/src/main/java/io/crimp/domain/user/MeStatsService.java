@@ -39,6 +39,7 @@ public class MeStatsService {
     private final SessionAttemptRepository attemptRepository;
     private final Clock clock;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public MeStatsService(
             ClimbingSessionRepository sessionRepository,
             SessionAttemptRepository attemptRepository) {
