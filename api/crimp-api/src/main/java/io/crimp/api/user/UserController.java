@@ -48,7 +48,13 @@ public class UserController {
             @AuthenticationPrincipal CrimpPrincipal principal,
             @RequestBody @Valid UpdateProfileRequest req) {
         UpdateProfileCommand cmd = new UpdateProfileCommand(
-                req.nickname(), req.bio(), req.levelSelf(), req.mainGymId(), req.avatarMediaId());
+                req.nickname(),
+                req.bio(),
+                req.levelSelf(),
+                req.mainGymId(),
+                req.mainGymExtId(),
+                req.clearMainGym() != null && req.clearMainGym(),
+                req.avatarMediaId());
         return MeResponse.of(userService.updateMyProfile(principal.userId(), cmd));
     }
 
@@ -67,7 +73,7 @@ public class UserController {
     @ExceptionHandler(UserException.class)
     public ResponseEntity<ApiResponse<Void>> handleUser(UserException e) {
         int status = switch (e.code()) {
-            case "USER_NOT_FOUND", "PROFILE_MISSING" -> 404;
+            case "USER_NOT_FOUND", "PROFILE_MISSING", "MAIN_GYM_NOT_FOUND" -> 404;
             case "NICKNAME_TAKEN" -> 409;
             default -> 400;
         };
@@ -76,11 +82,26 @@ public class UserController {
 
     // --- DTOs ---
 
+    /**
+     * PATCH /me/profile 요청 바디.
+     *
+     * <p>주 암장 변경:
+     * <ul>
+     *   <li>{@code mainGymExtId} 권장 — ULID. 서버에서 numeric id 로 해석.
+     *   <li>{@code mainGymId} 호환 — 기존 클라이언트가 numeric id 직접 전달 시.
+     *   <li>{@code clearMainGym=true} — 주 암장 명시 해제 (null 로 설정).
+     *   <li>{@code clearMainGym=true} 와 mainGymExtId/mainGymId 동시 set 은 400 (INVALID_MAIN_GYM_REQUEST).
+     * </ul>
+     */
     public record UpdateProfileRequest(
             @Size(min = 2, max = 30) String nickname,
             @Size(max = 300) String bio,
             Byte levelSelf,
             Long mainGymId,
+            // I2: ULID 정확히 26자 — 빈 문자열을 404 까지 보내지 않고 사전 차단.
+            // @Size 는 null 에 대해서는 bypass 되므로 optional 의미는 유지.
+            @Size(min = 26, max = 26) String mainGymExtId,
+            Boolean clearMainGym,
             Long avatarMediaId
     ) {}
 
@@ -90,10 +111,33 @@ public class UserController {
             String bio,
             Byte levelSelf,
             Long mainGymId,
+            MainGymResponse mainGym,
             Long avatarMediaId
     ) {
         static MeResponse of(ProfileView v) {
-            return new MeResponse(v.extId(), v.nickname(), v.bio(), v.levelSelf(), v.mainGymId(), v.avatarMediaId());
+            return new MeResponse(
+                    v.extId(),
+                    v.nickname(),
+                    v.bio(),
+                    v.levelSelf(),
+                    v.mainGymId(),
+                    MainGymResponse.of(v.mainGym()),
+                    v.avatarMediaId());
+        }
+    }
+
+    /**
+     * 클라이언트 렌더용 최소 암장 정보. {@code GymItem} 의 부분집합.
+     * mainGymId 가 null 이거나 해당 암장이 더 이상 존재하지 않으면 null (객체 자체가 누락).
+     *
+     * <p>I5: {@code brand} 는 nullable. 전역 {@code @JsonInclude(NON_NULL)} 정책을 따르므로
+     * brand 가 null 인 암장은 응답에서 키 자체가 누락된다 (예: {@code "mainGym": {"extId":"...","name":"..."}}).
+     * 클라이언트는 이를 "브랜드 미등록" 으로 표시한다.
+     */
+    public record MainGymResponse(String extId, String name, String brand) {
+        static MainGymResponse of(ProfileView.MainGymView v) {
+            if (v == null) return null;
+            return new MainGymResponse(v.extId(), v.name(), v.brand());
         }
     }
 
