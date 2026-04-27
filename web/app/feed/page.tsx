@@ -17,9 +17,11 @@
 import { useState } from 'react';
 
 import { CrimpIcon, SecondaryButton, Skeleton } from '@/components/primitives';
+import { CommentDialog } from '@/components/feed/CommentDialog';
 import { FeedFilterTabs } from '@/components/feed/FeedFilterTabs';
 import { FeedPostCard } from '@/components/feed/FeedPostCard';
 import { useFeedQuery } from '@/hooks/useFeed';
+import { useMeQuery } from '@/hooks/useMe';
 import { toUserMessage } from '@/lib/api/errorMessage';
 import { t } from '@/lib/i18n';
 import type { FeedFilter, FeedItem } from '@/lib/schemas/feed';
@@ -75,6 +77,12 @@ function FeedContent({
     refetch,
   } = useFeedQuery(accessToken, filter);
 
+  // 본인 댓글 판별용 — 캐시 공유 (`['me']`) 로 추가 요청 0회.
+  const meQuery = useMeQuery(accessToken);
+
+  // 댓글 다이얼로그 대상 포스트 extId — null 이면 닫힘.
+  const [activeCommentPost, setActiveCommentPost] = useState<string | null>(null);
+
   const items: FeedItem[] = data?.pages.flatMap((p) => p.items) ?? [];
 
   return (
@@ -118,7 +126,11 @@ function FeedContent({
           <ul className="flex flex-col">
             {items.map((item) => (
               <li key={item.extId}>
-                <FeedPostCard item={item} />
+                <FeedPostCard
+                  item={item}
+                  accessToken={accessToken}
+                  onOpenComments={setActiveCommentPost}
+                />
               </li>
             ))}
           </ul>
@@ -139,6 +151,16 @@ function FeedContent({
           </div>
         ) : null}
       </div>
+
+      {/* 댓글 다이얼로그 — 활성 대상이 있을 때만 마운트해 useInfiniteQuery 가 enable. */}
+      {activeCommentPost !== null ? (
+        <CommentDialog
+          postExtId={activeCommentPost}
+          accessToken={accessToken}
+          currentUserExtId={meQuery.data?.extId ?? null}
+          onClose={() => setActiveCommentPost(null)}
+        />
+      ) : null}
     </main>
   );
 }

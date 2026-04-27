@@ -219,6 +219,18 @@
       "commentsAria": "Comments",
       "postAria": "{{nickname}}'s attempt"
     },
+    "comment": {
+      "title": "Comments",
+      "empty": "Be the first to comment",
+      "placeholder": "Leave a kind comment",
+      "submit": "Post",
+      "submitting": "Posting...",
+      "deleteCta": "Delete",
+      "deleteConfirm": "Delete this comment?",
+      "likeAriaPressed": "Unlike",
+      "likeAriaUnpressed": "Like",
+      "errorTitle": "Failed to load comments"
+    },
     "time": {
       "justNow": "just now",
       "minutesAgo": "{{n}}m ago",
