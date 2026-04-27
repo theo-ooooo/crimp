@@ -54,6 +54,12 @@ app/android/app/build/
 app/.expo/
 app/.expo-shared/
 
+# Android — IDE-generated, contains SDK path + KAKAO_APP_KEY 등 로컬 시크릿
+app/android/local.properties
+
+# iOS — Kakao key 등 로컬 시크릿. 샘플 (.sample) 만 커밋한다
+app/ios/Crimp.xcconfig
+
 # Terraform
 infra/**/.terraform/
 infra/**/terraform.tfstate

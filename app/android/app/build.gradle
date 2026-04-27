@@ -72,6 +72,26 @@ def enableProguardInReleaseBuilds = false
  */
 def jscFlavor = 'org.webkit:android-jsc:+'
 
+/**
+ * Kakao 네이티브 앱 키를 `local.properties` 에서 읽는다.
+ *
+ * - `local.properties` 는 gitignore — 키는 사용자 환경에서 직접 채운다.
+ * - 미설정 시 빈 문자열로 두면 카카오 SDK 가 런타임에 명시 에러를 던진다 (조용한 실패 방지).
+ * - `local.properties.sample` 참조.
+ *
+ * `resValue` 로 string 리소스 `kakao_app_key` 를 주입 — `@react-native-seoul/kakao-login`
+ * 모듈이 `R.string.kakao_app_key` 를 직접 읽어 SDK 를 초기화한다.
+ *
+ * `manifestPlaceholders.kakaoAppKey` 는 AndroidManifest 의 카카오 redirect 인텐트 필터
+ * scheme (`kakao${kakaoAppKey}`) 에 치환된다.
+ */
+def kakaoLocalProps = new Properties()
+def kakaoLocalPropsFile = rootProject.file("local.properties")
+if (kakaoLocalPropsFile.exists()) {
+    kakaoLocalPropsFile.withInputStream { kakaoLocalProps.load(it) }
+}
+def kakaoAppKey = kakaoLocalProps.getProperty("KAKAO_APP_KEY", "")
+
 android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
@@ -84,6 +104,9 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
+
+        resValue "string", "kakao_app_key", kakaoAppKey
+        manifestPlaceholders = [kakaoAppKey: kakaoAppKey]
     }
     signingConfigs {
         debug {
