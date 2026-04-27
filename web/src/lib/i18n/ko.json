@@ -19,6 +19,14 @@
     "delete": "삭제",
     "empty": "-"
   },
+  "nav": {
+    "ariaLabel": "주요 메뉴",
+    "home": "홈",
+    "feed": "피드",
+    "sessions": "세션",
+    "gyms": "암장",
+    "profile": "프로필"
+  },
   "auth": {
     "login": {
       "title": "오늘도 잘 붙어봐요",
