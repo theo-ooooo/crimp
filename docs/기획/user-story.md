@@ -5,6 +5,7 @@
 | 작성일 | 2026-04-27 |
 | 작성자 | 강경원 |
 | 상태 | Draft (GATE 1 승인 대기) |
+| 종목 범위 | **실내 볼더링 단일** (리드/아웃도어는 Phase 2+) |
 | 핵심 페르소나 | 현우 (중급자) — [persona.md](./persona.md) §2 |
 | 형식 | `As a <role>, I want <goal>, so that <benefit>` |
 
@@ -147,9 +148,9 @@
 **Acceptance Criteria**
 - [x] LogAttemptSheet 완료 (web + app)
 - [x] 결과: SEND/FLASH/ONSIGHT/TRY/FAIL
-- [x] 그레이드 freeform (V·5.x·Font 혼용 허용)
+- [x] 그레이드 freeform — Phase 1 은 V-scale 위주 (실내 볼더링 단일 종목)
 - [x] 홀드 색 칩
-- [ ] 카메라 캡처 (F5 — placeholder 상태)
+- [ ] 카메라 캡처 (M8 — F5 후속 PR)
 
 ---
 
@@ -208,14 +209,34 @@
 
 ---
 
-## 비기능 (Cross-cutting)
+## 미디어 (M8 — 차별점 1·3 완성용)
 
-### US-NFR-01: 토큰 보안
+### US-MEDIA-01: 카메라 캡처 → 시도/피드 첨부
 
-> 사용자가 평문 localStorage 의 토큰이 XSS 로 유출되지 않아야 한다.
+> **As a** 현우
+> **I want** 시도 기록할 때 카메라로 영상/사진을 즉석 촬영하거나 갤러리에서 골라서 첨부하고
+> **So that** 자세 분석과 친구 피드 공유를 한 번에 처리한다.
 
 **Acceptance Criteria**
-- [ ] HttpOnly 쿠키 + CSRF 토큰 전환
+- [ ] react-native-vision-camera 도입 (app)
+- [ ] web 은 `<input type="file" capture="environment">` + 갤러리 업로드
+- [ ] S3 presigned URL 업로드
+- [ ] mediaId 를 LogAttempt body 에 포함
+- [ ] 자동 hold-color 추출 (Phase 1.5+ — 우선은 사용자 직접 입력)
+
+**진척**: F5 후속 PR 예정. 현재는 placeholder.
+
+---
+
+## 비기능 (Cross-cutting)
+
+### US-NFR-01: 토큰 보안 (M9)
+
+> 평문 localStorage 토큰이 XSS 로 유출되지 않아야 한다.
+
+**Acceptance Criteria**
+- [ ] HttpOnly 쿠키 + CSRF 토큰 전환 (web)
+- [ ] app 은 react-native-keychain / expo-secure-store 로 교체
 - [ ] **베타 진입 전 필수** (PRD §11 리스크)
 
 ---
