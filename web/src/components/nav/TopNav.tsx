@@ -19,7 +19,8 @@ import { useAccessToken, useTokenStore } from '@/store/tokenStore';
  * 디자인:
  * - sticky top, `max-w-2xl` 본문 너비와 일치 (페이지 본문 컨테이너와 시각적 정합).
  * - 좌: 브랜드 로고 ("Crimp"), 우: 5개 주요 메뉴 + 프로필 아이콘.
- * - 활성 링크: `text-accent-ink` + `font-bold` + 하단 라임 액센트 라인.
+ * - 활성 링크: `text-text` (라이트/다크 적응) + `font-bold` + 하단 라임 액센트 라인.
+ *   (`accent-ink` 는 라임 위 글씨용 다크 톤 — 다크 모드 페이지 bg 위에서는 invisible.)
  * - 비활성 링크: `text-text-2`, hover 시 `text-text` 트랜지션.
  * - 모바일 (sm 미만): 라벨 숨기고 아이콘만 노출 → compact bar.
  *
@@ -86,7 +87,7 @@ export function TopNav(): JSX.Element | null {
         <Link
           href="/"
           aria-label={t('common.brand')}
-          className="text-title font-extrabold tracking-tight text-text transition-colors duration-fast ease-standard hover:text-accent-ink"
+          className="text-title font-extrabold tracking-tight text-text transition-colors duration-fast ease-standard hover:opacity-80"
         >
           {t('common.brand')}
         </Link>
@@ -121,9 +122,10 @@ function NavLinkItem({ item, active }: NavLinkItemProps): JSX.Element {
   const { Icon } = item;
   const label = t(item.labelKey);
 
-  // 활성 색상은 디자인 토큰 `accent-ink` (라임 위 검정 톤). 비활성은 text-2.
+  // 활성: `text-text` (라이트/다크 자동 적응) + bold. accent-ink 는 라임 위 글씨용
+  // 다크 톤이라 다크 모드 페이지 bg 위에서 보이지 않음. 활성 강조는 하단 라임 인디케이터로.
   const colorClass = active
-    ? 'text-accent-ink font-bold'
+    ? 'text-text font-bold'
     : 'text-text-2 hover:text-text';
 
   return (
