@@ -78,17 +78,51 @@ export const CommentDialog: FC<CommentDialogProps> = ({
   // 이 가드는 props 보호용 — 실제로는 도달하지 않는 경로.
   const open = postExtId !== null;
 
-  // Esc 닫기.
+  // Esc 닫기 + Tab focus trap. LogAttemptSheet:130-178 와 동일 패턴.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const root = sheetRef.current;
+      if (!root) return;
+      const focusables = root.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (!active || !root.contains(active)) {
+        e.preventDefault();
+        first.focus();
+        return;
+      }
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('keydown', onKey);
     };
   }, [open, onClose]);
+
+  // 마운트 시 textarea 첫 포커스. 사용자가 곧바로 댓글을 작성하는 일반 흐름에 자연스럽다.
+  useEffect(() => {
+    if (!open) return;
+    const root = sheetRef.current;
+    if (!root) return;
+    const textarea = root.querySelector<HTMLTextAreaElement>('textarea:not([disabled])');
+    textarea?.focus();
+  }, [open]);
 
   if (!open || postExtId === null) return null;
 

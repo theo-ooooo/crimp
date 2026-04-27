@@ -61,9 +61,10 @@ export const FeedPostCard: FC<FeedPostCardProps> = ({
   };
 
   // 좋아요 토글 버튼의 aria-label — 현재 상태에 따라 동작 안내가 바뀐다.
+  // (I2: 카드 일부이므로 `feed.card.*` namespace 가 정확.)
   const likeAriaLabel = item.liked
-    ? t('feed.comment.likeAriaPressed')
-    : t('feed.comment.likeAriaUnpressed');
+    ? t('feed.card.likeAriaPressed')
+    : t('feed.card.likeAriaUnpressed');
 
   return (
     <article

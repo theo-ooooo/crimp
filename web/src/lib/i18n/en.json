@@ -217,7 +217,9 @@
     "card": {
       "likesAria": "Likes",
       "commentsAria": "Comments",
-      "postAria": "{{nickname}}'s attempt"
+      "postAria": "{{nickname}}'s attempt",
+      "likeAriaPressed": "Unlike",
+      "likeAriaUnpressed": "Like"
     },
     "comment": {
       "title": "Comments",
@@ -227,8 +229,6 @@
       "submitting": "Posting...",
       "deleteCta": "Delete",
       "deleteConfirm": "Delete this comment?",
-      "likeAriaPressed": "Unlike",
-      "likeAriaUnpressed": "Like",
       "errorTitle": "Failed to load comments"
     },
     "time": {
