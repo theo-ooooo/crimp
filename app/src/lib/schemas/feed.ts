@@ -53,6 +53,9 @@ export const FeedItemSchema = z.object({
   note: z.string().nullable().optional(),
   likes: z.number().int().min(0),
   comments: z.number().int().min(0),
+  // 좋아요/댓글 도메인(PR #56) 도입 후 백엔드가 내려주는 본인 좋아요 여부.
+  // NON_NULL 직렬화 대상이 아닌 primitive `boolean` 이라 항상 직렬화된다.
+  liked: z.boolean(),
   // Instant ISO-8601 문자열로 수신.
   loggedAt: z.string(),
 });
@@ -72,3 +75,59 @@ export const FeedListSchema = z.object({
 });
 
 export type FeedList = z.infer<typeof FeedListSchema>;
+
+// ===== 좋아요 / 댓글 (PR #56 social 도메인) =====
+
+/**
+ * `POST/DELETE /api/v1/feed-posts/{extId}/like` 응답.
+ *
+ * - `liked`     : 토글 후 현재 본인의 좋아요 상태
+ * - `likeCount` : 토글 후 게시글 총 좋아요 수 (백엔드는 long, JSON 에서는 number)
+ */
+export const LikeToggleResponseSchema = z.object({
+  liked: z.boolean(),
+  likeCount: z.number().int().min(0),
+});
+
+export type LikeToggleResponse = z.infer<typeof LikeToggleResponseSchema>;
+
+/**
+ * 댓글 단건.
+ *
+ * - `parentExtId` : 일반 댓글이면 null. 대댓글이면 부모 ext_id.
+ * - `userNickname`: 회원 탈퇴/숨김 등으로 백엔드가 null 을 내려줄 수 있어 nullable.
+ *   (`@JsonInclude(NON_NULL)` 직렬화로 키 자체가 누락될 수도 있다.)
+ * - `avatarColorHue` : Feed 와 동일한 결정성 hue (0..359).
+ */
+export const CommentSchema = z.object({
+  extId: z.string(),
+  userExtId: z.string(),
+  userNickname: z.string().nullable().optional(),
+  avatarColorHue: z.number().int().min(0).max(359),
+  content: z.string(),
+  createdAt: z.string(),
+  parentExtId: z.string().nullable().optional(),
+});
+
+export type Comment = z.infer<typeof CommentSchema>;
+
+/** `GET /api/v1/feed-posts/{extId}/comments` 응답. */
+export const CommentListSchema = z.object({
+  items: z.array(CommentSchema),
+  page: FeedPageSchema,
+});
+
+export type CommentList = z.infer<typeof CommentListSchema>;
+
+/**
+ * `POST /api/v1/feed-posts/{extId}/comments` 요청 본문.
+ *
+ * 백엔드 제약(`@NotBlank @Size(max=1000)`) 과 동일한 길이 제한을 클라에서도 검증해
+ * 의미 없는 네트워크 왕복을 줄인다.
+ */
+export const CreateCommentBodySchema = z.object({
+  content: z.string().min(1).max(1000),
+  parentExtId: z.string().nullable().optional(),
+});
+
+export type CreateCommentBody = z.infer<typeof CreateCommentBodySchema>;

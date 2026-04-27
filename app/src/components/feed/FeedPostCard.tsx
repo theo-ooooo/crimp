@@ -1,5 +1,14 @@
 import React, { useMemo } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type PressableStateCallbackType,
+  type ViewStyle,
+} from 'react-native';
 
 import {
   CrimpIcon,
@@ -7,6 +16,8 @@ import {
   HoldDot,
   ResultMark,
 } from '@/components/primitives';
+import { useLikeToggleMutation } from '@/hooks/useLikeToggle';
+import { toUserMessage } from '@/lib/api/errorMessage';
 import { t } from '@/lib/i18n';
 import {
   fontFamily,
@@ -49,6 +60,16 @@ const TABULAR_NUMS = Platform.select<Array<'tabular-nums'>>({
 
 export type FeedPostCardProps = {
   item: FeedItem;
+  /**
+   * 좋아요 토글에 사용할 accessToken. 비로그인이면 null — 그 경우 좋아요 Pressable 은
+   * disabled 처리되고 mutation 이 실행되지 않는다.
+   */
+  accessToken?: string | null;
+  /**
+   * 댓글 셀 탭 시 호출. 부모(FeedScreen)가 CommentSheet 를 열도록 한다.
+   * 미지정이면 셀이 정적으로 렌더된다(현재 화면 디자인과 동일).
+   */
+  onCommentPress?: (postExtId: string) => void;
 };
 
 /**
@@ -101,9 +122,14 @@ function formatTimeShort(iso: string): string {
   }
 }
 
-export function FeedPostCard({ item }: FeedPostCardProps): JSX.Element {
+export function FeedPostCard({
+  item,
+  accessToken,
+  onCommentPress,
+}: FeedPostCardProps): JSX.Element {
   const theme = useTokens();
   const styles = useMemo(() => makeStyles(theme), [theme]);
+  const likeMutation = useLikeToggleMutation(accessToken ?? null);
 
   const avatarBg = hueToBg(item.avatarColorHue);
   // F4: surrogate pair (예: 이모지 닉네임) 를 안전하게 첫 글리프 추출.
@@ -119,9 +145,9 @@ export function FeedPostCard({ item }: FeedPostCardProps): JSX.Element {
   // 그 경우 HoldDot 의 raw color fallback 에 의지한다 (HoldDot.resolveColor 참고).
   const showHold = Boolean(item.holdColor);
 
-  // I1: `accessible=true` 부모는 자식 a11y 노드를 머지하므로, 시각으로만 노출되는
-  // 시간/암장/메모/카운트가 스크린리더 사용자에게 누락된다. 카드 1개의 의미 단위를
-  // 명시적 라벨로 풀어쓴다. (좋아요/댓글 라벨은 i18n 키 재사용)
+  // 카드 전체 a11y 라벨 — Pressable 자식이 추가되면 RN 이 자식의 role/label 을 따로
+  // 노출하므로 (`accessible=false` 부모) 카드 자체는 이제 정적 라벨만 갖는다.
+  // 좋아요/댓글은 각 Pressable 의 a11y 로 노출됨.
   const a11yParts: string[] = [
     item.userNickname,
     resultLabel,
@@ -129,15 +155,33 @@ export function FeedPostCard({ item }: FeedPostCardProps): JSX.Element {
     item.gymName ?? null,
     timeText,
     item.note ?? null,
-    `${t('feed.card.likesAria')} ${item.likes}`,
-    `${t('feed.card.commentsAria')} ${item.comments}`,
   ].filter((s): s is string => Boolean(s));
   const a11yLabel = a11yParts.join(', ');
+
+  const onLikePress = () => {
+    // 비로그인 또는 진행 중이면 무시. accessToken 부재는 Pressable disabled 로도 막힘.
+    if (!accessToken || likeMutation.isPending) {return;}
+    likeMutation.mutate(
+      { postExtId: item.extId, next: !item.liked },
+      {
+        // I2: 401/실패 시 silent rollback 만 하면 사용자가 변화를 인지 못함.
+        // 토스트 시스템이 도입되기 전까지 Alert 로 명시. (TODO: 글로벌 toast → Alert 교체.)
+        onError: (err) => {
+          Alert.alert(t('feed.errorTitle'), toUserMessage(err));
+        },
+      },
+    );
+  };
+
+  const onCommentCellPress = () => {
+    if (onCommentPress) {onCommentPress(item.extId);}
+  };
+
+  const heartColor = item.liked ? theme.semantic.danger : theme.text2;
 
   return (
     <View
       style={styles.card}
-      accessible
       accessibilityLabel={a11yLabel}
     >
       {/* 헤더: 아바타 · 닉네임/메타 · ResultMark */}
@@ -180,21 +224,61 @@ export function FeedPostCard({ item }: FeedPostCardProps): JSX.Element {
 
       {/* 푸터: 좋아요 / 댓글 */}
       <View style={styles.footer}>
-        <View style={styles.footerCell}>
-          <CrimpIcon.heart size={16} color={theme.text2} />
-          <Text style={styles.footerCount} allowFontScaling={false}>
-            {item.likes}
-          </Text>
-        </View>
-        <View style={styles.footerCell}>
-          <CrimpIcon.chat size={16} color={theme.text2} />
-          <Text style={styles.footerCount} allowFontScaling={false}>
-            {item.comments}
-          </Text>
-        </View>
+        <Pressable
+          onPress={onLikePress}
+          disabled={!accessToken || likeMutation.isPending}
+          accessibilityRole="button"
+          accessibilityState={{
+            selected: item.liked,
+            disabled: !accessToken || likeMutation.isPending,
+          }}
+          accessibilityLabel={`${
+            item.liked
+              ? t('feed.card.likeAriaPressed')
+              : t('feed.card.likeAriaUnpressed')
+          }, ${item.likes}`}
+          // 셀 자체가 16+카운트 정도라 작다. 위·아래 8 / 좌우 6 hitSlop 으로 권고치 보강.
+          hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+          style={pressableFooterStyle}
+        >
+          <View style={styles.footerCell}>
+            <CrimpIcon.heart size={16} color={heartColor} fill={item.liked} />
+            <Text
+              style={[
+                styles.footerCount,
+                item.liked ? { color: theme.semantic.danger } : null,
+              ]}
+              allowFontScaling={false}
+            >
+              {item.likes}
+            </Text>
+          </View>
+        </Pressable>
+        <Pressable
+          onPress={onCommentCellPress}
+          disabled={!onCommentPress}
+          accessibilityRole="button"
+          accessibilityLabel={`${t('feed.card.commentsAria')}, ${item.comments}`}
+          hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+          style={pressableFooterStyle}
+        >
+          <View style={styles.footerCell}>
+            <CrimpIcon.chat size={16} color={theme.text2} />
+            <Text style={styles.footerCount} allowFontScaling={false}>
+              {item.comments}
+            </Text>
+          </View>
+        </Pressable>
       </View>
     </View>
   );
+}
+
+// 푸터 Pressable 의 pressed 시각 피드백 — 라이트/다크 공통.
+function pressableFooterStyle({
+  pressed,
+}: PressableStateCallbackType): ViewStyle {
+  return pressed ? { opacity: 0.6 } : {};
 }
 
 function makeStyles(theme: Theme) {
