@@ -36,13 +36,13 @@ Xcode 가 xcconfig 를 자동 인식하지 않으므로 첫 셋업 시 수동 �
 
 ```bash
 # Metro 띄우기 (별도 터미널)
-pnpm --filter @crimp/app start
+cd app && pnpm start
 
 # 시뮬레이터로 빌드·런
-pnpm --filter @crimp/app ios
+cd app && pnpm ios
 
 # 실 디바이스 빌드: Xcode 에서 디바이스 선택 후 ▶ — 또는
-pnpm --filter @crimp/app ios --device "<device name>"
+cd app && pnpm ios --device "<device name>"
 ```
 
 ## 5. 백엔드 연결
