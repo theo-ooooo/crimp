@@ -1,11 +1,15 @@
 import type { ZodType } from 'zod';
 
 import { ApiEnvelopeSchema } from '@/lib/schemas/error';
+import { useTokenStore } from '@/store/tokenStore';
 
 import { API_BASE_URL } from './config';
 import { ApiError, ApiSchemaError, ApiTransportError } from './errors';
 
 type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
+
+/** 401 시 refresh 흐름에서 사용할 백엔드 refresh 엔드포인트 경로. */
+const REFRESH_PATH = '/api/v1/auth/refresh';
 
 export interface ApiRequest<TBody> {
   method?: HttpMethod;
@@ -24,6 +28,66 @@ export interface ApiRequestWithSchema<TBody, TResponse> extends ApiRequest<TBody
 }
 
 /**
+ * 진행 중인 refresh 요청 (있다면). 동시에 여러 요청이 401 을 받아도 refresh 호출은 1번만.
+ *
+ * 첫 401 이 refresh 시작 → 후속 401 들은 이 promise 를 join → 동일한 새 토큰으로 재시도.
+ */
+let inFlightRefresh: Promise<{ accessToken: string; refreshToken: string }> | null = null;
+
+/**
+ * refresh 토큰으로 새 access·refresh 쌍을 받아온다. 실패 시 reject.
+ *
+ * `apiRequest` 와 분리한 이유:
+ *  1) `endpoints.ts` 의 `refreshTokens` 를 부르면 모듈 순환 참조가 생긴다.
+ *  2) refresh 호출 자체가 401 을 다시 트리거해 무한 재귀하는 것을 방지한다.
+ */
+async function postRefresh(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
+  const res = await fetch(`${API_BASE_URL}${REFRESH_PATH}`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ refreshToken }),
+    credentials: 'omit',
+  });
+  if (!res.ok) throw new Error(`refresh failed: HTTP ${res.status}`);
+  const json: unknown = await res.json().catch(() => null);
+  const envelope = ApiEnvelopeSchema.safeParse(json);
+  if (!envelope.success || envelope.data.status === false) {
+    throw new Error('refresh failed: invalid envelope');
+  }
+  const data = envelope.data.data as { accessToken?: string; refreshToken?: string } | null;
+  if (!data?.accessToken || !data.refreshToken) {
+    throw new Error('refresh failed: missing tokens');
+  }
+  return { accessToken: data.accessToken, refreshToken: data.refreshToken };
+}
+
+function ensureRefresh(refreshToken: string) {
+  if (!inFlightRefresh) {
+    inFlightRefresh = postRefresh(refreshToken).finally(() => {
+      inFlightRefresh = null;
+    });
+  }
+  return inFlightRefresh;
+}
+
+/**
+ * 인증 만료가 회복 불가능할 때 호출. 토큰을 비우고 로그인 페이지로 보낸다.
+ *
+ * `window.location.href` 사용 — apiRequest 는 React 컨텍스트 밖이라 `useRouter` 를 못 씀.
+ * 이미 `/login` 류 경로면 리다이렉트 생략.
+ */
+function onAuthFailure(): void {
+  useTokenStore.getState().clear();
+  if (typeof window === 'undefined') return;
+  const path = window.location.pathname;
+  if (path === '/login' || path.startsWith('/login/')) return;
+  window.location.href = '/login';
+}
+
+/**
  * 공통 API 클라이언트.
  *
  * - URL 은 `API_BASE_URL + path` 로 조합. `path` 는 반드시 `/` 로 시작.
@@ -37,6 +101,13 @@ export interface ApiRequestWithSchema<TBody, TResponse> extends ApiRequest<TBody
  */
 export async function apiRequest<TBody, TResponse>(
   options: ApiRequestWithSchema<TBody, TResponse>,
+): Promise<TResponse> {
+  return doRequest(options, false);
+}
+
+async function doRequest<TBody, TResponse>(
+  options: ApiRequestWithSchema<TBody, TResponse>,
+  retried: boolean,
 ): Promise<TResponse> {
   const { method = 'GET', path, body, headers, accessToken, schema, signal } = options;
 
@@ -112,6 +183,32 @@ export async function apiRequest<TBody, TResponse>(
   }
 
   if (envelope.data.status === false) {
+    // 401: access token 만료로 추정 — refresh 1회 시도 후 재요청.
+    // 무한 루프 방지: `retried`/refresh path/Authorization 미부착 요청은 우회.
+    if (
+      response.status === 401 &&
+      Boolean(accessToken) &&
+      path !== REFRESH_PATH
+    ) {
+      if (retried) {
+        // refresh 직후에도 401 — backend 가 새 토큰을 거부했음. 재시도 의미 없음.
+        onAuthFailure();
+        throw new ApiError(response.status, envelope.data.error);
+      }
+      const stored = useTokenStore.getState().refreshToken;
+      if (!stored) {
+        onAuthFailure();
+        throw new ApiError(response.status, envelope.data.error);
+      }
+      try {
+        const fresh = await ensureRefresh(stored);
+        useTokenStore.getState().setTokens(fresh);
+        return doRequest({ ...options, accessToken: fresh.accessToken }, true);
+      } catch {
+        onAuthFailure();
+        throw new ApiError(response.status, envelope.data.error);
+      }
+    }
     // HTTP 2xx 이면서 status:false 로 오는 경우도 동일하게 ApiError 로 처리.
     throw new ApiError(response.status, envelope.data.error);
   }
