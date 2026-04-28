@@ -1,7 +1,6 @@
 #import "AppDelegate.h"
 
 #import <React/RCTBundleURLProvider.h>
-#import <kakao-login/RNKakaoLogins.h>
 
 @implementation AppDelegate
 
@@ -13,22 +12,6 @@
   self.initialProps = @{};
 
   return [super application:application didFinishLaunchingWithOptions:launchOptions];
-}
-
-/**
- * Kakao SDK redirect 처리.
- *
- * 카카오 로그인 동의 후 `kakao${KAKAO_APP_KEY}://oauth?code=...` 로 redirect 되면
- * iOS 가 본 앱의 URL 스킴(Info.plist 의 CFBundleURLTypes) 에 매칭해 본 메서드를 호출한다.
- * `RNKakaoLogins.handleOpenUrl:` 가 SDK 내부 큐로 토큰 교환을 마무리.
- */
-- (BOOL)application:(UIApplication *)application openURL:(NSURL *)url
-            options:(NSDictionary<UIApplicationOpenURLOptionsKey, id> *)options
-{
-  if ([RNKakaoLogins isKakaoTalkLoginUrl:url]) {
-    return [RNKakaoLogins handleOpenUrl:url];
-  }
-  return NO;
 }
 
 - (NSURL *)sourceURLForBridge:(RCTBridge *)bridge

@@ -36,35 +36,6 @@
 	-->
 	<key>KAKAO_APP_KEY</key>
 	<string>$(KAKAO_APP_KEY)</string>
-	<!--
-	  Kakao SDK redirect 처리에 필요 — `kakao${KAKAO_APP_KEY}://oauth` 로 들어오는
-	  redirect 를 본 앱이 받아 처리하도록 URL 스킴 등록.
-	  $(KAKAO_APP_KEY) 가 build setting 에서 치환된다 (Crimp.xcconfig).
-	-->
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
-			<key>CFBundleURLName</key>
-			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>kakao$(KAKAO_APP_KEY)</string>
-			</array>
-		</dict>
-	</array>
-	<!--
-	  iOS 14+ 에서 다른 앱 스킴(예: KakaoTalk) 설치 여부를 SDK 가 조회하려면
-	  여기에 명시되어야 한다. 누락 시 KakaoTalk app-to-app 로그인이 web flow 로
-	  강제 폴백된다.
-	-->
-	<key>LSApplicationQueriesSchemes</key>
-	<array>
-		<string>kakaokompassauth</string>
-		<string>kakaolink</string>
-		<string>kakaoplus</string>
-	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSAppTransportSecurity</key>
