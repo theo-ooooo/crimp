@@ -7,11 +7,16 @@ import type { Me } from '@/lib/schemas/me';
 
 import { ME_QUERY_KEY } from './useMe';
 
+const FEED_QUERY_KEY_ROOT = ['feed'] as const;
+
 /**
  * `PATCH /api/v1/me/profile` 뮤테이션.
  *
  * onSuccess 시 서버 응답으로 `['me']` 캐시를 즉시 갱신하고,
  * 추가로 invalidate 해 후속 화면(피드 "내 암장" 필터 등)이 freshest 상태를 사용하도록 한다.
+ * mainGym 변경은 `['feed']` 의 my-gym 필터 결과에 영향이 있으므로 root key 로 함께
+ * invalidate — 닉네임만 바뀌는 호출도 같이 무효화되지만, 프로필 갱신 자체가 저빈도
+ * mutation 이라 비용 무시.
  *
  * Phase 1 정책:
  *   - 단일 사용자 시점이므로 낙관 갱신은 도입하지 않는다 (응답 후 갱신만으로 충분).
@@ -31,8 +36,8 @@ export function useUpdateProfileMutation(accessToken: string | null) {
     onSuccess: (data) => {
       // 서버 응답을 캐시에 즉시 반영 — UI flicker 최소화.
       qc.setQueryData<Me>(ME_QUERY_KEY, data);
-      // 다른 me 종속 쿼리(피드 my-gym 필터 등)도 함께 갱신.
       void qc.invalidateQueries({ queryKey: ME_QUERY_KEY });
+      void qc.invalidateQueries({ queryKey: FEED_QUERY_KEY_ROOT });
     },
   });
 }
