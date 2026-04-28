@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Modal,
   Pressable,
   StyleSheet,
@@ -17,7 +18,7 @@ import {
 } from 'react-native-vision-camera';
 
 import { CrimpIcon } from '@/components/primitives';
-import { measureFileBytes } from '@/lib/camera/measure';
+import { measureFileBytes, readImageMeta } from '@/lib/camera/measure';
 import type { CapturedMedia } from '@/lib/camera/types';
 import { t } from '@/lib/i18n';
 import {
@@ -73,6 +74,10 @@ export function CameraSheet({
 
   const [recording, setRecording] = useState(false);
   const [busy, setBusy] = useState(false);
+  // [PR #91 리뷰 I3] 시트 닫힘으로 녹화가 강제 종료된 경우, onRecordingFinished 콜백이
+  // 사후 발동해도 onCaptured 를 호출하지 않도록 표시. 사용자가 "취소했는데 캡처 Alert"
+  // 가 뜨는 회귀를 차단.
+  const cancelRequestedRef = useRef(false);
   // 영상 모드인데 mic 권한이 없으면 사운드 없이 녹화 — 권한 요청은 시트 진입 시 한 번 시도.
   const audioEnabled = mode === 'video' && micPerm.hasPermission;
 
@@ -87,9 +92,11 @@ export function CameraSheet({
     }
   }, [visible, mode, cameraPerm, micPerm]);
 
-  // 시트 닫힐 때 녹화 중이면 중단.
+  // 시트 닫힐 때 녹화 중이면 중단 — cancelRequestedRef 를 세팅해 onRecordingFinished 가
+  // onCaptured 를 발동하지 않도록 표시.
   useEffect(() => {
     if (!visible && recording) {
+      cancelRequestedRef.current = true;
       cameraRef.current?.stopRecording().catch(() => undefined);
       setRecording(false);
     }
@@ -101,15 +108,15 @@ export function CameraSheet({
     try {
       const photo = await cameraRef.current.takePhoto({ flash: 'off' });
       const uri = photo.path.startsWith('file://') ? photo.path : `file://${photo.path}`;
-      const byteSize = await measureFileBytes(uri);
-      // iOS 는 기본 HEIC, Android 는 JPEG — 확장자로 mime 추정.
-      const mime: CapturedMedia['mime'] =
-        photo.path.toLowerCase().endsWith('.heic') ? 'image/heic' : 'image/jpeg';
+      // [PR #91 리뷰 B1] 헤더 시그니처로 실제 codec 검출 — vision-camera v4 의 iOS 가
+      // HEIC 바이트를 항상 .jpg 확장자로 저장하므로 확장자 추정은 신뢰할 수 없음.
+      const meta = await readImageMeta(uri);
+      const mime: CapturedMedia['mime'] = meta.mime === 'image/heic' ? 'image/heic' : 'image/jpeg';
       onCaptured({
         kind: 'IMAGE',
         uri,
         mime,
-        byteSize,
+        byteSize: meta.byteSize,
         width: photo.width,
         height: photo.height,
         durationMs: null,
@@ -125,12 +132,17 @@ export function CameraSheet({
     if (busy || !cameraRef.current) return;
     setBusy(true);
     setRecording(true);
+    cancelRequestedRef.current = false;
     cameraRef.current.startRecording({
       onRecordingFinished: async (video) => {
-        const startedAt = Date.now();
-        const uri = video.path.startsWith('file://') ? video.path : `file://${video.path}`;
         try {
+          // [PR #91 리뷰 I3] 시트 닫힘으로 강제 종료된 녹화면 onCaptured 발동 X.
+          if (cancelRequestedRef.current) return;
+
+          const uri = video.path.startsWith('file://') ? video.path : `file://${video.path}`;
           const byteSize = await measureFileBytes(uri);
+          // 영상 확장자는 vision-camera v4 가 platform 기본값(iOS=.mov, Android=.mp4) 으로
+          // 정확히 저장하므로 확장자 추정이 신뢰 가능.
           const mime: CapturedMedia['mime'] = video.path.toLowerCase().endsWith('.mov')
             ? 'video/quicktime'
             : 'video/mp4';
@@ -148,13 +160,13 @@ export function CameraSheet({
         } finally {
           setBusy(false);
           setRecording(false);
-          // startedAt 은 단순 디버깅용 — 사용 안 함.
-          void startedAt;
+          cancelRequestedRef.current = false;
         }
       },
       onRecordingError: (err: CameraCaptureError) => {
         setBusy(false);
         setRecording(false);
+        cancelRequestedRef.current = false;
         Alert.alert(t('session.log.cameraError'), err.message);
       },
     });
@@ -224,6 +236,7 @@ export function CameraSheet({
             <PermissionFallback
               styles={styles}
               onRetry={() => cameraPerm.requestPermission()}
+              onOpenSettings={() => Linking.openSettings()}
             />
           ) : !device ? (
             <View style={styles.fallbackBox}>
@@ -296,9 +309,11 @@ export function CameraSheet({
 function PermissionFallback({
   styles,
   onRetry,
+  onOpenSettings,
 }: {
   styles: ReturnType<typeof makeStyles>;
   onRetry: () => void;
+  onOpenSettings: () => void;
 }) {
   return (
     <View style={styles.fallbackBox}>
@@ -306,6 +321,10 @@ function PermissionFallback({
       <Text style={styles.fallbackBody}>{t('session.log.cameraPermissionBody')}</Text>
       <Pressable onPress={onRetry} style={styles.fallbackBtn} accessibilityRole="button">
         <Text style={styles.fallbackBtnLabel}>{t('session.log.cameraPermissionRetry')}</Text>
+      </Pressable>
+      {/* [PR #91 리뷰 I4] 영구 거부 사용자도 진행할 수 있도록 시스템 설정 진입 보조 버튼. */}
+      <Pressable onPress={onOpenSettings} style={styles.fallbackBtnGhost} accessibilityRole="button">
+        <Text style={styles.fallbackBtnGhostLabel}>{t('session.log.cameraPermissionSettings')}</Text>
       </Pressable>
     </View>
   );
@@ -479,6 +498,16 @@ function makeStyles(theme: Theme) {
       fontSize: 14,
       fontWeight: fontWeight.bold,
       color: CAMERA_FG,
+    },
+    fallbackBtnGhost: {
+      paddingHorizontal: space[3],
+      paddingVertical: space[1],
+    },
+    fallbackBtnGhostLabel: {
+      fontFamily,
+      fontSize: 13,
+      color: withAlpha(CAMERA_FG, 0.7),
+      textDecorationLine: 'underline',
     },
   });
 }
