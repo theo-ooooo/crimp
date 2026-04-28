@@ -309,6 +309,9 @@ CREATE TABLE follows (
 | V202605010903 | `V202605010903__init_media.sql` | media_assets, post_media |
 | V202605010904 | `V202605010904__init_feed.sql` | feed_posts, likes, comments |
 | V202605010905 | `V202605010905__init_social.sql` | follows |
+| V202605010907 | `V202605010907__add_attempt_ext_id.sql` | session_attempts.ext_id 추가 |
+| V202605010908 | `V202605010908__feed_post_attempt_link.sql` | feed_posts ↔ attempt 연결 |
+| V202605010920 | `V202605010920__seed_gyms_seoul.sql` | 수도권 검증된 암장 11곳(더클라임 9 + 클라이밍파크 신논현 + 볼더프렌즈 홍대) 1차 seed. 도로명+상세 주소는 검색 결과로 검증, 좌표는 영역 중심값(±100~300m). 더클라임 논현·사당점 및 추가 매장은 후속 검수 PR. ON DUPLICATE KEY UPDATE 로 좌표 보강 친화 |
 
 ## 7. 오픈 이슈
 
