@@ -5,6 +5,7 @@ import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { exchangeOauth, logout as logoutEndpoint } from '@/lib/api';
 import type { OauthProvider, TokenResponse } from '@/lib/schemas/auth';
 import type { RootStackParamList } from '@/navigation/types';
+import { useOnboardingStore } from '@/store/onboardingStore';
 import { useTokenStore } from '@/store/tokenStore';
 
 /**
@@ -70,6 +71,8 @@ export function useLogout() {
       }
     }
     await clear();
+    // 다음 계정 진입을 깨끗하게 — mainGym 온보딩 dismiss 도 같이 초기화.
+    useOnboardingStore.getState().reset();
     qc.clear();
     navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
   }, [refreshToken, clear, qc, navigation]);
