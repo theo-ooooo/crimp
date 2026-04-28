@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -71,19 +72,25 @@ class GymSyncServiceTest {
     }
 
     @Test
-    void apply_mutatesUpdateCandidatesInPlace() {
-        // Persistent context 의 dirty check 를 신뢰하므로 save() 는 호출되지 않고,
-        // 대신 UpdateCandidate.current() 인스턴스가 직접 mutate 되어야 한다.
+    void apply_refetchesAndMutatesManagedEntity() {
+        // [PR #85 리뷰 B1] apply() 는 diff.current() 인스턴스를 직접 mutate 하지 않고,
+        // findById(id) 로 본 트랜잭션의 영속 컨텍스트에서 재조회한 managed entity 에 mutate 한다.
+        // 본 단위 테스트는 "apply() 가 findById 로 재조회 후 그 인스턴스를 mutate" 하는지만
+        // 검증한다 — 실제 JPA dirty check 동작은 통합 테스트 (별도 PR, F1) 에서 보증.
         GymSyncSource source = mock(GymSyncSource.class);
         GymRepository repo = mock(GymRepository.class);
         when(repo.count()).thenReturn(20L);
 
-        Gym existing = GymTestFactory.gym(1L, "더클라임 강남점", "서울 강남구 테헤란로8길 21",
+        Gym detached = GymTestFactory.gym(1L, "더클라임 강남점", "서울 강남구 테헤란로8길 21",
                 LAT, LNG, "더클라임", null);
+        Gym managed = GymTestFactory.gym(1L, "더클라임 강남점", "서울 강남구 테헤란로8길 21",
+                LAT, LNG, "더클라임", null);
+        when(repo.findById(1L)).thenReturn(Optional.of(managed));
+
         BigDecimal newLat = LAT.add(new BigDecimal("0.0010000"));
         var diff = new GymSyncDiff.Result(
                 List.of(),
-                List.of(new GymSyncDiff.UpdateCandidate(existing,
+                List.of(new GymSyncDiff.UpdateCandidate(detached,
                         new RemoteGym("kakao-x", "더클라임 강남점", "The Climb",
                                 "서울 강남구 테헤란로8길 21", newLat, LNG, "02-1234-5678"))),
                 List.of()
@@ -94,11 +101,71 @@ class GymSyncServiceTest {
 
         assertThat(report.inserted()).isEqualTo(0);
         assertThat(report.updated()).isEqualTo(1);
-        assertThat(existing.getBrand()).isEqualTo("The Climb");
-        assertThat(existing.getPhone()).isEqualTo("02-1234-5678");
-        assertThat(existing.getLat()).isEqualByComparingTo(newLat);
-        // dirty check 에 의존하므로 save 호출은 없어야 함.
+        // mutate 된 것은 재조회한 managed 인스턴스여야 한다 (dirty check 가 작동하는 대상).
+        assertThat(managed.getBrand()).isEqualTo("The Climb");
+        assertThat(managed.getPhone()).isEqualTo("02-1234-5678");
+        assertThat(managed.getLat()).isEqualByComparingTo(newLat);
+        // detached 인스턴스는 건드리지 않아야 — 회귀 방지 (PR #84 B1 변종)
+        assertThat(detached.getBrand()).isEqualTo("더클라임");
         verify(repo, never()).save(any());
+    }
+
+    @Test
+    void apply_skipsUpdateWhenRowDeletedBetweenDryRunAndApply() {
+        // [PR #85 리뷰 B1] dryRun 직후 다른 경로로 row 가 삭제된 케이스 — findById 가 empty
+        // 를 리턴하면 카운터 증가 없이 skip 하고 다음 후보로. updated 카운트가 diff.updates 와
+        // 어긋날 수 있는 유일한 정상 시나리오.
+        GymSyncSource source = mock(GymSyncSource.class);
+        GymRepository repo = mock(GymRepository.class);
+        when(repo.count()).thenReturn(20L);
+        when(repo.findById(1L)).thenReturn(Optional.empty());
+
+        Gym detached = GymTestFactory.gym(1L, "더클라임 강남점", "서울 강남구 테헤란로8길 21",
+                LAT, LNG, "더클라임", null);
+        var diff = new GymSyncDiff.Result(
+                List.of(),
+                List.of(new GymSyncDiff.UpdateCandidate(detached,
+                        new RemoteGym("kakao-x", "더클라임 강남점", "The Climb",
+                                "서울 강남구 테헤란로8길 21", LAT, LNG, "02-1234-5678"))),
+                List.of()
+        );
+
+        var service = new GymSyncService(source, repo);
+        var report = service.apply(diff);
+
+        assertThat(report.updated()).isEqualTo(0);
+        verify(repo, never()).save(any());
+    }
+
+    @Test
+    void apply_preservesExistingFieldWhenRemoteValueIsNull() {
+        // [PR #85 리뷰 I3] 외부 응답이 brand/phone 을 일시적으로 null 로 반환해도 기존 값 보존.
+        // (좌표는 Kakao 어댑터가 빈 좌표 doc 을 사전 스킵하므로 항상 non-null 가정.)
+        GymSyncSource source = mock(GymSyncSource.class);
+        GymRepository repo = mock(GymRepository.class);
+        when(repo.count()).thenReturn(20L);
+
+        Gym managed = GymTestFactory.gym(1L, "더클라임 강남점", "서울 강남구 테헤란로8길 21",
+                LAT, LNG, "더클라임", "02-1234-5678");
+        when(repo.findById(1L)).thenReturn(Optional.of(managed));
+
+        BigDecimal newLat = LAT.add(new BigDecimal("0.0010000"));
+        var diff = new GymSyncDiff.Result(
+                List.of(),
+                List.of(new GymSyncDiff.UpdateCandidate(
+                        GymTestFactory.gym(1L, "더클라임 강남점", "서울 강남구 테헤란로8길 21",
+                                LAT, LNG, "더클라임", "02-1234-5678"),
+                        new RemoteGym("kakao-x", "더클라임 강남점", null,
+                                "서울 강남구 테헤란로8길 21", newLat, LNG, null))),
+                List.of()
+        );
+
+        var service = new GymSyncService(source, repo);
+        service.apply(diff);
+
+        assertThat(managed.getBrand()).isEqualTo("더클라임"); // 보존
+        assertThat(managed.getPhone()).isEqualTo("02-1234-5678"); // 보존
+        assertThat(managed.getLat()).isEqualByComparingTo(newLat); // 좌표는 갱신
     }
 
     @Test

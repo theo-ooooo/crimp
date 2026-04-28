@@ -77,12 +77,14 @@ public class Gym extends BaseEntity {
      * <p>갱신 대상은 좌표·brand·phone — 매칭 키인 name/address 는 건드리지 않는다.
      * JPA dirty checking 이 트랜잭션 종료 시점에 변경된 컬럼만 UPDATE 로 반영.
      *
-     * <p>호출자(`GymSyncService`) 는 이미 {@code GymSyncDiff#hasMeaningfulChange}
-     * 로 필터된 후보만 전달하므로 본 메서드 안에서는 추가 비교 없이 그대로 대입.
+     * <p><b>null 정책</b> (PR #85 리뷰 I3): {@code brand}/{@code phone} 이 null 이면
+     * "외부에서 정보 누락" 으로 간주해 기존 값을 유지한다. 외부 응답이 일시적으로 phone
+     * 누락을 반환했을 때 기존 데이터가 null 로 덮어쓰이는 회귀를 막기 위함. 좌표는
+     * Kakao 어댑터 단계에서 빈 좌표 doc 을 이미 스킵하므로 항상 non-null 이라 가정.
      */
     public void applyRemoteUpdate(String brand, String phone, BigDecimal lat, BigDecimal lng) {
-        this.brand = brand;
-        this.phone = phone;
+        if (brand != null) this.brand = brand;
+        if (phone != null) this.phone = phone;
         this.lat = lat;
         this.lng = lng;
     }

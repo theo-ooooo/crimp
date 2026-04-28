@@ -98,21 +98,33 @@ public class GymSyncService {
         }
 
         // update 는 좌표·brand·phone 만 갱신 (이름/주소는 매칭 키이므로 변경 X).
-        // Gym 이 영속 상태에서 mutate 되므로 트랜잭션 commit 시 JPA dirty check 가 UPDATE 발행.
+        //
+        // [PR #85 리뷰 B1] dryRun() 의 @Transactional(readOnly=true) 가 종료되면 그 안에서
+        // 가져온 Gym 들은 detached 상태가 됨. 이 상태에서 mutate 해도 본 메서드의 새 트랜잭션은
+        // 그 인스턴스를 알지 못해 dirty check 가 동작하지 않음 → UPDATE 누락. 따라서 diff 의
+        // current 는 ID 만 신뢰하고, 본 트랜잭션의 영속 컨텍스트에서 재조회한 managed entity 에
+        // mutate 한다. 재조회 실패(다른 경로로 row 가 삭제된 경우)는 skip + log + 카운터 미증가.
+        int updated = 0;
+        int updateSkipped = 0;
         for (GymSyncDiff.UpdateCandidate u : diff.updates()) {
-            Gym current = u.current();
+            Long id = u.current().getId();
+            var managedOpt = gymRepository.findById(id);
+            if (managedOpt.isEmpty()) {
+                updateSkipped++;
+                log.warn("[gym-sync] update skipped (row no longer exists): id={} name={}",
+                        id, u.current().getName());
+                continue;
+            }
+            Gym managed = managedOpt.get();
             RemoteGym r = u.remote();
-            current.applyRemoteUpdate(r.brand(), r.phone(), r.lat(), r.lng());
-            log.debug("[gym-sync] update applied: id={} name={}", current.getId(), current.getName());
+            managed.applyRemoteUpdate(r.brand(), r.phone(), r.lat(), r.lng());
+            updated++;
+            log.info("[gym-sync] update applied: id={} name={}", managed.getId(), managed.getName());
         }
 
-        // updated 는 항상 diff.updates 와 일치 — diff 가 이미 의미 있는 변경만 통과시켰고,
-        // 위 루프가 그 후보들을 모두 mutate 하므로 별도 카운터 없이 diff 크기를 그대로 사용
-        // (PR #84 리뷰 B1 회귀 방지).
-        int updated = diff.updates().size();
         int missingFromRemote = diff.missingFromRemote().size();
-        log.info("[gym-sync] apply inserted={} updated={} closed-pending={}",
-                inserted, updated, missingFromRemote);
+        log.info("[gym-sync] apply inserted={} updated={} update-skipped={} closed-pending={}",
+                inserted, updated, updateSkipped, missingFromRemote);
         return new ApplyReport(inserted, updated, missingFromRemote);
     }
 

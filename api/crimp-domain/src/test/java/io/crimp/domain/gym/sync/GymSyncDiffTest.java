@@ -99,6 +99,18 @@ class GymSyncDiffTest {
     }
 
     @Test
+    void remoteNullBrandOrPhoneDoesNotProduceUpdate() {
+        // [PR #85 리뷰 I3] 외부가 brand/phone 을 일시적으로 빠뜨려 null 로 반환해도, 기존 값을
+        // 덮어쓰지 않도록 diff 단계에서 update 후보로 잡지 않는다.
+        var existing = gym(1L, "더클라임 강남점", "서울 강남구 테헤란로8길 21", LAT, LNG, "더클라임", "02-1111-2222");
+        var remote = List.of(
+                remote("더클라임 강남점", "서울 강남구 테헤란로8길 21", LAT, LNG, null, null));
+        var result = GymSyncDiff.compute(remote, List.of(existing));
+        assertThat(result.updates()).isEmpty();
+        assertThat(result.additions()).isEmpty();
+    }
+
+    @Test
     void caseAndSpaceDifferencesAreNormalizedAsSameMatch() {
         var existing = gym(1L, "더클라임 강남점", "서울 강남구 테헤란로8길 21", LAT, LNG, "더클라임", null);
         // 대소문자/공백 차이는 동일 매장으로 매칭 — 신규 등록 X.

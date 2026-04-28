@@ -92,8 +92,11 @@ public final class GymSyncDiff {
 
     private static boolean hasMeaningfulChange(Gym current, RemoteGym remote) {
         // 좌표가 의미 있게 다르거나 (50m 이상 차이) phone/brand 가 변경된 경우 update 후보.
-        if (notEqual(current.getBrand(), remote.brand())) return true;
-        if (notEqual(current.getPhone(), remote.phone())) return true;
+        // [PR #85 리뷰 I3] remote 가 null 이면 "외부에서 정보 누락" 으로 간주해 변경 인자에서 제외
+        // — Gym.applyRemoteUpdate 의 null 보존 정책과 일관. 외부가 일시적으로 phone 을 빠뜨려도
+        // 기존 값이 보존되며, 이 경우 diff 에도 update 후보로 잡히지 않아 카운트가 어긋나지 않는다.
+        if (remote.brand() != null && notEqual(current.getBrand(), remote.brand())) return true;
+        if (remote.phone() != null && notEqual(current.getPhone(), remote.phone())) return true;
         BigDecimal latDelta = current.getLat().subtract(remote.lat()).abs();
         BigDecimal lngDelta = current.getLng().subtract(remote.lng()).abs();
         // 위도 0.0005 ≒ 55m, 경도 0.0005 ≒ 44m (서울 위도). 어느 쪽이든 의미 있는 이동으로 봄.
