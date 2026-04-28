@@ -133,7 +133,13 @@
       "notePlaceholder": "크림프 잡고 데드포인트 무브가 핵심...",
       "save": "저장",
       "openCta": "시도 기록",
-      "cameraComingSoon": "카메라 촬영은 다음 업데이트에서 지원될 예정이에요."
+      "cameraComingSoon": "카메라 촬영은 다음 업데이트에서 지원될 예정이에요.",
+      "cameraCapturedTitle": "캡처 완료",
+      "cameraError": "카메라 오류",
+      "cameraNoDevice": "사용 가능한 카메라 장치가 없어요.",
+      "cameraPermissionTitle": "카메라 권한이 필요해요",
+      "cameraPermissionBody": "등반 시도와 루트 사진/영상을 기록하려면 권한을 허용해주세요. 거부 후에도 설정에서 다시 허용할 수 있어요.",
+      "cameraPermissionRetry": "권한 다시 요청"
     }
   },
   "attempt": {

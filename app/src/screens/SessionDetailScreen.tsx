@@ -55,13 +55,9 @@ export default function SessionDetailScreen(): JSX.Element {
   const [logSheetOpen, setLogSheetOpen] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraMode, setCameraMode] = useState<CameraMode>('video');
-  // 셔터 상태(placeholder). video 모드 첫 셔터 탭 → recording=true, 두 번째 탭 또는
-  // photo 탭 → coming-soon Alert + 시트 닫힘. 실 녹화 / 캡처는 F5.
-  const [recording, setRecording] = useState(false);
 
   const closeCamera = () => {
     setCameraOpen(false);
-    setRecording(false);
   };
 
   const styles = useMemo(() => makeStyles(theme), [theme]);
@@ -184,7 +180,6 @@ export default function SessionDetailScreen(): JSX.Element {
             sessionExtId={extId}
             onClose={() => setLogSheetOpen(false)}
             onCamera={(mode) => {
-              setRecording(false);
               setCameraMode(mode);
               setCameraOpen(true);
             }}
@@ -192,17 +187,15 @@ export default function SessionDetailScreen(): JSX.Element {
           <CameraSheet
             visible={cameraOpen}
             mode={cameraMode}
-            recording={recording}
             onClose={closeCamera}
-            onShoot={() => {
-              if (cameraMode === 'video' && !recording) {
-                // video 첫 탭: 녹화 시작 (placeholder).
-                setRecording(true);
-                return;
-              }
-              // photo 또는 video 두 번째 탭: "곧 출시" 안내 후 시트 닫힘.
-              // TODO(F5): 실 캡처 결과(mediaId) 를 LogAttemptSheet 로 전달.
-              Alert.alert(t('session.log.cameraComingSoon'));
+            onCaptured={(media) => {
+              // TODO(PR-3): 본 media 로 presigned 업로드 → mediaId 를 LogAttemptSheet 로 전달.
+              // 현 단계는 캡처 동작 자체만 검증 — 메타 + URI 를 Alert 으로 노출.
+              const detail =
+                media.kind === 'IMAGE'
+                  ? `${media.kind} · ${media.byteSize}b · ${media.width}x${media.height}\n${media.uri}`
+                  : `${media.kind} · ${media.byteSize}b · ${media.durationMs}ms\n${media.uri}`;
+              Alert.alert(t('session.log.cameraCapturedTitle'), detail);
               closeCamera();
             }}
           />
