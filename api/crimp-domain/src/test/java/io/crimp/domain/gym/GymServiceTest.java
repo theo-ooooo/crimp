@@ -30,7 +30,7 @@ class GymServiceTest {
     @BeforeEach
     void setUp() {
         gymRepo = mock(GymRepository.class);
-        service = new GymService(gymRepo);
+        service = new GymService(gymRepo, new BrandNormalizer());
     }
 
     @Test
