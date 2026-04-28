@@ -6,7 +6,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
@@ -20,9 +22,12 @@ import java.time.Instant;
 /**
  * AWS S3 presigner 기반 {@link MediaPresigner} 구현.
  *
- * <p>{@code app.media.s3.access-key} / {@code secret-key} 가 비어있으면 AWS SDK 의
- * default credential chain (IAM Role, env, ~/.aws/credentials 등) 을 사용. 운영 ECS 에서는
- * Task Role 만 부여하고 access-key 는 비워둔다.
+ * <p>자격증명 우선순위:
+ * <ol>
+ *   <li>{@code app.media.s3.profile} — {@code ~/.aws/credentials} 의 named profile (로컬 개발 권장)</li>
+ *   <li>{@code app.media.s3.access-key}/{@code secret-key} — 정적 IAM 키</li>
+ *   <li>그 외 — AWS SDK default credential chain (env, IAM Task Role 등) — 운영 ECS 권장</li>
+ * </ol>
  *
  * <p>버킷 / 리전이 비어있으면 빈 등록 자체가 실패 — Spring Boot 가 application 시작 시점에
  * 명확한 에러 메시지로 알려준다 (필수 설정 누락).
@@ -44,17 +49,26 @@ public class S3MediaPresigner implements MediaPresigner {
         if (props.region() == null || props.region().isBlank()) {
             throw new IllegalStateException("app.media.s3.region 미설정");
         }
-        var builder = S3Presigner.builder().region(Region.of(props.region()));
-        if (props.accessKey() != null && !props.accessKey().isBlank()
-                && props.secretKey() != null && !props.secretKey().isBlank()) {
-            builder.credentialsProvider(StaticCredentialsProvider.create(
-                    AwsBasicCredentials.create(props.accessKey(), props.secretKey())));
-            log.info("[media/s3] using static credentials for bucket {}", props.bucket());
-        } else {
-            builder.credentialsProvider(DefaultCredentialsProvider.create());
-            log.info("[media/s3] using default credential chain for bucket {}", props.bucket());
+        AwsCredentialsProvider creds = resolveCredentials(props);
+        this.presigner = S3Presigner.builder()
+                .region(Region.of(props.region()))
+                .credentialsProvider(creds)
+                .build();
+    }
+
+    private static AwsCredentialsProvider resolveCredentials(S3Properties p) {
+        if (p.profile() != null && !p.profile().isBlank()) {
+            log.info("[media/s3] using AWS profile '{}' for bucket {}", p.profile(), p.bucket());
+            return ProfileCredentialsProvider.create(p.profile());
         }
-        this.presigner = builder.build();
+        if (p.accessKey() != null && !p.accessKey().isBlank()
+                && p.secretKey() != null && !p.secretKey().isBlank()) {
+            log.info("[media/s3] using static credentials for bucket {}", p.bucket());
+            return StaticCredentialsProvider.create(
+                    AwsBasicCredentials.create(p.accessKey(), p.secretKey()));
+        }
+        log.info("[media/s3] using default credential chain for bucket {}", p.bucket());
+        return DefaultCredentialsProvider.create();
     }
 
     @Override
