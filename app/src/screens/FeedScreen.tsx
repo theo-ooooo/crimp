@@ -133,16 +133,7 @@ export default function FeedScreen(): JSX.Element {
 
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
-      <View style={styles.header}>
-        <Text
-          style={styles.title}
-          accessibilityRole="header"
-          accessibilityLabel={t('feed.title')}
-        >
-          {t('feed.title')}
-        </Text>
-      </View>
-
+      {/* 본문 상단 타이틀은 CrimpHeader (네비 헤더) 가 표시하므로 제거 — 중복 헤더 회귀 방지. */}
       <FeedFilterTabs value={filter} onChange={setFilter} />
 
       {isLoading ? (

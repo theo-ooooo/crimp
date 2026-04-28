@@ -21,3 +21,6 @@ export type { SkeletonProps } from './Skeleton';
 
 export { CrimpIcon } from './Icon';
 export type { IconName, IconProps } from './Icon';
+
+export { CrimpLogo } from './CrimpLogo';
+export type { CrimpLogoProps } from './CrimpLogo';

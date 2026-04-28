@@ -130,9 +130,7 @@ export default function GymSearchScreen(): JSX.Element {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{t('gym.list.title')}</Text>
-      </View>
+      {/* 본문 상단 타이틀은 CrimpHeader (네비 헤더) 가 표시 — 중복 제거. */}
 
       {/* 검색 입력 */}
       <View style={styles.searchWrap}>

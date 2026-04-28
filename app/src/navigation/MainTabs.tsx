@@ -4,8 +4,12 @@ import {
   createBottomTabNavigator,
   type BottomTabBarButtonProps,
 } from '@react-navigation/bottom-tabs';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import {
+  createNativeStackNavigator,
+  type NativeStackHeaderProps,
+} from '@react-navigation/native-stack';
 
+import { CrimpHeader } from '@/components/nav/CrimpHeader';
 import { CrimpIcon, type IconName } from '@/components/primitives/Icon';
 import { t } from '@/lib/i18n';
 import { fontFamily, fontSize, fontWeight, type Theme } from '@/lib/tokens';
@@ -42,9 +46,17 @@ const SessionsStack = createNativeStackNavigator<RootStackParamList>();
 const GymsStack = createNativeStackNavigator<RootStackParamList>();
 const ProfileStack = createNativeStackNavigator<RootStackParamList>();
 
+// 모든 inner Stack 의 헤더를 Crimp 공용 컴포넌트로 통일.
+//   - iOS native-stack 의 센터 정렬·기본 폰트와 Android 의 좌측 정렬·기본 폰트가
+//     시각적으로 어긋나던 부분 해소.
+//   - 옵션은 inner Stack 별로 동일해 screenOptions 로 한 번만 지정.
+const stackScreenOptions = {
+  header: (props: NativeStackHeaderProps) => <CrimpHeader {...props} />,
+} as const;
+
 function HomeTabStack(): JSX.Element {
   return (
-    <HomeStack.Navigator>
+    <HomeStack.Navigator screenOptions={stackScreenOptions}>
       <HomeStack.Screen
         name="Home"
         component={HomeScreen}
@@ -66,7 +78,7 @@ function HomeTabStack(): JSX.Element {
 
 function FeedTabStack(): JSX.Element {
   return (
-    <FeedStack.Navigator>
+    <FeedStack.Navigator screenOptions={stackScreenOptions}>
       <FeedStack.Screen
         name="Feed"
         component={FeedScreen}
@@ -78,7 +90,7 @@ function FeedTabStack(): JSX.Element {
 
 function SessionsTabStack(): JSX.Element {
   return (
-    <SessionsStack.Navigator>
+    <SessionsStack.Navigator screenOptions={stackScreenOptions}>
       <SessionsStack.Screen
         name="SessionList"
         component={SessionListScreen}
@@ -100,7 +112,7 @@ function SessionsTabStack(): JSX.Element {
 
 function GymsTabStack(): JSX.Element {
   return (
-    <GymsStack.Navigator>
+    <GymsStack.Navigator screenOptions={stackScreenOptions}>
       <GymsStack.Screen
         name="GymSearch"
         component={GymSearchScreen}
@@ -122,7 +134,7 @@ function GymsTabStack(): JSX.Element {
 
 function ProfileTabStack(): JSX.Element {
   return (
-    <ProfileStack.Navigator>
+    <ProfileStack.Navigator screenOptions={stackScreenOptions}>
       <ProfileStack.Screen
         name="Profile"
         component={ProfileScreen}

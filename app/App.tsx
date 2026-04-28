@@ -110,7 +110,9 @@ function AppRouter({ accessToken }: { accessToken: string | null }): JSX.Element
             <RootStack.Screen
               name="Login"
               component={LoginScreen}
-              options={{ title: t('auth.login.title') }}
+              // 풀스크린 진입 화면이라 헤더 숨김 — RootStack 의 기본 native-stack
+              // 헤더가 iOS/Android 시각이 어긋나는 이슈도 함께 회피.
+              options={{ title: t('auth.login.title'), headerShown: false }}
             />
             {/*
              * DesignPrimitives 는 dev 전용 deep-link 대상. 비인증 상태에서도
