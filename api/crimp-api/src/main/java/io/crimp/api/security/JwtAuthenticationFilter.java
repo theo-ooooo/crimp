@@ -51,8 +51,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             JwtProvider.ParsedToken parsed = jwtProvider.parseAccess(token);
             CrimpPrincipal principal = new CrimpPrincipal(parsed.userId(), parsed.userExtId());
+            // role claim 을 Spring Security 권한으로 매핑 — `ROLE_<UserRole.name()>` 컨벤션.
+            // hasRole("ADMIN") / @PreAuthorize("hasRole('ADMIN')") 등이 그대로 동작.
+            var authority = new SimpleGrantedAuthority("ROLE_" + parsed.role().name());
             var auth = new UsernamePasswordAuthenticationToken(
-                    principal, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+                    principal, null, List.of(authority));
             SecurityContextHolder.getContext().setAuthentication(auth);
             chain.doFilter(request, response);
         } catch (JwtException e) {

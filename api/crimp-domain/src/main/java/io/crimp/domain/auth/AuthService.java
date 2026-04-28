@@ -166,8 +166,10 @@ public class AuthService {
     }
 
     private AuthTokens issueTokens(User user) {
-        JwtProvider.IssuedToken access = jwtProvider.issueAccess(user.getId(), user.getExtId());
-        JwtProvider.IssuedToken refresh = jwtProvider.issueRefresh(user.getId(), user.getExtId());
+        // role 은 항상 DB 기준값으로 발급 — 토큰 안에 박혀 있다가 권한 상승된 사용자가 그대로 남는
+        // 회귀를 막는다 (refresh 시점에도 DB 재조회 → 본 메서드 재진입).
+        JwtProvider.IssuedToken access = jwtProvider.issueAccess(user.getId(), user.getExtId(), user.getRole());
+        JwtProvider.IssuedToken refresh = jwtProvider.issueRefresh(user.getId(), user.getExtId(), user.getRole());
         refreshStore.save(
                 user.getId(),
                 refresh.jti(),

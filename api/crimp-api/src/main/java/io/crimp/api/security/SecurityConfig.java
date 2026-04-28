@@ -44,6 +44,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/health").permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
+                        // admin 영역은 ADMIN 권한 보유자만 — 일반 인증으로 접근 불가 (gyms 등 일반 경로보다 먼저).
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         // 루트 목록은 인증 필요 — gyms permitAll 패턴보다 먼저 선언해 우선순위 확보
                         .requestMatchers(HttpMethod.GET, "/api/v1/gyms/*/routes").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/gyms", "/api/v1/gyms/**").permitAll()
