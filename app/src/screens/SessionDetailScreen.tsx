@@ -1,7 +1,9 @@
 import { useRoute, type RouteProp } from '@react-navigation/native';
 import React, { useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,12 +19,16 @@ import {
 import { useAttemptsQuery } from '@/hooks/useAttempts';
 import { useEndSession, useSessionQuery } from '@/hooks/useSessions';
 import { toUserMessage } from '@/lib/api/errorMessage';
+import { ApiError } from '@/lib/api/errors';
+import type { CapturedMedia } from '@/lib/camera/types';
 import { t } from '@/lib/i18n';
+import { MediaUploadError, uploadCapturedMedia } from '@/lib/media/upload';
 import {
   fontFamily,
   fontWeight,
   radius,
   space,
+  withAlpha,
   type Theme,
 } from '@/lib/tokens';
 import { useTokens } from '@/lib/useTokens';
@@ -55,9 +61,42 @@ export default function SessionDetailScreen(): JSX.Element {
   const [logSheetOpen, setLogSheetOpen] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraMode, setCameraMode] = useState<CameraMode>('video');
+  // [PR #92, F5 PR-3] 업로드 상태 — uploading 시 LogAttemptSheet 위에 진행 표시,
+  // uploadedMediaId 가 채워지면 LogAttemptSheet 가 첨부 배지를 노출하고 저장 시 attempt 에 연결.
+  const [uploading, setUploading] = useState(false);
+  const [uploadedMediaId, setUploadedMediaId] = useState<number | null>(null);
 
   const closeCamera = () => {
     setCameraOpen(false);
+  };
+
+  const handleCaptured = async (captured: CapturedMedia) => {
+    if (!accessToken) return;
+    closeCamera();
+    setUploading(true);
+    try {
+      const completed = await uploadCapturedMedia(accessToken, captured);
+      setUploadedMediaId(completed.id);
+    } catch (e) {
+      // [PR #92 리뷰 I1] 단계별 메시지 차별화 — 백엔드 ApiError(presign/complete) vs S3 PUT 실패.
+      // ApiError 는 `errorMessage.ts` 의 CODE_TO_KEY 가 사이즈/MIME/권한별 메시지로 매핑.
+      // MediaUploadError 는 phase 기반 i18n 키 사용.
+      let body: string;
+      if (e instanceof ApiError) {
+        body = toUserMessage(e);
+      } else if (e instanceof MediaUploadError) {
+        body = e.phase === 'local-read'
+          ? t('error.uploadLocalRead')
+          : e.phase === 'network'
+          ? t('error.uploadNetwork')
+          : t('error.uploadS3');
+      } else {
+        body = t('session.log.uploadFailedRetry');
+      }
+      Alert.alert(t('session.log.uploadFailed'), body);
+    } finally {
+      setUploading(false);
+    }
   };
 
   const styles = useMemo(() => makeStyles(theme), [theme]);
@@ -183,22 +222,23 @@ export default function SessionDetailScreen(): JSX.Element {
               setCameraMode(mode);
               setCameraOpen(true);
             }}
+            attachedMediaId={uploadedMediaId}
+            onClearMedia={() => setUploadedMediaId(null)}
           />
           <CameraSheet
             visible={cameraOpen}
             mode={cameraMode}
             onClose={closeCamera}
-            onCaptured={(media) => {
-              // TODO(PR-3): 본 media 로 presigned 업로드 → mediaId 를 LogAttemptSheet 로 전달.
-              // 현 단계는 캡처 동작 자체만 검증 — 메타 + URI 를 Alert 으로 노출.
-              const detail =
-                media.kind === 'IMAGE'
-                  ? `${media.kind} · ${media.byteSize}b · ${media.width}x${media.height}\n${media.uri}`
-                  : `${media.kind} · ${media.byteSize}b · ${media.durationMs}ms\n${media.uri}`;
-              Alert.alert(t('session.log.cameraCapturedTitle'), detail);
-              closeCamera();
-            }}
+            onCaptured={handleCaptured}
           />
+          {/* [PR #92 리뷰 B1] 업로드 진행 표시는 Modal 로 띄움 — ScrollView 내부 absolute 뷰는 viewport 를
+              덮지 못하고, LogAttemptSheet/CameraSheet 가 별도 native 레이어(Modal) 라 그 위로도 보장됨. */}
+          <Modal visible={uploading} transparent animationType="fade" statusBarTranslucent>
+            <View style={styles.uploadingOverlay} pointerEvents="auto">
+              <ActivityIndicator size="large" color={theme.text} />
+              <Text style={styles.uploadingLabel}>{t('session.log.uploading')}</Text>
+            </View>
+          </Modal>
         </>
       ) : null}
     </ScrollView>
@@ -212,6 +252,20 @@ function makeStyles(theme: Theme) {
       padding: space[5],
       paddingBottom: space[10],
       gap: space[5],
+    },
+    uploadingOverlay: {
+      // Modal 내부 root — flex 로 화면 전체 점유. 반투명 배경 + 중앙 spinner.
+      flex: 1,
+      backgroundColor: withAlpha(theme.bg, 0.85),
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: space[3],
+    },
+    uploadingLabel: {
+      fontFamily,
+      fontSize: 14,
+      fontWeight: fontWeight.semibold,
+      color: theme.text,
     },
     center: {
       flex: 1,

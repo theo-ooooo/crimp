@@ -133,13 +133,17 @@
       "notePlaceholder": "Crimp into a deadpoint move...",
       "save": "Save",
       "openCta": "Log attempt",
-      "cameraCapturedTitle": "Capture complete",
       "cameraError": "Camera error",
       "cameraNoDevice": "No camera device available on this phone.",
       "cameraPermissionTitle": "Camera permission required",
       "cameraPermissionBody": "Allow camera access to record climbing attempts. You can change this later in Settings.",
       "cameraPermissionRetry": "Request again",
-      "cameraPermissionSettings": "Open settings"
+      "cameraPermissionSettings": "Open settings",
+      "uploading": "Uploading...",
+      "uploadFailed": "Upload failed",
+      "uploadFailedRetry": "Please retry. Check network or size limit (image 20MB / video 200MB).",
+      "mediaAttached": "Media attached",
+      "mediaClear": "Retake"
     }
   },
   "attempt": {
@@ -328,6 +332,15 @@
     "sessionInvalid": "Session data is invalid.",
     "attemptNotFound": "Attempt not found.",
     "attemptInvalid": "Attempt data is invalid.",
+    "mediaSizeTooLarge": "File too large. Image up to 20MB, video up to 200MB.",
+    "mediaMimeNotAllowed": "Unsupported file type.",
+    "mediaSizeInvalid": "Invalid file size.",
+    "mediaForbidden": "This media isn't yours.",
+    "mediaNotFound": "Media not found. Please retake.",
+    "mediaInvalidState": "Media is in an invalid state. Please retake.",
+    "uploadNetwork": "Check your network and try again.",
+    "uploadS3": "Upload failed. Please try again.",
+    "uploadLocalRead": "Could not read the captured file. Please retake.",
     "generic": "Request failed."
   }
 }

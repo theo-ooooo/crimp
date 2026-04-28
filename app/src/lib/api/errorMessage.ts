@@ -21,6 +21,14 @@ const CODE_TO_KEY: Record<string, MessageKey> = {
   // PR #59: 주 암장 관련 백엔드 에러 코드.
   MAIN_GYM_NOT_FOUND: 'me.mainGym.errorNotFound',
   INVALID_MAIN_GYM_REQUEST: 'me.mainGym.errorInvalidRequest',
+  // PR #90 / F5 PR-3: 미디어 업로드 백엔드 에러 코드 → 사용자 안내 분기 (PR #92 리뷰 I1).
+  MEDIA_SIZE_TOO_LARGE: 'error.mediaSizeTooLarge',
+  MEDIA_MIME_NOT_ALLOWED: 'error.mediaMimeNotAllowed',
+  MEDIA_SIZE_INVALID: 'error.mediaSizeInvalid',
+  MEDIA_KIND_INVALID: 'error.mediaMimeNotAllowed',
+  MEDIA_FORBIDDEN: 'error.mediaForbidden',
+  MEDIA_NOT_FOUND: 'error.mediaNotFound',
+  MEDIA_INVALID_STATE: 'error.mediaInvalidState',
 };
 
 export function toUserMessage(err: unknown): string {

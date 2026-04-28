@@ -133,13 +133,17 @@
       "notePlaceholder": "크림프 잡고 데드포인트 무브가 핵심...",
       "save": "저장",
       "openCta": "시도 기록",
-      "cameraCapturedTitle": "캡처 완료",
       "cameraError": "카메라 오류",
       "cameraNoDevice": "사용 가능한 카메라 장치가 없어요.",
       "cameraPermissionTitle": "카메라 권한이 필요해요",
       "cameraPermissionBody": "등반 시도와 루트 사진/영상을 기록하려면 권한을 허용해주세요. 거부 후에도 설정에서 다시 허용할 수 있어요.",
       "cameraPermissionRetry": "권한 다시 요청",
-      "cameraPermissionSettings": "설정에서 권한 변경"
+      "cameraPermissionSettings": "설정에서 권한 변경",
+      "uploading": "업로드 중...",
+      "uploadFailed": "업로드 실패",
+      "uploadFailedRetry": "다시 시도해주세요. 네트워크나 사이즈 한도(이미지 20MB / 영상 200MB) 를 확인해보세요.",
+      "mediaAttached": "미디어 첨부됨",
+      "mediaClear": "다시 촬영"
     }
   },
   "attempt": {
@@ -328,6 +332,15 @@
     "sessionInvalid": "세션 정보가 올바르지 않아요.",
     "attemptNotFound": "해당 시도를 찾을 수 없어요.",
     "attemptInvalid": "시도 정보가 올바르지 않아요.",
+    "mediaSizeTooLarge": "파일이 너무 커요. 이미지는 20MB, 영상은 200MB 이내로 다시 시도해 주세요.",
+    "mediaMimeNotAllowed": "지원하지 않는 파일 형식이에요.",
+    "mediaSizeInvalid": "파일 크기가 올바르지 않아요.",
+    "mediaForbidden": "본인의 미디어가 아니에요.",
+    "mediaNotFound": "미디어를 찾을 수 없어요. 다시 촬영해 주세요.",
+    "mediaInvalidState": "미디어 상태가 잘못되었어요. 다시 촬영해 주세요.",
+    "uploadNetwork": "네트워크 연결을 확인하고 다시 시도해 주세요.",
+    "uploadS3": "업로드 중 오류가 발생했어요. 다시 시도해 주세요.",
+    "uploadLocalRead": "촬영한 파일을 읽지 못했어요. 다시 촬영해 주세요.",
     "generic": "요청을 처리하지 못했어요."
   }
 }

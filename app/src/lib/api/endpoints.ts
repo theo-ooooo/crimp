@@ -33,6 +33,13 @@ import {
   type RouteList,
 } from '@/lib/schemas/gym';
 import { HealthResponseSchema, type HealthResponse } from '@/lib/schemas/health';
+import {
+  CompleteResponseSchema,
+  PresignResponseSchema,
+  type CompleteResponse,
+  type MediaKind,
+  type PresignResponse,
+} from '@/lib/schemas/media';
 import { MeSchema, type Me, type UpdateProfileBody } from '@/lib/schemas/me';
 import { MeStatsSchema, type MeStats } from '@/lib/schemas/meStats';
 import {
@@ -508,6 +515,54 @@ export function deleteComment(
     path: `/api/v1/comments/${encodeURIComponent(commentExtId)}`,
     accessToken,
     schema: z.void(),
+    signal,
+  });
+}
+
+// ===== Media (F5 PR-3) =====
+
+/**
+ * `POST /api/v1/media/presign` — UPLOADING row 생성 + S3 PUT presigned URL 발급.
+ *
+ * 응답의 `uploadUrl` 로 PUT 요청 시 `Content-Type` 은 요청 mime 과 동일, 본문 바이트는
+ * 정확히 byteSize 와 일치해야 한다 (서명에 박혀 다른 값은 S3 가 거부 — PR #90 I2).
+ */
+export function presignMedia(
+  accessToken: string,
+  body: { kind: MediaKind; mime: string; byteSize: number },
+  signal?: AbortSignal,
+): Promise<PresignResponse> {
+  return apiRequest({
+    method: 'POST',
+    path: '/api/v1/media/presign',
+    accessToken,
+    body,
+    schema: PresignResponseSchema,
+    signal,
+  });
+}
+
+/**
+ * `POST /api/v1/media/{id}/complete` — S3 PUT 성공 후 호출. UPLOADING → READY 전환 +
+ * cdnUrl 채워짐. 본인 소유 X 시 403, UPLOADING 외 상태에서 호출 시 409.
+ */
+export function completeMedia(
+  accessToken: string,
+  mediaId: number,
+  body: {
+    byteSize: number;
+    width: number | null;
+    height: number | null;
+    durationMs: number | null;
+  },
+  signal?: AbortSignal,
+): Promise<CompleteResponse> {
+  return apiRequest({
+    method: 'POST',
+    path: `/api/v1/media/${mediaId}/complete`,
+    accessToken,
+    body,
+    schema: CompleteResponseSchema,
     signal,
   });
 }
