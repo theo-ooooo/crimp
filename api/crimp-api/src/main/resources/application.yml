@@ -97,6 +97,19 @@ app:
         rest-api-key: ${KAKAO_REST_API_KEY:}
         client-secret: ${KAKAO_CLIENT_SECRET:}
         token-uri: ${KAKAO_TOKEN_URI:https://kauth.kakao.com/oauth/token}
+  # Gym sync — 외부 위치 검색 어댑터 (Kakao Local API).
+  # 본 설정은 어댑터 동작 파라미터만 담는다. REST API 키는 위 oauth.kakao.rest-api-key 재사용.
+  gym-sync:
+    kakao-local:
+      base-url: https://dapi.kakao.com
+      keyword-search-path: /v2/local/search/keyword.json
+      # 한 번의 호출에서 검색할 반경(미터) — Kakao 상한 20km. 클라이밍 매장 밀도상 5km 권장.
+      default-radius-meters: 5000
+      # 매장 검색 키워드 — Kakao Local 의 카테고리(SP1) 매핑이 없어 한글 키워드로 검색.
+      query-keyword: 클라이밍
+      # 한 호출당 응답 사이즈 (Kakao 상한 15) 와 페이지네이션 한도 — 한 좌표에서 최대 45건.
+      page-size: 15
+      max-pages: 3
 
 logging:
   level:
