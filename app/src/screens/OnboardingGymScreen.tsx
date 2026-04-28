@@ -93,7 +93,10 @@ export default function OnboardingGymScreen(): JSX.Element {
     isFetchingNextPage,
   } = useGymsQuery(filters);
 
-  const gyms: GymItem[] = data?.pages.flatMap((p) => p.items) ?? [];
+  const gyms: GymItem[] = useMemo(
+    () => data?.pages.flatMap((p) => p.items) ?? [],
+    [data],
+  );
 
   const onEndReached = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) {

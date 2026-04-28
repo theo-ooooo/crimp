@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { useMeQuery } from './src/hooks/useMe';
 import { t } from './src/lib/i18n';
+import { shouldShowOnboardingGate } from './src/lib/onboardingGate';
 import { fontFamily, fontSize } from './src/lib/tokens';
 import { useTokens } from './src/lib/useTokens';
 import MainTabs from './src/navigation/MainTabs';
@@ -95,12 +96,11 @@ function AppRouter({ accessToken }: { accessToken: string | null }): JSX.Element
     (s) => s.dismissedThisSession,
   );
 
-  const me = meQuery.data;
-  const needsOnboarding =
-    accessToken !== null &&
-    me !== undefined &&
-    me.mainGym == null &&
-    !onboardingDismissed;
+  const needsOnboarding = shouldShowOnboardingGate({
+    accessToken,
+    me: meQuery.data,
+    onboardingDismissed,
+  });
 
   return (
     <View style={styles.fill}>
