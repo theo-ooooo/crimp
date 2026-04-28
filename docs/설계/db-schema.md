@@ -309,6 +309,9 @@ CREATE TABLE follows (
 | V202605010903 | `V202605010903__init_media.sql` | media_assets, post_media |
 | V202605010904 | `V202605010904__init_feed.sql` | feed_posts, likes, comments |
 | V202605010905 | `V202605010905__init_social.sql` | follows |
+| V202605010907 | `V202605010907__add_attempt_ext_id.sql` | session_attempts.ext_id 추가 |
+| V202605010908 | `V202605010908__feed_post_attempt_link.sql` | feed_posts ↔ attempt 연결 |
+| V202605010920 | `V202605010920__seed_gyms_seoul.sql` | 수도권 주요 암장 30곳 seed (M3 차단요건 해소). INSERT IGNORE 로 멱등 보장. 베타 직전 좌표·전화·영업시간 정확도 검수 필요 |
 
 ## 7. 오픈 이슈
 
