@@ -97,24 +97,36 @@ public class GymSyncService {
             inserted++;
         }
 
-        // 본 단계의 update 는 좌표·brand·phone 갱신만 — 별도 setter 없이 새 row 로 대체할
-        // 수는 없으므로 후속 PR 에서 Gym 엔티티에 update 메서드를 추가해 적용한다.
-        // 현재는 update 후보를 로그로만 남기고 DB 변경은 미적용 — diff.updates() 를 운영자가
-        // 검토 후 별도 절차로 반영.
+        // update 는 좌표·brand·phone 만 갱신 (이름/주소는 매칭 키이므로 변경 X).
+        //
+        // [PR #85 리뷰 B1] dryRun() 의 @Transactional(readOnly=true) 가 종료되면 그 안에서
+        // 가져온 Gym 들은 detached 상태가 됨. 이 상태에서 mutate 해도 본 메서드의 새 트랜잭션은
+        // 그 인스턴스를 알지 못해 dirty check 가 동작하지 않음 → UPDATE 누락. 따라서 diff 의
+        // current 는 ID 만 신뢰하고, 본 트랜잭션의 영속 컨텍스트에서 재조회한 managed entity 에
+        // mutate 한다. 재조회 실패(다른 경로로 row 가 삭제된 경우)는 skip + log + 카운터 미증가.
+        int updated = 0;
+        int updateSkipped = 0;
         for (GymSyncDiff.UpdateCandidate u : diff.updates()) {
-            log.warn(
-                    "[gym-sync] update candidate (apply pending): id={} name={} reason=brand/phone/coord-changed",
-                    u.current().getId(), u.current().getName());
+            Long id = u.current().getId();
+            var managedOpt = gymRepository.findById(id);
+            if (managedOpt.isEmpty()) {
+                updateSkipped++;
+                log.warn("[gym-sync] update skipped (row no longer exists): id={} name={}",
+                        id, u.current().getName());
+                continue;
+            }
+            Gym managed = managedOpt.get();
+            RemoteGym r = u.remote();
+            managed.applyRemoteUpdate(r.brand(), r.phone(), r.lat(), r.lng());
+            updated++;
+            log.info("[gym-sync] update applied: id={} name={}", managed.getId(), managed.getName());
         }
 
-        // [reviewer B1] updatePending 은 "DB 에 적용 X, 후속 검토 대기" 카운트 — 항상 diff.updates 와
-        // 일치해야 함. 별도 카운터 없이 diff 에서 직접 사용해 0 회귀를 차단.
-        int updatePending = diff.updates().size();
         int missingFromRemote = diff.missingFromRemote().size();
-        log.info("[gym-sync] apply inserted={} update-pending={} closed-pending={}",
-                inserted, updatePending, missingFromRemote);
-        return new ApplyReport(inserted, updatePending, missingFromRemote);
+        log.info("[gym-sync] apply inserted={} updated={} update-skipped={} closed-pending={}",
+                inserted, updated, updateSkipped, missingFromRemote);
+        return new ApplyReport(inserted, updated, missingFromRemote);
     }
 
-    public record ApplyReport(int inserted, int updatePending, int missingFromRemote) {}
+    public record ApplyReport(int inserted, int updated, int missingFromRemote) {}
 }

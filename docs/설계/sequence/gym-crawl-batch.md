@@ -79,8 +79,13 @@ sequenceDiagram
         loop additions
             Service->>DB: save(Gym.create(ulid, name, address, lat, lng))
         end
-        Note over Service: updates 는 본 PR 에서 로그만 — Gym 엔티티에 update 메서드 추가는 Phase 1.5
-        Service-->>Caller: ApplyReport(inserted, updatePending, missing)
+        loop updates
+            Service->>DB: findById(currentId)  %% 본 트랜잭션의 managed entity 재조회 (PR #85 B1)
+            DB-->>Service: managed Gym
+            Service->>Service: managed.applyRemoteUpdate(brand, phone, lat, lng)
+            Note over Service,DB: 트랜잭션 commit 시 JPA dirty check → UPDATE 발행
+        end
+        Service-->>Caller: ApplyReport(inserted, updated, missing)
     end
 ```
 
@@ -88,7 +93,7 @@ sequenceDiagram
 
 - **매칭 키**: `(이름, 주소)` 의 정규화된 페어. 공백·대소문자·NBSP·전각공백 차이는 동일 매장.
 - **좌표 변경 임계치**: 위도/경도 절대 차이 0.0005 (≒ 50m). 그 이상이면 update 후보.
-- **brand/phone 차이**: 단순 문자열 비교. 차이 있으면 update 후보.
+- **brand/phone 차이**: 단순 문자열 비교. 차이 있으면 update 후보. 단, 외부 응답이 null 이면 "정보 누락" 으로 보고 update 후보에서 제외 (기존 값 보존, PR #85 I3).
 - **폐업 마킹**: 단일 호출로는 결정 불가. 다중 좌표 호출 결과를 합친 후 "어느 호출에서도 안
   보임" 인 row 만 후보. **본 PR 에서는 적용 안 함** (Phase 1.5).
 - **운영 안전장치 (apply)**: `additions + updates` 가 전체의 50% 초과면 차단.
@@ -108,7 +113,7 @@ sequenceDiagram
 | --- | --- |
 | `@Scheduled` 트리거 | 본 PR 미포함. `@EnableScheduling` 도 미설정 |
 | admin API (`POST /api/v1/admin/gyms/sync`) | 미구현. 인증·권한 가드 필요해 별도 설계 |
-| `Gym` 엔티티의 update 메서드 | 미구현. 본 PR 의 `apply()` 는 update 후보를 로그만 남김 |
+| `Gym` 엔티티의 update 메서드 | 구현 완료. `Gym.applyRemoteUpdate(brand, phone, lat, lng)` 로 좌표·brand·phone 만 갱신 (이름/주소는 매칭 키로 보존) |
 | 폐업 마킹 (status=CLOSED) | 미구현. 다중 좌표 호출 통합 단계 필요 |
 | Slack/Discord webhook | 미구현 |
 | `gym_sync_log` 감사 테이블 | 미구현. 현재는 application 로그만 |
