@@ -96,6 +96,9 @@ public class AdminGymSyncController {
         List<GymSyncRegion> regions = req.preset().regions();
         List<GridRegionResult> results = new ArrayList<>(regions.size());
 
+        log.info("[admin/gym-sync] grid start preset={} mode={} regions={}",
+                req.preset(), req.mode(), regions.size());
+
         for (GymSyncRegion region : regions) {
             try {
                 DryRunResult dry = gymSyncService.dryRun(
@@ -114,7 +117,13 @@ public class AdminGymSyncController {
             }
         }
 
-        return ResponseEntity.ok(ApiResponse.success(GridSyncResponse.of(req.preset(), req.mode(), results)));
+        GridSyncResponse body = GridSyncResponse.of(req.preset(), req.mode(), results);
+        GridSummary s = body.summary();
+        log.info("[admin/gym-sync] grid done preset={} mode={} applied={} aborted={} failed={} dryRun={} inserted={} updated={}",
+                req.preset(), req.mode(),
+                s.applied(), s.aborted(), s.failed(), s.dryRun(),
+                s.totalInserted(), s.totalUpdated());
+        return ResponseEntity.ok(ApiResponse.success(body));
     }
 
     /** 동기화 모드. */
@@ -229,6 +238,18 @@ public class AdminGymSyncController {
         }
     }
 
+    /** 영역 1건의 결과 status (PR #89 리뷰 I2: 매직 String → enum 으로 승격). */
+    public enum RegionStatus {
+        /** dry-run 만 수행, DB 미수정. */
+        DRY_RUN,
+        /** apply 까지 정상 수행. */
+        APPLIED,
+        /** 변경 비율 가드로 차단. {@link GridRegionResult#reason} 에 사유. */
+        ABORTED_RATIO_GUARD,
+        /** 외부 호출/예외 실패. {@link GridRegionResult#reason} 에 메시지. 다른 영역은 계속 진행. */
+        FAILED
+    }
+
     /** Grid 호출의 영역별 합계. */
     public record GridSummary(
             int applied, int aborted, int failed, int dryRun,
@@ -240,7 +261,7 @@ public class AdminGymSyncController {
             int ins = 0, upd = 0, skip = 0, addPlan = 0, updPlan = 0;
             for (GridRegionResult r : results) {
                 switch (r.status()) {
-                    case "APPLIED" -> {
+                    case APPLIED -> {
                         applied++;
                         ins += r.inserted();
                         upd += r.updated();
@@ -248,14 +269,19 @@ public class AdminGymSyncController {
                         addPlan += r.additionsPlanned();
                         updPlan += r.updatesPlanned();
                     }
-                    case "ABORTED_RATIO_GUARD" -> aborted++;
-                    case "FAILED" -> failed++;
-                    case "DRY_RUN" -> {
+                    case ABORTED_RATIO_GUARD -> {
+                        aborted++;
+                        // [PR #89 리뷰 I3] 가드로 막혔어도 "계획되었던 변경량" 은 합계에 포함
+                        // — 운영자가 가드 발동 사유를 가늠할 수 있게 (planned vs applied 비교 가능).
+                        addPlan += r.additionsPlanned();
+                        updPlan += r.updatesPlanned();
+                    }
+                    case FAILED -> failed++;
+                    case DRY_RUN -> {
                         dryRun++;
                         addPlan += r.additionsPlanned();
                         updPlan += r.updatesPlanned();
                     }
-                    default -> { /* unknown — ignore */ }
                 }
             }
             return new GridSummary(applied, aborted, failed, dryRun, ins, upd, skip, addPlan, updPlan);
@@ -263,20 +289,14 @@ public class AdminGymSyncController {
     }
 
     /**
-     * 영역 1건의 동기화 결과. {@code status} 분기:
-     * <ul>
-     *   <li>{@code DRY_RUN} — diff 만 계산. inserted/updated/updateSkipped 는 0.</li>
-     *   <li>{@code APPLIED} — apply 까지 정상 수행. inserted/updated/updateSkipped 는 실제 카운트.</li>
-     *   <li>{@code ABORTED_RATIO_GUARD} — 변경 비율 가드로 차단. {@code reason} 에 사유.</li>
-     *   <li>{@code FAILED} — 외부 호출/예외 실패. {@code reason} 에 메시지. 다른 영역은 계속 진행.</li>
-     * </ul>
+     * 영역 1건의 동기화 결과. {@link #status} 별 의미는 {@link RegionStatus} 참조.
      */
     public record GridRegionResult(
             String label,
             BigDecimal lat,
             BigDecimal lng,
             int radiusMeters,
-            String status,
+            RegionStatus status,
             int additionsPlanned,
             int updatesPlanned,
             int missingFromRemote,
@@ -289,7 +309,7 @@ public class AdminGymSyncController {
         static GridRegionResult dryRun(GymSyncRegion r, DryRunResult dry) {
             return new GridRegionResult(
                     r.label(), r.lat(), r.lng(), r.radiusMeters(),
-                    "DRY_RUN",
+                    RegionStatus.DRY_RUN,
                     dry.diff().additions().size(),
                     dry.diff().updates().size(),
                     dry.diff().missingFromRemote().size(),
@@ -297,9 +317,13 @@ public class AdminGymSyncController {
         }
 
         static GridRegionResult applied(GymSyncRegion r, DryRunResult dry, GymSyncService.ApplyReport report) {
+            // ApplyReport.Status 와 RegionStatus 의 이름이 일치 — valueOf 로 바로 매핑.
+            // (직접 switch 하면 새 Status 추가 시 즉시 컴파일 에러 — IDE 가 잡아줌. 본 코드는 둘 다
+            //  enum 이라 이름 동기화가 끊기면 valueOf 가 throw.)
+            RegionStatus rs = RegionStatus.valueOf(report.status().name());
             return new GridRegionResult(
                     r.label(), r.lat(), r.lng(), r.radiusMeters(),
-                    report.status().name(),
+                    rs,
                     dry.diff().additions().size(),
                     dry.diff().updates().size(),
                     dry.diff().missingFromRemote().size(),
@@ -310,7 +334,7 @@ public class AdminGymSyncController {
         static GridRegionResult failed(GymSyncRegion r, String message) {
             return new GridRegionResult(
                     r.label(), r.lat(), r.lng(), r.radiusMeters(),
-                    "FAILED",
+                    RegionStatus.FAILED,
                     0, 0, 0, 0, 0, 0, message);
         }
     }

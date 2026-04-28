@@ -4,6 +4,7 @@ import io.crimp.api.admin.AdminGymSyncController.ApplyResponse;
 import io.crimp.api.admin.AdminGymSyncController.DryRunResponse;
 import io.crimp.api.admin.AdminGymSyncController.GridSyncRequest;
 import io.crimp.api.admin.AdminGymSyncController.GridSyncResponse;
+import io.crimp.api.admin.AdminGymSyncController.RegionStatus;
 import io.crimp.api.admin.AdminGymSyncController.SyncMode;
 import io.crimp.api.admin.AdminGymSyncController.SyncRequest;
 import io.crimp.common.response.ApiResponse;
@@ -18,6 +19,7 @@ import org.springframework.http.ResponseEntity;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -139,14 +141,14 @@ class AdminGymSyncControllerTest {
                 .thenAnswer(inv -> new DryRunResult(
                         inv.getArgument(0), inv.getArgument(1), 5000,
                         new GymSyncDiff.Result(0, List.of(), List.of(), List.of())));
-        // 24 개는 정상 apply, 마지막 1개는 ABORTED — 총 24 inserted (각 1) + 1 aborted.
+        // 25 호출 중 첫 24 는 APPLIED (inserted=1), 25번째 1건만 ABORTED.
+        // [PR #89 리뷰 I4] preset 순서에 묶이지 않게 `Answer<>` 로 의도를 명시 — preset 에 region
+        // 추가/순서 변경이 있어도 합계 단위 보장은 그대로.
         var applied = GymSyncService.ApplyReport.applied(1, 0, 0, 0);
         var aborted = GymSyncService.ApplyReport.aborted("change ratio 0.7 exceeds limit 0.5", 0);
-        when(syncService.apply(any()))
-                .thenReturn(applied, applied, applied, applied, applied, applied, applied, applied,
-                        applied, applied, applied, applied, applied, applied, applied, applied,
-                        applied, applied, applied, applied, applied, applied, applied, applied,
-                        aborted);
+        AtomicInteger callIndex = new AtomicInteger(0);
+        when(syncService.apply(any())).thenAnswer(inv ->
+                callIndex.getAndIncrement() < 24 ? applied : aborted);
 
         ResponseEntity<ApiResponse<GridSyncResponse>> res = controller.syncGrid(
                 new GridSyncRequest(GymSyncGridPreset.SEOUL_GU, SyncMode.APPLY));
@@ -176,7 +178,7 @@ class AdminGymSyncControllerTest {
         GridSyncResponse body = res.getBody().data();
         assertThat(body.summary().failed()).isEqualTo(1);
         assertThat(body.summary().applied()).isEqualTo(24);
-        assertThat(body.results().get(0).status()).isEqualTo("FAILED");
+        assertThat(body.results().get(0).status()).isEqualTo(RegionStatus.FAILED);
         assertThat(body.results().get(0).reason()).contains("kakao temporary outage");
         verify(syncService, atLeastOnce()).apply(any());
     }
