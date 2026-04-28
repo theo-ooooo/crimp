@@ -17,7 +17,9 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -47,7 +49,7 @@ class MediaServiceTest {
             setId(m, 42L);
             return m;
         });
-        when(presigner.presignPut(anyString(), anyString(), any(Duration.class)))
+        when(presigner.presignPut(anyString(), anyString(), anyLong(), any(Duration.class)))
                 .thenAnswer(inv -> new MediaPresigner.PresignedUpload(
                         "https://s3.test/" + inv.getArgument(0) + "?signed",
                         Instant.parse("2026-04-28T14:00:00Z")));
@@ -55,7 +57,7 @@ class MediaServiceTest {
 
     @Test
     void presignUpload_image_jpeg_savesUploadingRow_andReturnsPresignedUrl() {
-        var result = service.presignUpload(7L, MediaKind.IMAGE, "image/jpeg");
+        var result = service.presignUpload(7L, MediaKind.IMAGE, "image/jpeg", 12345L);
 
         ArgumentCaptor<MediaAsset> captor = ArgumentCaptor.forClass(MediaAsset.class);
         verify(repo).save(captor.capture());
@@ -69,11 +71,13 @@ class MediaServiceTest {
         assertThat(result.id()).isEqualTo(42L);
         assertThat(result.uploadUrl()).contains(saved.getS3Key());
         assertThat(result.expiresAt()).isAfter(Instant.parse("2026-01-01T00:00:00Z"));
+        // [PR #90 리뷰 I2] presigner 가 byteSize 를 받았는지 검증.
+        verify(presigner).presignPut(eq(saved.getS3Key()), eq("image/jpeg"), eq(12345L), any(Duration.class));
     }
 
     @Test
     void presignUpload_video_mp4_acceptedAndUsesMp4Extension() {
-        service.presignUpload(7L, MediaKind.VIDEO, "video/mp4");
+        service.presignUpload(7L, MediaKind.VIDEO, "video/mp4", 1_000_000L);
 
         ArgumentCaptor<MediaAsset> captor = ArgumentCaptor.forClass(MediaAsset.class);
         verify(repo).save(captor.capture());
@@ -82,10 +86,36 @@ class MediaServiceTest {
 
     @Test
     void presignUpload_rejectsUnknownMime() {
-        assertThatThrownBy(() -> service.presignUpload(7L, MediaKind.IMAGE, "image/svg+xml"))
+        assertThatThrownBy(() -> service.presignUpload(7L, MediaKind.IMAGE, "image/svg+xml", 1L))
                 .isInstanceOf(MediaException.class)
                 .hasFieldOrPropertyWithValue("code", "MEDIA_MIME_NOT_ALLOWED");
         verify(repo, never()).save(any());
+    }
+
+    @Test
+    void presignUpload_rejectsImageOver20MB() {
+        // [PR #90 리뷰 I2] 이미지 한도(20MB) 초과 → MEDIA_SIZE_TOO_LARGE
+        assertThatThrownBy(() -> service.presignUpload(7L, MediaKind.IMAGE, "image/jpeg",
+                21L * 1024 * 1024))
+                .isInstanceOf(MediaException.class)
+                .hasFieldOrPropertyWithValue("code", "MEDIA_SIZE_TOO_LARGE");
+        verify(repo, never()).save(any());
+    }
+
+    @Test
+    void presignUpload_rejectsVideoOver200MB() {
+        assertThatThrownBy(() -> service.presignUpload(7L, MediaKind.VIDEO, "video/mp4",
+                201L * 1024 * 1024))
+                .isInstanceOf(MediaException.class)
+                .hasFieldOrPropertyWithValue("code", "MEDIA_SIZE_TOO_LARGE");
+        verify(repo, never()).save(any());
+    }
+
+    @Test
+    void presignUpload_rejectsZeroOrNegativeSize() {
+        assertThatThrownBy(() -> service.presignUpload(7L, MediaKind.IMAGE, "image/jpeg", 0L))
+                .isInstanceOf(MediaException.class)
+                .hasFieldOrPropertyWithValue("code", "MEDIA_SIZE_INVALID");
     }
 
     @Test
@@ -104,6 +134,28 @@ class MediaServiceTest {
         assertThat(asset.getHeight()).isEqualTo(1080);
         assertThat(asset.getCdnUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA.jpg");
         assertThat(result.cdnUrl()).isEqualTo(asset.getCdnUrl());
+        // [PR #90 리뷰 I1] s3Key 가 응답에 노출되어 클라가 cdnUrl null 케이스에서 별도 처리 가능.
+        assertThat(result.s3Key()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
+    }
+
+    @Test
+    void completeUpload_cdnBaseUrlEmpty_returnsNullCdnUrl() {
+        // [PR #90 리뷰 I1] cdn-base-url 이 비어있으면 cdnUrl=null. raw s3Key 가 클라에서 fetch URL 로
+        // 잘못 사용되는 사고 방지.
+        var noCdnProps = new AppProperties("Crimp", "test", null,
+                new AppProperties.Media("", 600));
+        var noCdnService = new MediaService(repo, presigner, noCdnProps);
+
+        MediaAsset asset = MediaAsset.createUploading("01HMEDIA", 7L, MediaKind.IMAGE,
+                "image/jpeg", "media/2026-04-28/01HMEDIA.jpg");
+        setId(asset, 100L);
+        when(repo.findById(100L)).thenReturn(Optional.of(asset));
+
+        var result = noCdnService.completeUpload(100L, 7L, 12345L, 1920, 1080, null);
+
+        assertThat(result.cdnUrl()).isNull();
+        assertThat(result.s3Key()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
+        assertThat(asset.getCdnUrl()).isNull();
     }
 
     @Test

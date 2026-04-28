@@ -43,6 +43,13 @@ public class MediaService {
     private static final Set<String> ALLOWED_VIDEO_MIME = Set.of(
             "video/mp4", "video/quicktime");
 
+    /**
+     * Per-kind 사이즈 한도 (PR #90 리뷰 I2 — 1차 방어선). 클라가 declare 한 byteSize 가
+     * 한도 초과면 presign 단계에서 거부. 추가 방어는 S3 버킷 정책의 max object size 권장.
+     */
+    private static final long IMAGE_MAX_BYTES = 20L * 1024 * 1024;   //  20MB
+    private static final long VIDEO_MAX_BYTES = 200L * 1024 * 1024;  // 200MB
+
     private final MediaAssetRepository mediaAssetRepository;
     private final MediaPresigner presigner;
     private final AppProperties appProperties;
@@ -57,10 +64,14 @@ public class MediaService {
 
     /**
      * 업로드 시작 — UPLOADING row 생성 후 presigned PUT URL 발급.
+     *
+     * @param byteSize 클라가 업로드할 정확한 바이트 크기 (PR #90 리뷰 I2). presigned URL 의 서명에
+     *                 contentLength 로 박혀, 클라가 다른 크기로 PUT 시 S3 가 거부.
      */
     @Transactional
-    public PresignResult presignUpload(long ownerUserId, MediaKind kind, String mime) {
+    public PresignResult presignUpload(long ownerUserId, MediaKind kind, String mime, long byteSize) {
         validateMime(kind, mime);
+        validateSize(kind, byteSize);
         String extId = UlidGenerator.next();
         String s3Key = buildS3Key(extId, mime);
 
@@ -68,10 +79,10 @@ public class MediaService {
         mediaAssetRepository.save(asset);
 
         Duration ttl = Duration.ofSeconds(appProperties.media().presignedUrlTtlSeconds());
-        MediaPresigner.PresignedUpload presigned = presigner.presignPut(s3Key, mime, ttl);
+        MediaPresigner.PresignedUpload presigned = presigner.presignPut(s3Key, mime, byteSize, ttl);
 
-        log.info("[media] presign issued id={} extId={} owner={} kind={} mime={}",
-                asset.getId(), extId, ownerUserId, kind, mime);
+        log.info("[media] presign issued id={} extId={} owner={} kind={} mime={} bytes={}",
+                asset.getId(), extId, ownerUserId, kind, mime, byteSize);
         return new PresignResult(
                 asset.getId(), extId,
                 presigned.url(),
@@ -110,7 +121,7 @@ public class MediaService {
                 asset.getId(), asset.getExtId(), asset.getKind(), asset.getStatus(),
                 asset.getMime(), asset.getByteSize(),
                 asset.getWidth(), asset.getHeight(), asset.getDurationMs(),
-                cdnUrl, asset.getThumbnailCdnUrl(), asset.getCreatedAt());
+                asset.getS3Key(), cdnUrl, asset.getThumbnailCdnUrl(), asset.getCreatedAt());
     }
 
     private void validateMime(MediaKind kind, String mime) {
@@ -118,6 +129,18 @@ public class MediaService {
         if (mime == null || !allowed.contains(mime.toLowerCase())) {
             throw new MediaException("MEDIA_MIME_NOT_ALLOWED",
                     "Mime " + mime + " is not allowed for " + kind);
+        }
+    }
+
+    private void validateSize(MediaKind kind, long byteSize) {
+        long max = (kind == MediaKind.IMAGE) ? IMAGE_MAX_BYTES : VIDEO_MAX_BYTES;
+        if (byteSize <= 0) {
+            throw new MediaException("MEDIA_SIZE_INVALID",
+                    "byteSize must be positive (was " + byteSize + ")");
+        }
+        if (byteSize > max) {
+            throw new MediaException("MEDIA_SIZE_TOO_LARGE",
+                    "byteSize " + byteSize + " exceeds limit for " + kind + " (" + max + ")");
         }
     }
 
@@ -143,11 +166,15 @@ public class MediaService {
         };
     }
 
+    /**
+     * [PR #90 리뷰 I1] cdn-base-url 미설정 시 null 반환 — 클라가 raw s3Key 를 fetch URL 로
+     * 잘못 사용하는 사고 방지. 응답은 cdnUrl/s3Key 둘 다 노출하므로 클라는 cdnUrl 이 null 이면
+     * 별도 처리 (예: 자체 사이닝 GET URL 발급, 로컬은 직접 합성 등) 한다.
+     */
     private String buildCdnUrl(String s3Key) {
         String base = appProperties.media().cdnBaseUrl();
         if (base == null || base.isBlank()) {
-            // CDN 미설정 (로컬·테스트) — s3Key 만 노출하고 클라가 직접 적절한 URL 로 합성.
-            return s3Key;
+            return null;
         }
         return base.endsWith("/") ? base + s3Key : base + "/" + s3Key;
     }
@@ -160,6 +187,6 @@ public class MediaService {
     public record CompleteResult(
             long id, String extId, MediaKind kind, MediaStatus status, String mime,
             Long byteSize, Integer width, Integer height, Integer durationMs,
-            String cdnUrl, String thumbnailCdnUrl, Instant createdAt
+            String s3Key, String cdnUrl, String thumbnailCdnUrl, Instant createdAt
     ) {}
 }

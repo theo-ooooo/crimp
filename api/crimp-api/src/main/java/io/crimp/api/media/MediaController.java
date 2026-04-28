@@ -56,14 +56,14 @@ public class MediaController {
     @Operation(
             summary = "업로드 시작 (presigned URL 발급)",
             description = "UPLOADING 상태 row 생성 후 클라가 S3 로 직접 PUT 할 수 있는 presigned URL 반환. "
-                    + "응답의 uploadUrl 로 PUT 호출 시 Content-Type 헤더는 요청 mime 과 동일해야 한다 (서명 일치)."
+                    + "응답의 uploadUrl 로 PUT 호출 시 Content-Type 헤더 + Content-Length 가 요청 값과 정확히 일치해야 한다 (서명 일치)."
     )
     @PostMapping("/presign")
     public PresignResponse presign(
             @AuthenticationPrincipal CrimpPrincipal principal,
             @Valid @RequestBody PresignRequest req) {
         MediaKind kind = parseKind(req.kind());
-        var result = mediaService.presignUpload(principal.userId(), kind, req.mime());
+        var result = mediaService.presignUpload(principal.userId(), kind, req.mime(), req.byteSize());
         return new PresignResponse(
                 result.id(), result.extId(),
                 result.uploadUrl(), result.s3Key(),
@@ -73,7 +73,8 @@ public class MediaController {
     @Operation(
             summary = "업로드 완료 보고",
             description = "S3 PUT 성공 후 호출. byteSize/width/height/durationMs 메타 + READY 전환. "
-                    + "본인 소유가 아닌 미디어 호출 시 403 MEDIA_FORBIDDEN. UPLOADING 외 상태에서 호출 시 409."
+                    + "본인 소유가 아닌 미디어 호출 시 403 MEDIA_FORBIDDEN. UPLOADING 외 상태에서 호출 시 409. "
+                    + "응답의 cdnUrl 은 cdn-base-url 미설정 시 null — 그 경우 클라는 s3Key 를 통해 별도 처리."
     )
     @PostMapping("/{id}/complete")
     public CompleteResponse complete(
@@ -87,7 +88,7 @@ public class MediaController {
                 result.id(), result.extId(), result.kind().name(), result.status().name(),
                 result.mime(), result.byteSize(),
                 result.width(), result.height(), result.durationMs(),
-                result.cdnUrl(), result.thumbnailCdnUrl(), result.createdAt());
+                result.s3Key(), result.cdnUrl(), result.thumbnailCdnUrl(), result.createdAt());
     }
 
     @ExceptionHandler(MediaException.class)
@@ -96,7 +97,8 @@ public class MediaController {
             case "MEDIA_NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "MEDIA_FORBIDDEN" -> HttpStatus.FORBIDDEN;
             case "MEDIA_INVALID_STATE" -> HttpStatus.CONFLICT;
-            case "MEDIA_MIME_NOT_ALLOWED", "MEDIA_KIND_INVALID" -> HttpStatus.BAD_REQUEST;
+            case "MEDIA_SIZE_TOO_LARGE" -> HttpStatus.PAYLOAD_TOO_LARGE;
+            case "MEDIA_MIME_NOT_ALLOWED", "MEDIA_KIND_INVALID", "MEDIA_SIZE_INVALID" -> HttpStatus.BAD_REQUEST;
             default -> HttpStatus.UNPROCESSABLE_ENTITY;
         };
         return ResponseEntity.status(status)
@@ -113,7 +115,11 @@ public class MediaController {
 
     public record PresignRequest(
             @NotBlank String kind,
-            @NotBlank String mime
+            @NotBlank String mime,
+            // [PR #90 리뷰 I2] 클라가 업로드할 정확한 byteSize 를 미리 선언 — presigned URL 의 서명에
+            // 박혀 다른 크기 PUT 시 S3 거부. service 레이어가 추가로 per-kind 한도(image 20MB, video 200MB)
+            // 검증 → MEDIA_SIZE_TOO_LARGE 413 / MEDIA_SIZE_INVALID 400.
+            @NotNull @Min(1) @Max(2_000_000_000L) Long byteSize
     ) {}
 
     public record PresignResponse(
@@ -131,6 +137,7 @@ public class MediaController {
     public record CompleteResponse(
             long id, String extId, String kind, String status, String mime,
             Long byteSize, Integer width, Integer height, Integer durationMs,
-            String cdnUrl, String thumbnailCdnUrl, Instant createdAt
+            // [PR #90 리뷰 I1] cdnUrl 은 cdn-base-url 미설정 시 null — 클라는 s3Key 를 별도 활용.
+            String s3Key, String cdnUrl, String thumbnailCdnUrl, Instant createdAt
     ) {}
 }

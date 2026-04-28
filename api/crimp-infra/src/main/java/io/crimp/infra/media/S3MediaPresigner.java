@@ -72,17 +72,22 @@ public class S3MediaPresigner implements MediaPresigner {
     }
 
     @Override
-    public PresignedUpload presignPut(String s3Key, String contentType, Duration ttl) {
+    public PresignedUpload presignPut(String s3Key, String contentType, long contentLength, Duration ttl) {
+        // contentLength 가 서명에 포함되어 클라가 다른 바이트 수로 PUT 시 S3 가 거부.
+        // 단 이는 정확한 크기 일치 검증 (POST policy 의 content-length-range 와 다름) — Phase 1 단순화.
+        // 추가 방어로 S3 버킷 정책의 max object size 도입 권장 (별도 인프라 PR).
         PutObjectRequest put = PutObjectRequest.builder()
                 .bucket(props.bucket())
                 .key(s3Key)
                 .contentType(contentType)
+                .contentLength(contentLength)
                 .build();
         PutObjectPresignRequest req = PutObjectPresignRequest.builder()
                 .signatureDuration(ttl)
                 .putObjectRequest(put)
                 .build();
         PresignedPutObjectRequest signed = presigner.presignPutObject(req);
-        return new PresignedUpload(signed.url().toString(), Instant.now().plus(ttl));
+        // [PR #90 리뷰 I3] SDK 가 실제 서명에 사용한 만료 시각 사용 — Instant.now().plus 와 ms 단위 차이 회피.
+        return new PresignedUpload(signed.url().toString(), signed.expiration());
     }
 }
