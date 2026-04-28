@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 작성일 | 2026-04-27 |
+| 작성일 | 2026-04-27 (최근 갱신: 2026-04-28) |
 | 작성자 | 강경원 (kwkang@ssrinc.co.kr) |
 | 상태 | Draft (GATE 1 승인 대기) |
 | 대상 범위 | Phase 1 MVP (2026-05 ~ 2026-07) |
@@ -65,16 +65,21 @@
 
 | # | 기능 | 진척도 | 차단 요건 |
 | --- | --- | --- | --- |
-| M1 | 소셜 로그인 (Kakao OIDC) | ✅ web/app 완료 | Apple/Google 후속 |
-| M2 | 프로필 (mainGym 설정) | 🟡 백엔드 OK · UI 일부 | my-gym 필터 차단요인 |
-| M3 | 암장 검색·상세 | 🟡 UI 완료 · seed 데이터 부재 | 수도권 30곳 시드 투입 |
+| M1 | 소셜 로그인 (Kakao OIDC) | ✅ web/app 완료 (audience 수정 #76, OIDC nonce·xcconfig 패치 #80) | Apple/Google 후속 |
+| M2 | 프로필 (mainGym 설정) | ✅ 온보딩 게이트 #77/#79 머지 — 앱·웹 양쪽 차단 해소 | — |
+| M3 | 암장 검색·상세 | 🟡 1차 시드 11곳 #82 + 자동 동기화 인프라 #84/#85 — 운영화는 Phase 1.5 | 스케줄러 + admin API (P1.5 진입) |
 | M4 | 등반 로그 CRUD | ✅ LogAttemptSheet + 타임라인 | 카메라는 F5 placeholder |
 | M5 | 피드 (텍스트) | ✅ 정상 | 이미지/영상은 카메라 의존 |
 | M6 | 좋아요/댓글 | ✅ 백엔드+web 완료 (#54/55) | app 후속 정리 필요 |
 | M7 | 401 자동 refresh + 로그인 가드 | ✅ #70/#71/#72/#73 머지 (2026-04-27) | — |
+| M8 | 시각 일관성 (헤더·로고·로그인 버튼) | ✅ CrimpHeader + Kakao 버튼 + boulder 로고 #81 | — |
+| M9 | 브랜드 검색 동의어 정규화 | ✅ BrandNormalizer #83 | — |
 
 ### 6.2 Nice-to-have (Phase 1.5)
 
+- **암장 동기화 운영화** — `@Scheduled` 트리거 + admin POST API + `gym_sync_log` 감사 테이블 (인프라는 #84/#85 에서 완료, 트리거·관측 미구현)
+- **HttpOnly 쿠키 전환** — 베타 전 보안 필수
+- **카메라 실 캡처 (F5)** — vision-camera + S3 presigned + hold-color 컬럼
 - 크루 개설/가입 (지역·수준·스타일별)
 - 파트너 매칭 베타 (날짜·암장·레벨)
 - 영상 타임라인 주석
@@ -158,16 +163,28 @@ Phase 1 MVP 에서는 **수익화 비활성**. Phase 2 부터 단계적 도입.
 - 자체 개발 vs BaaS: **자체 개발 확정** (도메인 특수성)
 - 도메인·브랜드 보호: 별도 액션 필요 (`crimp` 키워드 충돌 검색)
 
-## 12. 다음 액션 (2026-04-27 기준)
+## 12. 다음 액션 (2026-04-28 기준)
 
-근일내 — Phase 1 MVP 마무리:
+2026-04-27 액션 진행 결과:
+- ✅ MainGym 설정 UI 완성 — #77/#79
+- ✅ 로고 적용 — #81 (CrimpLogo SVG, 오타 정정 포함)
+- 🟡 암장 시드 — 11곳 검증 시드 투입 #82, 30곳 추가는 Kakao Local 자동 동기화로 흡수 (#84/#85)
+- ⏳ BottomTabs 정식 도입 — 미완 (앱은 #71 에서 도입, 웹은 entry card 임시)
+- ⏳ HttpOnly 쿠키 전환 — 미완 (베타 전 필수)
+- ⏳ 카메라 실 캡처 (F5) — 미완
 
-1. **MainGym 설정 UI 완성** — my-gym 필터 차단요건
-2. **BottomTabs 정식 도입** — Stack header 중복 정리 + 5탭
-3. **암장 Seed 30곳 데이터 투입** (수도권)
-4. **로고 적용** — `Crimp Logo.html` 의 `Climp` 오타 13곳 정정
-5. **HttpOnly 쿠키 전환** — 베타 전 보안 필수
-6. **카메라 실 캡처 (F5)** — vision-camera + S3 presigned + hold-color 컬럼
+근일내 — Phase 1 MVP + Phase 1.5 인프라 마무리:
+
+1. **암장 동기화 운영화 (Phase 1.5 인프라, 진행 중)**
+   - 1-1. `Gym.applyRemoteUpdate` + apply 가 실제 UPDATE 발행 — ✅ #85 머지 (2026-04-28)
+   - 1-2. `gym_sync_log` 감사 테이블 — apply 결과(diff vs 실제) 영구 기록
+   - 1-3. `@Scheduled` 트리거 + admin POST API (`/api/v1/admin/gyms/sync`) — 인증·권한 가드 동반
+   - 1-4. 좌표 그리드 자동 스캔 (서울 25개 구청) — 단일 호출 반경 5km 한계 보완
+2. **HttpOnly 쿠키 전환** — 베타 전 보안 필수 (M1 의 후속)
+3. **카메라 실 캡처 (F5)** — M4·M5 의 미완 (vision-camera + S3 presigned + hold-color)
+4. **BottomTabs 웹 정식 도입** — Stack header 중복 정리 + 5탭 일관
+5. **Apple/Google OAuth** — M1 의 후속 (베타 전 중요도 중)
+6. **크루 개설/가입 기초** — Phase 1.5 우선순위 (베타 후 활성화 핵심)
 
 GATE 1 승인 후 → **/설계시작 (GATE 2)**.
 
@@ -179,3 +196,4 @@ GATE 1 승인 후 → **/설계시작 (GATE 2)**.
 | --- | --- |
 | 2026-04-17 | Notion v0.1 초안 (강경원) |
 | 2026-04-27 | repo 동기화, 진척도 반영, 인증 흐름 머지 (#70~#73) 완료 표시 |
+| 2026-04-28 | M2 ✅ (#77/#79 mainGym 온보딩), M3 🟡 (1차 시드 #82 + 동기화 인프라 #84/#85), M8/M9 신규 추가 (시각 일관성 #81 / BrandNormalizer #83), Phase 1.5 에 암장 동기화 운영화·HttpOnly·F5 카메라 명시, §12 다음 액션 재정렬 |
