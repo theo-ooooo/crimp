@@ -15,8 +15,11 @@ public record AppProperties(
             String jwtIssuer
     ) {}
 
+    /**
+     * 미디어 업로드 공통 설정. S3 자체의 bucket/region/credentials 는
+     * {@code crimp-infra} 의 {@code S3Properties} ({@code app.media.s3.*}) 로 분리됨.
+     */
     public record Media(
-            String s3Bucket,
             String cdnBaseUrl,
             long presignedUrlTtlSeconds
     ) {}

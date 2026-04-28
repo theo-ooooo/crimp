@@ -97,6 +97,19 @@ app:
         rest-api-key: ${KAKAO_REST_API_KEY:}
         client-secret: ${KAKAO_CLIENT_SECRET:}
         token-uri: ${KAKAO_TOKEN_URI:https://kauth.kakao.com/oauth/token}
+  # 미디어 업로드 (S3 presigned PUT) — PR #90, F5 카메라 캡처 인프라.
+  # 자격증명 우선순위: profile > access-key/secret-key > default credential chain.
+  # 로컬 개발: AWS_PROFILE 환경변수에 ~/.aws/credentials 의 named profile 이름 설정.
+  # 운영 ECS: 셋 다 비우고 Task Role 의 default credential chain 사용.
+  media:
+    cdn-base-url: ${CDN_BASE_URL:}
+    presigned-url-ttl-seconds: ${MEDIA_PRESIGN_TTL:600}
+    s3:
+      bucket: ${S3_BUCKET:crimp-media-local}
+      region: ${AWS_REGION:ap-northeast-2}
+      profile: ${AWS_PROFILE:}
+      access-key: ${AWS_ACCESS_KEY_ID:}
+      secret-key: ${AWS_SECRET_ACCESS_KEY:}
   # Gym sync — 외부 위치 검색 어댑터 (Kakao Local API).
   # 본 설정은 어댑터 동작 파라미터만 담는다. REST API 키는 위 oauth.kakao.rest-api-key 재사용.
   gym-sync:

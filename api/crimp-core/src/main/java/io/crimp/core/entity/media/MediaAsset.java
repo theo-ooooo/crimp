@@ -90,4 +90,15 @@ public class MediaAsset {
         this.variantsJson = variantsJson;
     }
     public void markFailed() { this.status = MediaStatus.FAILED; }
+
+    /**
+     * 업로드 완료 후 클라가 보고하는 메타데이터 적용 (PR #90, F5). null 인 필드는 변경하지 않음 —
+     * 영상은 width/height 가 클라 측 plugin 에 따라 누락될 수 있고, 이미지는 durationMs 가 항상 null.
+     */
+    public void applyUploadedMeta(Long byteSize, Integer width, Integer height, Integer durationMs) {
+        if (byteSize != null) this.byteSize = byteSize;
+        if (width != null) this.width = width;
+        if (height != null) this.height = height;
+        if (durationMs != null) this.durationMs = durationMs;
+    }
 }
