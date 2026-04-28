@@ -174,7 +174,7 @@ export default function LoginScreen(): JSX.Element {
               variant="wordmark"
               width={140}
               color={theme.text}
-              textColor={theme.bg}
+              textColor={theme.accent.base}
             />
           </View>
           <Text style={styles.headline}>
