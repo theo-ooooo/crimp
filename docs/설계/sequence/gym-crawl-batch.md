@@ -122,7 +122,7 @@ sequenceDiagram
 | Slack/Discord webhook | 미구현 |
 | `gym_sync_log` 감사 테이블 | 구현 완료 (PR #87). apply 1회당 row 1건 — APPLIED / ABORTED_RATIO_GUARD 상태 + diff 입력·실제 적용 카운트 + 좌표 컨텍스트 |
 | 다중 소스 (Naver Place 등) | 미구현 |
-| 좌표 격자 자동 스캔 (전국) | 미구현. 현재는 호출자가 좌표·반경 명시 |
+| 좌표 격자 자동 스캔 | 서울 25개 구 (`SEOUL_GU` preset) 구현 (PR #89). `POST /api/v1/admin/gyms/sync/grid` 로 일괄 호출, 각 구는 독립 트랜잭션 — 한 구 실패가 다른 구를 막지 않음. 타 광역(부산/대구 등) 은 추후 preset 추가 |
 | Brand 추정 정확도 | 단순 prefix 추정 — `BrandNormalizer` 의 synonym 사전이 보강 |
 | 좌표 정확도 검수 (PR #82 후속) | 본 어댑터를 활용해 시드 13곳 좌표 갱신 가능 |
 
