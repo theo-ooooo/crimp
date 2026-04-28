@@ -1,13 +1,25 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
+  Linking,
   Modal,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import {
+  Camera,
+  useCameraDevice,
+  useCameraPermission,
+  useMicrophonePermission,
+  type CameraCaptureError,
+} from 'react-native-vision-camera';
 
 import { CrimpIcon } from '@/components/primitives';
+import { measureFileBytes, readImageMeta } from '@/lib/camera/measure';
+import type { CapturedMedia } from '@/lib/camera/types';
 import { t } from '@/lib/i18n';
 import {
   fontFamily,
@@ -23,68 +35,164 @@ import { useTokens } from '@/lib/useTokens';
 import type { CameraMode } from './LogAttemptSheet';
 
 /**
- * 카메라 시트 (placeholder).
+ * 카메라 시트 — 실 캡처 (PR #91, F5).
  *
- * - 시각 디자인만 구현. record/shoot 탭 시 Alert 후 시트 닫힘.
- * - TODO(F5): react-native-vision-camera (or expo-camera) 도입 + iOS/Android 권한 + S3 업로드.
- *   업로드 성공 후 mediaId 를 LogAttemptSheet 의 mutation 에 실어 보낼 것.
+ * vision-camera 5.x 기반. 권한 처리 → preview → photo/video 캡처 → 파일 메타 측정 →
+ * 부모에게 {@link CapturedMedia} 전달. 후속 PR-3 가 본 객체를 받아 S3 업로드 흐름 진행.
  *
- * 색 정책: 카메라 시트는 라이트/다크 테마와 무관하게 항상 검은 배경 + 흰 오버레이를
- * 사용하므로(시스템 카메라 앱과 동일) 일부 색은 리터럴로 둔다. 하지만 hold 점·REC
- * 색은 토큰을 재사용한다.
+ * 색 정책: 시스템 카메라 앱과 동일하게 검은 배경 + 흰 오버레이 — 라이트/다크 무관.
  */
 
 export type CameraSheetProps = {
   visible: boolean;
   mode: CameraMode;
-  /**
-   * 부모(SessionDetailScreen)가 관리하는 녹화 상태. true 일 때 상단 REC pill /
-   * 하단 셔터 inner 가 record 모양으로 변경된다. video 모드 첫 셔터 탭에서 부모가
-   * onShoot 핸들러를 통해 true 로 끌어올린다 (Phase 1 placeholder; 실 녹화는 F5).
-   */
-  recording?: boolean;
   onClose: () => void;
   /**
-   * 셔터 탭 콜백. 부모가 video 첫 탭은 recording=true 로, 그 외(사진 / 녹화 종료)는
-   * `cameraComingSoon` 안내 + 시트 닫기로 처리한다.
-   * F5 에서 실제 캡처 결과(mediaId) 전달로 확장.
+   * 캡처 완료 콜백. 부모(SessionDetailScreen)는 이 값으로 다음 단계(현 단계: Alert /
+   * 후속 PR-3: presigned 업로드 + LogAttemptSheet 의 mediaId 연결) 를 진행.
    */
-  onShoot: () => void;
+  onCaptured: (media: CapturedMedia) => void;
 };
 
-// 화면 내 placeholder 클라이밍 홀드 — 토큰의 hold 팔레트를 재사용.
-const FAKE_HOLD_LAYOUT = [
-  { colorKey: 'red', leftPct: 22, topPct: 20, size: 28, rotate: 20 },
-  { colorKey: 'blue', leftPct: 52, topPct: 35, size: 36, rotate: -15 },
-  { colorKey: 'yellow', leftPct: 38, topPct: 55, size: 24, rotate: 5 },
-  { colorKey: 'pink', leftPct: 68, topPct: 62, size: 32, rotate: 30 },
-  { colorKey: 'green', leftPct: 28, topPct: 78, size: 22, rotate: -10 },
-  { colorKey: 'purple', leftPct: 78, topPct: 28, size: 26, rotate: 12 },
-] as const;
-
-// 카메라 UI 전용 고정색 — 시스템 카메라 앱처럼 테마 무관하게 동작.
 const CAMERA_BG = '#000000';
 const CAMERA_FG = '#FFFFFF';
-
-/**
- * 뷰파인더 placeholder 배경 — 어두운 초콜릿 갈색 (gym 벽 연출).
- *
- * F5 후속에서 `react-native-vision-camera` 미리보기 컴포넌트로 교체되면 이 상수는
- * 삭제된다. 디자인 토큰에 포함하지 않는 이유: placeholder 단계에서만 쓰이는
- * 일회성 색이라 시스템 토큰을 오염시키지 않는다.
- */
-const VIEWFINDER_PLACEHOLDER_BG = '#1A1410';
 
 export function CameraSheet({
   visible,
   mode,
-  recording = false,
   onClose,
-  onShoot,
+  onCaptured,
 }: CameraSheetProps): JSX.Element {
   const theme = useTokens();
   const reducedMotion = useReducedMotion();
   const styles = useMemo(() => makeStyles(theme), [theme]);
+
+  const cameraRef = useRef<Camera>(null);
+  const device = useCameraDevice('back');
+  const cameraPerm = useCameraPermission();
+  const micPerm = useMicrophonePermission();
+
+  const [recording, setRecording] = useState(false);
+  const [busy, setBusy] = useState(false);
+  // [PR #91 리뷰 I3] 시트 닫힘으로 녹화가 강제 종료된 경우, onRecordingFinished 콜백이
+  // 사후 발동해도 onCaptured 를 호출하지 않도록 표시. 사용자가 "취소했는데 캡처 Alert"
+  // 가 뜨는 회귀를 차단.
+  const cancelRequestedRef = useRef(false);
+  // 영상 모드인데 mic 권한이 없으면 사운드 없이 녹화 — 권한 요청은 시트 진입 시 한 번 시도.
+  const audioEnabled = mode === 'video' && micPerm.hasPermission;
+
+  // 시트가 열릴 때 권한 요청. 거부된 상태면 fallback UI 노출.
+  useEffect(() => {
+    if (!visible) return;
+    if (!cameraPerm.hasPermission) {
+      cameraPerm.requestPermission();
+    }
+    if (mode === 'video' && !micPerm.hasPermission) {
+      micPerm.requestPermission();
+    }
+  }, [visible, mode, cameraPerm, micPerm]);
+
+  // 시트 닫힐 때 녹화 중이면 중단 — cancelRequestedRef 를 세팅해 onRecordingFinished 가
+  // onCaptured 를 발동하지 않도록 표시.
+  useEffect(() => {
+    if (!visible && recording) {
+      cancelRequestedRef.current = true;
+      cameraRef.current?.stopRecording().catch(() => undefined);
+      setRecording(false);
+    }
+  }, [visible, recording]);
+
+  const handlePhoto = useCallback(async () => {
+    if (busy || !cameraRef.current) return;
+    setBusy(true);
+    try {
+      const photo = await cameraRef.current.takePhoto({ flash: 'off' });
+      const uri = photo.path.startsWith('file://') ? photo.path : `file://${photo.path}`;
+      // [PR #91 리뷰 B1] 헤더 시그니처로 실제 codec 검출 — vision-camera v4 의 iOS 가
+      // HEIC 바이트를 항상 .jpg 확장자로 저장하므로 확장자 추정은 신뢰할 수 없음.
+      const meta = await readImageMeta(uri);
+      const mime: CapturedMedia['mime'] = meta.mime === 'image/heic' ? 'image/heic' : 'image/jpeg';
+      onCaptured({
+        kind: 'IMAGE',
+        uri,
+        mime,
+        byteSize: meta.byteSize,
+        width: photo.width,
+        height: photo.height,
+        durationMs: null,
+      });
+    } catch (e) {
+      Alert.alert(t('session.log.cameraError'), describeError(e));
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, onCaptured]);
+
+  const handleStartRecording = useCallback(() => {
+    if (busy || !cameraRef.current) return;
+    setBusy(true);
+    setRecording(true);
+    cancelRequestedRef.current = false;
+    cameraRef.current.startRecording({
+      onRecordingFinished: async (video) => {
+        try {
+          // [PR #91 리뷰 I3] 시트 닫힘으로 강제 종료된 녹화면 onCaptured 발동 X.
+          if (cancelRequestedRef.current) return;
+
+          const uri = video.path.startsWith('file://') ? video.path : `file://${video.path}`;
+          const byteSize = await measureFileBytes(uri);
+          // 영상 확장자는 vision-camera v4 가 platform 기본값(iOS=.mov, Android=.mp4) 으로
+          // 정확히 저장하므로 확장자 추정이 신뢰 가능.
+          const mime: CapturedMedia['mime'] = video.path.toLowerCase().endsWith('.mov')
+            ? 'video/quicktime'
+            : 'video/mp4';
+          onCaptured({
+            kind: 'VIDEO',
+            uri,
+            mime,
+            byteSize,
+            width: null,
+            height: null,
+            durationMs: Math.round(video.duration * 1000),
+          });
+        } catch (e) {
+          Alert.alert(t('session.log.cameraError'), describeError(e));
+        } finally {
+          setBusy(false);
+          setRecording(false);
+          cancelRequestedRef.current = false;
+        }
+      },
+      onRecordingError: (err: CameraCaptureError) => {
+        setBusy(false);
+        setRecording(false);
+        cancelRequestedRef.current = false;
+        Alert.alert(t('session.log.cameraError'), err.message);
+      },
+    });
+  }, [busy, onCaptured]);
+
+  const handleStopRecording = useCallback(async () => {
+    if (!cameraRef.current) return;
+    try {
+      await cameraRef.current.stopRecording();
+    } catch (e) {
+      Alert.alert(t('session.log.cameraError'), describeError(e));
+    }
+    // recording 상태와 busy 해제는 onRecordingFinished 콜백에서 일어남.
+  }, []);
+
+  const handleShoot = useCallback(() => {
+    if (mode === 'photo') {
+      void handlePhoto();
+      return;
+    }
+    if (recording) {
+      void handleStopRecording();
+    } else {
+      handleStartRecording();
+    }
+  }, [mode, recording, handlePhoto, handleStartRecording, handleStopRecording]);
 
   return (
     <Modal
@@ -110,48 +218,53 @@ export function CameraSheet({
           {recording ? (
             <View style={styles.recPill}>
               <View style={styles.recDot} />
-              <Text style={styles.recText}>REC · 00:12</Text>
+              <Text style={styles.recText}>REC</Text>
             </View>
           ) : (
             <View style={styles.recSpacer} />
           )}
 
           <View style={styles.iconBtn}>
-            {/* flip placeholder — 새 native dep 추가 없이 정적 아이콘 */}
+            {/* 추후 flip 카메라용 — 현재는 정적 아이콘 */}
             <CrimpIcon.dots size={20} color={CAMERA_FG} />
           </View>
         </View>
 
         {/* Viewfinder */}
         <View style={styles.viewfinder}>
-          {FAKE_HOLD_LAYOUT.map((h, i) => (
-            <View
-              key={`${h.colorKey}-${i}`}
-              style={[
-                styles.fakeHold,
-                {
-                  backgroundColor: theme.hold[h.colorKey],
-                  left: `${h.leftPct}%`,
-                  top: `${h.topPct}%`,
-                  width: h.size,
-                  height: h.size * 0.7,
-                  transform: [{ rotate: `${h.rotate}deg` }],
-                },
-              ]}
+          {!cameraPerm.hasPermission ? (
+            <PermissionFallback
+              styles={styles}
+              onRetry={() => cameraPerm.requestPermission()}
+              onOpenSettings={() => Linking.openSettings()}
             />
-          ))}
-
-          {/* focus reticle */}
-          <View style={styles.reticle} pointerEvents="none" />
-
-          {/* mode indicator */}
-          <View style={styles.modeIndicator}>
-            <Text style={styles.modeLabel}>
-              {mode === 'video'
-                ? t('session.log.cameraVideoTitle')
-                : t('session.log.cameraPhotoTitle')}
-            </Text>
-          </View>
+          ) : !device ? (
+            <View style={styles.fallbackBox}>
+              <Text style={styles.fallbackTitle}>{t('session.log.cameraNoDevice')}</Text>
+            </View>
+          ) : (
+            <>
+              <Camera
+                ref={cameraRef}
+                style={StyleSheet.absoluteFill}
+                device={device}
+                isActive={visible}
+                photo={mode === 'photo'}
+                video={mode === 'video'}
+                audio={audioEnabled}
+              />
+              {/* focus reticle */}
+              <View style={styles.reticle} pointerEvents="none" />
+              {/* mode indicator */}
+              <View style={styles.modeIndicator}>
+                <Text style={styles.modeLabel}>
+                  {mode === 'video'
+                    ? t('session.log.cameraVideoTitle')
+                    : t('session.log.cameraPhotoTitle')}
+                </Text>
+              </View>
+            </>
+          )}
         </View>
 
         {/* Bottom bar — shutter */}
@@ -159,7 +272,8 @@ export function CameraSheet({
           <View style={styles.shutterSide} />
 
           <Pressable
-            onPress={onShoot}
+            onPress={handleShoot}
+            disabled={busy && !recording}
             style={styles.shutter}
             accessibilityRole="button"
             accessibilityLabel={
@@ -169,16 +283,20 @@ export function CameraSheet({
             }
           >
             <View style={styles.shutterRing} />
-            <View
-              style={[
-                styles.shutterInner,
-                mode === 'video'
-                  ? recording
-                    ? styles.shutterInnerVideoRecording
-                    : styles.shutterInnerVideo
-                  : styles.shutterInnerPhoto,
-              ]}
-            />
+            {busy && !recording ? (
+              <ActivityIndicator color={CAMERA_FG} />
+            ) : (
+              <View
+                style={[
+                  styles.shutterInner,
+                  mode === 'video'
+                    ? recording
+                      ? styles.shutterInnerVideoRecording
+                      : styles.shutterInnerVideo
+                    : styles.shutterInnerPhoto,
+                ]}
+              />
+            )}
           </Pressable>
 
           <View style={styles.shutterSide} />
@@ -188,14 +306,40 @@ export function CameraSheet({
   );
 }
 
+function PermissionFallback({
+  styles,
+  onRetry,
+  onOpenSettings,
+}: {
+  styles: ReturnType<typeof makeStyles>;
+  onRetry: () => void;
+  onOpenSettings: () => void;
+}) {
+  return (
+    <View style={styles.fallbackBox}>
+      <Text style={styles.fallbackTitle}>{t('session.log.cameraPermissionTitle')}</Text>
+      <Text style={styles.fallbackBody}>{t('session.log.cameraPermissionBody')}</Text>
+      <Pressable onPress={onRetry} style={styles.fallbackBtn} accessibilityRole="button">
+        <Text style={styles.fallbackBtnLabel}>{t('session.log.cameraPermissionRetry')}</Text>
+      </Pressable>
+      {/* [PR #91 리뷰 I4] 영구 거부 사용자도 진행할 수 있도록 시스템 설정 진입 보조 버튼. */}
+      <Pressable onPress={onOpenSettings} style={styles.fallbackBtnGhost} accessibilityRole="button">
+        <Text style={styles.fallbackBtnGhostLabel}>{t('session.log.cameraPermissionSettings')}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function describeError(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (typeof e === 'string') return e;
+  return 'unknown';
+}
+
 function makeStyles(theme: Theme) {
-  // hold 매트 톤이 아닌 진하게 강조된 댄저(흰 + 빨간 점) — semantic.danger 재사용
   const recBg = withAlpha(theme.semantic.danger, 0.92);
-  // 카메라 UI 의 글래스 morphism 스타일 버튼 — 흰색에 알파를 입혀 톤만 조정
   const glassBg = withAlpha(CAMERA_FG, 0.16);
-  // 모드 인디케이터 배경 — 검은색에 알파
   const overlayBg = withAlpha(CAMERA_BG, 0.4);
-  // reticle 테두리 — 흰색 알파
   const reticleBorder = withAlpha(CAMERA_FG, 0.7);
 
   return StyleSheet.create({
@@ -247,17 +391,9 @@ function makeStyles(theme: Theme) {
     },
     viewfinder: {
       flex: 1,
-      // F5 에서 카메라 미리보기 컴포넌트로 교체. 그 전까지 placeholder 색 사용.
-      backgroundColor: VIEWFINDER_PLACEHOLDER_BG,
+      backgroundColor: CAMERA_BG,
       position: 'relative',
       overflow: 'hidden',
-    },
-    fakeHold: {
-      position: 'absolute',
-      borderTopLeftRadius: 50,
-      borderTopRightRadius: 50,
-      borderBottomLeftRadius: 12,
-      borderBottomRightRadius: 12,
     },
     reticle: {
       position: 'absolute',
@@ -328,6 +464,50 @@ function makeStyles(theme: Theme) {
     },
     shutterInnerPhoto: {
       backgroundColor: CAMERA_FG,
+    },
+    fallbackBox: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: space[6],
+      gap: space[3],
+    },
+    fallbackTitle: {
+      fontFamily,
+      fontSize: 18,
+      fontWeight: fontWeight.bold,
+      color: CAMERA_FG,
+      textAlign: 'center',
+    },
+    fallbackBody: {
+      fontFamily,
+      fontSize: 14,
+      color: withAlpha(CAMERA_FG, 0.7),
+      textAlign: 'center',
+      lineHeight: 20,
+    },
+    fallbackBtn: {
+      marginTop: space[3],
+      paddingHorizontal: space[5],
+      paddingVertical: space[2],
+      borderRadius: radius.full,
+      backgroundColor: glassBg,
+    },
+    fallbackBtnLabel: {
+      fontFamily,
+      fontSize: 14,
+      fontWeight: fontWeight.bold,
+      color: CAMERA_FG,
+    },
+    fallbackBtnGhost: {
+      paddingHorizontal: space[3],
+      paddingVertical: space[1],
+    },
+    fallbackBtnGhostLabel: {
+      fontFamily,
+      fontSize: 13,
+      color: withAlpha(CAMERA_FG, 0.7),
+      textDecorationLine: 'underline',
     },
   });
 }

@@ -48,6 +48,12 @@
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string></string>
+	<key>NSCameraUsageDescription</key>
+	<string>등반 시도와 루트 사진/영상을 촬영하기 위해 카메라가 필요합니다.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>영상 촬영 시 사운드를 함께 기록하기 위해 마이크가 필요합니다.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>촬영한 사진/영상을 갤러리에 저장하려면 사진 라이브러리 접근이 필요합니다.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>

@@ -133,7 +133,13 @@
       "notePlaceholder": "Crimp into a deadpoint move...",
       "save": "Save",
       "openCta": "Log attempt",
-      "cameraComingSoon": "In-app camera capture lands in a future update."
+      "cameraCapturedTitle": "Capture complete",
+      "cameraError": "Camera error",
+      "cameraNoDevice": "No camera device available on this phone.",
+      "cameraPermissionTitle": "Camera permission required",
+      "cameraPermissionBody": "Allow camera access to record climbing attempts. You can change this later in Settings.",
+      "cameraPermissionRetry": "Request again",
+      "cameraPermissionSettings": "Open settings"
     }
   },
   "attempt": {
