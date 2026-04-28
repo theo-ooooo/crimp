@@ -58,7 +58,8 @@ sequenceDiagram
     DB-->>Service: List<Gym>
     Service->>Diff: compute(remote, current)
     Diff-->>Service: { additions, updates, missingFromRemote }
-    Service-->>Admin: 결과 + 로그 (DB 미수정)
+    Service-->>Admin: DryRunResult(lat, lng, radius, diff) + 로그 (DB 미수정)
+    Note over Admin,Service: DryRunResult 가 좌표·반경을 함께 묶어 운반 (PR #87 I2)
 ```
 
 ## 4. 시퀀스 — apply (가드 통과 시)
@@ -70,11 +71,13 @@ sequenceDiagram
     participant Service as GymSyncService
     participant DB as gyms
 
-    Caller->>Service: apply(diff)
+    Caller->>Service: apply(dryRunResult)
+    Note over Caller,Service: dryRunResult 의 lat/lng/radius 가 audit 컨텍스트로 자동 사용
     Service->>DB: count()
     Service->>Service: changeRatio = (additions+updates) / count
     alt changeRatio > 50%
-        Service-->>Caller: throw IllegalStateException (가드)
+        Service->>DB: save GymSyncLog(ABORTED_RATIO_GUARD)  %% 감사 row (PR #87)
+        Service-->>Caller: ApplyReport(status=ABORTED_RATIO_GUARD, reason)
     else
         loop additions
             Service->>DB: save(Gym.create(ulid, name, address, lat, lng))
@@ -85,7 +88,8 @@ sequenceDiagram
             Service->>Service: managed.applyRemoteUpdate(brand, phone, lat, lng)
             Note over Service,DB: 트랜잭션 commit 시 JPA dirty check → UPDATE 발행
         end
-        Service-->>Caller: ApplyReport(inserted, updated, missing)
+        Service->>DB: save GymSyncLog(APPLIED, counts...)  %% 감사 row (PR #87)
+        Service-->>Caller: ApplyReport(status=APPLIED, inserted, updated, ...)
     end
 ```
 
@@ -116,7 +120,7 @@ sequenceDiagram
 | `Gym` 엔티티의 update 메서드 | 구현 완료. `Gym.applyRemoteUpdate(brand, phone, lat, lng)` 로 좌표·brand·phone 만 갱신 (이름/주소는 매칭 키로 보존) |
 | 폐업 마킹 (status=CLOSED) | 미구현. 다중 좌표 호출 통합 단계 필요 |
 | Slack/Discord webhook | 미구현 |
-| `gym_sync_log` 감사 테이블 | 미구현. 현재는 application 로그만 |
+| `gym_sync_log` 감사 테이블 | 구현 완료 (PR #87). apply 1회당 row 1건 — APPLIED / ABORTED_RATIO_GUARD 상태 + diff 입력·실제 적용 카운트 + 좌표 컨텍스트 |
 | 다중 소스 (Naver Place 등) | 미구현 |
 | 좌표 격자 자동 스캔 (전국) | 미구현. 현재는 호출자가 좌표·반경 명시 |
 | Brand 추정 정확도 | 단순 prefix 추정 — `BrandNormalizer` 의 synonym 사전이 보강 |

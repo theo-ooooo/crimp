@@ -1,8 +1,11 @@
 package io.crimp.domain.gym.sync;
 
 import io.crimp.core.entity.gym.Gym;
+import io.crimp.core.entity.gym.GymSyncLog;
 import io.crimp.core.repository.gym.GymRepository;
+import io.crimp.core.repository.gym.GymSyncLogRepository;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -10,7 +13,6 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -20,55 +22,79 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * {@link GymSyncService} 의 dryRun / apply 흐름 + 50% 가드 단위 테스트 (PR #84 리뷰 I2).
+ * {@link GymSyncService} 의 dryRun / apply 흐름 + 50% 가드 + 감사 로그 단위 테스트.
  */
 class GymSyncServiceTest {
 
     private static final BigDecimal LAT = new BigDecimal("37.5008");
     private static final BigDecimal LNG = new BigDecimal("127.0376");
+    private static final int RADIUS = 5000;
 
     private RemoteGym remote(String name, String address, String phone) {
         return new RemoteGym("kakao-" + name, name, "더클라임", address, LAT, LNG, phone);
+    }
+
+    private GymSyncService service(GymSyncSource source, GymRepository repo, GymSyncLogRepository logRepo) {
+        return new GymSyncService(source, repo, logRepo);
+    }
+
+    /** {@link GymSyncDiff.Result} 를 곧장 {@link DryRunResult} 로 감싸는 헬퍼. */
+    private DryRunResult dryRunOf(GymSyncDiff.Result diff) {
+        return new DryRunResult(LAT, LNG, RADIUS, diff);
     }
 
     @Test
     void dryRun_invokesSourceAndDoesNotMutateRepo() {
         GymSyncSource source = mock(GymSyncSource.class);
         GymRepository repo = mock(GymRepository.class);
-        when(source.fetchByRadius(eq(LAT), eq(LNG), eq(5000)))
+        GymSyncLogRepository logRepo = mock(GymSyncLogRepository.class);
+        when(source.fetchByRadius(eq(LAT), eq(LNG), eq(RADIUS)))
                 .thenReturn(List.of(
                         remote("더클라임 강남점", "서울 강남구 테헤란로8길 21", null)));
         when(repo.findAll()).thenReturn(List.<Gym>of());
 
-        var service = new GymSyncService(source, repo);
-        var result = service.dryRun(LAT, LNG, 5000);
+        var result = service(source, repo, logRepo).dryRun(LAT, LNG, RADIUS);
 
-        assertThat(result.additions()).hasSize(1);
-        assertThat(result.updates()).isEmpty();
+        // [PR #87 리뷰 I2] dryRun 은 좌표·반경 컨텍스트를 함께 묶어 반환.
+        assertThat(result.lat()).isEqualByComparingTo(LAT);
+        assertThat(result.lng()).isEqualByComparingTo(LNG);
+        assertThat(result.radiusMeters()).isEqualTo(RADIUS);
+        assertThat(result.diff().additions()).hasSize(1);
+        assertThat(result.diff().updates()).isEmpty();
+        assertThat(result.diff().remoteCount()).isEqualTo(1);
         verify(repo, never()).save(any());
+        verify(logRepo, never()).save(any());
     }
 
     @Test
     void apply_insertsAdditionsOnly() {
         GymSyncSource source = mock(GymSyncSource.class);
         GymRepository repo = mock(GymRepository.class);
+        GymSyncLogRepository logRepo = mock(GymSyncLogRepository.class);
         when(repo.count()).thenReturn(10L);
         when(repo.save(any(Gym.class))).thenAnswer(inv -> inv.getArgument(0));
 
         var diff = new GymSyncDiff.Result(
+                2,
                 List.of(remote("새매장 A", "서울 강남구 a", null),
                         remote("새매장 B", "서울 강남구 b", null)),
                 List.of(),
                 List.of()
         );
 
-        var service = new GymSyncService(source, repo);
-        var report = service.apply(diff);
+        var report = service(source, repo, logRepo).apply(dryRunOf(diff));
 
+        assertThat(report.status()).isEqualTo(GymSyncService.ApplyReport.Status.APPLIED);
         assertThat(report.inserted()).isEqualTo(2);
         assertThat(report.updated()).isEqualTo(0);
         assertThat(report.missingFromRemote()).isEqualTo(0);
         verify(repo, times(2)).save(any(Gym.class));
+        // 감사 row 1건 — APPLIED 상태로 저장되어야 함
+        ArgumentCaptor<GymSyncLog> captor = ArgumentCaptor.forClass(GymSyncLog.class);
+        verify(logRepo, times(1)).save(captor.capture());
+        assertThat(captor.getValue().getStatus()).isEqualTo(GymSyncLog.Status.APPLIED);
+        assertThat(captor.getValue().getInserted()).isEqualTo(2);
+        assertThat(captor.getValue().getRemoteCount()).isEqualTo(2);
     }
 
     @Test
@@ -79,6 +105,7 @@ class GymSyncServiceTest {
         // 검증한다 — 실제 JPA dirty check 동작은 통합 테스트 (별도 PR, F1) 에서 보증.
         GymSyncSource source = mock(GymSyncSource.class);
         GymRepository repo = mock(GymRepository.class);
+        GymSyncLogRepository logRepo = mock(GymSyncLogRepository.class);
         when(repo.count()).thenReturn(20L);
 
         Gym detached = GymTestFactory.gym(1L, "더클라임 강남점", "서울 강남구 테헤란로8길 21",
@@ -89,6 +116,7 @@ class GymSyncServiceTest {
 
         BigDecimal newLat = LAT.add(new BigDecimal("0.0010000"));
         var diff = new GymSyncDiff.Result(
+                1,
                 List.of(),
                 List.of(new GymSyncDiff.UpdateCandidate(detached,
                         new RemoteGym("kakao-x", "더클라임 강남점", "The Climb",
@@ -96,9 +124,9 @@ class GymSyncServiceTest {
                 List.of()
         );
 
-        var service = new GymSyncService(source, repo);
-        var report = service.apply(diff);
+        var report = service(source, repo, logRepo).apply(dryRunOf(diff));
 
+        assertThat(report.status()).isEqualTo(GymSyncService.ApplyReport.Status.APPLIED);
         assertThat(report.inserted()).isEqualTo(0);
         assertThat(report.updated()).isEqualTo(1);
         // mutate 된 것은 재조회한 managed 인스턴스여야 한다 (dirty check 가 작동하는 대상).
@@ -113,16 +141,19 @@ class GymSyncServiceTest {
     @Test
     void apply_skipsUpdateWhenRowDeletedBetweenDryRunAndApply() {
         // [PR #85 리뷰 B1] dryRun 직후 다른 경로로 row 가 삭제된 케이스 — findById 가 empty
-        // 를 리턴하면 카운터 증가 없이 skip 하고 다음 후보로. updated 카운트가 diff.updates 와
-        // 어긋날 수 있는 유일한 정상 시나리오.
+        // 를 리턴하면 카운터 증가 없이 skip. updated 카운트가 diff.updates 와 어긋날 수 있는
+        // 유일한 정상 시나리오. updateSkipped 는 별도 카운터로 노출.
+        // [PR #87 리뷰 I4] audit row 가 update_skipped=1 까지 정확히 기록하는지 함께 검증.
         GymSyncSource source = mock(GymSyncSource.class);
         GymRepository repo = mock(GymRepository.class);
+        GymSyncLogRepository logRepo = mock(GymSyncLogRepository.class);
         when(repo.count()).thenReturn(20L);
         when(repo.findById(1L)).thenReturn(Optional.empty());
 
         Gym detached = GymTestFactory.gym(1L, "더클라임 강남점", "서울 강남구 테헤란로8길 21",
                 LAT, LNG, "더클라임", null);
         var diff = new GymSyncDiff.Result(
+                1,
                 List.of(),
                 List.of(new GymSyncDiff.UpdateCandidate(detached,
                         new RemoteGym("kakao-x", "더클라임 강남점", "The Climb",
@@ -130,19 +161,27 @@ class GymSyncServiceTest {
                 List.of()
         );
 
-        var service = new GymSyncService(source, repo);
-        var report = service.apply(diff);
+        var report = service(source, repo, logRepo).apply(dryRunOf(diff));
 
         assertThat(report.updated()).isEqualTo(0);
+        assertThat(report.updateSkipped()).isEqualTo(1);
         verify(repo, never()).save(any());
+        // audit row 가 동일한 update_skipped 카운트를 보존하는지 — PR #85 의 카운트 어긋남 회귀가
+        // audit 단계까지 정확히 흘러가는지 보증.
+        ArgumentCaptor<GymSyncLog> captor = ArgumentCaptor.forClass(GymSyncLog.class);
+        verify(logRepo, times(1)).save(captor.capture());
+        assertThat(captor.getValue().getStatus()).isEqualTo(GymSyncLog.Status.APPLIED);
+        assertThat(captor.getValue().getUpdated()).isEqualTo(0);
+        assertThat(captor.getValue().getUpdateSkipped()).isEqualTo(1);
+        assertThat(captor.getValue().getUpdatesPlanned()).isEqualTo(1);
     }
 
     @Test
     void apply_preservesExistingFieldWhenRemoteValueIsNull() {
         // [PR #85 리뷰 I3] 외부 응답이 brand/phone 을 일시적으로 null 로 반환해도 기존 값 보존.
-        // (좌표는 Kakao 어댑터가 빈 좌표 doc 을 사전 스킵하므로 항상 non-null 가정.)
         GymSyncSource source = mock(GymSyncSource.class);
         GymRepository repo = mock(GymRepository.class);
+        GymSyncLogRepository logRepo = mock(GymSyncLogRepository.class);
         when(repo.count()).thenReturn(20L);
 
         Gym managed = GymTestFactory.gym(1L, "더클라임 강남점", "서울 강남구 테헤란로8길 21",
@@ -151,6 +190,7 @@ class GymSyncServiceTest {
 
         BigDecimal newLat = LAT.add(new BigDecimal("0.0010000"));
         var diff = new GymSyncDiff.Result(
+                1,
                 List.of(),
                 List.of(new GymSyncDiff.UpdateCandidate(
                         GymTestFactory.gym(1L, "더클라임 강남점", "서울 강남구 테헤란로8길 21",
@@ -160,8 +200,7 @@ class GymSyncServiceTest {
                 List.of()
         );
 
-        var service = new GymSyncService(source, repo);
-        service.apply(diff);
+        service(source, repo, logRepo).apply(dryRunOf(diff));
 
         assertThat(managed.getBrand()).isEqualTo("더클라임"); // 보존
         assertThat(managed.getPhone()).isEqualTo("02-1234-5678"); // 보존
@@ -169,42 +208,52 @@ class GymSyncServiceTest {
     }
 
     @Test
-    void apply_throwsWhenChangeRatioExceedsLimit() {
+    void apply_returnsAbortedAndWritesAuditWhenChangeRatioExceedsLimit() {
         GymSyncSource source = mock(GymSyncSource.class);
         GymRepository repo = mock(GymRepository.class);
+        GymSyncLogRepository logRepo = mock(GymSyncLogRepository.class);
         when(repo.count()).thenReturn(10L);
 
-        // 6 추가 / 10 = 60% > 50% 가드 → IllegalStateException
+        // 6 추가 / 10 = 60% > 50% 가드 → ABORTED_RATIO_GUARD 반환 (예외 throw X)
         AtomicInteger seq = new AtomicInteger();
         var additions = java.util.stream.IntStream.range(0, 6)
                 .mapToObj(i -> remote("매장-" + seq.incrementAndGet(), "서울 강남구 " + i, null))
                 .toList();
-        var diff = new GymSyncDiff.Result(additions, List.of(), List.of());
+        var diff = new GymSyncDiff.Result(6, additions, List.of(), List.of());
 
-        var service = new GymSyncService(source, repo);
-        assertThatThrownBy(() -> service.apply(diff))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("change ratio");
+        var report = service(source, repo, logRepo).apply(dryRunOf(diff));
+
+        assertThat(report.status()).isEqualTo(GymSyncService.ApplyReport.Status.ABORTED_RATIO_GUARD);
+        assertThat(report.reason()).contains("change ratio");
+        assertThat(report.inserted()).isEqualTo(0);
         verify(repo, never()).save(any());
+        // 감사 row 1건 — ABORTED_RATIO_GUARD 로 저장
+        ArgumentCaptor<GymSyncLog> captor = ArgumentCaptor.forClass(GymSyncLog.class);
+        verify(logRepo, times(1)).save(captor.capture());
+        assertThat(captor.getValue().getStatus()).isEqualTo(GymSyncLog.Status.ABORTED_RATIO_GUARD);
+        assertThat(captor.getValue().getErrorMessage()).contains("change ratio");
+        assertThat(captor.getValue().getAdditionsPlanned()).isEqualTo(6);
     }
 
     @Test
-    void apply_doesNotThrowWhenRepoIsEmpty() {
+    void apply_doesNotAbortWhenRepoIsEmpty() {
         // count=0 인 빈 DB 에서는 ratio 계산이 무의미 → 가드 통과 (초기 시드 상황 대응).
         GymSyncSource source = mock(GymSyncSource.class);
         GymRepository repo = mock(GymRepository.class);
+        GymSyncLogRepository logRepo = mock(GymSyncLogRepository.class);
         when(repo.count()).thenReturn(0L);
         when(repo.save(any(Gym.class))).thenAnswer(inv -> inv.getArgument(0));
 
         var diff = new GymSyncDiff.Result(
+                2,
                 List.of(remote("매장 A", "서울 강남구 a", null),
                         remote("매장 B", "서울 강남구 b", null)),
                 List.of(),
                 List.of()
         );
 
-        var service = new GymSyncService(source, repo);
-        var report = service.apply(diff);
+        var report = service(source, repo, logRepo).apply(dryRunOf(diff));
+        assertThat(report.status()).isEqualTo(GymSyncService.ApplyReport.Status.APPLIED);
         assertThat(report.inserted()).isEqualTo(2);
     }
 }
