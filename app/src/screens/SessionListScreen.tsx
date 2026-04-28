@@ -116,8 +116,9 @@ export default function SessionListScreen(): JSX.Element {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{t('session.list.title')}</Text>
+      {/* 본문 상단 타이틀은 CrimpHeader (네비 헤더) 가 표시 — 중복 제거.
+          "+" 시작 버튼은 화면 우측 상단 IconAction 으로 유지 (퀵 액션). */}
+      <View style={styles.headerActionRow}>
         <IconAction
           onPress={() => navigation.navigate('StartSession')}
           accessibilityLabel={t('session.list.newButton')}
@@ -405,13 +406,13 @@ function makeStyles(theme: Theme) {
     container: {
       flex: 1,
     },
-    header: {
+    headerActionRow: {
       paddingHorizontal: space[5],
-      paddingTop: space[5],
-      paddingBottom: space[3],
+      paddingTop: space[3],
+      paddingBottom: space[2],
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
+      justifyContent: 'flex-end',
     },
     title: {
       fontFamily,
