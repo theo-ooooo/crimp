@@ -3,6 +3,7 @@ import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,9 +19,10 @@ import {
 import { useAttemptsQuery } from '@/hooks/useAttempts';
 import { useEndSession, useSessionQuery } from '@/hooks/useSessions';
 import { toUserMessage } from '@/lib/api/errorMessage';
+import { ApiError } from '@/lib/api/errors';
 import type { CapturedMedia } from '@/lib/camera/types';
 import { t } from '@/lib/i18n';
-import { uploadCapturedMedia } from '@/lib/media/upload';
+import { MediaUploadError, uploadCapturedMedia } from '@/lib/media/upload';
 import {
   fontFamily,
   fontWeight,
@@ -76,8 +78,22 @@ export default function SessionDetailScreen(): JSX.Element {
       const completed = await uploadCapturedMedia(accessToken, captured);
       setUploadedMediaId(completed.id);
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'unknown';
-      Alert.alert(t('session.log.uploadFailed'), `${t('session.log.uploadFailedRetry')}\n\n(${message})`);
+      // [PR #92 리뷰 I1] 단계별 메시지 차별화 — 백엔드 ApiError(presign/complete) vs S3 PUT 실패.
+      // ApiError 는 `errorMessage.ts` 의 CODE_TO_KEY 가 사이즈/MIME/권한별 메시지로 매핑.
+      // MediaUploadError 는 phase 기반 i18n 키 사용.
+      let body: string;
+      if (e instanceof ApiError) {
+        body = toUserMessage(e);
+      } else if (e instanceof MediaUploadError) {
+        body = e.phase === 'local-read'
+          ? t('error.uploadLocalRead')
+          : e.phase === 'network'
+          ? t('error.uploadNetwork')
+          : t('error.uploadS3');
+      } else {
+        body = t('session.log.uploadFailedRetry');
+      }
+      Alert.alert(t('session.log.uploadFailed'), body);
     } finally {
       setUploading(false);
     }
@@ -215,12 +231,14 @@ export default function SessionDetailScreen(): JSX.Element {
             onClose={closeCamera}
             onCaptured={handleCaptured}
           />
-          {uploading ? (
+          {/* [PR #92 리뷰 B1] 업로드 진행 표시는 Modal 로 띄움 — ScrollView 내부 absolute 뷰는 viewport 를
+              덮지 못하고, LogAttemptSheet/CameraSheet 가 별도 native 레이어(Modal) 라 그 위로도 보장됨. */}
+          <Modal visible={uploading} transparent animationType="fade" statusBarTranslucent>
             <View style={styles.uploadingOverlay} pointerEvents="auto">
               <ActivityIndicator size="large" color={theme.text} />
               <Text style={styles.uploadingLabel}>{t('session.log.uploading')}</Text>
             </View>
-          ) : null}
+          </Modal>
         </>
       ) : null}
     </ScrollView>
@@ -236,7 +254,8 @@ function makeStyles(theme: Theme) {
       gap: space[5],
     },
     uploadingOverlay: {
-      ...StyleSheet.absoluteFillObject,
+      // Modal 내부 root — flex 로 화면 전체 점유. 반투명 배경 + 중앙 spinner.
+      flex: 1,
       backgroundColor: withAlpha(theme.bg, 0.85),
       alignItems: 'center',
       justifyContent: 'center',
