@@ -83,7 +83,12 @@ app:
     oauth:
       kakao:
         # OIDC ID Token 검증 (모바일/JS SDK 가 직접 발급한 id_token)
+        # client-id 는 모바일 네이티브 앱 키. id_token 의 aud 는 SDK 초기화에 쓴 키와
+        # 동일하게 박히므로 웹 code flow(REST 키)·기타 클라이언트(JS 키)도 함께 허용해야
+        # 한다. rest-api-key 는 자동으로 audience 집합에 포함되며, 그 외 키는
+        # additional-audiences 에 콤마로 나열한다 (예: KAKAO_ADDITIONAL_AUDIENCES=js-key,...)
         client-id: ${KAKAO_CLIENT_ID:placeholder-kakao-client-id}
+        additional-audiences: ${KAKAO_ADDITIONAL_AUDIENCES:}
         issuer: https://kauth.kakao.com
         jwks-uri: https://kauth.kakao.com/.well-known/jwks.json
         # Authorization Code 교환 (웹 v2 redirect flow — 서버가 /oauth/token 호출)
