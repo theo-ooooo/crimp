@@ -10,4 +10,8 @@ dependencies {
     // OAuth ID Token 검증 (JWKS + RS256)
     implementation 'org.springframework.security:spring-security-oauth2-jose'
     implementation 'org.springframework.security:spring-security-oauth2-resource-server'
+
+    // AWS S3 — 미디어 업로드 presigned URL 발급 (PR #90, F5 카메라 캡처 인프라)
+    implementation platform('software.amazon.awssdk:bom:2.28.16')
+    implementation 'software.amazon.awssdk:s3'
 }
