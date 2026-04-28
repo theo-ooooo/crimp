@@ -18,6 +18,24 @@ export const AttemptResultSchema = z.enum([
 
 export type AttemptResult = z.infer<typeof AttemptResultSchema>;
 
+/**
+ * 홀드 색 화이트리스트 (PR #93, F5 PR-4 — 리뷰 S1). 백엔드 `AttemptService.ALLOWED_HOLD_COLORS`
+ * 와 동일 셋. 클라가 상위 컴포넌트에서 사용하는 `HoldColorKey` (theme.hold 키) 와도 일치.
+ */
+export const HoldColorSchema = z.enum([
+  'red',
+  'blue',
+  'yellow',
+  'green',
+  'white',
+  'black',
+  'pink',
+  'orange',
+  'purple',
+  'gray',
+]);
+export type HoldColor = z.infer<typeof HoldColorSchema>;
+
 export const ATTEMPT_RESULTS: readonly AttemptResult[] = [
   'SEND',
   'FLASH',
@@ -37,7 +55,8 @@ export const AttemptSchema = z.object({
   mediaId: z.number().nullable(),
   note: z.string().nullable(),
   tagsJson: z.string().nullable(),
-  /** 홀드 색 (PR #93, F5 PR-4). 미저장 시 null. */
+  /** 홀드 색 (PR #93, F5 PR-4). 미저장 시 null. legacy row 가 알 수 없는 값을 가질 수
+   *  있으므로 enum 대신 string — UI 의 HoldDot 이 fallback 처리. */
   holdColor: z.string().nullable(),
   loggedAt: z.string(),
 });
@@ -60,7 +79,8 @@ export const LogAttemptBodySchema = z.object({
   mediaId: z.number().int().nullable().optional(),
   note: z.string().max(300).nullable().optional(),
   tagsJson: z.string().nullable().optional(),
-  holdColor: z.string().max(20).nullable().optional(),
+  // [PR #93 리뷰 S1] 작성/수정 body 는 enum 으로 좁혀 잘못된 값을 클라 단에서 차단.
+  holdColor: HoldColorSchema.nullable().optional(),
   loggedAt: z.string().nullable().optional(),
 });
 
@@ -76,7 +96,7 @@ export const UpdateAttemptBodySchema = z.object({
   mediaId: z.number().int().nullable().optional(),
   note: z.string().max(300).nullable().optional(),
   tagsJson: z.string().nullable().optional(),
-  holdColor: z.string().max(20).nullable().optional(),
+  holdColor: HoldColorSchema.nullable().optional(),
 });
 
 export type UpdateAttemptBody = z.infer<typeof UpdateAttemptBodySchema>;

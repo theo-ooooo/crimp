@@ -28,6 +28,14 @@ public class AttemptService {
     private static final Set<AttemptResult> AUTO_PUBLISH_RESULTS =
             EnumSet.of(AttemptResult.SEND, AttemptResult.FLASH, AttemptResult.ONSIGHT);
 
+    /**
+     * hold_color 화이트리스트 (PR #93, F5 PR-4 — 리뷰 S1). 클라가 임의 문자열을 보낼 수 있게
+     * 두면 검색·통계가 더러워지므로 도메인 단에서 enum-like 가드. 프론트 `HOLD_OPTIONS` 와 일치.
+     */
+    private static final Set<String> ALLOWED_HOLD_COLORS = Set.of(
+            "red", "blue", "yellow", "green", "white",
+            "black", "pink", "orange", "purple", "gray");
+
     private final ClimbingSessionRepository sessionRepository;
     private final SessionAttemptRepository attemptRepository;
     private final FeedPostRepository feedPostRepository;
@@ -67,7 +75,8 @@ public class AttemptService {
         if (cmd.mediaId() != null) attempt.updateMediaId(cmd.mediaId());
         if (cmd.note() != null) attempt.updateNote(cmd.note());
         if (cmd.tagsJson() != null) attempt.updateTagsJson(cmd.tagsJson());
-        if (cmd.holdColor() != null) attempt.updateHoldColor(cmd.holdColor());
+        String normalizedHold = normalizeHoldColor(cmd.holdColor());
+        if (normalizedHold != null) attempt.updateHoldColor(normalizedHold);
 
         attemptRepository.save(attempt);
 
@@ -124,7 +133,8 @@ public class AttemptService {
         if (cmd.mediaId() != null) attempt.updateMediaId(cmd.mediaId());
         if (cmd.note() != null) attempt.updateNote(cmd.note());
         if (cmd.tagsJson() != null) attempt.updateTagsJson(cmd.tagsJson());
-        if (cmd.holdColor() != null) attempt.updateHoldColor(cmd.holdColor());
+        String normalizedHold = normalizeHoldColor(cmd.holdColor());
+        if (normalizedHold != null) attempt.updateHoldColor(normalizedHold);
 
         // I1: result PATCH 가 자동 게시 정책에 영향. SEND/FLASH/ONSIGHT 로 전환되면 신규 게시,
         // 반대로 FAIL/TRY 로 전환되면 기존 게시를 soft-delete 하여 피드에서 숨긴다.
@@ -180,6 +190,25 @@ public class AttemptService {
             throw new SessionException("ATTEMPT_NOT_FOUND", "Attempt " + attemptExtId + " not found");
         }
         return attempt;
+    }
+
+    /**
+     * holdColor 입력 정규화 + 화이트리스트 검증 (PR #93, F5 PR-4 — 리뷰 S1 + S3).
+     * <ul>
+     *   <li>null → null (변경 없음)</li>
+     *   <li>trim 후 빈 문자열 → null (note 와 동일 정책)</li>
+     *   <li>화이트리스트 외 값 → {@link SessionException} ATTEMPT_INVALID 400</li>
+     * </ul>
+     */
+    private static String normalizeHoldColor(String raw) {
+        if (raw == null) return null;
+        String trimmed = raw.trim().toLowerCase();
+        if (trimmed.isEmpty()) return null;
+        if (!ALLOWED_HOLD_COLORS.contains(trimmed)) {
+            throw new SessionException("ATTEMPT_INVALID",
+                    "Unknown hold color: " + raw + " (allowed: " + ALLOWED_HOLD_COLORS + ")");
+        }
+        return trimmed;
     }
 
     private static AttemptView toView(SessionAttempt a) {

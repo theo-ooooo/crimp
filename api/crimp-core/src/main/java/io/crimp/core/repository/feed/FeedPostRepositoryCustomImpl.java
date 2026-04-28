@@ -103,6 +103,9 @@ public class FeedPostRepositoryCustomImpl implements FeedPostRepositoryCustom {
                         a.gradeValue,
                         a.gradeNumeric,
                         a.tagsJson,
+                        // [PR #93, F5 PR-4] holdColor 1급 컬럼. 새 클라는 이쪽으로 보내고, 구버전
+                        // 클라가 보낸 tagsJson 의 hold 키는 도메인 단에서 fallback 으로 활용.
+                        a.holdColor,
                         // note: 자유 글이면 fp.content, 시도 자동 게시면 a.note (둘 다 nullable)
                         Expressions.stringTemplate("coalesce({0}, {1})", a.note, fp.content),
                         // loggedAt: 시도 게시면 a.loggedAt, 아니면 fp.createdAt fallback

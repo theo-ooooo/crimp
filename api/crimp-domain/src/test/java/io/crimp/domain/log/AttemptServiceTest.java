@@ -143,12 +143,63 @@ class AttemptServiceTest {
 
         var cmd = new UpdateAttemptCommand(
                 5L, null, "V4", null,
-                AttemptResult.SEND, 3, null, "업데이트", null, null);
+                AttemptResult.SEND, 3, null, "업데이트", null, "blue");
         var view = service.update(42L, "01HATT", cmd);
         assertThat(view.result()).isEqualTo(AttemptResult.SEND);
         assertThat(view.attempts()).isEqualTo(3);
         assertThat(view.gradeValue()).isEqualTo("V4");
         assertThat(view.note()).isEqualTo("업데이트");
+        // [PR #93 리뷰 S2] holdColor 도 entity 까지 도달해야 함.
+        assertThat(view.holdColor()).isEqualTo("blue");
+    }
+
+    @Test
+    void log_null_holdColor_keeps_entity_holdColor_null() {
+        // [PR #93 리뷰 S2] holdColor 안 보낸 경우 entity 의 holdColor 가 null 로 유지.
+        ClimbingSession s = session(100L, "01HSESS", 42L, false);
+        when(sessionRepo.findByExtId("01HSESS")).thenReturn(Optional.of(s));
+        when(attemptRepo.save(any(SessionAttempt.class))).thenAnswer(i -> {
+            SessionAttempt arg = i.getArgument(0);
+            setField(arg, "id", 1L);
+            return arg;
+        });
+        when(feedPostRepo.findByAttemptId(anyLong())).thenReturn(Optional.empty());
+
+        var cmd = new LogAttemptCommand(
+                null, null, null, null, AttemptResult.TRY, 1, null, null, null, null, null);
+        var view = service.log(42L, "01HSESS", cmd);
+        assertThat(view.holdColor()).isNull();
+    }
+
+    @Test
+    void log_emptyOrWhitespace_holdColor_is_normalized_to_null() {
+        // [PR #93 리뷰 S3] 빈 문자열 / 공백은 null 과 동일 처리 (note 정책과 일관).
+        ClimbingSession s = session(100L, "01HSESS", 42L, false);
+        when(sessionRepo.findByExtId("01HSESS")).thenReturn(Optional.of(s));
+        when(attemptRepo.save(any(SessionAttempt.class))).thenAnswer(i -> {
+            SessionAttempt arg = i.getArgument(0);
+            setField(arg, "id", 1L);
+            return arg;
+        });
+        when(feedPostRepo.findByAttemptId(anyLong())).thenReturn(Optional.empty());
+
+        var cmd = new LogAttemptCommand(
+                null, null, null, null, AttemptResult.TRY, 1, null, null, null, "  ", null);
+        var view = service.log(42L, "01HSESS", cmd);
+        assertThat(view.holdColor()).isNull();
+    }
+
+    @Test
+    void log_unknown_holdColor_is_rejected_as_ATTEMPT_INVALID() {
+        // [PR #93 리뷰 S1] 화이트리스트 외 값은 도메인 단에서 차단.
+        ClimbingSession s = session(100L, "01HSESS", 42L, false);
+        when(sessionRepo.findByExtId("01HSESS")).thenReturn(Optional.of(s));
+
+        var cmd = new LogAttemptCommand(
+                null, null, null, null, AttemptResult.TRY, 1, null, null, null, "magenta", null);
+        assertThatThrownBy(() -> service.log(42L, "01HSESS", cmd))
+                .isInstanceOf(SessionException.class)
+                .satisfies(e -> assertThat(((SessionException) e).code()).isEqualTo("ATTEMPT_INVALID"));
     }
 
     @Test

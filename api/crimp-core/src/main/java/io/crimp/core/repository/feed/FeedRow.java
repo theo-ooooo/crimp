@@ -25,7 +25,8 @@ import java.time.Instant;
  * @param result         AttemptResult (attempt 비종속 게시는 null)
  * @param gradeValue     SessionAttempt.gradeValue
  * @param gradeNumeric   SessionAttempt.gradeNumeric
- * @param tagsJson       SessionAttempt.tagsJson (hold 색상 등 추출 원천)
+ * @param tagsJson       SessionAttempt.tagsJson (legacy — 구버전 클라가 hold 색을 JSON 으로 인코딩)
+ * @param holdColor      SessionAttempt.hold_color (PR #93, F5 PR-4) — 1급 컬럼. 신버전 클라 우선
  * @param note           SessionAttempt.note 또는 FeedPost.content (도메인에서 합성)
  * @param loggedAt       SessionAttempt.loggedAt 또는 FeedPost.createdAt (fallback)
  * @param likeCount      FeedPost.like_count (디노멀 카운터)
@@ -45,6 +46,7 @@ public record FeedRow(
         String gradeValue,
         BigDecimal gradeNumeric,
         String tagsJson,
+        String holdColor,
         String note,
         Instant loggedAt,
         long likeCount,

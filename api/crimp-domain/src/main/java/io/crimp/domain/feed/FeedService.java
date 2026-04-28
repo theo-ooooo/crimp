@@ -126,6 +126,9 @@ public class FeedService {
     private static FeedItemView toView(FeedRow row) {
         // FeedRow.userId 는 primitive long — INNER JOIN + NOT NULL PK 로 null 가능성 컴파일
         // 타임 제거. silent fallback (hue=180) 으로 회귀가 가려지는 위험 차단.
+        // [PR #93, F5 PR-4 — 리뷰 B1] holdColor 1급 컬럼 우선, 미저장(legacy) 시 tagsJson 의
+        // hold 키를 fallback 으로 추출해 hold 점 시각화 회귀 방지.
+        String holdColor = row.holdColor() != null ? row.holdColor() : extractHoldColor(row.tagsJson());
         return new FeedItemView(
                 row.feedPostExtId(),
                 row.userExtId(),
@@ -135,7 +138,7 @@ public class FeedService {
                 row.result(),
                 row.gradeValue(),
                 row.gradeNumeric(),
-                extractHoldColor(row.tagsJson()),
+                holdColor,
                 row.note(),
                 row.likeCount(),
                 row.commentCount(),

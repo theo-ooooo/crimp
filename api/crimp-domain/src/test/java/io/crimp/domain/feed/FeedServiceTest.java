@@ -348,6 +348,7 @@ class FeedServiceTest {
         private String gradeValue = "V5";
         private BigDecimal gradeNumeric = BigDecimal.valueOf(5);
         private String tagsJson = null;
+        private String holdColor = null;
         private String note = null;
         private Instant loggedAt = Instant.parse("2026-04-25T07:00:00Z");
         private long likeCount = 0L;
@@ -359,6 +360,7 @@ class FeedServiceTest {
         FeedRowBuilder withAttemptExtId(String v) { this.attemptExtId = v; return this; }
         FeedRowBuilder withUserId(long v) { this.userId = v; return this; }
         FeedRowBuilder withTagsJson(String v) { this.tagsJson = v; return this; }
+        FeedRowBuilder withHoldColor(String v) { this.holdColor = v; return this; }
         FeedRowBuilder withLikeCount(long v) { this.likeCount = v; return this; }
         FeedRowBuilder withCommentCount(long v) { this.commentCount = v; return this; }
         FeedRowBuilder withLiked(boolean v) { this.liked = v; return this; }
@@ -366,7 +368,7 @@ class FeedServiceTest {
         FeedRow build() {
             return new FeedRow(feedPostId, feedPostExtId, attemptId, attemptExtId,
                     userId, userExtId, nickname, gymName,
-                    result, gradeValue, gradeNumeric, tagsJson, note, loggedAt,
+                    result, gradeValue, gradeNumeric, tagsJson, holdColor, note, loggedAt,
                     likeCount, commentCount, liked);
         }
     }
