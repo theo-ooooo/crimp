@@ -3,6 +3,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { exchangeOauth, exchangeOauthCode, logout as logoutRequest } from '@/lib/api';
+import { onboardingDismiss } from '@/lib/auth/onboardingDismiss';
 import type { OauthProvider, TokenResponse } from '@/lib/schemas/auth';
 import { useTokenStore } from '@/store/tokenStore';
 
@@ -79,6 +80,8 @@ export function useLogout() {
     },
     onSettled: () => {
       clear();
+      // 다음 계정 진입을 깨끗하게 — mainGym 온보딩 dismiss 도 같이 초기화.
+      onboardingDismiss.clear();
       qc.clear();
     },
   });
