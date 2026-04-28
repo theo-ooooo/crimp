@@ -1,0 +1,17 @@
+# Crimp Android — local-only secrets (gitignored).
+#
+# 셋업:
+#   cp app/android/local.properties.sample app/android/local.properties
+#   # 그 후 KAKAO_APP_KEY 채움
+#
+# 이미 Android Studio 로 프로젝트를 연 적이 있다면 IDE 가 자동 생성한
+# `local.properties` 가 있을 것이다. 그 경우 KAKAO_APP_KEY 한 줄만 추가하면 된다.
+# (`sdk.dir` 등 IDE 가 채워넣은 줄은 보존.)
+#
+# 빈 값으로 빌드하면 build.gradle 가 경고 (CI 는 -PstrictKakao=true 로 에러 격상).
+
+# Kakao 네이티브 앱 키 (콘솔 > 앱 > 앱 키 > 네이티브 앱 키).
+KAKAO_APP_KEY=
+
+# Android Studio 가 자동으로 추가하는 SDK 경로 — IDE 가 직접 채워넣음 (수동 추가 불필요).
+# sdk.dir=/Users/<you>/Library/Android/sdk

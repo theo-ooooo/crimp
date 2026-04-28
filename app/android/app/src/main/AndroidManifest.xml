@@ -22,5 +22,22 @@
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
       </activity>
+
+      <!--
+        Kakao OAuth redirect handler.
+        scheme = `kakao${KAKAO_APP_KEY}` — `app/build.gradle` 에서 manifestPlaceholders 로 주입.
+        host   = `oauth`
+        @react-native-seoul/kakao-login 이 Custom Tabs 로 카카오 로그인 후 이 인텐트로 복귀한다.
+      -->
+      <activity
+        android:name="com.kakao.sdk.auth.AuthCodeHandlerActivity"
+        android:exported="true">
+        <intent-filter>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="kakao${kakaoAppKey}" android:host="oauth" />
+        </intent-filter>
+      </activity>
     </application>
 </manifest>

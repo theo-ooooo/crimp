@@ -72,6 +72,36 @@ def enableProguardInReleaseBuilds = false
  */
 def jscFlavor = 'org.webkit:android-jsc:+'
 
+/**
+ * Kakao 네이티브 앱 키를 `local.properties` 에서 읽는다.
+ *
+ * - `local.properties` 는 gitignore — 키는 사용자 환경에서 직접 채운다.
+ * - 미설정 시 빈 문자열로 두면 카카오 SDK 가 런타임에 명시 에러를 던진다 (조용한 실패 방지).
+ * - `local.properties.sample` 참조.
+ *
+ * `resValue` 로 string 리소스 `kakao_app_key` 를 주입 — `@react-native-seoul/kakao-login`
+ * 모듈이 `R.string.kakao_app_key` 를 직접 읽어 SDK 를 초기화한다.
+ *
+ * `manifestPlaceholders.kakaoAppKey` 는 AndroidManifest 의 카카오 redirect 인텐트 필터
+ * scheme (`kakao${kakaoAppKey}`) 에 치환된다.
+ */
+def kakaoLocalProps = new Properties()
+def kakaoLocalPropsFile = rootProject.file("local.properties")
+if (kakaoLocalPropsFile.exists()) {
+    kakaoLocalPropsFile.withInputStream { kakaoLocalProps.load(it) }
+}
+def kakaoAppKey = kakaoLocalProps.getProperty("KAKAO_APP_KEY", "")
+
+// 빌드 타임 fail-fast — 빈 키로 진행하면 RN Kakao 모듈이 첫 호출 시 SDK 예외로 크래시.
+// 빌드 단계에서 명시적 경고 (CI 는 -PstrictKakao=true 로 에러로 격상 가능).
+if (kakaoAppKey.isEmpty()) {
+    def msg = "[crimp] KAKAO_APP_KEY 가 비어 있음. app/android/local.properties 에 설정 필요. (sample 참조)"
+    if (project.hasProperty("strictKakao") && project.property("strictKakao").toString() == "true") {
+        throw new GradleException(msg)
+    }
+    logger.warn(msg)
+}
+
 android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
@@ -84,6 +114,11 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
+
+        // `@react-native-seoul/kakao-login` 의 kakao_strings.xml 데모 키를 의도적으로 override.
+        // 우리 앱의 resValue 가 라이브러리 리소스를 manifest merger 우선순위로 덮어쓴다.
+        resValue "string", "kakao_app_key", kakaoAppKey
+        manifestPlaceholders = [kakaoAppKey: kakaoAppKey]
     }
     signingConfigs {
         debug {
