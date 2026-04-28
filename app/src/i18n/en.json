@@ -249,6 +249,23 @@
     "logout": "Sign out",
     "logoutLoading": "Signing out…"
   },
+  "onboarding": {
+    "mainGym": {
+      "title": "Where do you climb most?",
+      "subtitle": "We use this for the my-gym feed and recommendations. You can change it anytime from your profile.",
+      "searchPlaceholder": "Search by gym name",
+      "clearSearch": "Clear search",
+      "confirmCta": "Set this as my home gym",
+      "skipCta": "I'll decide later",
+      "emptyTitle": "Can't find the gym?",
+      "emptyBody": "Try a different keyword, or skip for now and decide later.",
+      "searchErrorTitle": "Couldn't load gyms",
+      "errorTitle": "Couldn't change your home gym",
+      "exitConfirmTitle": "Leave this screen?",
+      "exitConfirmBody": "We'll ask about your home gym again next time.",
+      "exitConfirmCta": "Quit"
+    }
+  },
   "me": {
     "mainGym": {
       "title": "Home gym",

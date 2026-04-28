@@ -249,6 +249,23 @@
     "logout": "로그아웃",
     "logoutLoading": "로그아웃 중…"
   },
+  "onboarding": {
+    "mainGym": {
+      "title": "어디서 주로 등반하세요?",
+      "subtitle": "my-gym 피드와 추천에 사용돼요. 언제든 프로필에서 바꿀 수 있어요.",
+      "searchPlaceholder": "암장 이름 검색",
+      "clearSearch": "검색어 지우기",
+      "confirmCta": "이 암장으로 설정",
+      "skipCta": "나중에 정할게요",
+      "emptyTitle": "찾는 암장이 없나요?",
+      "emptyBody": "다른 키워드로 검색해 보거나, 나중에 정해도 돼요.",
+      "searchErrorTitle": "암장을 불러오지 못했어요",
+      "errorTitle": "내 암장을 변경하지 못했어요",
+      "exitConfirmTitle": "이 화면에서 나가시겠어요?",
+      "exitConfirmBody": "메인 암장은 다음에 다시 물어볼게요.",
+      "exitConfirmCta": "종료"
+    }
+  },
   "me": {
     "mainGym": {
       "title": "내 암장",
