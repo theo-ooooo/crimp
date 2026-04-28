@@ -76,4 +76,14 @@ class BrandNormalizerTest {
         // 손상원클라이밍 의 짧은 형태
         assertThat(normalizer.normalize("손상원")).isEqualTo("손상원클라이밍");
     }
+
+    @Test
+    void unicodeWhitespaceVariantsMatch() {
+        // 한글 IME / 모바일에서 자주 섞이는 유니코드 공백 — NBSP, 전각 공백, 줄바꿈.
+        // (PR #83 리뷰 I1)
+        assertThat(normalizer.normalize("더 클라임")).isEqualTo("더클라임");   // NBSP
+        assertThat(normalizer.normalize("더　클라임")).isEqualTo("더클라임");   // 전각 공백
+        assertThat(normalizer.normalize("The\nClimb")).isEqualTo("더클라임");        // 줄바꿈
+        assertThat(normalizer.normalize("The Climb")).isEqualTo("더클라임");
+    }
 }

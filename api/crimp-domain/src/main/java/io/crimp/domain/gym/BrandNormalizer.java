@@ -31,6 +31,10 @@ public class BrandNormalizer {
     /**
      * canonical 브랜드명 → 변형 표기 list. canonical 자체도 항상 매칭되어야 하므로
      * 변환 테이블 빌드 시 자동 추가된다.
+     *
+     * <p>운영 정책 — 단축형(예: `손상원`) 추가 시 다른 브랜드와 광범위 충돌 가능성을
+     * 검토할 것. 현재 `손상원` 은 `손상원클라이밍` 만 가리키지만, 동명의 별도 매장이
+     * 등록될 경우 사전 항목을 분리·세분화해야 한다 (PR #83 리뷰 I2).
      */
     private static final Map<String, java.util.List<String>> SYNONYMS = Map.of(
             "더클라임",     java.util.List.of("theclimb", "the climb", "the-climb", "더 클라임", "더클라임짐"),
@@ -61,14 +65,20 @@ public class BrandNormalizer {
     }
 
     /**
-     * lookup 키 정규화 — lower-case + 공백/하이픈 제거.
+     * lookup 키 정규화 — lower-case + 공백 류 / 하이픈 / 언더스코어 제거.
      * canonical 한국어와 영문 변형 모두 동일 키 공간으로 매핑.
+     *
+     * <p>유니코드 공백 처리 (PR #83 리뷰 I1): ASCII space/tab 외에도 한글 IME ·
+     * 모바일 입력에서 자주 섞이는 NBSP(U+00A0)·전각 공백(U+3000)·줄바꿈류
+     * (\n, \r) 도 제거. {@link Character#isWhitespace} 가 NBSP 를 false 로 보고
+     * {@link Character#isSpaceChar} 가 \n/\r 을 false 로 보므로 두 검사를 OR 로 묶는다.
      */
     private static String normalizeForLookup(String s) {
         StringBuilder sb = new StringBuilder(s.length());
         for (int i = 0; i < s.length(); i++) {
             char c = s.charAt(i);
-            if (c == ' ' || c == '-' || c == '_' || c == '\t') continue;
+            if (c == '-' || c == '_') continue;
+            if (Character.isWhitespace(c) || Character.isSpaceChar(c)) continue;
             sb.append(Character.toLowerCase(c));
         }
         return sb.toString();
