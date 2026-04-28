@@ -7,6 +7,7 @@ import {
   View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import {
@@ -32,10 +33,11 @@ import {
 } from '@/lib/tokens';
 import { useTokens } from '@/lib/useTokens';
 import type { Session } from '@/lib/schemas/session';
-import type { RootStackParamList } from '@/navigation/types';
+import type { MainTabsParamList, RootStackParamList } from '@/navigation/types';
 import { useTokenStore } from '@/store/tokenStore';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Home'>;
+type TabsNav = BottomTabNavigationProp<MainTabsParamList>;
 
 function fill(key: string, vars: Record<string, string | number>): string {
   return Object.entries(vars).reduce(
@@ -219,7 +221,7 @@ function LoggedInView({ accessToken, navigation, styles, theme }: LoggedInProps)
               {t('home.recentSessionsTitle')}
             </Text>
             <Pressable
-              onPress={() => navigation.navigate('SessionList')}
+              onPress={() => navigation.getParent<TabsNav>()?.navigate('SessionsTab')}
               accessibilityRole="button"
               accessibilityLabel={t('home.recentSessionsSeeAll')}
               hitSlop={8}
