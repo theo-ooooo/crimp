@@ -80,6 +80,17 @@ export type LogAttemptSheetProps = {
   sessionExtId: string;
   onClose: () => void;
   onCamera: (mode: CameraMode) => void;
+  /**
+   * 카메라/업로드 흐름이 완료된 미디어의 백엔드 id (PR #92, F5 PR-3). 저장 시 본 값을
+   * `mediaId` 로 첨부해 attempt 와 미디어를 영구 연결. null 이면 미첨부 상태.
+   */
+  attachedMediaId?: number | null;
+  /**
+   * 첨부 표시·영구 연결 상태에서 사용자가 "다시 촬영" 같은 액션으로 미디어를 해제할 때
+   * 부모 상태 (uploaded media) 를 비우도록 알림. 본 PR 에선 호출 진입점만 마련, 실제
+   * UI 토글은 후속에서 보강.
+   */
+  onClearMedia?: () => void;
 };
 
 export function LogAttemptSheet({
@@ -88,6 +99,8 @@ export function LogAttemptSheet({
   sessionExtId,
   onClose,
   onCamera,
+  attachedMediaId = null,
+  onClearMedia,
 }: LogAttemptSheetProps): JSX.Element {
   const theme = useTokens();
   const reducedMotion = useReducedMotion();
@@ -105,6 +118,7 @@ export function LogAttemptSheet({
     setGrade('V5');
     setHold('red');
     setNote('');
+    if (onClearMedia) onClearMedia();
   };
 
   const onSave = () => {
@@ -118,6 +132,8 @@ export function LogAttemptSheet({
         gradeValue: grade,
         note: trimmed.length > 0 ? trimmed : null,
         tagsJson,
+        // [PR #92, F5 PR-3] 카메라/업로드 흐름 완료 시 media id 를 attempt 에 연결.
+        mediaId: attachedMediaId,
       },
       {
         onSuccess: () => {
@@ -283,44 +299,66 @@ export function LogAttemptSheet({
             {/* Camera CTA */}
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>{t('session.log.mediaLabel')}</Text>
-              <View style={styles.cameraRow}>
-                <Pressable
-                  onPress={() => onCamera('video')}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('session.log.cameraVideoTitle')}
-                  style={pressableFlexStyle}
-                >
-                  <View style={styles.cameraCell}>
-                    <View style={styles.cameraIconWrap}>
-                      <CrimpIcon.play size={22} color={theme.text2} />
-                    </View>
-                    <Text style={styles.cameraTitle}>
-                      {t('session.log.cameraVideoTitle')}
-                    </Text>
-                    <Text style={styles.cameraHint}>
-                      {t('session.log.cameraVideoHint')}
+              {attachedMediaId !== null ? (
+                // [PR #92, F5 PR-3] 미디어 첨부 완료 — 두 셀 대신 첨부 표시 + 다시 촬영 버튼.
+                <View style={styles.attachedRow}>
+                  <View style={styles.attachedBadge}>
+                    <CrimpIcon.check size={18} color={theme.semantic.success} />
+                    <Text style={styles.attachedLabel}>
+                      {t('session.log.mediaAttached')}
                     </Text>
                   </View>
-                </Pressable>
-                <Pressable
-                  onPress={() => onCamera('photo')}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('session.log.cameraPhotoTitle')}
-                  style={pressableFlexStyle}
-                >
-                  <View style={styles.cameraCell}>
-                    <View style={styles.cameraIconWrap}>
-                      <CrimpIcon.target size={22} color={theme.text2} />
+                  <Pressable
+                    onPress={() => onClearMedia?.()}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('session.log.mediaClear')}
+                    hitSlop={8}
+                  >
+                    <Text style={styles.attachedClear}>
+                      {t('session.log.mediaClear')}
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <View style={styles.cameraRow}>
+                  <Pressable
+                    onPress={() => onCamera('video')}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('session.log.cameraVideoTitle')}
+                    style={pressableFlexStyle}
+                  >
+                    <View style={styles.cameraCell}>
+                      <View style={styles.cameraIconWrap}>
+                        <CrimpIcon.play size={22} color={theme.text2} />
+                      </View>
+                      <Text style={styles.cameraTitle}>
+                        {t('session.log.cameraVideoTitle')}
+                      </Text>
+                      <Text style={styles.cameraHint}>
+                        {t('session.log.cameraVideoHint')}
+                      </Text>
                     </View>
-                    <Text style={styles.cameraTitle}>
-                      {t('session.log.cameraPhotoTitle')}
-                    </Text>
-                    <Text style={styles.cameraHint}>
-                      {t('session.log.cameraPhotoHint')}
-                    </Text>
-                  </View>
-                </Pressable>
-              </View>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => onCamera('photo')}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('session.log.cameraPhotoTitle')}
+                    style={pressableFlexStyle}
+                  >
+                    <View style={styles.cameraCell}>
+                      <View style={styles.cameraIconWrap}>
+                        <CrimpIcon.target size={22} color={theme.text2} />
+                      </View>
+                      <Text style={styles.cameraTitle}>
+                        {t('session.log.cameraPhotoTitle')}
+                      </Text>
+                      <Text style={styles.cameraHint}>
+                        {t('session.log.cameraPhotoHint')}
+                      </Text>
+                    </View>
+                  </Pressable>
+                </View>
+              )}
             </View>
 
             {/* Note */}
@@ -511,6 +549,36 @@ function makeStyles(theme: Theme) {
     cameraRow: {
       flexDirection: 'row',
       gap: space[2],
+    },
+    attachedRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: space[3],
+      paddingVertical: space[3],
+      borderRadius: radius.lg,
+      borderWidth: 1.5,
+      borderStyle: 'solid',
+      borderColor: theme.semantic.success,
+      backgroundColor: withAlpha(theme.semantic.success, 0.08),
+    },
+    attachedBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space[2],
+    },
+    attachedLabel: {
+      fontFamily,
+      fontSize: 14,
+      fontWeight: fontWeight.bold,
+      color: theme.text,
+    },
+    attachedClear: {
+      fontFamily,
+      fontSize: 13,
+      fontWeight: fontWeight.semibold,
+      color: theme.text2,
+      textDecorationLine: 'underline',
     },
     cameraCell: {
       height: 96,

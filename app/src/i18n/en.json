@@ -139,7 +139,12 @@
       "cameraPermissionTitle": "Camera permission required",
       "cameraPermissionBody": "Allow camera access to record climbing attempts. You can change this later in Settings.",
       "cameraPermissionRetry": "Request again",
-      "cameraPermissionSettings": "Open settings"
+      "cameraPermissionSettings": "Open settings",
+      "uploading": "Uploading...",
+      "uploadFailed": "Upload failed",
+      "uploadFailedRetry": "Please retry. Check network or size limit (image 20MB / video 200MB).",
+      "mediaAttached": "Media attached",
+      "mediaClear": "Retake"
     }
   },
   "attempt": {

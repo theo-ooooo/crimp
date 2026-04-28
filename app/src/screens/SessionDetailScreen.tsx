@@ -1,6 +1,7 @@
 import { useRoute, type RouteProp } from '@react-navigation/native';
 import React, { useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   ScrollView,
   StyleSheet,
@@ -17,12 +18,15 @@ import {
 import { useAttemptsQuery } from '@/hooks/useAttempts';
 import { useEndSession, useSessionQuery } from '@/hooks/useSessions';
 import { toUserMessage } from '@/lib/api/errorMessage';
+import type { CapturedMedia } from '@/lib/camera/types';
 import { t } from '@/lib/i18n';
+import { uploadCapturedMedia } from '@/lib/media/upload';
 import {
   fontFamily,
   fontWeight,
   radius,
   space,
+  withAlpha,
   type Theme,
 } from '@/lib/tokens';
 import { useTokens } from '@/lib/useTokens';
@@ -55,9 +59,28 @@ export default function SessionDetailScreen(): JSX.Element {
   const [logSheetOpen, setLogSheetOpen] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraMode, setCameraMode] = useState<CameraMode>('video');
+  // [PR #92, F5 PR-3] 업로드 상태 — uploading 시 LogAttemptSheet 위에 진행 표시,
+  // uploadedMediaId 가 채워지면 LogAttemptSheet 가 첨부 배지를 노출하고 저장 시 attempt 에 연결.
+  const [uploading, setUploading] = useState(false);
+  const [uploadedMediaId, setUploadedMediaId] = useState<number | null>(null);
 
   const closeCamera = () => {
     setCameraOpen(false);
+  };
+
+  const handleCaptured = async (captured: CapturedMedia) => {
+    if (!accessToken) return;
+    closeCamera();
+    setUploading(true);
+    try {
+      const completed = await uploadCapturedMedia(accessToken, captured);
+      setUploadedMediaId(completed.id);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'unknown';
+      Alert.alert(t('session.log.uploadFailed'), `${t('session.log.uploadFailedRetry')}\n\n(${message})`);
+    } finally {
+      setUploading(false);
+    }
   };
 
   const styles = useMemo(() => makeStyles(theme), [theme]);
@@ -183,22 +206,21 @@ export default function SessionDetailScreen(): JSX.Element {
               setCameraMode(mode);
               setCameraOpen(true);
             }}
+            attachedMediaId={uploadedMediaId}
+            onClearMedia={() => setUploadedMediaId(null)}
           />
           <CameraSheet
             visible={cameraOpen}
             mode={cameraMode}
             onClose={closeCamera}
-            onCaptured={(media) => {
-              // TODO(PR-3): 본 media 로 presigned 업로드 → mediaId 를 LogAttemptSheet 로 전달.
-              // 현 단계는 캡처 동작 자체만 검증 — 메타 + URI 를 Alert 으로 노출.
-              const detail =
-                media.kind === 'IMAGE'
-                  ? `${media.kind} · ${media.byteSize}b · ${media.width}x${media.height}\n${media.uri}`
-                  : `${media.kind} · ${media.byteSize}b · ${media.durationMs}ms\n${media.uri}`;
-              Alert.alert(t('session.log.cameraCapturedTitle'), detail);
-              closeCamera();
-            }}
+            onCaptured={handleCaptured}
           />
+          {uploading ? (
+            <View style={styles.uploadingOverlay} pointerEvents="auto">
+              <ActivityIndicator size="large" color={theme.text} />
+              <Text style={styles.uploadingLabel}>{t('session.log.uploading')}</Text>
+            </View>
+          ) : null}
         </>
       ) : null}
     </ScrollView>
@@ -212,6 +234,19 @@ function makeStyles(theme: Theme) {
       padding: space[5],
       paddingBottom: space[10],
       gap: space[5],
+    },
+    uploadingOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: withAlpha(theme.bg, 0.85),
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: space[3],
+    },
+    uploadingLabel: {
+      fontFamily,
+      fontSize: 14,
+      fontWeight: fontWeight.semibold,
+      color: theme.text,
     },
     center: {
       flex: 1,

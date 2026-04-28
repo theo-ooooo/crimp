@@ -139,7 +139,12 @@
       "cameraPermissionTitle": "카메라 권한이 필요해요",
       "cameraPermissionBody": "등반 시도와 루트 사진/영상을 기록하려면 권한을 허용해주세요. 거부 후에도 설정에서 다시 허용할 수 있어요.",
       "cameraPermissionRetry": "권한 다시 요청",
-      "cameraPermissionSettings": "설정에서 권한 변경"
+      "cameraPermissionSettings": "설정에서 권한 변경",
+      "uploading": "업로드 중...",
+      "uploadFailed": "업로드 실패",
+      "uploadFailedRetry": "다시 시도해주세요. 네트워크나 사이즈 한도(이미지 20MB / 영상 200MB) 를 확인해보세요.",
+      "mediaAttached": "미디어 첨부됨",
+      "mediaClear": "다시 촬영"
     }
   },
   "attempt": {
