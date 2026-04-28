@@ -1,5 +1,5 @@
 diff --git a/android/src/main/java/com/dooboolab/kakaologins/RNKakaoLoginsModule.kt b/android/src/main/java/com/dooboolab/kakaologins/RNKakaoLoginsModule.kt
-index ad0ffcdf977657417e3678b8070f838d6dbcd50a..a168556828cf0e01b7f9e90e1350b71a6ccf3902 100644
+index ad0ffcdf977657417e3678b8070f838d6dbcd50a..4e4fc6df2fbdfd9d925e5a94f5e08c581c64578a 100644
 --- a/android/src/main/java/com/dooboolab/kakaologins/RNKakaoLoginsModule.kt
 +++ b/android/src/main/java/com/dooboolab/kakaologins/RNKakaoLoginsModule.kt
 @@ -20,76 +20,51 @@ class RNKakaoLoginsModule(private val reactContext: ReactApplicationContext) : R
@@ -114,6 +114,18 @@ index ad0ffcdf977657417e3678b8070f838d6dbcd50a..a168556828cf0e01b7f9e90e1350b71a
              if (error != null) {
                  promise.reject("RNKakaoLogins", error.message, error)
                  return@loginWithKakaoAccount
+@@ -310,6 +285,11 @@ class RNKakaoLoginsModule(private val reactContext: ReactApplicationContext) : R
+             "kakao_custom_scheme", "string", reactContext.packageName
+         )
+         val kakaoCustomScheme = if (kakaoCustomSchemeId == 0) null else reactContext.getString(kakaoCustomSchemeId)
++        // [crimp debug] iOS Info.plist 의 KAKAO_APP_KEY 빈값 회귀를 안드로이드에서도 잡기 위해
++        //   init 직전 R.string.kakao_app_key 값을 logcat 에 찍는다. iOS 와 동일 포맷으로
++        //   `[crimp/kakao] init appKey=...` 로 출력 → 빌드된 APK 가 어떤 키로 SDK 를 초기화
++        //   하는지 즉시 확인 가능.
++        android.util.Log.i("crimp/kakao", "init appKey=$kakaoAppKey customScheme=${kakaoCustomScheme ?: "<nil>"}")
+         init(
+             context = reactContext,
+             appKey = kakaoAppKey,
 diff --git a/ios/RNKakaoLogins/RNKakaoLogins.m b/ios/RNKakaoLogins/RNKakaoLogins.m
 index 9c7a7964e58b9a18a82ad4a317d78dd2ec764358..38745a9110837c21ea092117a7470c86708b967f 100644
 --- a/ios/RNKakaoLogins/RNKakaoLogins.m
