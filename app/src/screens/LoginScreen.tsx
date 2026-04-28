@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { PrimaryButton, SecondaryButton } from '@/components/primitives';
+import { CrimpLogo, PrimaryButton, SecondaryButton } from '@/components/primitives';
 import { useExchangeOauth } from '@/hooks/useAuth';
 import { toUserMessage } from '@/lib/api/errorMessage';
 import { t } from '@/lib/i18n';
@@ -167,11 +167,16 @@ export default function LoginScreen(): JSX.Element {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Hero — 브랜드 + 헤드라인 (mock: paddingTop 120, padding 0 24) */}
+        {/* Hero — Crimp 로고(wordmark) + 헤드라인 (mock: paddingTop 120, padding 0 24) */}
         <View style={styles.heroBlock}>
-          <Text style={styles.brand} accessibilityRole="header">
-            {t('common.brand')}
-          </Text>
+          <View style={styles.brandLogoWrap}>
+            <CrimpLogo
+              variant="wordmark"
+              width={140}
+              color={theme.text}
+              textColor={theme.bg}
+            />
+          </View>
           <Text style={styles.headline}>
             {t('auth.login.headlineLine1')}
             {'\n'}
@@ -360,6 +365,9 @@ function makeStyles(theme: Theme) {
     /** Hero block — 브랜드/헤드라인/설명. Mock gap: 32 + 12 ≒ space[8]/space[3]. */
     heroBlock: {
       gap: space[3],
+    },
+    brandLogoWrap: {
+      marginBottom: space[2],
     },
     brand: {
       fontFamily,
