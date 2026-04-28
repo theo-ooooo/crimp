@@ -346,12 +346,14 @@ function makeStyles(theme: Theme) {
       gap: space[3],
     },
     /**
-     * 스크롤 본문 — 하단 카카오 CTA 가 absolute-like 로 SafeAreaView 의 마지막 child
-     * 로 분리되었으므로, 본문 paddingBottom 은 카카오 버튼 위 여유 분만 확보.
+     * 스크롤 본문 — 하단 카카오 CTA 가 SafeAreaView 의 마지막 child 로 분리되어
+     * 본문은 hero 를 중심으로 보이게 한다. paddingTop 을 충분히 확보해 헤더가
+     * 숨겨진 LoginScreen 에서 hero 가 너무 윗쪽에 붙지 않도록 함 (mock paddingTop 120
+     * 근사: space[20] = 80, 추가로 노치 없는 작은 화면 호환을 위해 동일 유지).
      */
     scrollContent: {
       paddingHorizontal: space[6],
-      paddingTop: space[10],
+      paddingTop: space[20],
       paddingBottom: space[6],
       gap: space[6],
     },
