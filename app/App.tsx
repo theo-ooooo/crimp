@@ -74,14 +74,20 @@ export default function App(): JSX.Element {
 }
 
 /**
- * 인증/온보딩 상태에 따라 RootStack 분기를 결정한다.
+ * 인증 상태별 RootStack + MainGym 온보딩 게이트 오버레이.
  *
- * - accessToken === null → LoginStack
- * - accessToken 있음 + me 로딩 중 → HydrationGate (스플래시 재사용)
- * - accessToken 있음 + me.mainGym === null + 게이트 dismiss 안 한 상태 → OnboardingGymScreen 단독
- * - 그 외 → MainTabs
+ * RootStack 의 screen 등록 집합은 `accessToken` 변화에만 좌우된다 (LoginStack ↔
+ * 인증 후 컨테이너). OnboardingGym 은 별도 screen 으로 등록하지 않고, 인증된
+ * RootStack 위에 absolute position 으로 덮는다 — 이렇게 하면 LoginScreen 의
+ * `navigation.reset({Home})` 이나 HomeScreen 의 `navigation.navigate('SessionList')`
+ * 같은 기존 호출이 게이트 표시 중에도 유효한 navigator 를 찾는다 (등록된 screen 이
+ * 사라지지 않음). 이전 시도에서 RootStack 분기로 OnboardingGym 만 등록했다가
+ * "RESET to Home not handled" / "NAVIGATE to SessionList not handled" 런타임 에러가
+ * 발생해 오버레이 방식으로 수정.
  *
- * QueryClientProvider 하위에서 `useMeQuery` 를 호출해야 하므로 별도 컴포넌트로 분리.
+ * me 로딩 중에는 게이트를 띄우지 않는다 — 미설정 상태가 확정된 뒤(`me.mainGym == null`)
+ * 에만 노출. 따라서 me 도착 직전 짧게 MainTabs 가 보일 수 있으나, 각 화면이 자체
+ * 로딩 상태를 가지므로 UX 상 무리 없음.
  */
 function AppRouter({ accessToken }: { accessToken: string | null }): JSX.Element {
   const meQuery = useMeQuery(accessToken);
@@ -95,70 +101,66 @@ function AppRouter({ accessToken }: { accessToken: string | null }): JSX.Element
     me !== undefined &&
     me.mainGym == null &&
     !onboardingDismissed;
-  const meIsLoading = accessToken !== null && meQuery.isLoading;
 
   return (
-    <RootStack.Navigator>
-      {accessToken === null ? (
-        <>
-          <RootStack.Screen
-            name="Login"
-            component={LoginScreen}
-            options={{ title: t('auth.login.title') }}
-          />
-          {/*
-           * DesignPrimitives 는 dev 전용 deep-link 대상. 비인증 상태에서도
-           * 접근 가능해야 디자인 토큰 점검이 가능하다 (PR #68 회귀 fix).
-           */}
-          <RootStack.Screen
-            name="DesignPrimitives"
-            component={DesignPrimitivesScreen}
-            options={{ title: 'Design Primitives' }}
-          />
-        </>
-      ) : meIsLoading ? (
-        // me 로딩 동안은 깜빡임 없이 스플래시 — 토큰 hydrate 직후와 동일 UX.
-        <RootStack.Screen
-          name="Login"
-          component={HydrationGateScreen}
-          options={{ headerShown: false }}
-        />
-      ) : needsOnboarding ? (
-        <RootStack.Screen
-          name="OnboardingGym"
-          component={OnboardingGymScreen}
-          options={{ headerShown: false, gestureEnabled: false }}
-        />
-      ) : (
-        <>
-          {/*
-           * 인증 + 온보딩 통과 진입 컨테이너. `Home` 이름은 RootStackParamList 호환을
-           * 위해 유지하고, 컴포넌트로는 BottomTabs 컨테이너를 매핑한다.
-           * MainTabs 내부에 자체 헤더 (각 탭 inner Stack 의 헤더) 가 그려지므로
-           * 외부 RootStack 헤더는 숨긴다.
-           */}
-          <RootStack.Screen
-            name="Home"
-            component={MainTabs}
-            options={{ headerShown: false }}
-          />
-          <RootStack.Screen
-            name="DesignPrimitives"
-            component={DesignPrimitivesScreen}
-            options={{ title: 'Design Primitives' }}
-          />
-        </>
-      )}
-    </RootStack.Navigator>
+    <View style={styles.fill}>
+      <RootStack.Navigator>
+        {accessToken === null ? (
+          <>
+            <RootStack.Screen
+              name="Login"
+              component={LoginScreen}
+              options={{ title: t('auth.login.title') }}
+            />
+            {/*
+             * DesignPrimitives 는 dev 전용 deep-link 대상. 비인증 상태에서도
+             * 접근 가능해야 디자인 토큰 점검이 가능하다 (PR #68 회귀 fix).
+             */}
+            <RootStack.Screen
+              name="DesignPrimitives"
+              component={DesignPrimitivesScreen}
+              options={{ title: 'Design Primitives' }}
+            />
+          </>
+        ) : (
+          <>
+            {/*
+             * 인증 상태의 진입 컨테이너. `Home` 이름은 RootStackParamList 호환을
+             * 위해 유지하고, 컴포넌트로는 BottomTabs 컨테이너를 매핑한다.
+             * MainTabs 내부에 자체 헤더 (각 탭 inner Stack 의 헤더) 가 그려지므로
+             * 외부 RootStack 헤더는 숨긴다.
+             */}
+            <RootStack.Screen
+              name="Home"
+              component={MainTabs}
+              options={{ headerShown: false }}
+            />
+            <RootStack.Screen
+              name="DesignPrimitives"
+              component={DesignPrimitivesScreen}
+              options={{ title: 'Design Primitives' }}
+            />
+          </>
+        )}
+      </RootStack.Navigator>
+
+      {needsOnboarding ? (
+        <View
+          style={styles.onboardingOverlay}
+          pointerEvents="auto"
+          accessibilityViewIsModal
+        >
+          <OnboardingGymScreen />
+        </View>
+      ) : null}
+    </View>
   );
 }
 
-/** Stack screen 형태로 사용하기 위한 HydrationGate 래퍼. */
-function HydrationGateScreen(): JSX.Element {
-  return <HydrationGate />;
-}
-
 const styles = StyleSheet.create({
+  fill: {
+    flex: 1,
+  },
   gate: {
     flex: 1,
     alignItems: 'center',
@@ -167,5 +169,8 @@ const styles = StyleSheet.create({
   gateLabel: {
     fontFamily,
     fontSize: fontSize.body,
+  },
+  onboardingOverlay: {
+    ...StyleSheet.absoluteFillObject,
   },
 });

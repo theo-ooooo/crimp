@@ -18,7 +18,8 @@ sequenceDiagram
     actor User as 사용자
     participant App as App.tsx
     participant Store as tokenStore + onboardingStore
-    participant Root as RootStack.Navigator
+    participant Root as RootStack.Navigator (Login or MainTabs)
+    participant Overlay as OnboardingGymScreen 오버레이
     participant API as Spring API
 
     User->>App: 앱 실행
@@ -29,20 +30,21 @@ sequenceDiagram
         User->>API: 카카오 로그인 → accessToken
         API-->>Store: setTokens()
     end
+    Note over Root: accessToken 비어있지 않으면 Root 는 항상 MainTabs 컨테이너 (등록된 screen 안정)
     App->>API: GET /api/v1/me
     API-->>App: { mainGym: null | {...} }
     alt me.mainGym === null && !onboarding.dismissedThisSession
-        Root->>User: OnboardingGymScreen (풀스크린, gestureEnabled=false)
+        Overlay->>User: OnboardingGymScreen 오버레이 (Root 위에 absolute fill)
         alt 검색 → 선택 → "이 암장으로 설정"
             User->>API: PATCH /me { mainGymExtId }
-            API-->>App: 200 (me 캐시 invalidate)
-            App-->>Root: me.mainGym 채워짐 → 자동으로 MainTabs 전환
+            API-->>App: 200 (me 캐시 갱신)
+            App-->>Overlay: needsOnboarding=false → 오버레이 언마운트
         else "나중에 정할게요" (skip)
             User->>Store: onboarding.dismiss()
-            Store-->>Root: dismissedThisSession=true → MainTabs 전환
+            Store-->>Overlay: needsOnboarding=false → 오버레이 언마운트
         end
     end
-    Root->>User: MainTabs (홈)
+    Root->>User: MainTabs (홈) — 오버레이 사라지면 자연스럽게 노출
 ```
 
 ### 1.1 hardware back
@@ -152,30 +154,47 @@ export type RootStackParamList = {
 };
 ```
 
-### 3.4 수정: `App.tsx` — RootStack 분기 확장
+### 3.4 수정: `App.tsx` — 오버레이 패턴
+
+RootStack 의 screen 등록 집합은 `accessToken` 변화에만 좌우된다 (LoginStack ↔
+인증 후 컨테이너). OnboardingGymScreen 은 별도 screen 으로 등록하지 않고,
+인증된 RootStack 위에 absolute position 으로 덮는다.
 
 ```tsx
-const me = useMeQuery({ enabled: accessToken !== null });
+const me = useMeQuery(accessToken);
 const dismissed = useOnboardingStore((s) => s.dismissedThisSession);
-const needsOnboarding = me.data?.mainGym == null && !dismissed;
+const needsOnboarding =
+  accessToken !== null &&
+  me.data !== undefined &&
+  me.data.mainGym == null &&
+  !dismissed;
 
-<RootStack.Navigator>
-  {accessToken === null ? (
-    <RootStack.Screen name="Login" component={LoginScreen} ... />
-  ) : me.isLoading ? (
-    <RootStack.Screen name="HydrationGate" component={HydrationGate} options={{ headerShown: false }} />
-  ) : needsOnboarding ? (
-    <RootStack.Screen
-      name="OnboardingGym"
-      component={OnboardingGymScreen}
-      options={{ headerShown: false, gestureEnabled: false }}
-    />
-  ) : (
-    <RootStack.Screen name="Home" component={MainTabs} options={{ headerShown: false }} />
-  )}
-  {/* DesignPrimitives 는 어느 분기에서도 접근 가능하게 둘지 정책 결정 — 현 PR 에서는 인증·온보딩 통과 분기에만 노출 */}
-</RootStack.Navigator>
+<View style={{ flex: 1 }}>
+  <RootStack.Navigator>
+    {accessToken === null ? (
+      <>
+        <RootStack.Screen name="Login" component={LoginScreen} ... />
+        <RootStack.Screen name="DesignPrimitives" component={DesignPrimitivesScreen} ... />
+      </>
+    ) : (
+      <>
+        <RootStack.Screen name="Home" component={MainTabs} options={{ headerShown: false }} />
+        <RootStack.Screen name="DesignPrimitives" component={DesignPrimitivesScreen} ... />
+      </>
+    )}
+  </RootStack.Navigator>
+
+  {needsOnboarding ? (
+    <View style={StyleSheet.absoluteFillObject} accessibilityViewIsModal>
+      <OnboardingGymScreen />
+    </View>
+  ) : null}
+</View>
 ```
+
+**왜 분기 대신 오버레이인가:** 분기 방식(needsOnboarding 일 때 RootStack 에 OnboardingGym 만 등록)은 LoginScreen 의 `navigation.reset({Home})` 이나 HomeScreen 의 `navigation.navigate('SessionList')` 같은 기존 호출이 게이트가 떠 있는 동안 등록된 screen 을 못 찾아 *"action not handled by any navigator"* 런타임 에러를 낸다. 오버레이는 RootStack 자체를 안정 상태로 두면서 시각적·인터랙션적으로만 게이트를 덮는다.
+
+`OnboardingGymScreen` 은 native-stack 의 screen props 를 받지 않는 일반 컴포넌트로 작성되어 있어, screen 으로 등록되든 오버레이로 쓰이든 그대로 동작한다.
 
 ### 3.5 수정: `useLogout` (또는 store.clear 호출부)
 

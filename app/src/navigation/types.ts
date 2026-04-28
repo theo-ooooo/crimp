@@ -63,12 +63,6 @@ export type RootStackParamList = {
    * 인증 필수 — 화면 내부에서 gate 처리. BottomTabs `ProfileTab` 의 루트 화면.
    */
   Profile: undefined;
-  /**
-   * MainGym 온보딩 게이트. 로그인 후 `me.mainGym === null` 이고 현재 실행에서
-   * 아직 dismiss 하지 않은 경우 `App.tsx` RootStack 이 단독 렌더한다 (BottomTabs 미진입).
-   * 기획·설계: `docs/기획/maingym-onboarding.md`, `docs/설계/sequence/maingym-onboarding.md`.
-   */
-  OnboardingGym: undefined;
 };
 
 export type RootStackNavigationProp<RouteName extends keyof RootStackParamList> =
