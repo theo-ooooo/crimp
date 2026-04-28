@@ -56,6 +56,7 @@ class AttemptServiceTest {
         var cmd = new LogAttemptCommand(
                 null, 7L, "V3", new java.math.BigDecimal("3.0"),
                 AttemptResult.SEND, 2, null, "메모", null,
+                "red",
                 Instant.parse("2026-04-20T10:30:00Z"));
         var view = service.log(42L, "01HSESS", cmd);
 
@@ -63,6 +64,8 @@ class AttemptServiceTest {
         assertThat(view.result()).isEqualTo(AttemptResult.SEND);
         assertThat(view.attempts()).isEqualTo(2);
         assertThat(view.gradeValue()).isEqualTo("V3");
+        // [PR #93, F5 PR-4] holdColor 가 entity 까지 흘러가는지 검증.
+        assertThat(view.holdColor()).isEqualTo("red");
         verify(attemptRepo).save(any(SessionAttempt.class));
     }
 
@@ -70,7 +73,7 @@ class AttemptServiceTest {
     void log_requires_result() {
         ClimbingSession s = session(100L, "01HSESS", 42L, false);
         when(sessionRepo.findByExtId("01HSESS")).thenReturn(Optional.of(s));
-        var cmd = new LogAttemptCommand(null, null, null, null, null, null, null, null, null, null);
+        var cmd = new LogAttemptCommand(null, null, null, null, null, null, null, null, null, null, null);
         assertThatThrownBy(() -> service.log(42L, "01HSESS", cmd))
                 .isInstanceOf(SessionException.class)
                 .satisfies(e -> assertThat(((SessionException) e).code()).isEqualTo("ATTEMPT_INVALID"));
@@ -80,7 +83,7 @@ class AttemptServiceTest {
     void log_rejects_attempts_below_one() {
         ClimbingSession s = session(100L, "01HSESS", 42L, false);
         when(sessionRepo.findByExtId("01HSESS")).thenReturn(Optional.of(s));
-        var cmd = new LogAttemptCommand(null, null, null, null, AttemptResult.TRY, 0, null, null, null, null);
+        var cmd = new LogAttemptCommand(null, null, null, null, AttemptResult.TRY, 0, null, null, null, null, null);
         assertThatThrownBy(() -> service.log(42L, "01HSESS", cmd))
                 .isInstanceOf(SessionException.class)
                 .satisfies(e -> assertThat(((SessionException) e).code()).isEqualTo("ATTEMPT_INVALID"));
@@ -90,7 +93,7 @@ class AttemptServiceTest {
     void log_rejects_attempts_above_max() {
         ClimbingSession s = session(100L, "01HSESS", 42L, false);
         when(sessionRepo.findByExtId("01HSESS")).thenReturn(Optional.of(s));
-        var cmd = new LogAttemptCommand(null, null, null, null, AttemptResult.TRY, 40000, null, null, null, null);
+        var cmd = new LogAttemptCommand(null, null, null, null, AttemptResult.TRY, 40000, null, null, null, null, null);
         assertThatThrownBy(() -> service.log(42L, "01HSESS", cmd))
                 .isInstanceOf(SessionException.class)
                 .satisfies(e -> assertThat(((SessionException) e).code()).isEqualTo("ATTEMPT_INVALID"));
@@ -100,7 +103,7 @@ class AttemptServiceTest {
     void log_foreign_session_is_404() {
         ClimbingSession s = session(100L, "01HSESS", 99L, false);
         when(sessionRepo.findByExtId("01HSESS")).thenReturn(Optional.of(s));
-        var cmd = new LogAttemptCommand(null, null, null, null, AttemptResult.SEND, 1, null, null, null, null);
+        var cmd = new LogAttemptCommand(null, null, null, null, AttemptResult.SEND, 1, null, null, null, null, null);
         assertThatThrownBy(() -> service.log(42L, "01HSESS", cmd))
                 .isInstanceOf(SessionException.class)
                 .satisfies(e -> assertThat(((SessionException) e).code()).isEqualTo("SESSION_NOT_FOUND"));
@@ -125,7 +128,7 @@ class AttemptServiceTest {
         when(attemptRepo.findByExtId("01HATT")).thenReturn(Optional.of(a));
         when(sessionRepo.findById(100L)).thenReturn(Optional.of(s));
 
-        var cmd = new UpdateAttemptCommand(null, null, null, null, AttemptResult.SEND, null, null, null, null);
+        var cmd = new UpdateAttemptCommand(null, null, null, null, AttemptResult.SEND, null, null, null, null, null);
         assertThatThrownBy(() -> service.update(42L, "01HATT", cmd))
                 .isInstanceOf(SessionException.class)
                 .satisfies(e -> assertThat(((SessionException) e).code()).isEqualTo("ATTEMPT_NOT_FOUND"));
@@ -140,7 +143,7 @@ class AttemptServiceTest {
 
         var cmd = new UpdateAttemptCommand(
                 5L, null, "V4", null,
-                AttemptResult.SEND, 3, null, "업데이트", null);
+                AttemptResult.SEND, 3, null, "업데이트", null, null);
         var view = service.update(42L, "01HATT", cmd);
         assertThat(view.result()).isEqualTo(AttemptResult.SEND);
         assertThat(view.attempts()).isEqualTo(3);
@@ -212,7 +215,7 @@ class AttemptServiceTest {
         when(feedPostRepo.findByAttemptId(1L)).thenReturn(Optional.empty());
 
         var cmd = new UpdateAttemptCommand(
-                null, null, null, null, AttemptResult.SEND, null, null, null, null);
+                null, null, null, null, AttemptResult.SEND, null, null, null, null, null);
         service.update(42L, "01HATT", cmd);
 
         verify(feedPostRepo).save(any(FeedPost.class));
@@ -230,7 +233,7 @@ class AttemptServiceTest {
         when(feedPostRepo.findByAttemptId(1L)).thenReturn(Optional.of(post));
 
         var cmd = new UpdateAttemptCommand(
-                null, null, null, null, AttemptResult.FAIL, null, null, null, null);
+                null, null, null, null, AttemptResult.FAIL, null, null, null, null, null);
         service.update(42L, "01HATT", cmd);
 
         assertThat(post.isDeleted()).isTrue();
@@ -250,7 +253,7 @@ class AttemptServiceTest {
         when(feedPostRepo.findByAttemptId(1L)).thenReturn(Optional.of(existing));
 
         var cmd = new UpdateAttemptCommand(
-                null, null, null, null, AttemptResult.FLASH, null, null, null, null);
+                null, null, null, null, AttemptResult.FLASH, null, null, null, null, null);
         service.update(42L, "01HATT", cmd);
 
         // 이미 게시되어 있고, deleted 상태 아님 → 신규 save 도, soft-delete 도 없어야.
@@ -272,7 +275,7 @@ class AttemptServiceTest {
         when(feedPostRepo.findByAttemptId(555L)).thenReturn(Optional.empty());
 
         var cmd = new LogAttemptCommand(
-                null, 7L, "V3", null, AttemptResult.SEND, 1, null, "기념 등반", null, null);
+                null, 7L, "V3", null, AttemptResult.SEND, 1, null, "기념 등반", null, null, null);
         service.log(42L, "01HSESS", cmd);
 
         ArgumentCaptor<FeedPost> postCap = ArgumentCaptor.forClass(FeedPost.class);
@@ -299,7 +302,7 @@ class AttemptServiceTest {
         when(feedPostRepo.findByAttemptId(anyLong())).thenReturn(Optional.empty());
 
         var cmd = new LogAttemptCommand(
-                null, null, null, null, AttemptResult.FLASH, 1, null, null, null, null);
+                null, null, null, null, AttemptResult.FLASH, 1, null, null, null, null, null);
         service.log(42L, "01HSESS", cmd);
 
         verify(feedPostRepo).save(any(FeedPost.class));
@@ -317,7 +320,7 @@ class AttemptServiceTest {
         when(feedPostRepo.findByAttemptId(anyLong())).thenReturn(Optional.empty());
 
         var cmd = new LogAttemptCommand(
-                null, null, null, null, AttemptResult.ONSIGHT, 1, null, null, null, null);
+                null, null, null, null, AttemptResult.ONSIGHT, 1, null, null, null, null, null);
         service.log(42L, "01HSESS", cmd);
 
         verify(feedPostRepo).save(any(FeedPost.class));
@@ -334,7 +337,7 @@ class AttemptServiceTest {
         });
 
         var cmd = new LogAttemptCommand(
-                null, null, null, null, AttemptResult.FAIL, 1, null, null, null, null);
+                null, null, null, null, AttemptResult.FAIL, 1, null, null, null, null, null);
         service.log(42L, "01HSESS", cmd);
 
         verify(feedPostRepo, never()).save(any(FeedPost.class));
@@ -353,7 +356,7 @@ class AttemptServiceTest {
         });
 
         var cmd = new LogAttemptCommand(
-                null, null, null, null, AttemptResult.TRY, 1, null, null, null, null);
+                null, null, null, null, AttemptResult.TRY, 1, null, null, null, null, null);
         service.log(42L, "01HSESS", cmd);
 
         verify(feedPostRepo, never()).save(any(FeedPost.class));
@@ -374,7 +377,7 @@ class AttemptServiceTest {
         when(feedPostRepo.findByAttemptId(999L)).thenReturn(Optional.of(mock(FeedPost.class)));
 
         var cmd = new LogAttemptCommand(
-                null, null, null, null, AttemptResult.SEND, 1, null, null, null, null);
+                null, null, null, null, AttemptResult.SEND, 1, null, null, null, null, null);
         service.log(42L, "01HSESS", cmd);
 
         verify(feedPostRepo, never()).save(any(FeedPost.class));

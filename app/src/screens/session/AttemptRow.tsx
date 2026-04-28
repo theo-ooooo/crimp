@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 
-import { GradeBadge, ResultMark } from '@/components/primitives';
+import { GradeBadge, HoldDot, ResultMark } from '@/components/primitives';
 import { t } from '@/lib/i18n';
 import {
   fontFamily,
@@ -61,6 +61,8 @@ export function AttemptRow({ attempt }: AttemptRowProps): JSX.Element {
       <View style={styles.body}>
         <View style={styles.topLine}>
           {grade ? <GradeBadge v={grade} size="sm" /> : null}
+          {/* [PR #93, F5 PR-4] holdColor 가 있으면 GradeBadge 옆에 작은 hold 점으로 노출. */}
+          {attempt.holdColor ? <HoldDot color={attempt.holdColor} size={14} /> : null}
           <Text style={styles.resultLabel} numberOfLines={1}>
             {t(`attempt.result.${attempt.result}` as const)}
           </Text>

@@ -37,6 +37,8 @@ export const AttemptSchema = z.object({
   mediaId: z.number().nullable(),
   note: z.string().nullable(),
   tagsJson: z.string().nullable(),
+  /** 홀드 색 (PR #93, F5 PR-4). 미저장 시 null. */
+  holdColor: z.string().nullable(),
   loggedAt: z.string(),
 });
 
@@ -58,6 +60,7 @@ export const LogAttemptBodySchema = z.object({
   mediaId: z.number().int().nullable().optional(),
   note: z.string().max(300).nullable().optional(),
   tagsJson: z.string().nullable().optional(),
+  holdColor: z.string().max(20).nullable().optional(),
   loggedAt: z.string().nullable().optional(),
 });
 
@@ -73,6 +76,7 @@ export const UpdateAttemptBodySchema = z.object({
   mediaId: z.number().int().nullable().optional(),
   note: z.string().max(300).nullable().optional(),
   tagsJson: z.string().nullable().optional(),
+  holdColor: z.string().max(20).nullable().optional(),
 });
 
 export type UpdateAttemptBody = z.infer<typeof UpdateAttemptBodySchema>;

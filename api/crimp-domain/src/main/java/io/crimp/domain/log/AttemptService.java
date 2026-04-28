@@ -67,6 +67,7 @@ public class AttemptService {
         if (cmd.mediaId() != null) attempt.updateMediaId(cmd.mediaId());
         if (cmd.note() != null) attempt.updateNote(cmd.note());
         if (cmd.tagsJson() != null) attempt.updateTagsJson(cmd.tagsJson());
+        if (cmd.holdColor() != null) attempt.updateHoldColor(cmd.holdColor());
 
         attemptRepository.save(attempt);
 
@@ -123,6 +124,7 @@ public class AttemptService {
         if (cmd.mediaId() != null) attempt.updateMediaId(cmd.mediaId());
         if (cmd.note() != null) attempt.updateNote(cmd.note());
         if (cmd.tagsJson() != null) attempt.updateTagsJson(cmd.tagsJson());
+        if (cmd.holdColor() != null) attempt.updateHoldColor(cmd.holdColor());
 
         // I1: result PATCH 가 자동 게시 정책에 영향. SEND/FLASH/ONSIGHT 로 전환되면 신규 게시,
         // 반대로 FAIL/TRY 로 전환되면 기존 게시를 soft-delete 하여 피드에서 숨긴다.
@@ -192,6 +194,7 @@ public class AttemptService {
                 a.getMediaId(),
                 a.getNote(),
                 a.getTagsJson(),
+                a.getHoldColor(),
                 a.getLoggedAt()
         );
     }

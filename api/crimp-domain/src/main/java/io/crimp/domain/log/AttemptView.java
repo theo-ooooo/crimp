@@ -16,5 +16,7 @@ public record AttemptView(
         Long mediaId,
         String note,
         String tagsJson,
+        /** 홀드 색 (PR #93, F5 PR-4). 미저장 시 null. */
+        String holdColor,
         Instant loggedAt
 ) {}
