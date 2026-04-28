@@ -90,6 +90,12 @@ public class KakaoLocalGymClient implements GymSyncSource {
                 KeywordResponse body = resp.getBody();
                 if (body == null || body.documents() == null) break;
                 for (Document d : body.documents()) {
+                    // [reviewer I1] x/y 가 비어있으면 (0,0) 좌표가 DB 에 들어가는 회귀를 막기 위해
+                    // 해당 document 스킵. Kakao 응답에 좌표가 없으면 매장 위치 자체를 신뢰할 수 없음.
+                    if (d.x() == null || d.x().isBlank() || d.y() == null || d.y().isBlank()) {
+                        log.debug("[gym-sync/kakao] skip doc with blank coord: id={} name={}", d.id(), d.placeName());
+                        continue;
+                    }
                     all.add(toRemoteGym(d));
                 }
                 if (body.meta() != null && Boolean.TRUE.equals(body.meta().isEnd())) break;
@@ -103,8 +109,9 @@ public class KakaoLocalGymClient implements GymSyncSource {
     }
 
     private static RemoteGym toRemoteGym(Document d) {
-        BigDecimal lat = d.y() != null ? new BigDecimal(d.y()) : BigDecimal.ZERO;
-        BigDecimal lng = d.x() != null ? new BigDecimal(d.x()) : BigDecimal.ZERO;
+        // 호출자가 빈 좌표 doc 을 사전에 스킵하므로 여기서는 단순 변환.
+        BigDecimal lat = new BigDecimal(d.y());
+        BigDecimal lng = new BigDecimal(d.x());
         // brand 는 Kakao 응답에 직접 없으므로 placeName 의 prefix 추정 — 정확도가 낮아
         // 도메인 측 BrandNormalizer 에서 보강. 여기서는 raw 그대로 반환.
         String brand = inferBrand(d.placeName());
@@ -114,8 +121,15 @@ public class KakaoLocalGymClient implements GymSyncSource {
     }
 
     /**
-     * Kakao place name 에서 brand 추정. "더클라임 강남점" → "더클라임" 식으로 첫 토큰 또는
-     * 알려진 브랜드 prefix 매칭. 정확도가 낮아 후속 단계의 BrandNormalizer 에서 표준화.
+     * Kakao place name 에서 brand 를 추정한다.
+     *
+     * <p>알고리즘 — placeName 이 공백을 포함하고 마지막 토큰이 "점" 으로 끝나면, 그 직전
+     * 까지의 prefix 를 brand 로 본다. 즉 "더클라임 강남점" → "더클라임",
+     * "Foo Bar Baz점" → "Foo Bar". 다중 공백 케이스에서 마지막 토큰만 "지점" 으로 처리하는
+     * 점은 의도된 단순화 (Kakao Local 응답 분석 결과 대부분 "브랜드 + 단일 지점명" 패턴).
+     *
+     * <p>"점" 이 없거나 공백이 없으면 placeName 전체를 brand 로 반환 — `BrandNormalizer`
+     * 가 후속 단계에서 표준화 (검색·필터에서는 canonical 매칭).
      */
     private static String inferBrand(String placeName) {
         if (placeName == null || placeName.isBlank()) return null;

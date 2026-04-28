@@ -17,23 +17,7 @@ class GymSyncDiffTest {
     private static final BigDecimal LNG = new BigDecimal("127.0376000");
 
     private static Gym gym(long id, String name, String address, BigDecimal lat, BigDecimal lng, String brand, String phone) {
-        // Gym 의 create 정적 팩토리는 lat/lng 만 받고 brand/phone setter 가 없으므로
-        // 테스트 편의를 위해 reflection 으로 채운다.
-        Gym g = Gym.create("01HCRMPGYM0000000000TEST" + id, name, address, lat, lng);
-        try {
-            var idField = Gym.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(g, id);
-            var brandField = Gym.class.getDeclaredField("brand");
-            brandField.setAccessible(true);
-            brandField.set(g, brand);
-            var phoneField = Gym.class.getDeclaredField("phone");
-            phoneField.setAccessible(true);
-            phoneField.set(g, phone);
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException(e);
-        }
-        return g;
+        return GymTestFactory.gym(id, name, address, lat, lng, brand, phone);
     }
 
     private static RemoteGym remote(String name, String address, BigDecimal lat, BigDecimal lng, String brand, String phone) {
