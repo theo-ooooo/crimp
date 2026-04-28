@@ -38,6 +38,11 @@ class GymSyncServiceTest {
         return new GymSyncService(source, repo, logRepo);
     }
 
+    /** {@link GymSyncDiff.Result} 를 곧장 {@link DryRunResult} 로 감싸는 헬퍼. */
+    private DryRunResult dryRunOf(GymSyncDiff.Result diff) {
+        return new DryRunResult(LAT, LNG, RADIUS, diff);
+    }
+
     @Test
     void dryRun_invokesSourceAndDoesNotMutateRepo() {
         GymSyncSource source = mock(GymSyncSource.class);
@@ -50,9 +55,13 @@ class GymSyncServiceTest {
 
         var result = service(source, repo, logRepo).dryRun(LAT, LNG, RADIUS);
 
-        assertThat(result.additions()).hasSize(1);
-        assertThat(result.updates()).isEmpty();
-        assertThat(result.remoteCount()).isEqualTo(1);
+        // [PR #87 리뷰 I2] dryRun 은 좌표·반경 컨텍스트를 함께 묶어 반환.
+        assertThat(result.lat()).isEqualByComparingTo(LAT);
+        assertThat(result.lng()).isEqualByComparingTo(LNG);
+        assertThat(result.radiusMeters()).isEqualTo(RADIUS);
+        assertThat(result.diff().additions()).hasSize(1);
+        assertThat(result.diff().updates()).isEmpty();
+        assertThat(result.diff().remoteCount()).isEqualTo(1);
         verify(repo, never()).save(any());
         verify(logRepo, never()).save(any());
     }
@@ -73,7 +82,7 @@ class GymSyncServiceTest {
                 List.of()
         );
 
-        var report = service(source, repo, logRepo).apply(diff, LAT, LNG, RADIUS);
+        var report = service(source, repo, logRepo).apply(dryRunOf(diff));
 
         assertThat(report.status()).isEqualTo(GymSyncService.ApplyReport.Status.APPLIED);
         assertThat(report.inserted()).isEqualTo(2);
@@ -115,7 +124,7 @@ class GymSyncServiceTest {
                 List.of()
         );
 
-        var report = service(source, repo, logRepo).apply(diff, LAT, LNG, RADIUS);
+        var report = service(source, repo, logRepo).apply(dryRunOf(diff));
 
         assertThat(report.status()).isEqualTo(GymSyncService.ApplyReport.Status.APPLIED);
         assertThat(report.inserted()).isEqualTo(0);
@@ -134,6 +143,7 @@ class GymSyncServiceTest {
         // [PR #85 리뷰 B1] dryRun 직후 다른 경로로 row 가 삭제된 케이스 — findById 가 empty
         // 를 리턴하면 카운터 증가 없이 skip. updated 카운트가 diff.updates 와 어긋날 수 있는
         // 유일한 정상 시나리오. updateSkipped 는 별도 카운터로 노출.
+        // [PR #87 리뷰 I4] audit row 가 update_skipped=1 까지 정확히 기록하는지 함께 검증.
         GymSyncSource source = mock(GymSyncSource.class);
         GymRepository repo = mock(GymRepository.class);
         GymSyncLogRepository logRepo = mock(GymSyncLogRepository.class);
@@ -151,11 +161,19 @@ class GymSyncServiceTest {
                 List.of()
         );
 
-        var report = service(source, repo, logRepo).apply(diff, LAT, LNG, RADIUS);
+        var report = service(source, repo, logRepo).apply(dryRunOf(diff));
 
         assertThat(report.updated()).isEqualTo(0);
         assertThat(report.updateSkipped()).isEqualTo(1);
         verify(repo, never()).save(any());
+        // audit row 가 동일한 update_skipped 카운트를 보존하는지 — PR #85 의 카운트 어긋남 회귀가
+        // audit 단계까지 정확히 흘러가는지 보증.
+        ArgumentCaptor<GymSyncLog> captor = ArgumentCaptor.forClass(GymSyncLog.class);
+        verify(logRepo, times(1)).save(captor.capture());
+        assertThat(captor.getValue().getStatus()).isEqualTo(GymSyncLog.Status.APPLIED);
+        assertThat(captor.getValue().getUpdated()).isEqualTo(0);
+        assertThat(captor.getValue().getUpdateSkipped()).isEqualTo(1);
+        assertThat(captor.getValue().getUpdatesPlanned()).isEqualTo(1);
     }
 
     @Test
@@ -182,7 +200,7 @@ class GymSyncServiceTest {
                 List.of()
         );
 
-        service(source, repo, logRepo).apply(diff, LAT, LNG, RADIUS);
+        service(source, repo, logRepo).apply(dryRunOf(diff));
 
         assertThat(managed.getBrand()).isEqualTo("더클라임"); // 보존
         assertThat(managed.getPhone()).isEqualTo("02-1234-5678"); // 보존
@@ -203,7 +221,7 @@ class GymSyncServiceTest {
                 .toList();
         var diff = new GymSyncDiff.Result(6, additions, List.of(), List.of());
 
-        var report = service(source, repo, logRepo).apply(diff, LAT, LNG, RADIUS);
+        var report = service(source, repo, logRepo).apply(dryRunOf(diff));
 
         assertThat(report.status()).isEqualTo(GymSyncService.ApplyReport.Status.ABORTED_RATIO_GUARD);
         assertThat(report.reason()).contains("change ratio");
@@ -234,7 +252,7 @@ class GymSyncServiceTest {
                 List.of()
         );
 
-        var report = service(source, repo, logRepo).apply(diff, LAT, LNG, RADIUS);
+        var report = service(source, repo, logRepo).apply(dryRunOf(diff));
         assertThat(report.status()).isEqualTo(GymSyncService.ApplyReport.Status.APPLIED);
         assertThat(report.inserted()).isEqualTo(2);
     }

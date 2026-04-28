@@ -58,7 +58,8 @@ sequenceDiagram
     DB-->>Service: List<Gym>
     Service->>Diff: compute(remote, current)
     Diff-->>Service: { additions, updates, missingFromRemote }
-    Service-->>Admin: 결과 + 로그 (DB 미수정)
+    Service-->>Admin: DryRunResult(lat, lng, radius, diff) + 로그 (DB 미수정)
+    Note over Admin,Service: DryRunResult 가 좌표·반경을 함께 묶어 운반 (PR #87 I2)
 ```
 
 ## 4. 시퀀스 — apply (가드 통과 시)
@@ -70,7 +71,8 @@ sequenceDiagram
     participant Service as GymSyncService
     participant DB as gyms
 
-    Caller->>Service: apply(diff, lat, lng, radius)
+    Caller->>Service: apply(dryRunResult)
+    Note over Caller,Service: dryRunResult 의 lat/lng/radius 가 audit 컨텍스트로 자동 사용
     Service->>DB: count()
     Service->>Service: changeRatio = (additions+updates) / count
     alt changeRatio > 50%

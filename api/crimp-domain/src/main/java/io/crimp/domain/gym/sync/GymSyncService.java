@@ -57,10 +57,13 @@ public class GymSyncService {
     }
 
     /**
-     * 주어진 좌표 영역에서 외부 소스를 호출해 diff 결과만 계산. DB 는 변경하지 않는다.
+     * 주어진 좌표 영역에서 외부 소스를 호출해 diff 결과를 계산. DB 는 변경하지 않는다.
+     *
+     * <p>반환값에 좌표·반경 컨텍스트를 함께 묶어 반환하므로, 후속 {@link #apply(DryRunResult)}
+     * 호출 시점에 다른 좌표·반경을 실수로 넘길 수 없다 (PR #87 리뷰 I2).
      */
     @Transactional(readOnly = true)
-    public GymSyncDiff.Result dryRun(BigDecimal lat, BigDecimal lng, int radiusMeters) {
+    public DryRunResult dryRun(BigDecimal lat, BigDecimal lng, int radiusMeters) {
         List<RemoteGym> remote = source.fetchByRadius(lat, lng, radiusMeters);
         List<Gym> current = gymRepository.findAll();
         GymSyncDiff.Result result = GymSyncDiff.compute(remote, current);
@@ -69,7 +72,7 @@ public class GymSyncService {
                 lat, lng, radiusMeters,
                 remote.size(), current.size(),
                 result.additions().size(), result.updates().size(), result.missingFromRemote().size());
-        return result;
+        return new DryRunResult(lat, lng, radiusMeters, result);
     }
 
     /**
@@ -82,14 +85,15 @@ public class GymSyncService {
      * 커밋되어야 audit 도 함께 보존됨 — apply 단계에서 예외가 발생하면 audit 도 함께 롤백,
      * 운영자는 application 로그(stack trace) 로 추적.
      *
-     * @param diff dry-run 으로 산출한 diff
-     * @param lat  대상 영역 중심 위도 (audit 컨텍스트)
-     * @param lng  대상 영역 중심 경도 (audit 컨텍스트)
-     * @param radiusMeters 반경 (audit 컨텍스트)
+     * @param dryRun {@link #dryRun(BigDecimal, BigDecimal, int)} 의 반환값. 좌표·반경 컨텍스트를
+     *               포함하므로 apply 호출자가 다른 좌표를 실수로 넘기지 않음 (PR #87 리뷰 I2).
      */
     @Transactional
-    public ApplyReport apply(GymSyncDiff.Result diff,
-                             BigDecimal lat, BigDecimal lng, int radiusMeters) {
+    public ApplyReport apply(DryRunResult dryRun) {
+        BigDecimal lat = dryRun.lat();
+        BigDecimal lng = dryRun.lng();
+        int radiusMeters = dryRun.radiusMeters();
+        GymSyncDiff.Result diff = dryRun.diff();
         Instant occurredAt = Instant.now();
         int currentSize = (int) gymRepository.count();
         int additionsPlanned = diff.additions().size();
@@ -109,7 +113,7 @@ public class GymSyncService {
                         diff.remoteCount(), currentSize,
                         additionsPlanned, updatesPlanned, missingFromRemote,
                         reason));
-                return ApplyReport.aborted(reason, additionsPlanned, updatesPlanned, missingFromRemote);
+                return ApplyReport.aborted(reason, missingFromRemote);
             }
         }
 
@@ -179,8 +183,9 @@ public class GymSyncService {
             return new ApplyReport(Status.APPLIED, inserted, updated, updateSkipped, missingFromRemote, null);
         }
 
-        public static ApplyReport aborted(String reason, int additionsPlanned, int updatesPlanned, int missingFromRemote) {
-            // ABORTED 시점엔 inserted/updated/skipped 는 모두 0 — diff 의 plan 카운트는 reason 으로만 노출.
+        public static ApplyReport aborted(String reason, int missingFromRemote) {
+            // ABORTED 시점엔 inserted/updated/skipped 모두 0. diff 의 plan 카운트는 audit row 에 기록되며
+            // 호출자(향후 admin API) 가 필요하면 audit row 를 참조 (PR #87 리뷰 I1: 미사용 파라미터 제거).
             return new ApplyReport(Status.ABORTED_RATIO_GUARD, 0, 0, 0, missingFromRemote, reason);
         }
     }

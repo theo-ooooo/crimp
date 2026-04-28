@@ -21,5 +21,7 @@ CREATE TABLE gym_sync_log (
   update_skipped     INT NOT NULL DEFAULT 0 COMMENT 'findById empty 로 스킵된 update 수',
   error_message      VARCHAR(500) NULL,
   PRIMARY KEY (id),
-  KEY idx_gym_sync_log_occurred (occurred_at)
+  KEY idx_gym_sync_log_occurred (occurred_at),
+  -- "최근 ABORTED/FAILED 만 보기" 류 운영 쿼리 대비 (PR #87 리뷰 I3).
+  KEY idx_gym_sync_log_status_occurred (status, occurred_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
