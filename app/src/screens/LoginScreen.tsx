@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -7,6 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -160,102 +162,176 @@ export default function LoginScreen(): JSX.Element {
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.scrollContent}
-      keyboardShouldPersistTaps="handled"
-    >
-      {/* Hero — 브랜드 + 헤드라인 (mock: paddingTop 120, padding 0 24) */}
-      <View style={styles.heroBlock}>
-        <Text style={styles.brand} accessibilityRole="header">
-          {t('common.brand')}
-        </Text>
-        <Text style={styles.headline}>
-          {t('auth.login.headlineLine1')}
-          {'\n'}
-          {t('auth.login.headlineLine2')}
-        </Text>
-        <Text style={styles.subDescription}>
-          {t('auth.login.subDescription')}
-        </Text>
-      </View>
-
-      {/* 네이티브 SDK 미연결 알림 (dev 빌드 한정) */}
-      {kakaoLogin === null ? (
-        <View style={styles.noticeCard} accessibilityRole="alert">
-          <Text style={styles.noticeTitle}>{t('auth.login.nativeUnlinkedTitle')}</Text>
-          <Text style={styles.noticeBody}>{t('auth.login.nativeUnlinkedBody')}</Text>
-        </View>
-      ) : null}
-
-      {/* CTA + 약관 (mock: 하단 padding 0 20, gap 10) */}
-      <View style={styles.ctaBlock}>
-        <PrimaryButton
-          onPress={onKakaoPress}
-          disabled={exchange.isPending}
-          accessibilityLabel={t('auth.login.kakaoCta')}
-        >
-          {exchange.isPending
-            ? t('auth.login.exchanging')
-            : t('auth.login.kakaoCta')}
-        </PrimaryButton>
-        <Text style={styles.termsNotice}>{t('auth.login.termsNotice')}</Text>
-      </View>
-
-      {errorMessage ? (
-        <View style={styles.errorCard} accessibilityRole="alert">
-          <Text style={styles.errorTitle}>{t('auth.login.errorTitle')}</Text>
-          <Text style={styles.errorBody}>{errorMessage}</Text>
-        </View>
-      ) : null}
-
-      {/* Dev 모드 폴백 — Phase 1 동안 유지 (PR #49). */}
-      <View style={styles.devSection}>
-        <Pressable
-          onPress={() => setDevOpen((v) => !v)}
-          accessibilityRole="button"
-          accessibilityLabel={t('auth.login.devModeToggle')}
-          accessibilityState={{ expanded: devOpen }}
-          style={({ pressed }) => [
-            styles.devToggle,
-            pressed ? styles.devTogglePressed : null,
-          ]}
-        >
-          <Text style={styles.devToggleLabel}>
-            {devOpen ? t('auth.login.devModeHide') : t('auth.login.devModeToggle')}
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Hero — 브랜드 + 헤드라인 (mock: paddingTop 120, padding 0 24) */}
+        <View style={styles.heroBlock}>
+          <Text style={styles.brand} accessibilityRole="header">
+            {t('common.brand')}
           </Text>
-        </Pressable>
+          <Text style={styles.headline}>
+            {t('auth.login.headlineLine1')}
+            {'\n'}
+            {t('auth.login.headlineLine2')}
+          </Text>
+          <Text style={styles.subDescription}>
+            {t('auth.login.subDescription')}
+          </Text>
+        </View>
 
-        {devOpen ? (
-          <View style={styles.devPanel}>
-            <Text style={styles.devHint}>{t('auth.login.devModeHint')}</Text>
-            <Text style={styles.devLabel}>{t('auth.login.devTokenLabel')}</Text>
-            <TextInput
-              value={devToken}
-              onChangeText={setDevToken}
-              placeholder={t('auth.login.devTokenPlaceholder')}
-              placeholderTextColor={theme.text4}
-              autoCapitalize="none"
-              autoCorrect={false}
-              multiline
-              style={styles.devInput}
-              accessibilityLabel={t('auth.login.devTokenLabel')}
-            />
-            <View style={styles.devSubmit}>
-              <SecondaryButton
-                onPress={onDevSubmit}
-                disabled={exchange.isPending || devToken.trim().length === 0}
-                accessibilityLabel={t('auth.login.devSubmit')}
-              >
-                {t('auth.login.devSubmit')}
-              </SecondaryButton>
-            </View>
+        {/* 네이티브 SDK 미연결 알림 (dev 빌드 한정) */}
+        {kakaoLogin === null ? (
+          <View style={styles.noticeCard} accessibilityRole="alert">
+            <Text style={styles.noticeTitle}>{t('auth.login.nativeUnlinkedTitle')}</Text>
+            <Text style={styles.noticeBody}>{t('auth.login.nativeUnlinkedBody')}</Text>
           </View>
         ) : null}
+
+        {errorMessage ? (
+          <View style={styles.errorCard} accessibilityRole="alert">
+            <Text style={styles.errorTitle}>{t('auth.login.errorTitle')}</Text>
+            <Text style={styles.errorBody}>{errorMessage}</Text>
+          </View>
+        ) : null}
+
+        {/* Dev 모드 폴백 — Phase 1 동안 유지 (PR #49). */}
+        <View style={styles.devSection}>
+          <Pressable
+            onPress={() => setDevOpen((v) => !v)}
+            accessibilityRole="button"
+            accessibilityLabel={t('auth.login.devModeToggle')}
+            accessibilityState={{ expanded: devOpen }}
+            style={({ pressed }) => [
+              styles.devToggle,
+              pressed ? styles.devTogglePressed : null,
+            ]}
+          >
+            <Text style={styles.devToggleLabel}>
+              {devOpen ? t('auth.login.devModeHide') : t('auth.login.devModeToggle')}
+            </Text>
+          </Pressable>
+
+          {devOpen ? (
+            <View style={styles.devPanel}>
+              <Text style={styles.devHint}>{t('auth.login.devModeHint')}</Text>
+              <Text style={styles.devLabel}>{t('auth.login.devTokenLabel')}</Text>
+              <TextInput
+                value={devToken}
+                onChangeText={setDevToken}
+                placeholder={t('auth.login.devTokenPlaceholder')}
+                placeholderTextColor={theme.text4}
+                autoCapitalize="none"
+                autoCorrect={false}
+                multiline
+                style={styles.devInput}
+                accessibilityLabel={t('auth.login.devTokenLabel')}
+              />
+              <View style={styles.devSubmit}>
+                <SecondaryButton
+                  onPress={onDevSubmit}
+                  disabled={exchange.isPending || devToken.trim().length === 0}
+                  accessibilityLabel={t('auth.login.devSubmit')}
+                >
+                  {t('auth.login.devSubmit')}
+                </SecondaryButton>
+              </View>
+            </View>
+          ) : null}
+        </View>
+      </ScrollView>
+
+      {/* 하단 고정 카카오 CTA + 약관 안내 — 스크롤과 무관하게 항상 노출 */}
+      <View style={styles.bottomCta}>
+        <KakaoLoginButton
+          onPress={onKakaoPress}
+          loading={exchange.isPending}
+          accessibilityLabel={t('auth.login.kakaoCta')}
+        />
+        <Text style={styles.termsNotice}>{t('auth.login.termsNotice')}</Text>
       </View>
-    </ScrollView>
+    </SafeAreaView>
   );
 }
+
+/**
+ * Kakao 공식 가이드라인 컬러(#FEE500) + KakaoMark.
+ *
+ * 정식 카카오 talk 아이콘은 라이센스 필요해 단순 ellipse 로 placeholder.
+ * (web 의 `KakaoMark` 와 동일 패턴 — `web/app/login/page.tsx` 참조.)
+ */
+function KakaoLoginButton({
+  onPress,
+  loading,
+  accessibilityLabel,
+}: {
+  onPress: () => void;
+  loading: boolean;
+  accessibilityLabel: string;
+}): JSX.Element {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={loading}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled: loading }}
+      style={({ pressed }) => [
+        kakaoButtonStyles.base,
+        pressed && !loading ? kakaoButtonStyles.pressed : null,
+        loading ? kakaoButtonStyles.disabled : null,
+      ]}
+    >
+      {loading ? (
+        <ActivityIndicator color={KAKAO_INK} />
+      ) : (
+        <>
+          <View style={kakaoButtonStyles.markCircle} />
+          <Text style={kakaoButtonStyles.label}>
+            {t('auth.login.kakaoCta')}
+          </Text>
+        </>
+      )}
+    </Pressable>
+  );
+}
+
+const KAKAO_YELLOW = '#FEE500';
+const KAKAO_INK = '#191919'; // Kakao 가이드라인의 본문 텍스트 색 (검정에 가까운 매트)
+
+const kakaoButtonStyles = StyleSheet.create({
+  base: {
+    width: '100%',
+    height: 56,
+    borderRadius: radius.lg,
+    backgroundColor: KAKAO_YELLOW,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space[2],
+  },
+  pressed: {
+    opacity: 0.85,
+  },
+  disabled: {
+    opacity: 0.6,
+  },
+  markCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: KAKAO_INK,
+  },
+  label: {
+    fontFamily,
+    fontSize: 17,
+    fontWeight: fontWeight.bold,
+    color: KAKAO_INK,
+    letterSpacing: -0.2,
+  },
+});
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
@@ -270,14 +346,14 @@ function makeStyles(theme: Theme) {
       gap: space[3],
     },
     /**
-     * Mock paddingTop 120 + paddingBottom 60 ≒ space[20] (80) / space[14] (56).
-     * 모바일 safe-area + 작은 화면 호환을 위해 hero 영역 위쪽 80, 아래쪽 56.
+     * 스크롤 본문 — 하단 카카오 CTA 가 absolute-like 로 SafeAreaView 의 마지막 child
+     * 로 분리되었으므로, 본문 paddingBottom 은 카카오 버튼 위 여유 분만 확보.
      */
     scrollContent: {
       paddingHorizontal: space[6],
-      paddingTop: space[20],
-      paddingBottom: space[14],
-      gap: space[8],
+      paddingTop: space[10],
+      paddingBottom: space[6],
+      gap: space[6],
     },
     /** Hero block — 브랜드/헤드라인/설명. Mock gap: 32 + 12 ≒ space[8]/space[3]. */
     heroBlock: {
@@ -318,8 +394,15 @@ function makeStyles(theme: Theme) {
       alignSelf: 'stretch',
       marginTop: space[4],
     },
-    /** Mock 하단 CTA gap 10 + 약관 marginTop 12 ≒ space[3]. */
-    ctaBlock: {
+    /**
+     * 하단 고정 카카오 CTA + 약관 — SafeAreaView 의 bottom inset 위에 배치.
+     * ScrollView 뒤(formIndex 마지막) 에 두어 항상 보이고, 키보드 올라오면 가려질 수
+     * 있으나 LoginScreen 에서 input focus 케이스가 dev 토큰 panel 뿐이라 허용.
+     */
+    bottomCta: {
+      paddingHorizontal: space[6],
+      paddingTop: space[3],
+      paddingBottom: space[3],
       gap: space[3],
     },
     /** Mock: fontSize 12, color text3, textAlign center, lineHeight 1.5. */
@@ -329,7 +412,6 @@ function makeStyles(theme: Theme) {
       color: theme.text3,
       textAlign: 'center',
       lineHeight: fontSize.caption * 1.5,
-      marginTop: space[2],
     },
     noticeCard: {
       backgroundColor: theme.subtle,
