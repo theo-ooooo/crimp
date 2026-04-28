@@ -311,7 +311,7 @@ CREATE TABLE follows (
 | V202605010905 | `V202605010905__init_social.sql` | follows |
 | V202605010907 | `V202605010907__add_attempt_ext_id.sql` | session_attempts.ext_id 추가 |
 | V202605010908 | `V202605010908__feed_post_attempt_link.sql` | feed_posts ↔ attempt 연결 |
-| V202605010920 | `V202605010920__seed_gyms_seoul.sql` | 수도권 주요 암장 30곳 seed (M3 차단요건 해소). INSERT IGNORE 로 멱등 보장. 베타 직전 좌표·전화·영업시간 정확도 검수 필요 |
+| V202605010920 | `V202605010920__seed_gyms_seoul.sql` | 수도권 검증된 암장 13곳(더클라임 11 + 클라이밍파크 신논현 + 볼더프렌즈 홍대) 1차 seed. 주소는 구(district) 단위·좌표는 구 중심값. 정확한 도로명/좌표/연락처는 후속 검수 PR 에서 ON DUPLICATE KEY UPDATE 로 업데이트 |
 
 ## 7. 오픈 이슈
 
