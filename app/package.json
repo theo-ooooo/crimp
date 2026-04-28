@@ -48,5 +48,10 @@
   "engines": {
     "node": ">=20"
   },
-  "packageManager": "pnpm@9.12.3"
+  "packageManager": "pnpm@9.12.3",
+  "pnpm": {
+    "patchedDependencies": {
+      "@react-native-seoul/kakao-login@5.4.2": "patches/@react-native-seoul__kakao-login@5.4.2.patch"
+    }
+  }
 }

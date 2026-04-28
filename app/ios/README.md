@@ -60,9 +60,11 @@ cd app && pnpm ios --device "<device name>"
 
 ## 5. 백엔드 연결
 
-기본 `EXPO_PUBLIC_API_URL=http://localhost:8080` (시뮬레이터에서 동작).
+`src/lib/api/config.ts` 가 platform 기반 default 를 사용:
+- **iOS 시뮬레이터**: `http://localhost:8080`
+- **Android 에뮬레이터**: `http://10.0.2.2:8080` (호스트 Mac 의 localhost)
+- env 변수 `CRIMP_API_URL` 이 우선 (단, 아래 NOTE 참고)
 
-- **실 디바이스**: `app/.env` 에 머신 LAN IP 사용 (예: `EXPO_PUBLIC_API_URL=http://192.168.0.10:8080`).
-- **Android 에뮬레이터**: 호스트 머신은 `10.0.2.2` 로 접근 (별도 환경에서 빌드).
+**실 디바이스(USB/Wi-Fi)**: 머신 LAN IP 가 필요. 현재 env 주입이 미설정이라 일시적으로 `config.ts` 의 default 를 직접 수정해 사용. 후속 PR 에서 babel-plugin-transform-inline-environment-variables 또는 react-native-config 도입 예정.
 
-> NOTE: `process.env.EXPO_PUBLIC_API_URL` 을 빌드 시점에 인라인하려면 Metro 에 env 플러그인이 필요하다 (현재 미설정). 우선은 `app/src/lib/api/config.ts` 의 fallback (`http://localhost:8080`) 으로 시뮬레이터 검증 후, 실 디바이스 단계에서 별도 PR 로 env 주입 도입 예정.
+> NOTE: bare RN 의 기본 빌드 파이프라인은 `process.env.X` 를 주입하지 않아 `CRIMP_API_URL` env 는 위 플러그인 도입 전까지 효과가 없다. 그 전까지는 platform default 또는 `config.ts` 직접 수정으로 운영.

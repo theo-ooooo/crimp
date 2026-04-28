@@ -1,0 +1,225 @@
+diff --git a/android/src/main/java/com/dooboolab/kakaologins/RNKakaoLoginsModule.kt b/android/src/main/java/com/dooboolab/kakaologins/RNKakaoLoginsModule.kt
+index ad0ffcdf977657417e3678b8070f838d6dbcd50a..a168556828cf0e01b7f9e90e1350b71a6ccf3902 100644
+--- a/android/src/main/java/com/dooboolab/kakaologins/RNKakaoLoginsModule.kt
++++ b/android/src/main/java/com/dooboolab/kakaologins/RNKakaoLoginsModule.kt
+@@ -20,76 +20,51 @@ class RNKakaoLoginsModule(private val reactContext: ReactApplicationContext) : R
+         return "RNKakaoLogins"
+     }
+ 
++    /**
++     * [crimp patch] OpenID Connect 지원: nonce 인자를 받아 Kakao SDK 의 `loginWithKakaoAccount`
++     * 에 전달한다. nonce 가 있어야 응답에 `idToken` 이 채워진다 (백엔드의 OIDC id_token 검증에
++     * 필수). KakaoTalk app-to-app 경로는 v2.20.1 SDK 의 `loginWithKakaoTalk` 가 nonce
++     * 파라미터를 받지 않아 idToken 을 못 주므로 항상 `loginWithKakaoAccount` 로 강제.
++     * 원본 동작은 nonce=null 로 호출 시에도 동일하게 동작한다 (idToken 만 비어있음).
++     */
+     @ReactMethod
+-    private fun login(promise: Promise) {
+-        if (UserApiClient.instance.isKakaoTalkLoginAvailable(reactContext)) {
+-            reactContext.currentActivity?.let {
+-                UserApiClient.instance.loginWithKakaoTalk(it) { token, error: Throwable? ->
+-                    if (error != null) {
+-                        if (error is AuthError && error.statusCode == 302) {
+-                            this.loginWithKakaoAccount(promise)
+-                            return@loginWithKakaoTalk
+-                        }
+-                        promise.reject("RNKakaoLogins", error.message, error)
+-                        return@loginWithKakaoTalk
+-                    }
+-
+-                    if (token != null) {
+-                        val (accessToken, accessTokenExpiresAt, refreshToken, refreshTokenExpiresAt, idToken, scopes) = token
+-                        val map = Arguments.createMap()
+-                        map.putString("accessToken", accessToken)
+-                        map.putString("refreshToken", refreshToken)
+-                        map.putString("idToken", idToken)
+-                        map.putString("accessTokenExpiresAt", dateFormat(accessTokenExpiresAt))
+-                        map.putString("refreshTokenExpiresAt", dateFormat(refreshTokenExpiresAt))
+-                        val scopeArray = Arguments.createArray()
+-                        if (scopes != null) {
+-                            for (scope in scopes) {
+-                                scopeArray.pushString(scope)
+-                            }
+-                        }
+-                        map.putArray("scopes", scopeArray)
+-                        promise.resolve(map)
+-                        return@loginWithKakaoTalk
+-                    }
+-
+-                    promise.reject("RNKakaoLogins", "Token is null")
+-                }
++    private fun login(nonce: String?, promise: Promise) {
++        UserApiClient.instance.loginWithKakaoAccount(
++            reactContext,
++            nonce = nonce
++        ) { token, error: Throwable? ->
++            if (error != null) {
++                promise.reject("RNKakaoLogins", error.message, error)
++                return@loginWithKakaoAccount
+             }
+-        } else {
+-            UserApiClient.instance.loginWithKakaoAccount(reactContext) { token, error: Throwable? ->
+-                if (error != null) {
+-                    promise.reject("RNKakaoLogins", error.message, error)
+-                    return@loginWithKakaoAccount
+-                }
+ 
+-                if (token != null) {
+-                    val (accessToken, accessTokenExpiresAt, refreshToken, refreshTokenExpiresAt, idToken, scopes) = token
+-                    val map = Arguments.createMap()
+-                    map.putString("accessToken", accessToken)
+-                    map.putString("refreshToken", refreshToken)
+-                    map.putString("idToken", idToken)
+-                    map.putString("accessTokenExpiresAt", dateFormat(accessTokenExpiresAt))
+-                    map.putString("refreshTokenExpiresAt", dateFormat(refreshTokenExpiresAt))
+-                    val scopeArray = Arguments.createArray()
+-                    if (scopes != null) {
+-                        for (scope in scopes) {
+-                            scopeArray.pushString(scope)
+-                        }
++            if (token != null) {
++                val (accessToken, accessTokenExpiresAt, refreshToken, refreshTokenExpiresAt, idToken, scopes) = token
++                val map = Arguments.createMap()
++                map.putString("accessToken", accessToken)
++                map.putString("refreshToken", refreshToken)
++                map.putString("idToken", idToken)
++                map.putString("accessTokenExpiresAt", dateFormat(accessTokenExpiresAt))
++                map.putString("refreshTokenExpiresAt", dateFormat(refreshTokenExpiresAt))
++                val scopeArray = Arguments.createArray()
++                if (scopes != null) {
++                    for (scope in scopes) {
++                        scopeArray.pushString(scope)
+                     }
+-                    map.putArray("scopes", scopeArray)
+-                    promise.resolve(map)
+-                    return@loginWithKakaoAccount
+                 }
+-
+-                promise.reject("RNKakaoLogins", "Token is null")
++                map.putArray("scopes", scopeArray)
++                promise.resolve(map)
++                return@loginWithKakaoAccount
+             }
++
++            promise.reject("RNKakaoLogins", "Token is null")
+         }
+     }
+ 
++    /** [crimp patch] nonce 인자 전달 — `login()` 과 동일하게 OpenID Connect 지원. */
+     @ReactMethod
+-    private fun loginWithKakaoAccount(promise: Promise) {
+-        UserApiClient.instance.loginWithKakaoAccount(reactContext) { token, error: Throwable? ->
++    private fun loginWithKakaoAccount(nonce: String?, promise: Promise) {
++        UserApiClient.instance.loginWithKakaoAccount(reactContext, nonce = nonce) { token, error: Throwable? ->
+             if (error != null) {
+                 promise.reject("RNKakaoLogins", error.message, error)
+                 return@loginWithKakaoAccount
+diff --git a/ios/RNKakaoLogins/RNKakaoLogins.m b/ios/RNKakaoLogins/RNKakaoLogins.m
+index 9c7a7964e58b9a18a82ad4a317d78dd2ec764358..38745a9110837c21ea092117a7470c86708b967f 100644
+--- a/ios/RNKakaoLogins/RNKakaoLogins.m
++++ b/ios/RNKakaoLogins/RNKakaoLogins.m
+@@ -4,8 +4,8 @@
+ 
+ @interface RCT_EXTERN_MODULE(RNKakaoLogins, NSObject)
+ 
+-RCT_EXTERN_METHOD(login:(RCTPromiseResolveBlock *)resolve rejecter:(RCTPromiseRejectBlock *)reject);
+-RCT_EXTERN_METHOD(loginWithKakaoAccount:(RCTPromiseResolveBlock *)resolve rejecter:(RCTPromiseRejectBlock *)reject);
++RCT_EXTERN_METHOD(login:(NSString *)nonce resolver:(RCTPromiseResolveBlock *)resolve rejecter:(RCTPromiseRejectBlock *)reject);
++RCT_EXTERN_METHOD(loginWithKakaoAccount:(NSString *)nonce resolver:(RCTPromiseResolveBlock *)resolve rejecter:(RCTPromiseRejectBlock *)reject);
+ RCT_EXTERN_METHOD(logout:(RCTPromiseResolveBlock *)resolve rejecter:(RCTPromiseRejectBlock *)reject);
+ RCT_EXTERN_METHOD(unlink:(RCTPromiseResolveBlock *)resolve rejecter:(RCTPromiseRejectBlock *)reject);
+ RCT_EXTERN_METHOD(getProfile:(RCTPromiseResolveBlock *)resolve rejecter:(RCTPromiseRejectBlock *)reject);
+diff --git a/ios/RNKakaoLogins/RNKakaoLogins.swift b/ios/RNKakaoLogins/RNKakaoLogins.swift
+index 202e945fa4b86f646e48f20c6f3992c20bca57d4..7843cf0c48a282a40955352e6b8f83855f601cfb 100644
+--- a/ios/RNKakaoLogins/RNKakaoLogins.swift
++++ b/ios/RNKakaoLogins/RNKakaoLogins.swift
+@@ -46,15 +46,18 @@ class RNKakaoLogins: NSObject {
+         return AuthController.handleOpenUrl(url: url)
+     }
+ 
+-    @objc(login:rejecter:)
+-    func login(_ resolve: @escaping RCTPromiseResolveBlock,
++    /// [crimp patch] OpenID Connect 지원 — nonce 인자를 받아 Kakao SDK 의 `loginWithKakaoTalk`/`loginWithKakaoAccount` 의
++    /// nonce 파라미터로 전달한다. nonce 가 있어야 응답에 `idToken` 이 채워진다 (백엔드 OIDC id_token 검증에 필수).
++    @objc(login:resolver:rejecter:)
++    func login(_ nonce: String?,
++                resolver resolve: @escaping RCTPromiseResolveBlock,
+                 rejecter reject: @escaping RCTPromiseRejectBlock) -> Void {
+         DispatchQueue.main.async {
+             let dateFormatter = DateFormatter()
+             dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss";
+ 
+             if (UserApi.isKakaoTalkLoginAvailable()) {
+-                UserApi.shared.loginWithKakaoTalk {(oauthToken, error) in
++                UserApi.shared.loginWithKakaoTalk(nonce: nonce) {(oauthToken, error) in
+                     if let error = error {
+                         reject("RNKakaoLogins", error.localizedDescription, nil)
+                     }
+@@ -70,7 +73,7 @@ class RNKakaoLogins: NSObject {
+                     }
+                 }
+             } else {
+-                UserApi.shared.loginWithKakaoAccount {(oauthToken, error) in
++                UserApi.shared.loginWithKakaoAccount(nonce: nonce) {(oauthToken, error) in
+                     if let error = error {
+                         reject("RNKakaoLogins", error.localizedDescription, nil)
+                     }
+@@ -89,13 +92,15 @@ class RNKakaoLogins: NSObject {
+         }
+     }
+ 
+-    @objc(loginWithKakaoAccount:rejecter:)
+-    func loginWithKakaoAccount(_ resolve: @escaping RCTPromiseResolveBlock,
++    /// [crimp patch] nonce 인자 전달 — OpenID Connect 지원.
++    @objc(loginWithKakaoAccount:resolver:rejecter:)
++    func loginWithKakaoAccount(_ nonce: String?,
++                resolver resolve: @escaping RCTPromiseResolveBlock,
+                 rejecter reject: @escaping RCTPromiseRejectBlock) -> Void {
+         DispatchQueue.main.async {
+-                    let dateFormatter = DateFormatter()
+-                    dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss";
+-            UserApi.shared.loginWithKakaoAccount {(oauthToken, error) in
++            let dateFormatter = DateFormatter()
++            dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss";
++            UserApi.shared.loginWithKakaoAccount(nonce: nonce) {(oauthToken, error) in
+                 if let error = error {
+                     reject("RNKakaoLogins", error.localizedDescription, nil)
+                 }
+diff --git a/src/index.d.ts b/src/index.d.ts
+index d4775a8a3ef08aef24084a3775bacee4881bb607..57194f2759cd9be59960e12e272a72ffaec1a5da 100644
+--- a/src/index.d.ts
++++ b/src/index.d.ts
+@@ -1,8 +1,10 @@
+ export declare const login: {
+-    (): Promise<import("./types").KakaoOAuthToken>;
++    /** [crimp patch] OpenID Connect 지원 — nonce 가 있어야 응답에 idToken 채워짐. */
++    (nonce?: string | null): Promise<import("./types").KakaoOAuthToken>;
+     (props: import("./types").KaKaoLoginWebType): Promise<import("./types").KakaoOAuthWebToken>;
+ };
+-export declare const loginWithKakaoAccount: () => Promise<import("./types").KakaoOAuthToken>;
++/** [crimp patch] nonce 인자 — OpenID Connect 활성화 시 idToken 수신용. */
++export declare const loginWithKakaoAccount: (nonce?: string | null) => Promise<import("./types").KakaoOAuthToken>;
+ export declare const logout: {
+     (): Promise<string>;
+     (tokenWeb: string): Promise<string>;
+diff --git a/src/index.js b/src/index.js
+index bdf9f0ba3d03d69692151bfc09a583efe702349c..326d73a3a1bd16ca0e3ef9e58e1f66f1ddf1d743 100644
+--- a/src/index.js
++++ b/src/index.js
+@@ -1,11 +1,12 @@
+ import { NativeModules } from 'react-native';
+ var RNKakaoLogins = NativeModules.RNKakaoLogins;
+ var NativeKakaoLogins = {
+-    login: function () {
+-        return RNKakaoLogins.login();
++    // [crimp patch] OpenID Connect 지원 — nonce 가 있어야 응답에 idToken 채워짐.
++    login: function (nonce) {
++        return RNKakaoLogins.login(nonce !== null && nonce !== void 0 ? nonce : null);
+     },
+-    loginWithKakaoAccount: function () {
+-        return RNKakaoLogins.loginWithKakaoAccount();
++    loginWithKakaoAccount: function (nonce) {
++        return RNKakaoLogins.loginWithKakaoAccount(nonce !== null && nonce !== void 0 ? nonce : null);
+     },
+     logout: function () {
+         return RNKakaoLogins.logout();

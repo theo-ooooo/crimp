@@ -38,7 +38,15 @@ type Nav = NativeStackNavigationProp<RootStackParamList, 'Login'>;
  * - 실패 시 `null` 로 두고, UI 는 "dev 토큰 입력" 만 노출한다.
  */
 type KakaoTokenLike = { idToken?: string | null; accessToken?: string | null };
-type KakaoLoginFn = () => Promise<KakaoTokenLike>;
+/**
+ * Kakao SDK 의 `login(nonce?)` 를 부르는 시그니처.
+ *
+ * `@react-native-seoul/kakao-login` 의 nonce 인자는 본 저장소의 `patches/` 패치로
+ * 추가됨 — Kakao Android/iOS SDK 의 `loginWithKakaoTalk/Account` 가 nonce 를 받지
+ * 않으면 OpenID Connect 응답(idToken) 을 안 줘서, 백엔드의 OIDC id_token 검증
+ * 흐름이 항상 비어있는 idToken 으로 깨졌다. 패치는 nonce 를 그대로 SDK 에 전달.
+ */
+type KakaoLoginFn = (nonce?: string | null) => Promise<KakaoTokenLike>;
 
 let kakaoLogin: KakaoLoginFn | null = null;
 try {
@@ -46,6 +54,24 @@ try {
   kakaoLogin = typeof mod.login === 'function' ? mod.login : null;
 } catch {
   kakaoLogin = null;
+}
+
+/**
+ * Kakao OIDC 요청에 첨부할 1회용 nonce 생성.
+ *
+ * Phase 1: 백엔드는 nonce 클레임을 별도로 검증하지 않으므로(NimbusJwtDecoder
+ * 는 issuer/audience/exp 만 본다) 클라가 임의 임시값을 만들어 보내기만 하면
+ * Kakao 서버가 idToken 응답에 채워준다. `crypto.getRandomValues` 가 RN 에는
+ * 없을 수 있어 `Math.random` 기반의 16자리 영숫자로 대체한다 (CSPRNG 이 아니지만
+ * idToken 발급 트리거 용도로 충분, 보안 검증은 향후 백엔드 nonce 도입 시 강화).
+ */
+function generateKakaoNonce(): string {
+  const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let s = '';
+  for (let i = 0; i < 16; i += 1) {
+    s += alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+  return s;
 }
 
 /**
@@ -113,7 +139,7 @@ export default function LoginScreen(): JSX.Element {
     }
     setErrorMessage(null);
     try {
-      const result = await kakaoLogin();
+      const result = await kakaoLogin(generateKakaoNonce());
       const idToken = result?.idToken;
       if (!idToken) {
         setErrorMessage(t('auth.login.kakaoNoIdToken'));
