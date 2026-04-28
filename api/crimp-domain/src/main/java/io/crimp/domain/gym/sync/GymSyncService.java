@@ -97,24 +97,24 @@ public class GymSyncService {
             inserted++;
         }
 
-        // 본 단계의 update 는 좌표·brand·phone 갱신만 — 별도 setter 없이 새 row 로 대체할
-        // 수는 없으므로 후속 PR 에서 Gym 엔티티에 update 메서드를 추가해 적용한다.
-        // 현재는 update 후보를 로그로만 남기고 DB 변경은 미적용 — diff.updates() 를 운영자가
-        // 검토 후 별도 절차로 반영.
+        // update 는 좌표·brand·phone 만 갱신 (이름/주소는 매칭 키이므로 변경 X).
+        // Gym 이 영속 상태에서 mutate 되므로 트랜잭션 commit 시 JPA dirty check 가 UPDATE 발행.
         for (GymSyncDiff.UpdateCandidate u : diff.updates()) {
-            log.warn(
-                    "[gym-sync] update candidate (apply pending): id={} name={} reason=brand/phone/coord-changed",
-                    u.current().getId(), u.current().getName());
+            Gym current = u.current();
+            RemoteGym r = u.remote();
+            current.applyRemoteUpdate(r.brand(), r.phone(), r.lat(), r.lng());
+            log.debug("[gym-sync] update applied: id={} name={}", current.getId(), current.getName());
         }
 
-        // [reviewer B1] updatePending 은 "DB 에 적용 X, 후속 검토 대기" 카운트 — 항상 diff.updates 와
-        // 일치해야 함. 별도 카운터 없이 diff 에서 직접 사용해 0 회귀를 차단.
-        int updatePending = diff.updates().size();
+        // updated 는 항상 diff.updates 와 일치 — diff 가 이미 의미 있는 변경만 통과시켰고,
+        // 위 루프가 그 후보들을 모두 mutate 하므로 별도 카운터 없이 diff 크기를 그대로 사용
+        // (PR #84 리뷰 B1 회귀 방지).
+        int updated = diff.updates().size();
         int missingFromRemote = diff.missingFromRemote().size();
-        log.info("[gym-sync] apply inserted={} update-pending={} closed-pending={}",
-                inserted, updatePending, missingFromRemote);
-        return new ApplyReport(inserted, updatePending, missingFromRemote);
+        log.info("[gym-sync] apply inserted={} updated={} closed-pending={}",
+                inserted, updated, missingFromRemote);
+        return new ApplyReport(inserted, updated, missingFromRemote);
     }
 
-    public record ApplyReport(int inserted, int updatePending, int missingFromRemote) {}
+    public record ApplyReport(int inserted, int updated, int missingFromRemote) {}
 }

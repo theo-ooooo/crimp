@@ -70,4 +70,20 @@ public class Gym extends BaseEntity {
     public static Gym create(String extId, String name, String address, BigDecimal lat, BigDecimal lng) {
         return new Gym(extId, name, address, lat, lng);
     }
+
+    /**
+     * 외부 동기화 소스(Kakao Local 등) 의 최신 속성으로 본 매장을 갱신한다.
+     *
+     * <p>갱신 대상은 좌표·brand·phone — 매칭 키인 name/address 는 건드리지 않는다.
+     * JPA dirty checking 이 트랜잭션 종료 시점에 변경된 컬럼만 UPDATE 로 반영.
+     *
+     * <p>호출자(`GymSyncService`) 는 이미 {@code GymSyncDiff#hasMeaningfulChange}
+     * 로 필터된 후보만 전달하므로 본 메서드 안에서는 추가 비교 없이 그대로 대입.
+     */
+    public void applyRemoteUpdate(String brand, String phone, BigDecimal lat, BigDecimal lng) {
+        this.brand = brand;
+        this.phone = phone;
+        this.lat = lat;
+        this.lng = lng;
+    }
 }

@@ -65,24 +65,27 @@ class GymSyncServiceTest {
         var report = service.apply(diff);
 
         assertThat(report.inserted()).isEqualTo(2);
-        assertThat(report.updatePending()).isEqualTo(0);
+        assertThat(report.updated()).isEqualTo(0);
         assertThat(report.missingFromRemote()).isEqualTo(0);
         verify(repo, times(2)).save(any(Gym.class));
     }
 
     @Test
-    void apply_updatesAreCountedButNotPersisted() {
+    void apply_mutatesUpdateCandidatesInPlace() {
+        // Persistent context 의 dirty check 를 신뢰하므로 save() 는 호출되지 않고,
+        // 대신 UpdateCandidate.current() 인스턴스가 직접 mutate 되어야 한다.
         GymSyncSource source = mock(GymSyncSource.class);
         GymRepository repo = mock(GymRepository.class);
         when(repo.count()).thenReturn(20L);
-        when(repo.save(any(Gym.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Gym existing = GymTestFactory.gym(1L, "더클라임 강남점", "서울 강남구 테헤란로8길 21",
                 LAT, LNG, "더클라임", null);
+        BigDecimal newLat = LAT.add(new BigDecimal("0.0010000"));
         var diff = new GymSyncDiff.Result(
                 List.of(),
                 List.of(new GymSyncDiff.UpdateCandidate(existing,
-                        remote("더클라임 강남점", "서울 강남구 테헤란로8길 21", "02-1234-5678"))),
+                        new RemoteGym("kakao-x", "더클라임 강남점", "The Climb",
+                                "서울 강남구 테헤란로8길 21", newLat, LNG, "02-1234-5678"))),
                 List.of()
         );
 
@@ -90,7 +93,11 @@ class GymSyncServiceTest {
         var report = service.apply(diff);
 
         assertThat(report.inserted()).isEqualTo(0);
-        assertThat(report.updatePending()).isEqualTo(1); // [B1] diff.updates 와 일치해야 함
+        assertThat(report.updated()).isEqualTo(1);
+        assertThat(existing.getBrand()).isEqualTo("The Climb");
+        assertThat(existing.getPhone()).isEqualTo("02-1234-5678");
+        assertThat(existing.getLat()).isEqualByComparingTo(newLat);
+        // dirty check 에 의존하므로 save 호출은 없어야 함.
         verify(repo, never()).save(any());
     }
 

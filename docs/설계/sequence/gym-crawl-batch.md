@@ -79,8 +79,11 @@ sequenceDiagram
         loop additions
             Service->>DB: save(Gym.create(ulid, name, address, lat, lng))
         end
-        Note over Service: updates 는 본 PR 에서 로그만 — Gym 엔티티에 update 메서드 추가는 Phase 1.5
-        Service-->>Caller: ApplyReport(inserted, updatePending, missing)
+        loop updates
+            Service->>Service: gym.applyRemoteUpdate(brand, phone, lat, lng)
+            Note over Service,DB: 트랜잭션 commit 시 JPA dirty check → UPDATE 발행
+        end
+        Service-->>Caller: ApplyReport(inserted, updated, missing)
     end
 ```
 
@@ -108,7 +111,7 @@ sequenceDiagram
 | --- | --- |
 | `@Scheduled` 트리거 | 본 PR 미포함. `@EnableScheduling` 도 미설정 |
 | admin API (`POST /api/v1/admin/gyms/sync`) | 미구현. 인증·권한 가드 필요해 별도 설계 |
-| `Gym` 엔티티의 update 메서드 | 미구현. 본 PR 의 `apply()` 는 update 후보를 로그만 남김 |
+| `Gym` 엔티티의 update 메서드 | 구현 완료. `Gym.applyRemoteUpdate(brand, phone, lat, lng)` 로 좌표·brand·phone 만 갱신 (이름/주소는 매칭 키로 보존) |
 | 폐업 마킹 (status=CLOSED) | 미구현. 다중 좌표 호출 통합 단계 필요 |
 | Slack/Discord webhook | 미구현 |
 | `gym_sync_log` 감사 테이블 | 미구현. 현재는 application 로그만 |
