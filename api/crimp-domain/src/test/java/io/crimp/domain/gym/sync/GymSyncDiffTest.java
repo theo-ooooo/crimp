@@ -30,6 +30,18 @@ class GymSyncDiffTest {
         assertThat(result.additions()).isEmpty();
         assertThat(result.updates()).isEmpty();
         assertThat(result.missingFromRemote()).isEmpty();
+        assertThat(result.remoteCount()).isZero();
+    }
+
+    @Test
+    void resultExposesRemoteCount() {
+        var current = List.<Gym>of();
+        var remote = List.of(
+                remote("A", "서울 강남구 a", LAT, LNG, "더클라임", null),
+                remote("B", "서울 강남구 b", LAT, LNG, "더클라임", null),
+                remote("C", "서울 강남구 c", LAT, LNG, "더클라임", null));
+        var result = GymSyncDiff.compute(remote, current);
+        assertThat(result.remoteCount()).isEqualTo(3); // additions + matched 의 합 = remote.size()
     }
 
     @Test

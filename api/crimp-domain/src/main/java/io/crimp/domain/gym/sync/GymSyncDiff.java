@@ -59,7 +59,7 @@ public final class GymSyncDiff {
         matchedKeys.forEach(seen::remove);
         missing.addAll(seen.values());
 
-        return new Result(additions, updates, missing);
+        return new Result(remote.size(), additions, updates, missing);
     }
 
     /**
@@ -110,8 +110,14 @@ public final class GymSyncDiff {
         return !a.equals(b);
     }
 
-    /** 본 결과는 도메인 record — 호출자가 그대로 직렬화하거나 audit 로그로 남길 수 있다. */
+    /**
+     * 본 결과는 도메인 record — 호출자가 그대로 직렬화하거나 audit 로그로 남길 수 있다.
+     *
+     * <p>{@code remoteCount} 는 외부 소스가 가져온 총 매장 수 — additions + (matched, 즉
+     * updates + 변경 없음) 의 합. 운영 감사 로그에 그대로 기록 (PR #87, Phase 1.5).
+     */
     public record Result(
+            int remoteCount,
             List<RemoteGym> additions,
             List<UpdateCandidate> updates,
             List<Gym> missingFromRemote
