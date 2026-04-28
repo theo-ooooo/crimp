@@ -18,16 +18,21 @@ public class GymService {
     private static final int MAX_PAGE_SIZE = 50;
 
     private final GymRepository gymRepository;
+    private final BrandNormalizer brandNormalizer;
 
-    public GymService(GymRepository gymRepository) {
+    public GymService(GymRepository gymRepository, BrandNormalizer brandNormalizer) {
         this.gymRepository = gymRepository;
+        this.brandNormalizer = brandNormalizer;
     }
 
     @Transactional(readOnly = true)
     public GymSearchResult search(Long cursorId, String keyword, String brand, Integer size) {
         int pageSize = capSize(size);
         String k = isBlank(keyword) ? null : keyword.trim();
-        String b = isBlank(brand) ? null : brand.trim();
+        // brand 입력은 canonical 브랜드명으로 정규화 (예: `The Climb` / `더 클라임` → `더클라임`).
+        // 정규화에 실패한(사전에 없는) 입력은 trim 한 원본을 그대로 사용 — DB 에 동일 표기가
+        // 있으면 매칭, 없으면 0건.
+        String b = isBlank(brand) ? null : brandNormalizer.normalize(brand);
         Slice<Gym> slice = gymRepository.search(cursorId, k, b, PageRequest.of(0, pageSize));
         List<GymView> views = slice.getContent().stream().map(GymService::toView).toList();
         Long nextCursor = slice.hasNext() && !views.isEmpty()
