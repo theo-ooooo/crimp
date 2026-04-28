@@ -25,17 +25,11 @@ import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { useUpdateProfileMutation } from '@/hooks/useUpdateProfile';
 import { toUserMessage } from '@/lib/api/errorMessage';
 import { onboardingDismiss } from '@/lib/auth/onboardingDismiss';
+import { resolveNext } from '@/lib/onboardingNext';
 import { t } from '@/lib/i18n';
 import type { GymItem } from '@/lib/schemas/gym';
 
 const SEARCH_DEBOUNCE_MS = 300;
-
-function resolveNext(raw: string | null): string {
-  // open redirect 방지 — 내부 경로(`/...`)만 허용. 그 외는 홈으로.
-  if (!raw) return '/';
-  if (!raw.startsWith('/') || raw.startsWith('//')) return '/';
-  return raw;
-}
 
 export default function OnboardingMainGymPage(): JSX.Element {
   // Next.js 14: useSearchParams 는 client-side 파일이라도 prerender 단계에서
@@ -101,6 +95,8 @@ function OnboardingMainGymPageInner(): JSX.Element {
       { mainGymExtId: selected.extId },
       {
         onSuccess: () => {
+          // 분석 이벤트 마커 (기획서 §6, Phase 1 분석 인프라 도입 시 활성화):
+          //   onboarding_maingym_set { gym_ext_id: selected.extId }
           // me 캐시는 mutation 이 갱신했으므로 RootLayout 가드와 무관하게 곧장 next 로 replace.
           router.replace(next as Route);
         },
@@ -109,6 +105,8 @@ function OnboardingMainGymPageInner(): JSX.Element {
   };
 
   const onSkip = () => {
+    // 분석 이벤트 마커 (기획서 §6, Phase 1 분석 인프라 도입 시 활성화):
+    //   onboarding_maingym_skipped
     onboardingDismiss.set();
     router.replace(next as Route);
   };
@@ -117,7 +115,15 @@ function OnboardingMainGymPageInner(): JSX.Element {
     // useRequireAuth 가 /login 으로 redirect 하는 동안 placeholder.
     return <PageSkeleton />;
   }
+  // me 로딩 중이거나, 이미 mainGym 이 설정되어 곧 next 로 빠질 상태면 검색 UI 를
+  // 노출하지 않고 placeholder 만 — 직접 URL 진입 시 1프레임 검색 화면 flash 방지.
+  if (meQuery.isLoading || (meQuery.data && meQuery.data.mainGym != null)) {
+    return <PageSkeleton />;
+  }
 
+  // 분석 이벤트 마커 (기획서 §6, Phase 1 분석 인프라 도입 시 활성화):
+  //   onboarding_maingym_shown — 게이트가 실제로 사용자에게 노출되는 시점
+  //   (위 early-return 분기를 모두 통과한 직후, 즉 미설정 + 비-dismiss 가 확정된 상태).
   return (
     <main className="mx-auto flex min-h-[100dvh] w-full max-w-2xl flex-col px-5 pb-[max(env(safe-area-inset-bottom),16px)] pt-6 text-text">
       <header className="mb-4">
