@@ -36,5 +36,28 @@ target 'Crimp' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    # Crimp.xcconfig 의 KAKAO_APP_KEY 를 Cocoapods 가 생성하는 Pods-Crimp.{debug,release}.xcconfig
+    # 파일에 직접 append 한다. Xcode UI 에서 Configuration File 을 수동 지정하지 않아도
+    # main app target 이 Pods xcconfig 를 baseConfiguration 으로 쓰고 있어 자동 상속 →
+    # `Info.plist` 의 `$(KAKAO_APP_KEY)` 가 정상 치환된다 (KOE101 / "잘못된 앱키" 회귀 방지).
+    #
+    # `Crimp.xcconfig` 가 없으면 (= 로컬 셋업 미완료) 키 주입 자체를 스킵하고 빌드 단계의
+    # `validate-kakao-key.sh` 가 명시 에러로 실패시킨다.
+    xcconfig_path = File.expand_path('Crimp.xcconfig', __dir__)
+    if File.exist?(xcconfig_path)
+      kakao_app_key = File.foreach(xcconfig_path).find { |l| l =~ /^\s*KAKAO_APP_KEY\s*=/ }
+      kakao_app_key = kakao_app_key ? kakao_app_key.split('=', 2).last.strip : ''
+      ['Pods-Crimp/Pods-Crimp.debug.xcconfig',
+       'Pods-Crimp/Pods-Crimp.release.xcconfig',
+       'Pods-Crimp-CrimpTests/Pods-Crimp-CrimpTests.debug.xcconfig',
+       'Pods-Crimp-CrimpTests/Pods-Crimp-CrimpTests.release.xcconfig'].each do |rel|
+        path = File.expand_path("Pods/Target Support Files/#{rel}", __dir__)
+        next unless File.exist?(path)
+        contents = File.read(path)
+        next if contents.include?('KAKAO_APP_KEY =')
+        File.write(path, contents + "\nKAKAO_APP_KEY = #{kakao_app_key}\n")
+      end
+    end
   end
 end
