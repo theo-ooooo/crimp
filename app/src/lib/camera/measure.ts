@@ -29,17 +29,53 @@ export type DetectedImageMime = 'image/jpeg' | 'image/heic' | 'image/png' | 'ima
 /**
  * 한 번의 fetch 로 byteSize + 이미지 mime 을 동시에 얻는다 — 카메라 캡처 직후 사용.
  * mime 검출에 실패하면 null. 호출자가 fallback (보통 `image/jpeg`) 처리.
+ *
+ * <p><b>RN 호환성 우회 (PR #95 후속)</b>:
+ * <ul>
+ *   <li>{@code blob.arrayBuffer()} → RN Blob 폴리필 미지원 ("is not a function")</li>
+ *   <li>{@code XMLHttpRequest(file://)} → Android 에서 "XHR error"</li>
+ *   <li>본 함수는 두 단계 fallback: {@code fetch().blob()} 으로 byteSize 확보 (확정 동작)
+ *       → {@code FileReader.readAsArrayBuffer(blob.slice)} 로 헤더 16 바이트 읽기.
+ *       헤더 읽기가 실패하면 mime=null 반환 — 호출자가 확장자/플랫폼 기반 fallback.</li>
+ * </ul>
  */
 export async function readImageMeta(uri: string): Promise<{
   byteSize: number;
   mime: DetectedImageMime | null;
 }> {
   const fileUri = uri.startsWith('file://') ? uri : `file://${uri}`;
+  // 1단계: byteSize 는 RN 에서 가장 견고한 path — fetch().blob() 로 확보.
   const res = await fetch(fileUri);
   const blob = await res.blob();
-  const buf = await blob.arrayBuffer();
-  const head = new Uint8Array(buf, 0, Math.min(16, buf.byteLength));
-  return { byteSize: blob.size, mime: detectImageMime(head) };
+  const byteSize = blob.size;
+
+  // 2단계: 헤더 16바이트 — FileReader.readAsArrayBuffer 우선, 실패 시 mime=null.
+  let mime: DetectedImageMime | null = null;
+  try {
+    const head = await readBlobHead(blob, 16);
+    mime = detectImageMime(head);
+  } catch {
+    // RN/플랫폼이 readAsArrayBuffer 도 미지원이면 호출자가 확장자 기반 fallback.
+    mime = null;
+  }
+  return { byteSize, mime };
+}
+
+function readBlobHead(blob: Blob, byteLength: number): Promise<Uint8Array> {
+  return new Promise<Uint8Array>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const buf = reader.result;
+      if (buf instanceof ArrayBuffer) {
+        resolve(new Uint8Array(buf, 0, Math.min(byteLength, buf.byteLength)));
+        return;
+      }
+      reject(new Error('FileReader did not return ArrayBuffer'));
+    };
+    reader.onerror = () => reject(reader.error ?? new Error('FileReader error'));
+    // 전체 blob 을 읽을 필요 없이 앞 16 바이트만 — 메모리 절약.
+    reader.readAsArrayBuffer(blob.slice(0, byteLength));
+  });
 }
 
 /**
