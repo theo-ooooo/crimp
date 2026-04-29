@@ -22,7 +22,7 @@ import java.util.Set;
  *
  * <p>Phase 1 MVP 흐름:
  * <ol>
- *   <li>{@link #presignUpload(long, MediaKind, String)} — 클라가 호출, S3 PUT URL + UPLOADING row 발급</li>
+ *   <li>{@link #presignUpload(long, MediaKind, String, long)} — 클라가 호출, S3 PUT URL + UPLOADING row 발급</li>
  *   <li>클라가 받은 URL 로 직접 업로드 (백엔드 경유 X)</li>
  *   <li>{@link #completeUpload(long, long, Long, Integer, Integer, Integer)} — 클라가 업로드 완료
  *       알림 + 메타데이터 (size/dim/duration). row 가 READY 로 전환되며 {@code cdn_url} 채워짐.</li>

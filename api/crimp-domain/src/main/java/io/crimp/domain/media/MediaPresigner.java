@@ -14,7 +14,7 @@ public interface MediaPresigner {
     /**
      * {@code s3Key} 위치에 업로드 가능한 PUT presigned URL 을 발급한다.
      *
-     * @param s3Key         오브젝트 키 (예: "media/2026-04-28/01HABC....jpg")
+     * @param s3Key         오브젝트 키 (예: "media/users/123/image/2026/04/29/01HABC....jpg" — PR #96)
      * @param contentType   업로드 본문의 Content-Type 헤더 (예: "image/jpeg") — 발급한 URL 에
      *                      서명되어 있어 클라가 다른 Content-Type 으로 PUT 시 서명 불일치로 거부됨.
      * @param contentLength 업로드 예정 바이트 크기 — 서명에 포함되어 클라가 다른 크기 PUT 시
