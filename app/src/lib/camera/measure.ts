@@ -29,17 +29,44 @@ export type DetectedImageMime = 'image/jpeg' | 'image/heic' | 'image/png' | 'ima
 /**
  * 한 번의 fetch 로 byteSize + 이미지 mime 을 동시에 얻는다 — 카메라 캡처 직후 사용.
  * mime 검출에 실패하면 null. 호출자가 fallback (보통 `image/jpeg`) 처리.
+ *
+ * <p><b>RN 호환성</b>: React Native 의 `Blob` 폴리필은 `arrayBuffer()` 를 노출하지 않아
+ * `await blob.arrayBuffer()` 가 `is not a function` 오류로 실패한다 (Android 에서 확인됨).
+ * 대신 {@link XMLHttpRequest} 의 {@code responseType='arraybuffer'} 로 직접 받아온다 —
+ * RN 0.75 의 fetch / XHR 둘 다 file:// 스키마를 지원하지만 XHR 만이 임의 바이너리 응답을
+ * 약속한다.
  */
 export async function readImageMeta(uri: string): Promise<{
   byteSize: number;
   mime: DetectedImageMime | null;
 }> {
   const fileUri = uri.startsWith('file://') ? uri : `file://${uri}`;
-  const res = await fetch(fileUri);
-  const blob = await res.blob();
-  const buf = await blob.arrayBuffer();
+  const buf = await fetchAsArrayBuffer(fileUri);
   const head = new Uint8Array(buf, 0, Math.min(16, buf.byteLength));
-  return { byteSize: blob.size, mime: detectImageMime(head) };
+  return { byteSize: buf.byteLength, mime: detectImageMime(head) };
+}
+
+function fetchAsArrayBuffer(uri: string): Promise<ArrayBuffer> {
+  return new Promise<ArrayBuffer>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', uri, true);
+    xhr.responseType = 'arraybuffer';
+    xhr.onload = () => {
+      // file:// 응답은 status 가 0 또는 200 — 둘 다 정상으로 처리.
+      if (xhr.status === 0 || (xhr.status >= 200 && xhr.status < 300)) {
+        const r = xhr.response;
+        if (r instanceof ArrayBuffer) {
+          resolve(r);
+          return;
+        }
+        reject(new Error('XHR responseType=arraybuffer did not return ArrayBuffer'));
+        return;
+      }
+      reject(new Error(`HTTP ${xhr.status}`));
+    };
+    xhr.onerror = () => reject(new Error(xhr.statusText || 'XHR error'));
+    xhr.send();
+  });
 }
 
 /**

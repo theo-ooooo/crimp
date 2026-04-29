@@ -83,24 +83,41 @@ describe('detectImageMime', () => {
 });
 
 describe('readImageMeta', () => {
-  const originalFetch = global.fetch;
+  const originalXHR = global.XMLHttpRequest;
   afterEach(() => {
-    global.fetch = originalFetch;
+    global.XMLHttpRequest = originalXHR;
   });
+
+  /**
+   * RN Blob 폴리필이 arrayBuffer() 미지원이라 readImageMeta 는 XMLHttpRequest 의
+   * responseType='arraybuffer' 로 직접 받는다. 본 헬퍼가 그 XHR 을 mock 한다.
+   */
+  function mockXhr(buf: ArrayBuffer, status = 200) {
+    const xhrInstance: Record<string, unknown> = {
+      open: jest.fn(),
+      setRequestHeader: jest.fn(),
+      send: jest.fn(function (this: typeof xhrInstance) {
+        // load 콜백을 비동기적으로 (microtask) 발동.
+        Promise.resolve().then(() => {
+          (this as unknown as { status: number; response: ArrayBuffer; onload?: () => void }).status = status;
+          (this as unknown as { response: ArrayBuffer }).response = buf;
+          const cb = (this as unknown as { onload?: () => void }).onload;
+          if (cb) cb();
+        });
+      }),
+      responseType: '',
+      status: 0,
+      response: undefined,
+    };
+    global.XMLHttpRequest = (jest.fn(() => xhrInstance) as unknown) as typeof XMLHttpRequest;
+  }
 
   it('returns size + detected mime in a single fetch (HEIC iOS case)', async () => {
     // 시뮬: vision-camera v4 가 HEIC 바이트를 .jpg 확장자로 저장한 iOS 케이스 (PR #91 B1).
-    const heicHeader = new Uint8Array(12);
+    const heicHeader = new Uint8Array(99999);
     heicHeader[4] = 0x66; heicHeader[5] = 0x74; heicHeader[6] = 0x79; heicHeader[7] = 0x70;
     'heic'.split('').forEach((c, i) => (heicHeader[8 + i] = c.charCodeAt(0)));
-
-    const blob = {
-      size: 99999,
-      arrayBuffer: async () => heicHeader.buffer,
-    };
-    global.fetch = (jest.fn().mockResolvedValue({
-      blob: async () => blob,
-    })) as unknown as typeof fetch;
+    mockXhr(heicHeader.buffer);
 
     const meta = await readImageMeta('/var/mobile/photo.jpg'); // 확장자가 .jpg 라도
 
@@ -109,16 +126,11 @@ describe('readImageMeta', () => {
   });
 
   it('returns null mime when header is unrecognized', async () => {
-    const blob = {
-      size: 100,
-      arrayBuffer: async () => new ArrayBuffer(12),
-    };
-    global.fetch = (jest.fn().mockResolvedValue({
-      blob: async () => blob,
-    })) as unknown as typeof fetch;
+    mockXhr(new ArrayBuffer(100));
 
     const meta = await readImageMeta('file:///x.bin');
 
+    expect(meta.byteSize).toBe(100);
     expect(meta.mime).toBeNull();
   });
 });
