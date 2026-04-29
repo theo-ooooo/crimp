@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 
-import { GradeBadge, HoldDot, ResultMark } from '@/components/primitives';
+import { GradeBadge, HoldDot, ResultMark } from '@/components/common/primitives';
 import { t } from '@/lib/i18n';
 import {
   fontFamily,
@@ -13,12 +13,6 @@ import {
 import { useTokens } from '@/lib/useTokens';
 import type { Attempt } from '@/lib/schemas/attempt';
 
-/**
- * 시도 타임라인 1행.
- *
- * 좌측 ResultMark + 우측 GradeBadge·메모·시각 2단 배치.
- * gradeValue 없거나 파싱 실패 시 GradeBadge 는 감춤.
- */
 export type AttemptRowProps = {
   attempt: Attempt;
 };
@@ -46,7 +40,6 @@ export function AttemptRow({ attempt }: AttemptRowProps): JSX.Element {
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const grade = attempt.gradeValue?.trim();
   const formattedTime = formatTime(attempt.loggedAt);
-  // 집계 라벨: 스크린리더가 "완등 V4 ×2 19:42" 한 덩어리로 읽도록 묶음
   const a11yLabel = `${t(`attempt.result.${attempt.result}` as const)} ${grade ?? ''} ×${attempt.attempts} ${formattedTime}`;
 
   return (
@@ -61,7 +54,6 @@ export function AttemptRow({ attempt }: AttemptRowProps): JSX.Element {
       <View style={styles.body}>
         <View style={styles.topLine}>
           {grade ? <GradeBadge v={grade} size="sm" /> : null}
-          {/* [PR #93, F5 PR-4] holdColor 가 있으면 GradeBadge 옆에 작은 hold 점으로 노출. */}
           {attempt.holdColor ? <HoldDot color={attempt.holdColor} size={14} /> : null}
           <Text style={styles.resultLabel} numberOfLines={1}>
             {t(`attempt.result.${attempt.result}` as const)}
