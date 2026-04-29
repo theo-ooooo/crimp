@@ -7,8 +7,10 @@ import io.crimp.domain.auth.JwtProvider;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -29,10 +31,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtProvider jwtProvider;
     private final ObjectMapper objectMapper;
+    /**
+     * AuthCookieFactory 는 {@code !test} 프로파일이라 단위 테스트에서 빈이 없을 수 있음.
+     * ObjectProvider 로 lazy 주입 — 없으면 cookie fallback skip 하고 Bearer 만 처리한다.
+     */
+    private final ObjectProvider<AuthCookieFactory> cookieFactoryProvider;
 
-    public JwtAuthenticationFilter(JwtProvider jwtProvider, ObjectMapper objectMapper) {
+    public JwtAuthenticationFilter(
+            JwtProvider jwtProvider,
+            ObjectMapper objectMapper,
+            ObjectProvider<AuthCookieFactory> cookieFactoryProvider) {
         this.jwtProvider = jwtProvider;
         this.objectMapper = objectMapper;
+        this.cookieFactoryProvider = cookieFactoryProvider;
     }
 
     @Override
@@ -40,14 +51,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             HttpServletRequest request,
             HttpServletResponse response,
             FilterChain chain) throws ServletException, IOException {
-        String header = request.getHeader(HttpHeaders.AUTHORIZATION);
-        if (header == null || !header.startsWith(BEARER_PREFIX)) {
+        String token = extractToken(request);
+        if (token == null) {
             // 토큰 없음 — 인증 컨텍스트 설정 안 함. 공개 경로는 통과, 보호 경로는 EntryPoint 가 401 처리.
             chain.doFilter(request, response);
             return;
         }
 
-        String token = header.substring(BEARER_PREFIX.length());
         try {
             JwtProvider.ParsedToken parsed = jwtProvider.parseAccess(token);
             CrimpPrincipal principal = new CrimpPrincipal(parsed.userId(), parsed.userExtId());
@@ -67,5 +77,28 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     response.getOutputStream(),
                     ApiResponse.failure(ErrorBody.of("AUTH_INVALID", "Invalid or expired access token")));
         }
+    }
+
+    /**
+     * Authorization Bearer 헤더 우선, 없으면 access 쿠키에서 토큰 추출 (PR #94, HttpOnly 전환).
+     * 두 곳 모두 없으면 null 반환 — 호출자가 unauthenticated 로 처리.
+     */
+    private String extractToken(HttpServletRequest request) {
+        String header = request.getHeader(HttpHeaders.AUTHORIZATION);
+        if (header != null && header.startsWith(BEARER_PREFIX)) {
+            return header.substring(BEARER_PREFIX.length());
+        }
+        // Bearer 없음 — 쿠키 fallback. AuthCookieFactory 빈이 없으면 (단위 테스트 등) skip.
+        AuthCookieFactory factory = cookieFactoryProvider.getIfAvailable();
+        if (factory == null) return null;
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) return null;
+        String name = factory.accessCookieName();
+        for (Cookie c : cookies) {
+            if (name.equals(c.getName()) && c.getValue() != null && !c.getValue().isBlank()) {
+                return c.getValue();
+            }
+        }
+        return null;
     }
 }

@@ -4,11 +4,14 @@ import io.crimp.api.auth.AuthController.OauthCodeExchangeRequest;
 import io.crimp.api.auth.AuthController.OauthExchangeRequest;
 import io.crimp.api.auth.AuthController.TokenPair;
 import io.crimp.api.auth.AuthController.TokenResponse;
+import io.crimp.api.security.AuthCookieFactory;
 import io.crimp.common.response.ApiResponse;
 import io.crimp.core.entity.enums.OauthProvider;
 import io.crimp.domain.auth.AuthException;
 import io.crimp.domain.auth.AuthService;
 import io.crimp.domain.auth.AuthTokens;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -33,42 +36,52 @@ class AuthControllerTest {
     private AuthService authService;
     private AuthController controller;
 
+    private AuthCookieFactory cookieFactory;
+    private HttpServletRequest request;
+    private HttpServletResponse response;
+
     @BeforeEach
     void setUp() {
         authService = mock(AuthService.class);
-        controller = new AuthController(authService);
+        cookieFactory = mock(AuthCookieFactory.class);
+        request = mock(HttpServletRequest.class);
+        response = mock(HttpServletResponse.class);
+        controller = new AuthController(authService, cookieFactory);
     }
 
     @Test
-    void exchange_returnsTokenResponse() {
+    void exchange_returnsTokenResponse_andSetsCookies() {
         when(authService.exchange(eq(OauthProvider.KAKAO), eq("id-token-1")))
-                .thenReturn(new AuthTokens("access", "refresh", 900L));
+                .thenReturn(new AuthTokens("access", "refresh", 900L, 1209600L));
 
-        TokenResponse res = controller.exchange("kakao", new OauthExchangeRequest("id-token-1"));
+        TokenResponse res = controller.exchange("kakao", new OauthExchangeRequest("id-token-1"), response);
 
         assertThat(res.accessToken()).isEqualTo("access");
         assertThat(res.refreshToken()).isEqualTo("refresh");
         assertThat(res.expiresIn()).isEqualTo(900L);
+        // [PR #94] Set-Cookie 가 발행되어야 함.
+        verify(cookieFactory).setAuthCookies(eq(response), any(AuthTokens.class));
     }
 
     @Test
-    void exchangeCode_returnsTokenResponse() {
+    void exchangeCode_returnsTokenResponse_andSetsCookies() {
         when(authService.exchangeCode(
                 eq(OauthProvider.KAKAO), eq("auth-code-1"), eq("https://app/cb")))
-                .thenReturn(new AuthTokens("access", "refresh", 900L));
+                .thenReturn(new AuthTokens("access", "refresh", 900L, 1209600L));
 
         TokenResponse res = controller.exchangeCode("kakao",
-                new OauthCodeExchangeRequest("auth-code-1", "https://app/cb"));
+                new OauthCodeExchangeRequest("auth-code-1", "https://app/cb"), response);
 
         assertThat(res.accessToken()).isEqualTo("access");
         verify(authService).exchangeCode(OauthProvider.KAKAO, "auth-code-1", "https://app/cb");
+        verify(cookieFactory).setAuthCookies(eq(response), any(AuthTokens.class));
     }
 
     @Test
     void exchangeCode_unknownProvider_throws_AUTH_PROVIDER_UNSUPPORTED() {
         // parseProvider 에서 valueOf 실패 → AuthException 그대로 throw
         try {
-            controller.exchangeCode("naver", new OauthCodeExchangeRequest("c", "https://app/cb"));
+            controller.exchangeCode("naver", new OauthCodeExchangeRequest("c", "https://app/cb"), response);
             org.junit.jupiter.api.Assertions.fail("expected AuthException");
         } catch (AuthException e) {
             assertThat(e.code()).isEqualTo("AUTH_PROVIDER_UNSUPPORTED");
@@ -104,16 +117,30 @@ class AuthControllerTest {
     }
 
     @Test
-    void refresh_delegates_toService() {
-        when(authService.refresh(any())).thenReturn(new AuthTokens("a", "r", 900L));
-        TokenResponse res = controller.refresh(new TokenPair("rt"));
+    void refresh_delegates_toService_andRotatesCookies() {
+        when(authService.refresh(any())).thenReturn(new AuthTokens("a", "r", 900L, 1209600L));
+        TokenResponse res = controller.refresh(new TokenPair("rt"), request, response);
         assertThat(res.refreshToken()).isEqualTo("r");
+        verify(cookieFactory).setAuthCookies(eq(response), any(AuthTokens.class));
     }
 
     @Test
-    void logout_returns204() {
-        ResponseEntity<Void> res = controller.logout(new TokenPair("rt"));
+    void refresh_emptyBody_andNoCookie_throws_AUTH_INVALID() {
+        // body 의 refreshToken 도 없고 쿠키도 없으면 즉시 AUTH_INVALID 400.
+        when(request.getCookies()).thenReturn(null);
+        try {
+            controller.refresh(null, request, response);
+            org.junit.jupiter.api.Assertions.fail("expected AuthException");
+        } catch (AuthException e) {
+            assertThat(e.code()).isEqualTo("AUTH_INVALID");
+        }
+    }
+
+    @Test
+    void logout_returns204_andClearsCookies() {
+        ResponseEntity<Void> res = controller.logout(new TokenPair("rt"), request, response);
         assertThat(res.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         verify(authService).logout("rt");
+        verify(cookieFactory).clearAuthCookies(response);
     }
 }
