@@ -1,43 +1,15 @@
 import { useRoute, type RouteProp } from '@react-navigation/native';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
 } from 'react-native';
 
-import { PrimaryButton, SecondaryButton, Skeleton } from '@/components/primitives';
-import {
-  CameraSheet,
-  LogAttemptSheet,
-  type CameraMode,
-} from '@/components/session';
-import { useAttemptsQuery } from '@/hooks/useAttempts';
-import { useEndSession, useSessionQuery } from '@/hooks/useSessions';
-import { toUserMessage } from '@/lib/api/errorMessage';
-import { ApiError } from '@/lib/api/errors';
-import type { CapturedMedia } from '@/lib/camera/types';
-import { t } from '@/lib/i18n';
-import { MediaUploadError, uploadCapturedMedia } from '@/lib/media/upload';
-import {
-  fontFamily,
-  fontWeight,
-  radius,
-  space,
-  withAlpha,
-  type Theme,
-} from '@/lib/tokens';
+import { AuthHydrationGate } from '@/components/common/screen/AuthHydrationGate';
+import { SessionDetailBody } from '@/components/session-detail/SessionDetailBody';
+import { makeSessionDetailStyles } from '@/components/session-detail/sessionDetailStyles';
+import { useSessionDetailScreen } from '@/hooks/screens/useSessionDetailScreen';
 import { useTokens } from '@/lib/useTokens';
 import type { RootStackParamList } from '@/navigation/types';
-import type { Attempt } from '@/lib/schemas/attempt';
 import { useTokenStore } from '@/store/tokenStore';
-
-import { AttemptRow } from './session/AttemptRow';
-import { SessionMetaCard } from './session/SessionMetaCard';
 
 /**
  * 세션 상세 화면.
@@ -52,284 +24,73 @@ export default function SessionDetailScreen(): JSX.Element {
   const { extId } = route.params;
   const hydrated = useTokenStore((s) => s.hydrated);
   const accessToken = useTokenStore((s) => s.accessToken);
-
-  const sessionQuery = useSessionQuery(accessToken, extId);
-  const attemptsQuery = useAttemptsQuery(accessToken, extId);
-  const endSession = useEndSession(accessToken);
-
-  // 시도 기록 시트 / 카메라 시트 상태. 카메라는 시트 위 시트로 동시에 열려도 무관.
-  const [logSheetOpen, setLogSheetOpen] = useState(false);
-  const [cameraOpen, setCameraOpen] = useState(false);
-  const [cameraMode, setCameraMode] = useState<CameraMode>('video');
-  // [PR #92, F5 PR-3] 업로드 상태 — uploading 시 LogAttemptSheet 위에 진행 표시,
-  // uploadedMediaId 가 채워지면 LogAttemptSheet 가 첨부 배지를 노출하고 저장 시 attempt 에 연결.
-  const [uploading, setUploading] = useState(false);
-  const [uploadedMediaId, setUploadedMediaId] = useState<number | null>(null);
-
-  const closeCamera = () => {
-    setCameraOpen(false);
-  };
-
-  const handleCaptured = async (captured: CapturedMedia) => {
-    if (!accessToken) return;
-    closeCamera();
-    setUploading(true);
-    try {
-      const completed = await uploadCapturedMedia(accessToken, captured);
-      setUploadedMediaId(completed.id);
-    } catch (e) {
-      // [PR #92 리뷰 I1] 단계별 메시지 차별화 — 백엔드 ApiError(presign/complete) vs S3 PUT 실패.
-      // ApiError 는 `errorMessage.ts` 의 CODE_TO_KEY 가 사이즈/MIME/권한별 메시지로 매핑.
-      // MediaUploadError 는 phase 기반 i18n 키 사용.
-      let body: string;
-      if (e instanceof ApiError) {
-        body = toUserMessage(e);
-      } else if (e instanceof MediaUploadError) {
-        body = e.phase === 'local-read'
-          ? t('error.uploadLocalRead')
-          : e.phase === 'network'
-          ? t('error.uploadNetwork')
-          : t('error.uploadS3');
-      } else {
-        body = t('session.log.uploadFailedRetry');
-      }
-      Alert.alert(t('session.log.uploadFailed'), body);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const styles = useMemo(() => makeStyles(theme), [theme]);
-
-  if (!hydrated) {
-    return (
-      <View style={[styles.center, { backgroundColor: theme.bg }]}>
-        <Text style={styles.muted}>{t('common.loading')}</Text>
-      </View>
-    );
-  }
-
-  if (!accessToken) {
-    return (
-      <View style={[styles.center, { backgroundColor: theme.bg }]}>
-        <Text style={styles.heading}>
-          {t('session.detail.loginRequiredTitle')}
-        </Text>
-        <Text style={styles.muted}>
-          {t('session.detail.loginRequiredDescription')}
-        </Text>
-      </View>
-    );
-  }
-
-  const session = sessionQuery.data;
-  const attempts: Attempt[] = attemptsQuery.data?.items ?? [];
-  const isOngoing = session ? !session.endedAt : false;
+  const styles = useMemo(() => makeSessionDetailStyles(theme), [theme]);
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: theme.bg }]}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
+    <AuthHydrationGate
+      hydrated={hydrated}
+      accessToken={accessToken}
+      loginTitleKey="session.detail.loginRequiredTitle"
+      loginDescriptionKey="session.detail.loginRequiredDescription"
     >
-      {sessionQuery.isLoading ? (
-        <Skeleton height={180} radius={radius.xl} />
-      ) : sessionQuery.error ? (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorTitle}>
-            {t('session.detail.errorTitle')}
-          </Text>
-          <Text style={styles.errorBody}>
-            {toUserMessage(sessionQuery.error)}
-          </Text>
-        </View>
-      ) : session ? (
-        <SessionMetaCard session={session} />
-      ) : null}
-
-      <View style={styles.timelineHeader}>
-        <Text style={styles.sectionTitle}>
-          {t('session.detail.attemptsTitle')}
-        </Text>
-        <Text style={styles.sectionCount}>{attempts.length}</Text>
-      </View>
-
-      {attemptsQuery.isLoading ? (
-        <View style={styles.timelineList}>
-          <Skeleton height={64} radius={radius.lg} />
-          <Skeleton height={64} radius={radius.lg} />
-          <Skeleton height={64} radius={radius.lg} />
-        </View>
-      ) : attemptsQuery.error ? (
-        // I3: session 에러 블록과 동일한 errorBox 스타일로 통일
-        <View style={styles.errorBox}>
-          <Text style={styles.errorTitle}>
-            {t('session.detail.errorTitle')}
-          </Text>
-          <Text style={styles.errorBody}>
-            {toUserMessage(attemptsQuery.error)}
-          </Text>
-        </View>
-      ) : attempts.length > 0 ? (
-        // I2 (Option A): ScrollView 내부에서 FlatList + scrollEnabled=false 하면
-        // 가상화 이점이 사라지고 VirtualizedLists 경고가 뜸. MVP 규모상 일반 map 렌더로 충분.
-        // 세션당 시도 수가 수백 단위로 늘어나면 Option B (루트 FlatList + ListHeaderComponent) 로 전환 필요.
-        <View style={styles.timelineList}>
-          {attempts.map((a) => (
-            <AttemptRow key={a.extId} attempt={a} />
-          ))}
-        </View>
-      ) : (
-        <Text style={styles.muted}>{t('session.detail.attemptsEmpty')}</Text>
+      {(token) => (
+        <SessionDetailLoggedInContainer
+          accessToken={token}
+          extId={extId}
+          styles={styles}
+          bgColor={theme.bg}
+          textColor={theme.text}
+        />
       )}
-
-      {isOngoing && session ? (
-        <>
-          <View style={styles.logCtaWrap}>
-            <PrimaryButton
-              onPress={() => setLogSheetOpen(true)}
-              accessibilityLabel={t('session.log.openCta')}
-            >
-              {t('session.log.openCta')}
-            </PrimaryButton>
-          </View>
-          <View style={styles.endWrap}>
-            <SecondaryButton
-              onPress={() => {
-                endSession.endSession(session.extId).catch(() => {
-                  /* endSession.error 로 노출 */
-                });
-              }}
-              disabled={endSession.isPending}
-            >
-              {endSession.isPending
-                ? t('session.detail.ending')
-                : t('session.detail.endButton')}
-            </SecondaryButton>
-            {endSession.error ? (
-              <Text style={styles.errorTitle}>
-                {toUserMessage(endSession.error)}
-              </Text>
-            ) : null}
-          </View>
-
-          <LogAttemptSheet
-            visible={logSheetOpen}
-            accessToken={accessToken}
-            sessionExtId={extId}
-            onClose={() => setLogSheetOpen(false)}
-            onCamera={(mode) => {
-              setCameraMode(mode);
-              setCameraOpen(true);
-            }}
-            attachedMediaId={uploadedMediaId}
-            onClearMedia={() => setUploadedMediaId(null)}
-          />
-          <CameraSheet
-            visible={cameraOpen}
-            mode={cameraMode}
-            onClose={closeCamera}
-            onCaptured={handleCaptured}
-          />
-          {/* [PR #92 리뷰 B1] 업로드 진행 표시는 Modal 로 띄움 — ScrollView 내부 absolute 뷰는 viewport 를
-              덮지 못하고, LogAttemptSheet/CameraSheet 가 별도 native 레이어(Modal) 라 그 위로도 보장됨. */}
-          <Modal visible={uploading} transparent animationType="fade" statusBarTranslucent>
-            <View style={styles.uploadingOverlay} pointerEvents="auto">
-              <ActivityIndicator size="large" color={theme.text} />
-              <Text style={styles.uploadingLabel}>{t('session.log.uploading')}</Text>
-            </View>
-          </Modal>
-        </>
-      ) : null}
-    </ScrollView>
+    </AuthHydrationGate>
   );
 }
 
-function makeStyles(theme: Theme) {
-  return StyleSheet.create({
-    container: { flex: 1 },
-    content: {
-      padding: space[5],
-      paddingBottom: space[10],
-      gap: space[5],
-    },
-    uploadingOverlay: {
-      // Modal 내부 root — flex 로 화면 전체 점유. 반투명 배경 + 중앙 spinner.
-      flex: 1,
-      backgroundColor: withAlpha(theme.bg, 0.85),
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: space[3],
-    },
-    uploadingLabel: {
-      fontFamily,
-      fontSize: 14,
-      fontWeight: fontWeight.semibold,
-      color: theme.text,
-    },
-    center: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: space[6],
-      gap: space[2],
-    },
-    heading: {
-      fontFamily,
-      fontSize: 18,
-      fontWeight: fontWeight.bold,
-      color: theme.text,
-    },
-    muted: {
-      fontFamily,
-      fontSize: 14,
-      color: theme.text3,
-      textAlign: 'center',
-    },
-    sectionTitle: {
-      fontFamily,
-      fontSize: 18,
-      fontWeight: fontWeight.bold,
-      color: theme.text,
-      letterSpacing: -0.36,
-    },
-    sectionCount: {
-      fontFamily,
-      fontSize: 14,
-      fontWeight: fontWeight.semibold,
-      color: theme.text3,
-    },
-    timelineHeader: {
-      flexDirection: 'row',
-      alignItems: 'baseline',
-      justifyContent: 'space-between',
-    },
-    timelineList: {
-      gap: space[2],
-    },
-    errorBox: {
-      backgroundColor: `${theme.semantic.danger}14`,
-      borderRadius: radius.lg,
-      padding: space[4],
-      gap: space[1],
-    },
-    errorTitle: {
-      fontFamily,
-      fontSize: 13,
-      fontWeight: fontWeight.bold,
-      color: theme.semantic.danger,
-    },
-    errorBody: {
-      fontFamily,
-      fontSize: 13,
-      color: theme.text2,
-    },
-    endWrap: {
-      gap: space[2],
-      alignItems: 'stretch',
-    },
-    logCtaWrap: {
-      alignItems: 'stretch',
-    },
-  });
+function SessionDetailLoggedInContainer({
+  accessToken,
+  extId,
+  styles,
+  bgColor,
+  textColor,
+}: {
+  accessToken: string;
+  extId: string;
+  styles: ReturnType<typeof makeSessionDetailStyles>;
+  bgColor: string;
+  textColor: string;
+}): JSX.Element {
+  const detail = useSessionDetailScreen(accessToken, extId);
+
+  return (
+    <SessionDetailBody
+      styles={styles}
+      bgColor={bgColor}
+      textColor={textColor}
+      session={detail.session ?? null}
+      attempts={detail.attempts}
+      sessionLoading={detail.sessionQuery.isLoading}
+      sessionError={detail.sessionQuery.error ?? null}
+      attemptsLoading={detail.attemptsQuery.isLoading}
+      attemptsError={detail.attemptsQuery.error ?? null}
+      isOngoing={detail.isOngoing}
+      extId={extId}
+      accessToken={accessToken}
+      logSheetOpen={detail.logSheetOpen}
+      setLogSheetOpen={detail.setLogSheetOpen}
+      cameraOpen={detail.cameraOpen}
+      cameraMode={detail.cameraMode}
+      onCameraMode={(mode) => {
+        detail.setCameraMode(mode);
+        detail.setCameraOpen(true);
+      }}
+      closeCamera={detail.closeCamera}
+      onCaptured={detail.handleCaptured}
+      uploading={detail.uploading}
+      uploadedMediaId={detail.uploadedMediaId}
+      onClearMedia={() => detail.setUploadedMediaId(null)}
+      onEndSession={detail.endSessionAction}
+      endPending={detail.endSession.isPending}
+      endError={detail.endSession.error ?? null}
+    />
+  );
 }

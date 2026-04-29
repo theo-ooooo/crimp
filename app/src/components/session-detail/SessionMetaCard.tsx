@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 
-import { BigStat } from '@/components/primitives';
+import { BigStat } from '@/components/common/primitives';
 import { t } from '@/lib/i18n';
 import {
   fontFamily,
@@ -16,13 +16,6 @@ import {
 import { useTokens } from '@/lib/useTokens';
 import type { Session } from '@/lib/schemas/session';
 
-/**
- * 세션 상단 메타 카드.
- *
- * - 경과 시간을 HH:MM:SS 로 1초 단위 라이브 틱. 종료된 세션은 durationMin 으로 고정 렌더.
- * - BigStat(lg) 사용. 숫자 `fontVariant: tabular-nums` (iOS) 로 고정폭 보장.
- * - 카드는 테두리 없이 `theme.subtle` + `shadow.xs`.
- */
 export type SessionMetaCardProps = {
   session: Session;
 };
@@ -65,8 +58,8 @@ function formatStart(iso: string): string {
 export function SessionMetaCard({ session }: SessionMetaCardProps): JSX.Element {
   const theme = useTokens();
   const ended = Boolean(session.endedAt);
-
   const [now, setNow] = useState<number>(() => Date.now());
+
   useEffect(() => {
     if (ended) {
       return;
@@ -79,9 +72,7 @@ export function SessionMetaCard({ session }: SessionMetaCardProps): JSX.Element 
     () => formatElapsed(session.startedAt, session.endedAt, now),
     [session.startedAt, session.endedAt, now],
   );
-
   const styles = useMemo(() => makeStyles(theme), [theme]);
-
   const meta = session.gymNameRaw
     ? `${session.gymNameRaw} · ${formatStart(session.startedAt)}`
     : formatStart(session.startedAt);
@@ -91,16 +82,7 @@ export function SessionMetaCard({ session }: SessionMetaCardProps): JSX.Element 
       <Text style={styles.caption} numberOfLines={1}>
         {meta}
       </Text>
-      {/*
-        I6: BigStat 은 label 이 값 "위"에 오는 2단 레이아웃이라
-        "caption(meta) + timer + status(badge + duration)" 3단 구성에서 재사용이 어려움.
-        따라서 timer 는 display 토큰·tabular-nums 를 직접 지정하는 커스텀 렌더로 유지.
-        F4: BigStat 이 label optional 을 지원하게 되면 교체 검토.
-      */}
-      <Text
-        style={styles.timer}
-        accessibilityLabel={t('session.detail.elapsedLabel')}
-      >
+      <Text style={styles.timer} accessibilityLabel={t('session.detail.elapsedLabel')}>
         {elapsed}
       </Text>
       <View style={styles.statusRow}>
@@ -118,9 +100,7 @@ export function SessionMetaCard({ session }: SessionMetaCardProps): JSX.Element 
               { color: ended ? theme.text3 : theme.accent.ink },
             ]}
           >
-            {ended
-              ? t('session.detail.endedBadge')
-              : t('session.detail.ongoingBadge')}
+            {ended ? t('session.detail.endedBadge') : t('session.detail.ongoingBadge')}
           </Text>
         </View>
         {session.durationMin !== null ? (
