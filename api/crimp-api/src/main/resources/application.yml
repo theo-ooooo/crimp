@@ -67,7 +67,8 @@ crimp:
     allowed-methods: [GET, POST, PATCH, PUT, DELETE, OPTIONS]
     allowed-headers: ["*"]
     exposed-headers: []
-    allow-credentials: false
+    # HttpOnly 쿠키 인증을 쓰려면 필수 (PR #94). 클라는 fetch credentials: 'include' 사용.
+    allow-credentials: ${CORS_ALLOW_CREDENTIALS:true}
     max-age-seconds: 3600
 
 app:
@@ -97,6 +98,14 @@ app:
         rest-api-key: ${KAKAO_REST_API_KEY:}
         client-secret: ${KAKAO_CLIENT_SECRET:}
         token-uri: ${KAKAO_TOKEN_URI:https://kauth.kakao.com/oauth/token}
+    # HttpOnly 쿠키 발급 설정 (PR #94, HttpOnly 전환). 웹은 본 쿠키로 토큰 보유, 모바일은
+    # 쿠키 무시하고 JSON body 의 토큰 사용 (둘 다 발행). 운영: domain=.crimp.app, secure=true.
+    cookie:
+      domain: ${AUTH_COOKIE_DOMAIN:}
+      secure: ${AUTH_COOKIE_SECURE:false}
+      same-site: ${AUTH_COOKIE_SAME_SITE:Lax}
+      access-name: crimp_access
+      refresh-name: crimp_refresh
   # 미디어 업로드 (S3 presigned PUT) — PR #90, F5 카메라 캡처 인프라.
   # 자격증명 우선순위: profile > access-key/secret-key > default credential chain.
   # 로컬 개발: AWS_PROFILE 환경변수에 ~/.aws/credentials 의 named profile 이름 설정.
