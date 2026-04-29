@@ -143,7 +143,11 @@
       "uploadFailed": "업로드 실패",
       "uploadFailedRetry": "다시 시도해주세요. 네트워크나 사이즈 한도(이미지 20MB / 영상 200MB) 를 확인해보세요.",
       "mediaAttached": "미디어 첨부됨",
-      "mediaClear": "다시 촬영"
+      "mediaClear": "다시 촬영",
+      "capturePreviewTitle": "이대로 사용할까요?",
+      "capturePreviewRetake": "다시촬영",
+      "capturePreviewConfirm": "사용",
+      "capturePreviewVideoNoPlayback": "재생은 다음 업데이트에서 지원돼요"
     }
   },
   "attempt": {
