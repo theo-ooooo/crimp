@@ -19,7 +19,7 @@ import {
   type CameraCaptureError,
 } from 'react-native-vision-camera';
 
-import { CrimpIcon } from '@/components/primitives';
+import { CrimpIcon } from '@/components/common/primitives';
 import { measureFileBytes, readImageMeta, type DetectedImageMime } from '@/lib/camera/measure';
 import type { CapturedMedia } from '@/lib/camera/types';
 import { t } from '@/lib/i18n';

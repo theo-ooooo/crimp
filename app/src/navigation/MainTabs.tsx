@@ -9,8 +9,8 @@ import {
   type NativeStackHeaderProps,
 } from '@react-navigation/native-stack';
 
-import { CrimpHeader } from '@/components/nav/CrimpHeader';
-import { CrimpIcon, type IconName } from '@/components/primitives/Icon';
+import { CrimpHeader } from '@/components/common/nav/CrimpHeader';
+import { CrimpIcon, type IconName } from '@/components/common/primitives';
 import { t } from '@/lib/i18n';
 import { fontFamily, fontSize, fontWeight, type Theme } from '@/lib/tokens';
 import { useReducedMotion } from '@/lib/useReducedMotion';

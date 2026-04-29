@@ -18,9 +18,9 @@ import {
   HoldDot,
   PrimaryButton,
   ResultMark,
-} from '@/components/primitives';
-import type { HoldColorKey } from '@/components/primitives';
-import { useLogAttempt } from '@/hooks/useAttempts';
+} from '@/components/common/primitives';
+import type { HoldColorKey } from '@/components/common/primitives';
+import { useLogAttempt } from '@/hooks/queries/useAttempts';
 import { toUserMessage } from '@/lib/api/errorMessage';
 import { t } from '@/lib/i18n';
 import { type AttemptResult } from '@/lib/schemas/attempt';

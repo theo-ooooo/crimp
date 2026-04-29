@@ -5,7 +5,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { useMeQuery } from './src/hooks/useMe';
+import { useMeQuery } from '@/hooks/queries/useMe';
 import { t } from './src/lib/i18n';
 import { shouldShowOnboardingGate } from './src/lib/onboardingGate';
 import { fontFamily, fontSize } from './src/lib/tokens';
@@ -90,11 +90,13 @@ export default function App(): JSX.Element {
  * 에만 노출. 따라서 me 도착 직전 짧게 MainTabs 가 보일 수 있으나, 각 화면이 자체
  * 로딩 상태를 가지므로 UX 상 무리 없음.
  */
-function AppRouter({ accessToken }: { accessToken: string | null }): JSX.Element {
+function AppRouter({
+  accessToken,
+}: {
+  accessToken: string | null;
+}): JSX.Element {
   const meQuery = useMeQuery(accessToken);
-  const onboardingDismissed = useOnboardingStore(
-    (s) => s.dismissedThisSession,
-  );
+  const onboardingDismissed = useOnboardingStore((s) => s.dismissedThisSession);
 
   const needsOnboarding = shouldShowOnboardingGate({
     accessToken,

@@ -1,7 +1,4 @@
-import {
-  useInfiniteQuery,
-  type InfiniteData,
-} from '@tanstack/react-query';
+import { useInfiniteQuery, type InfiniteData } from '@tanstack/react-query';
 
 import { fetchFeed } from '@/lib/api';
 import type { FeedFilter, FeedList } from '@/lib/schemas/feed';
