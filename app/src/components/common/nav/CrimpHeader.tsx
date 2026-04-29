@@ -19,7 +19,7 @@ type HeaderButtonProps = {
   canGoBack: boolean;
 };
 
-import { CrimpIcon } from '@/components/primitives';
+import { CrimpIcon } from '@/components/common/primitives';
 import { t } from '@/lib/i18n';
 import {
   fontFamily,
