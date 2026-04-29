@@ -11,7 +11,7 @@ import {
   SecondaryButton,
   Skeleton,
   type ResultKind,
-} from '@/components/primitives';
+} from '@/components/common/primitives';
 import { fontFamily, space } from '@/lib/tokens';
 import type { Theme } from '@/lib/tokens';
 
