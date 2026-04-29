@@ -21,7 +21,7 @@ import {
   useCommentsQuery,
   useCreateCommentMutation,
   useDeleteCommentMutation,
-} from '@/hooks/useComments';
+} from '@/hooks/queries/useComments';
 import { toUserMessage } from '@/lib/api/errorMessage';
 import { t } from '@/lib/i18n';
 import {

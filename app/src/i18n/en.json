@@ -147,7 +147,10 @@
       "capturePreviewTitle": "Use this capture?",
       "capturePreviewRetake": "Retake",
       "capturePreviewConfirm": "Use",
-      "capturePreviewVideoNoPlayback": "Playback will be supported in a later update"
+      "capturePreviewVideoNoPlayback": "Playback will be supported in a later update",
+      "capturePreviewPhotoA11y": "Captured photo preview",
+      "capturePreviewVideoA11y": "Captured video preview",
+      "capturePreviewVideoMeta": "{{seconds}}s · {{mb}}MB"
     }
   },
   "attempt": {
