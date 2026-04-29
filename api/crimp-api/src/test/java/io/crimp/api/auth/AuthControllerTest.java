@@ -52,7 +52,7 @@ class AuthControllerTest {
     @Test
     void exchange_returnsTokenResponse_andSetsCookies() {
         when(authService.exchange(eq(OauthProvider.KAKAO), eq("id-token-1")))
-                .thenReturn(new AuthTokens("access", "refresh", 900L));
+                .thenReturn(new AuthTokens("access", "refresh", 900L, 1209600L));
 
         TokenResponse res = controller.exchange("kakao", new OauthExchangeRequest("id-token-1"), response);
 
@@ -67,7 +67,7 @@ class AuthControllerTest {
     void exchangeCode_returnsTokenResponse_andSetsCookies() {
         when(authService.exchangeCode(
                 eq(OauthProvider.KAKAO), eq("auth-code-1"), eq("https://app/cb")))
-                .thenReturn(new AuthTokens("access", "refresh", 900L));
+                .thenReturn(new AuthTokens("access", "refresh", 900L, 1209600L));
 
         TokenResponse res = controller.exchangeCode("kakao",
                 new OauthCodeExchangeRequest("auth-code-1", "https://app/cb"), response);
@@ -118,7 +118,7 @@ class AuthControllerTest {
 
     @Test
     void refresh_delegates_toService_andRotatesCookies() {
-        when(authService.refresh(any())).thenReturn(new AuthTokens("a", "r", 900L));
+        when(authService.refresh(any())).thenReturn(new AuthTokens("a", "r", 900L, 1209600L));
         TokenResponse res = controller.refresh(new TokenPair("rt"), request, response);
         assertThat(res.refreshToken()).isEqualTo("r");
         verify(cookieFactory).setAuthCookies(eq(response), any(AuthTokens.class));

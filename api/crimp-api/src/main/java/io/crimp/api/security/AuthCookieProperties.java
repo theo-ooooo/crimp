@@ -2,6 +2,8 @@ package io.crimp.api.security;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.util.Set;
+
 /**
  * 인증 쿠키 설정 (PR #94, F5 후속 — HttpOnly 쿠키 전환).
  *
@@ -25,9 +27,27 @@ public record AuthCookieProperties(
         String accessName,
         String refreshName
 ) {
+    /**
+     * SameSite 화이트리스트 — 브라우저 사양과 일치 (PR #94 리뷰 S2).
+     * 임의 문자열을 통과시키면 ResponseCookie 가 그대로 헤더에 박아 브라우저가 쿠키 무시.
+     */
+    private static final Set<String> ALLOWED_SAME_SITE = Set.of("Lax", "Strict", "None");
+
     public AuthCookieProperties {
         if (sameSite == null || sameSite.isBlank()) sameSite = "Lax";
         if (accessName == null || accessName.isBlank()) accessName = "crimp_access";
         if (refreshName == null || refreshName.isBlank()) refreshName = "crimp_refresh";
+
+        // [PR #94 리뷰 S2] 잘못된 SameSite 값 (예: 오타 'Lex') → 브라우저가 쿠키 무시. 빈 등록 단계에서 차단.
+        if (!ALLOWED_SAME_SITE.contains(sameSite)) {
+            throw new IllegalStateException(
+                    "app.auth.cookie.same-site 는 Lax/Strict/None 중 하나여야 함 (got: " + sameSite + ")");
+        }
+        // [PR #94 리뷰 S1] SameSite=None 은 브라우저 사양상 Secure 가 동반되어야 함.
+        // secure=false + None 조합은 모든 브라우저가 쿠키를 거부 → 조용한 인증 실패.
+        if ("None".equals(sameSite) && !secure) {
+            throw new IllegalStateException(
+                    "app.auth.cookie.same-site=None 은 secure=true 가 필수 (HTTPS 전용)");
+        }
     }
 }

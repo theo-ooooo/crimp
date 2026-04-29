@@ -1,8 +1,5 @@
 package io.crimp.api.auth;
 
-import io.crimp.api.auth.AuthController.OauthCodeExchangeRequest;
-import io.crimp.api.auth.AuthController.OauthExchangeRequest;
-import io.crimp.api.auth.AuthController.TokenPair;
 import io.crimp.api.security.AuthCookieFactory;
 import io.crimp.common.response.ApiResponse;
 import io.crimp.common.response.ErrorBody;

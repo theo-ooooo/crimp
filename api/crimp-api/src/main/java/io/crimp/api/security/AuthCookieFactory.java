@@ -7,8 +7,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
-
 /**
  * 인증 쿠키 생성·해제 헬퍼 (PR #94, F5 후속 — HttpOnly 쿠키 전환).
  *
@@ -33,14 +31,15 @@ public class AuthCookieFactory {
 
     /**
      * AuthTokens 의 access/refresh 두 쿠키를 응답에 부착.
-     * 각각 토큰 자체 TTL 과 동일한 Max-Age 로 설정.
+     * Max-Age 는 토큰의 실제 TTL ({@code AuthTokens.accessTtlSeconds()} /
+     * {@code refreshTtlSeconds()}) 와 동기 — JwtProperties 변경 시 자연스럽게 따라감
+     * (PR #94 리뷰 S4 — 이전엔 14일 hardcoded 였음).
      */
     public void setAuthCookies(HttpServletResponse response, AuthTokens tokens) {
-        response.addHeader(HttpHeaders.SET_COOKIE, accessCookie(tokens.accessToken(), tokens.accessTtlSeconds()).toString());
-        // refresh 토큰의 실제 TTL 은 AuthTokens 에 노출되어 있지 않다 — JwtProperties 의
-        // refresh-ttl 과 동일. 쿠키 만료를 토큰보다 짧게 잡고 싶으면 별도 설정 추가 가능.
-        // 기본 14 일.
-        response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie(tokens.refreshToken(), Duration.ofDays(14).getSeconds()).toString());
+        response.addHeader(HttpHeaders.SET_COOKIE,
+                accessCookie(tokens.accessToken(), tokens.accessTtlSeconds()).toString());
+        response.addHeader(HttpHeaders.SET_COOKIE,
+                refreshCookie(tokens.refreshToken(), tokens.refreshTtlSeconds()).toString());
     }
 
     /** 두 쿠키를 즉시 만료(Max-Age=0)로 덮어써 클라가 보유한 쿠키를 제거. logout 흐름. */
