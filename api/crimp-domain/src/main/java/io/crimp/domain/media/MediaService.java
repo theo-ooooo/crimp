@@ -22,7 +22,7 @@ import java.util.Set;
  *
  * <p>Phase 1 MVP 흐름:
  * <ol>
- *   <li>{@link #presignUpload(long, MediaKind, String)} — 클라가 호출, S3 PUT URL + UPLOADING row 발급</li>
+ *   <li>{@link #presignUpload(long, MediaKind, String, long)} — 클라가 호출, S3 PUT URL + UPLOADING row 발급</li>
  *   <li>클라가 받은 URL 로 직접 업로드 (백엔드 경유 X)</li>
  *   <li>{@link #completeUpload(long, long, Long, Integer, Integer, Integer)} — 클라가 업로드 완료
  *       알림 + 메타데이터 (size/dim/duration). row 가 READY 로 전환되며 {@code cdn_url} 채워짐.</li>
@@ -73,7 +73,7 @@ public class MediaService {
         validateMime(kind, mime);
         validateSize(kind, byteSize);
         String extId = UlidGenerator.next();
-        String s3Key = buildS3Key(extId, mime);
+        String s3Key = buildS3Key(ownerUserId, kind, extId, mime);
 
         MediaAsset asset = MediaAsset.createUploading(extId, ownerUserId, kind, mime, s3Key);
         mediaAssetRepository.save(asset);
@@ -144,11 +144,33 @@ public class MediaService {
         }
     }
 
-    /** 키 패턴: {@code media/YYYY-MM-DD/<extId>.<ext>} — 일자별 prefix 로 운영 분석·라이프사이클 적용 용이. */
-    private static String buildS3Key(String extId, String mime) {
-        String date = LocalDate.now(ZoneOffset.UTC).toString();
+    /**
+     * S3 키 패턴 (PR #96 — 폴더 구조 개선):
+     * {@code media/users/{ownerUserId}/{kind}/YYYY/MM/DD/<extId>.<ext>}
+     *
+     * <p>예: {@code media/users/123/image/2026/04/29/01HABC...DEF.jpg}
+     *
+     * <p>설계 의도:
+     * <ul>
+     *   <li><b>users/{userId}</b> — 사용자별 그룹핑. 콘솔에서 특정 사용자 미디어 즉시 탐색 가능,
+     *       향후 사용자 삭제 시 prefix 단위로 일괄 정리 (S3 lifecycle 또는 batch delete).</li>
+     *   <li><b>{kind}</b> — image / video 분리. video 만 별도 lifecycle (예: 30일 후 IA 티어로
+     *       이동) 적용 가능.</li>
+     *   <li><b>YYYY/MM/DD 계층</b> — 운영 분석 시 콘솔 탐색이 깔끔. 단일 prefix 의 객체 수가
+     *       너무 많아지면 S3 partition split 효율↓ — 일·월 분리로 자연스럽게 균형.</li>
+     *   <li><b>extId leaf</b> — ULID 라 같은 일자 내 정렬·중복 방지 보장.</li>
+     * </ul>
+     */
+    private static String buildS3Key(long ownerUserId, MediaKind kind, String extId, String mime) {
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        String yyyy = String.format("%04d", today.getYear());
+        String mm = String.format("%02d", today.getMonthValue());
+        String dd = String.format("%02d", today.getDayOfMonth());
         String ext = guessExtension(mime);
-        return "media/" + date + "/" + extId + (ext.isEmpty() ? "" : "." + ext);
+        String kindSegment = kind.name().toLowerCase(); // IMAGE → image, VIDEO → video
+        return "media/users/" + ownerUserId + "/" + kindSegment + "/"
+                + yyyy + "/" + mm + "/" + dd + "/"
+                + extId + (ext.isEmpty() ? "" : "." + ext);
     }
 
     private static String guessExtension(String mime) {
