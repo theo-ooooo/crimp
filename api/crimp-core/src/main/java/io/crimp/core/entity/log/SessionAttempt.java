@@ -58,6 +58,10 @@ public class SessionAttempt {
     @Column(name = "tags", columnDefinition = "json")
     private String tagsJson;
 
+    /** 홀드 색 (PR #93, F5 PR-4) — 클라가 LogAttempt 시 함께 보내는 1급 컬럼. */
+    @Column(name = "hold_color", length = 20)
+    private String holdColor;
+
     @Column(name = "logged_at", nullable = false)
     private Instant loggedAt;
 
@@ -85,6 +89,7 @@ public class SessionAttempt {
     public void updateMediaId(Long mediaId) { this.mediaId = mediaId; }
     public void updateNote(String note) { this.note = note; }
     public void updateTagsJson(String tagsJson) { this.tagsJson = tagsJson; }
+    public void updateHoldColor(String holdColor) { this.holdColor = holdColor; }
 
     private static short toAttemptShort(int attempts) {
         if (attempts < 1 || attempts > MAX_ATTEMPTS) {

@@ -13,5 +13,7 @@ public record UpdateAttemptCommand(
         Integer attempts,
         Long mediaId,
         String note,
-        String tagsJson
+        String tagsJson,
+        /** 홀드 색 (PR #93, F5 PR-4). null 이면 변경 없음. */
+        String holdColor
 ) {}

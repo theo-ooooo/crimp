@@ -20,7 +20,8 @@ import java.time.Instant;
  * @param result        AttemptResult enum (자유 글 게시는 null)
  * @param gradeValue    grade 표기(예: "V5")
  * @param gradeNumeric  grade 숫자 (회귀/정렬용)
- * @param holdColor     tagsJson 의 hold 키에서 파싱된 색상 (없으면 null)
+ * @param holdColor     SessionAttempt.hold_color (1급 컬럼) 우선 — null 이면 legacy tagsJson 의
+ *                      hold 키에서 fallback 추출, 둘 다 없으면 null (PR #93, F5 PR-4)
  * @param note          시도 메모 또는 게시 본문
  * @param likes         좋아요 수 (FeedPost.like_count 디노멀 카운터)
  * @param comments      댓글 수 (FeedPost.comment_count 디노멀 카운터)

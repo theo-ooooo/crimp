@@ -123,15 +123,14 @@ export function LogAttemptSheet({
 
   const onSave = () => {
     const trimmed = note.trim();
-    // tagsJson 으로 hold 색을 보존 — 백엔드 스키마 변경 없이 메타 정보를 실어 보낸다.
-    const tagsJson = JSON.stringify({ hold });
     mutation.mutate(
       {
         result,
         attempts: 1,
         gradeValue: grade,
         note: trimmed.length > 0 ? trimmed : null,
-        tagsJson,
+        // [PR #93, F5 PR-4] hold 색을 1급 컬럼 holdColor 로 전송 (이전엔 tagsJson 안의 JSON).
+        holdColor: hold,
         // [PR #92, F5 PR-3] 카메라/업로드 흐름 완료 시 media id 를 attempt 에 연결.
         mediaId: attachedMediaId,
       },

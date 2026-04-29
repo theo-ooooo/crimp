@@ -49,6 +49,7 @@ public class AttemptController {
         var cmd = new LogAttemptCommand(
                 req.routeId(), req.gymId(), req.gradeValue(), req.gradeNumeric(),
                 req.result(), req.attempts(), req.mediaId(), req.note(), req.tagsJson(),
+                req.holdColor(),
                 req.loggedAt());
         return AttemptResponse.of(attemptService.log(principal.userId(), sessionExtId, cmd));
     }
@@ -68,7 +69,8 @@ public class AttemptController {
             @RequestBody @Valid UpdateAttemptRequest req) {
         var cmd = new UpdateAttemptCommand(
                 req.routeId(), req.gymId(), req.gradeValue(), req.gradeNumeric(),
-                req.result(), req.attempts(), req.mediaId(), req.note(), req.tagsJson());
+                req.result(), req.attempts(), req.mediaId(), req.note(), req.tagsJson(),
+                req.holdColor());
         return AttemptResponse.of(attemptService.update(principal.userId(), extId, cmd));
     }
 
@@ -102,6 +104,7 @@ public class AttemptController {
             Long mediaId,
             @Size(max = 300) String note,
             String tagsJson,
+            @Size(max = 20) String holdColor,
             Instant loggedAt
     ) {}
 
@@ -114,7 +117,8 @@ public class AttemptController {
             @Min(1) @Max(999) Integer attempts,
             Long mediaId,
             @Size(max = 300) String note,
-            String tagsJson
+            String tagsJson,
+            @Size(max = 20) String holdColor
     ) {}
 
     public record AttemptResponse(
@@ -128,12 +132,14 @@ public class AttemptController {
             Long mediaId,
             String note,
             String tagsJson,
+            String holdColor,
             Instant loggedAt
     ) {
         static AttemptResponse of(AttemptView v) {
             return new AttemptResponse(
                     v.extId(), v.routeId(), v.gymId(), v.gradeValue(), v.gradeNumeric(),
-                    v.result(), v.attempts(), v.mediaId(), v.note(), v.tagsJson(), v.loggedAt());
+                    v.result(), v.attempts(), v.mediaId(), v.note(), v.tagsJson(),
+                    v.holdColor(), v.loggedAt());
         }
     }
 
