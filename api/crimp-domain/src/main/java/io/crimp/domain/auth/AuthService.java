@@ -175,7 +175,9 @@ public class AuthService {
                 refresh.jti(),
                 hash(refresh.token()),
                 Duration.between(Instant.now(), refresh.expiresAt()));
-        return new AuthTokens(access.token(), refresh.token(), jwtProperties.accessTtlSeconds());
+        return new AuthTokens(
+                access.token(), refresh.token(),
+                jwtProperties.accessTtlSeconds(), jwtProperties.refreshTtlSeconds());
     }
 
     private static String hash(String value) {

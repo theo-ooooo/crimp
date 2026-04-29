@@ -7,8 +7,10 @@ import io.crimp.domain.auth.JwtProvider;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.FilterChain;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.Authentication;
@@ -23,6 +25,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * {@link JwtAuthenticationFilter} 의 role → Spring Security 권한 매핑 단위 테스트.
@@ -36,7 +39,27 @@ class JwtAuthenticationFilterTest {
 
     private final JwtProvider provider = new JwtProvider(
             new JwtProperties(SECRET, 900L, 1_209_600L, ISSUER));
-    private final JwtAuthenticationFilter filter = new JwtAuthenticationFilter(provider, new ObjectMapper());
+
+    /** 테스트 헬퍼 — 쿠키 fallback 을 사용하지 않는 경우 (기본). */
+    private final JwtAuthenticationFilter filter = new JwtAuthenticationFilter(
+            provider, new ObjectMapper(), emptyCookieFactory());
+
+    /** AuthCookieFactory 빈이 없는 환경 (단위 테스트) — ObjectProvider 가 null 반환. */
+    private static ObjectProvider<AuthCookieFactory> emptyCookieFactory() {
+        @SuppressWarnings("unchecked")
+        ObjectProvider<AuthCookieFactory> p = mock(ObjectProvider.class);
+        return p;
+    }
+
+    /** 쿠키 fallback 을 위한 헬퍼 — 명시적 access cookie 이름을 가진 factory 주입. */
+    private JwtAuthenticationFilter filterWithCookieSupport(String accessCookieName) {
+        AuthCookieFactory factory = mock(AuthCookieFactory.class);
+        when(factory.accessCookieName()).thenReturn(accessCookieName);
+        @SuppressWarnings("unchecked")
+        ObjectProvider<AuthCookieFactory> p = mock(ObjectProvider.class);
+        when(p.getIfAvailable()).thenReturn(factory);
+        return new JwtAuthenticationFilter(provider, new ObjectMapper(), p);
+    }
 
     @AfterEach
     void clearContext() {
@@ -118,6 +141,45 @@ class JwtAuthenticationFilterTest {
         assertThat(auth.getAuthorities()).extracting(GrantedAuthority::getAuthority)
                 .containsExactly("ROLE_USER");
         verify(chain).doFilter(req, res);
+    }
+
+    @Test
+    void cookieFallback_readsAccessTokenFromCrimpAccessCookie() throws Exception {
+        // [PR #94, HttpOnly 전환] Authorization 헤더 없이 access 쿠키만 있어도 인증 통과.
+        var token = provider.issueAccess(11L, "ext-cookie", UserRole.USER).token();
+
+        var req = new MockHttpServletRequest();
+        req.setCookies(new Cookie("crimp_access", token));
+        var res = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filterWithCookieSupport("crimp_access").doFilter(req, res, chain);
+
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        assertThat(auth).isNotNull();
+        assertThat(auth.getAuthorities()).extracting(GrantedAuthority::getAuthority)
+                .containsExactly("ROLE_USER");
+        verify(chain).doFilter(req, res);
+    }
+
+    @Test
+    void cookieAndBearer_bothPresent_BearerWins() throws Exception {
+        // 둘 다 있으면 Bearer 가 우선 (모바일 호환).
+        var bearerToken = provider.issueAccess(1L, "ext-bearer", UserRole.ADMIN).token();
+        var cookieToken = provider.issueAccess(2L, "ext-cookie", UserRole.USER).token();
+
+        var req = new MockHttpServletRequest();
+        req.addHeader("Authorization", "Bearer " + bearerToken);
+        req.setCookies(new Cookie("crimp_access", cookieToken));
+        var res = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filterWithCookieSupport("crimp_access").doFilter(req, res, chain);
+
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        assertThat(auth).isNotNull();
+        assertThat(auth.getAuthorities()).extracting(GrantedAuthority::getAuthority)
+                .containsExactly("ROLE_ADMIN"); // Bearer 의 ADMIN 이 이김
     }
 
     @Test
