@@ -66,7 +66,10 @@ class MediaServiceTest {
         assertThat(saved.getKind()).isEqualTo(MediaKind.IMAGE);
         assertThat(saved.getMime()).isEqualTo("image/jpeg");
         assertThat(saved.getStatus()).isEqualTo(MediaStatus.UPLOADING);
-        assertThat(saved.getS3Key()).startsWith("media/").endsWith(".jpg");
+        // [PR #96] media/users/{userId}/{kind}/YYYY/MM/DD/<extId>.<ext> 구조.
+        assertThat(saved.getS3Key())
+                .startsWith("media/users/7/image/")
+                .matches("media/users/7/image/\\d{4}/\\d{2}/\\d{2}/[A-Z0-9]{26}\\.jpg");
 
         assertThat(result.id()).isEqualTo(42L);
         assertThat(result.uploadUrl()).contains(saved.getS3Key());
@@ -76,12 +79,15 @@ class MediaServiceTest {
     }
 
     @Test
-    void presignUpload_video_mp4_acceptedAndUsesMp4Extension() {
-        service.presignUpload(7L, MediaKind.VIDEO, "video/mp4", 1_000_000L);
+    void presignUpload_video_mp4_usesVideoFolderAndMp4Extension() {
+        service.presignUpload(42L, MediaKind.VIDEO, "video/mp4", 1_000_000L);
 
         ArgumentCaptor<MediaAsset> captor = ArgumentCaptor.forClass(MediaAsset.class);
         verify(repo).save(captor.capture());
-        assertThat(captor.getValue().getS3Key()).endsWith(".mp4");
+        // [PR #96] video kind 는 media/users/{userId}/video/... prefix.
+        assertThat(captor.getValue().getS3Key())
+                .startsWith("media/users/42/video/")
+                .endsWith(".mp4");
     }
 
     @Test
