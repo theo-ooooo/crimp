@@ -15,8 +15,8 @@ import {
   GradeBadge,
   HoldDot,
   ResultMark,
-} from '@/components/primitives';
-import { useLikeToggleMutation } from '@/hooks/useLikeToggle';
+} from '@/components/common/primitives';
+import { useLikeToggleMutation } from '@/hooks/queries/useLikeToggle';
 import { toUserMessage } from '@/lib/api/errorMessage';
 import { t } from '@/lib/i18n';
 import {

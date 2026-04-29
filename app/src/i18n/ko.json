@@ -147,7 +147,10 @@
       "capturePreviewTitle": "이대로 사용할까요?",
       "capturePreviewRetake": "다시촬영",
       "capturePreviewConfirm": "사용",
-      "capturePreviewVideoNoPlayback": "재생은 다음 업데이트에서 지원돼요"
+      "capturePreviewVideoNoPlayback": "재생은 다음 업데이트에서 지원돼요",
+      "capturePreviewPhotoA11y": "촬영된 사진 미리보기",
+      "capturePreviewVideoA11y": "촬영된 동영상 미리보기",
+      "capturePreviewVideoMeta": "{{seconds}}초 · {{mb}}MB"
     }
   },
   "attempt": {

@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 
-import { Chip } from '@/components/primitives';
+import { Chip } from '@/components/common/primitives';
 import { t } from '@/lib/i18n';
 import { space } from '@/lib/tokens';
 import { FEED_FILTERS, type FeedFilter } from '@/lib/schemas/feed';
@@ -32,6 +32,7 @@ export function FeedFilterTabs({
 
   return (
     <ScrollView
+      style={styles.scroll}
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.row}
@@ -62,6 +63,10 @@ export function FeedFilterTabs({
 
 function makeStyles() {
   return StyleSheet.create({
+    scroll: {
+      flexGrow: 0,
+      flexShrink: 0,
+    },
     row: {
       flexDirection: 'row',
       alignItems: 'center',
