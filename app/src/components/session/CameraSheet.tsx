@@ -110,8 +110,10 @@ export function CameraSheet({
       const uri = photo.path.startsWith('file://') ? photo.path : `file://${photo.path}`;
       // [PR #91 리뷰 B1] 헤더 시그니처로 실제 codec 검출 — vision-camera v4 의 iOS 가
       // HEIC 바이트를 항상 .jpg 확장자로 저장하므로 확장자 추정은 신뢰할 수 없음.
+      // [PR #95 후속] RN 의 FileReader 도 unavailable 한 환경에선 meta.mime === null —
+      // 그 경우 확장자/플랫폼 기반 fallback 사용 (Android 는 항상 JPEG, iOS 는 HEIC 우세).
       const meta = await readImageMeta(uri);
-      const mime: CapturedMedia['mime'] = meta.mime === 'image/heic' ? 'image/heic' : 'image/jpeg';
+      const mime: CapturedMedia['mime'] = resolvePhotoMime(meta.mime, photo.path);
       onCaptured({
         kind: 'IMAGE',
         uri,
@@ -334,6 +336,26 @@ function describeError(e: unknown): string {
   if (e instanceof Error) return e.message;
   if (typeof e === 'string') return e;
   return 'unknown';
+}
+
+/**
+ * 사진 mime 결정 (PR #95 후속 — RN 호환).
+ * 헤더 시그니처가 잡히면 우선, 안 잡히면 확장자/플랫폼 기반 fallback.
+ *
+ * <p>- 헤더가 image/heic 면 그대로 (vision-camera v4 가 iOS 에서 .jpg 확장자로 저장해도 헤더로 진실 결정)
+ * <p>- 헤더가 image/jpeg 면 그대로
+ * <p>- 헤더 검출 실패 (FileReader 미지원 등):
+ *   <ul>
+ *     <li>iOS: 신형 디바이스 기본이 HEIC 라 'image/heic' 추정 — 백엔드 화이트리스트에 둘 다 있어 호환</li>
+ *     <li>Android: 항상 JPEG 라 'image/jpeg'</li>
+ *   </ul>
+ */
+function resolvePhotoMime(detected: 'image/jpeg' | 'image/heic' | 'image/png' | 'image/webp' | null, path: string): CapturedMedia['mime'] {
+  if (detected === 'image/heic') return 'image/heic';
+  if (detected === 'image/jpeg') return 'image/jpeg';
+  // 헤더 미검출 — 확장자/플랫폼 기반 fallback.
+  if (path.toLowerCase().endsWith('.heic')) return 'image/heic';
+  return 'image/jpeg';
 }
 
 function makeStyles(theme: Theme) {
