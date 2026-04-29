@@ -32,7 +32,10 @@ import {
   type GymList,
   type RouteList,
 } from '@/lib/schemas/gym';
-import { HealthResponseSchema, type HealthResponse } from '@/lib/schemas/health';
+import {
+  HealthResponseSchema,
+  type HealthResponse,
+} from '@/lib/schemas/health';
 import {
   CompleteResponseSchema,
   PresignResponseSchema,
@@ -52,6 +55,21 @@ import {
 } from '@/lib/schemas/session';
 
 import { apiRequest } from './client';
+
+function buildQueryString(
+  entries: Array<[key: string, value: string | number | null | undefined]>,
+): string {
+  const parts: string[] = [];
+  for (const [key, value] of entries) {
+    if (value === undefined || value === null) {
+      continue;
+    }
+    const encodedKey = encodeURIComponent(key);
+    const encodedValue = encodeURIComponent(String(value));
+    parts.push(`${encodedKey}=${encodedValue}`);
+  }
+  return parts.join('&');
+}
 
 // ===== Auth =====
 
@@ -112,7 +130,10 @@ export function fetchHealth(signal?: AbortSignal): Promise<HealthResponse> {
   });
 }
 
-export function fetchMe(accessToken: string, signal?: AbortSignal): Promise<Me> {
+export function fetchMe(
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<Me> {
   return apiRequest({
     method: 'GET',
     path: '/api/v1/me',
@@ -171,14 +192,10 @@ export function fetchMySessions(
   size?: number,
   signal?: AbortSignal,
 ): Promise<SessionList> {
-  const params = new URLSearchParams();
-  if (cursor !== undefined && cursor !== null) {
-    params.set('cursor', String(cursor));
-  }
-  if (size !== undefined) {
-    params.set('size', String(size));
-  }
-  const qs = params.toString();
+  const qs = buildQueryString([
+    ['cursor', cursor],
+    ['size', size],
+  ]);
   return apiRequest({
     method: 'GET',
     path: `/api/v1/me/sessions${qs ? `?${qs}` : ''}`,
@@ -331,20 +348,12 @@ export function fetchGyms(
   size?: number,
   signal?: AbortSignal,
 ): Promise<GymList> {
-  const params = new URLSearchParams();
-  if (cursor !== undefined && cursor !== null) {
-    params.set('cursor', String(cursor));
-  }
-  if (q !== undefined && q.length > 0) {
-    params.set('q', q);
-  }
-  if (brand !== undefined && brand.length > 0) {
-    params.set('brand', brand);
-  }
-  if (size !== undefined) {
-    params.set('size', String(size));
-  }
-  const qs = params.toString();
+  const qs = buildQueryString([
+    ['cursor', cursor],
+    ['q', q && q.length > 0 ? q : undefined],
+    ['brand', brand && brand.length > 0 ? brand : undefined],
+    ['size', size],
+  ]);
   return apiRequest({
     method: 'GET',
     path: `/api/v1/gyms${qs ? `?${qs}` : ''}`,
@@ -369,17 +378,14 @@ export function fetchFeed(
   size?: number,
   signal?: AbortSignal,
 ): Promise<FeedList> {
-  const params = new URLSearchParams();
-  params.set('filter', filter);
-  if (cursor !== undefined && cursor !== null) {
-    params.set('cursor', String(cursor));
-  }
-  if (size !== undefined) {
-    params.set('size', String(size));
-  }
+  const qs = buildQueryString([
+    ['filter', filter],
+    ['cursor', cursor],
+    ['size', size],
+  ]);
   return apiRequest({
     method: 'GET',
-    path: `/api/v1/feed?${params.toString()}`,
+    path: `/api/v1/feed?${qs}`,
     accessToken,
     schema: FeedListSchema,
     signal,
@@ -411,14 +417,10 @@ export function fetchGymRoutes(
   size?: number,
   signal?: AbortSignal,
 ): Promise<RouteList> {
-  const params = new URLSearchParams();
-  if (cursor !== undefined && cursor !== null) {
-    params.set('cursor', String(cursor));
-  }
-  if (size !== undefined) {
-    params.set('size', String(size));
-  }
-  const qs = params.toString();
+  const qs = buildQueryString([
+    ['cursor', cursor],
+    ['size', size],
+  ]);
   return apiRequest({
     method: 'GET',
     path: `/api/v1/gyms/${encodeURIComponent(gymExtId)}/routes${qs ? `?${qs}` : ''}`,
@@ -461,14 +463,10 @@ export function fetchComments(
   size?: number,
   signal?: AbortSignal,
 ): Promise<CommentList> {
-  const params = new URLSearchParams();
-  if (cursor !== undefined && cursor !== null) {
-    params.set('cursor', String(cursor));
-  }
-  if (size !== undefined) {
-    params.set('size', String(size));
-  }
-  const qs = params.toString();
+  const qs = buildQueryString([
+    ['cursor', cursor],
+    ['size', size],
+  ]);
   return apiRequest({
     method: 'GET',
     path: `/api/v1/feed-posts/${encodeURIComponent(postExtId)}/comments${qs ? `?${qs}` : ''}`,
