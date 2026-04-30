@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, type ComponentType } from 'react';
 
-import { CrimpIcon, type IconProps } from '@/components/primitives';
+import { CrimpIcon, CrimpLogo, type IconProps } from '@/components/primitives';
 import { t, type MessageKey } from '@/lib/i18n';
 import { useAccessToken, useTokenStore } from '@/store/tokenStore';
 
@@ -87,9 +87,11 @@ export function TopNav(): JSX.Element | null {
         <Link
           href="/"
           aria-label={t('common.brand')}
-          className="text-title font-extrabold tracking-tight text-text transition-colors duration-fast ease-standard hover:opacity-80"
+          className="inline-flex items-center transition-opacity duration-fast ease-standard hover:opacity-80"
         >
-          {t('common.brand')}
+          {/* [PR #106] 워드마크 형태로 노출 — width 64 로 nav 텍스트(~16px) 와 시각 무게 정합.
+              너무 크면 헤더 위아래로 튀어나와 보이고, 너무 작으면 워드마크 텍스트 가독성 저하. */}
+          <CrimpLogo variant="wordmark" width={64} />
         </Link>
         <nav aria-label={t('nav.ariaLabel')}>
           <ul className="flex items-center gap-0.5 sm:gap-1">

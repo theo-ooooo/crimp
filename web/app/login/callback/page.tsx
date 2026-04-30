@@ -7,18 +7,21 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { Skeleton } from '@/components/primitives';
 import { useExchangeOauthCode } from '@/hooks/useAuth';
 import { toUserMessage } from '@/lib/api/errorMessage';
-import { consumeOauthState } from '@/lib/auth/kakaoOauthState';
+import { consumeOauthState } from '@/lib/auth/oauthState';
 import { t } from '@/lib/i18n';
 import { useAccessToken, useTokenStore } from '@/store/tokenStore';
 
 /**
- * `/login/callback` — Kakao Auth.authorize 의 redirect 도착 페이지.
+ * `/login/callback` — OAuth provider redirect 도착 페이지.
+ *
+ * 지원 provider: kakao / apple (PR #106 일반화). 저장된 oauthState 의 `provider` 필드를
+ * 신뢰해 백엔드 교환 endpoint 를 분기.
  *
  * 흐름:
  *  1) `?code=...&state=...&error=...` 파싱.
  *  2) `error` 가 있으면 그대로 사용자에게 표시 후 로그인 페이지 재시도 링크.
- *  3) sessionStorage 의 `state` 와 일치 검증 (CSRF 가드). 불일치 시 즉시 실패.
- *  4) `useExchangeOauthCode` 뮤테이션으로 백엔드 `POST /auth/oauth/kakao/code` 교환.
+ *  3) sessionStorage 의 `{provider, state}` 와 일치 검증 (CSRF 가드). 불일치 시 즉시 실패.
+ *  4) `useExchangeOauthCode` 뮤테이션으로 백엔드 `POST /auth/oauth/{provider}/code` 교환.
  *  5) 성공 시 `tokenStore.setTokens` (훅 내부) → `router.replace('/')`.
  *
  * 동작 보장:
@@ -103,19 +106,25 @@ function CallbackInner(): JSX.Element {
       return;
     }
 
-    // 3) state CSRF 검증 — sessionStorage 에 저장된 값을 한 번 읽고 즉시 제거.
+    // 3) state CSRF 검증 + provider 식별 — sessionStorage 에서 한 번 읽고 즉시 제거.
+    //    (PR #106, PR-W2: kakao/apple 모두 같은 callback 으로 돌아오므로 저장된 provider
+    //    필드를 신뢰해 백엔드 교환 endpoint 분기.)
     const expected = consumeOauthState();
-    if (!expected || expected !== state) {
+    if (!expected || expected.state !== state) {
       setPhase('error');
       setError({ message: t('auth.login.callbackStateMismatch') });
       return;
     }
 
-    // 4) 백엔드 교환.
+    // 4) 백엔드 교환 — provider 별 동일 endpoint (`/auth/oauth/{provider}/code`).
+    //    redirectUri 는 authorize 단계에서 사용한 값을 그대로 사용 — Apple/Kakao 모두
+    //    /auth/token 호출 시 정확 일치 요구 (mismatch 면 invalid_grant 400).
+    //    저장값이 누락되면 호환을 위해 kakao 디폴트로 fallback.
     setPhase('loading');
-    const redirectUri = `${window.location.origin}/login/callback`;
+    const redirectUri =
+      expected.redirectUri ?? `${window.location.origin}/login/callback`;
     exchange.mutate(
-      { provider: 'kakao', code, redirectUri },
+      { provider: expected.provider, code, redirectUri },
       {
         onSuccess: () => {
           setPhase('success');

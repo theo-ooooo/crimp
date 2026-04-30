@@ -4,3 +4,14 @@
 spring:
   flyway:
     locations: classpath:db/migration,classpath:db/seed-dev
+
+# 로컬 개발 편의 — 모든 오리진 허용 (ngrok / cloudflared 같은 임시 도메인 + iOS sim
+# 의 file:// 등). allowedOrigins=[] 로 비우고 allowedOriginPatterns=['*'] 사용 —
+# Spring 의 CorsConfiguration 이 wildcard origin + credentials=true 조합을
+# allowedOriginPatterns 에서만 허용 (Access-Control-Allow-Credentials 헤더 동시 사용).
+# 운영 환경 (application.yml) 은 명시 origin 목록 그대로 사용 — 이 override 는 'local' profile 한정.
+crimp:
+  cors:
+    allowed-origins: []
+    allowed-origin-patterns:
+      - "*"

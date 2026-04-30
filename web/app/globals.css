@@ -32,6 +32,11 @@
   --color-danger: #E03131;
   --color-info: #C9F84B;
 
+  /* Crimp 로고 — `docs/design/claude/v2/Crimp Logo.html` 의 primary (라이트) 와
+     reverse (다크) 매핑. light: ink 보울더 + lime 워드마크. dark: lime 보울더 + ink 워드마크. */
+  --color-logo-mark: #0F1419;
+  --color-logo-wordmark: #C9F84B;
+
   /* shadow */
   --shadow-xs: 0 1px 2px rgba(15, 20, 25, 0.04), 0 2px 8px rgba(15, 20, 25, 0.04);
   --shadow-sm: 0 4px 16px rgba(15, 20, 25, 0.08);
@@ -68,6 +73,10 @@
     --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2);
     --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.3);
     --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.6);
+
+    /* dark: reverse — lime 보울더 + ink 워드마크 (디자인 spec). */
+    --color-logo-mark: #C9F84B;
+    --color-logo-wordmark: #0F1419;
 
     color-scheme: dark;
   }

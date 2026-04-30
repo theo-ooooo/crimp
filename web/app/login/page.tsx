@@ -4,42 +4,49 @@ import { useRouter } from 'next/navigation';
 import Script from 'next/script';
 import { useCallback, useEffect, useState } from 'react';
 
-import { PrimaryButton, Skeleton } from '@/components/primitives';
+import { CrimpLogo, PrimaryButton, Skeleton } from '@/components/primitives';
 import { useExchangeOauth } from '@/hooks/useAuth';
 import { toUserMessage } from '@/lib/api/errorMessage';
-import { generateOauthState, saveOauthState } from '@/lib/auth/kakaoOauthState';
+import { generateOauthState, saveOauthState } from '@/lib/auth/oauthState';
 import { t } from '@/lib/i18n';
 import { useAccessToken, useTokenStore } from '@/store/tokenStore';
 
 /**
- * `/login` — Kakao OIDC 소셜 로그인 (v2 redirect) + 개발자 모드 ID 토큰 폴백.
+ * `/login` — Kakao + Apple OIDC 소셜 로그인 (v2 redirect) + 개발자 모드 ID 토큰 폴백.
  *
  * 디자인 (`docs/design/claude/v2/screens-ios-2.jsx:6-48` LoginScreen):
  * - 상단: 브랜드 마크 "Crimp" + 큰 2줄 헤드라인 + 보조 카피
- * - 하단: 카카오 시작 버튼 + (Phase 1.5) Apple/이메일 보조 + 약관 안내
- * - Apple/이메일은 본 PR 에서 미구현 — 카카오만 노출, 나머지는 후속.
+ * - 하단: 카카오 시작 버튼 + Apple 시작 버튼 (PR #106) + 약관 안내. Google 은 PR-W3 후속.
  *
- * 흐름 (v2 redirect — Kakao JS SDK 2.7.x 기준):
- * 1) Kakao JS SDK 를 CDN 으로 로드 (`afterInteractive`, SRI integrity 적용).
- * 2) `Kakao.init(NEXT_PUBLIC_KAKAO_APP_KEY)` — 키 미설정 시 카카오 버튼은 비활성화.
- * 3) 사용자가 카카오 버튼을 클릭하면 `state` (CSRF 가드) 를 sessionStorage 에
- *    저장한 뒤 `Kakao.Auth.authorize({ redirectUri, scope:'openid', state })` 호출.
- *    브라우저가 카카오 로그인 페이지로 redirect.
- * 4) 카카오가 `redirectUri` (= `/login/callback`) 로 `?code=...&state=...` 와
- *    함께 돌려보내면 `/login/callback` 페이지가 state 검증 → 백엔드
- *    `POST /api/v1/auth/oauth/kakao/code` 로 code 교환 → 토큰 저장 → `/` 이동.
+ * 흐름 (v2 redirect):
+ * 1) [Kakao] Kakao JS SDK 를 CDN 으로 로드 (`afterInteractive`, SRI integrity 적용),
+ *    `Kakao.init(NEXT_PUBLIC_KAKAO_APP_KEY)` — 키 미설정 시 카카오 버튼은 비활성.
+ *    버튼 클릭 → `Kakao.Auth.authorize({ redirectUri, scope:'openid', state })`.
+ * 2) [Apple] 별도 SDK 없이 직접 redirect — `appleid.apple.com/auth/authorize` 로 location 이동.
+ *    NEXT_PUBLIC_APPLE_SERVICE_ID 미설정 시 Apple 버튼 비활성.
+ * 3) 두 provider 공통 — `state` (CSRF 가드) 를 sessionStorage 에 `{provider, state}` 로 저장.
+ *    redirect 도착 페이지(`/login/callback`)가 provider 별로 백엔드 교환 endpoint 분기:
+ *    `POST /api/v1/auth/oauth/{provider}/code` → 토큰 저장 → `/` 이동.
  *
- * 왜 redirect? — Kakao JS SDK v2.x 에서 popup 기반 `Auth.login` 이 제거되었기 때문.
+ * 왜 Kakao redirect? — Kakao JS SDK v2.x 에서 popup 기반 `Auth.login` 이 제거되었기 때문.
  * v1.x 의 `Auth.login({success,fail})` 은 v2.x 에서 호출 시 `TypeError`.
  *
- * 개발자 모드(접이식) — Kakao 앱키 발급 전 또는 백엔드 단독 검증용:
- *  - 사용자가 직접 발급받은 OIDC `id_token` 을 textarea 에 붙여넣고 제출.
+ * 왜 Apple redirect? — `response_mode=form_post` 가 더 안전하지만 SPA 에서 처리 어려움.
+ * `response_mode=query` + state CSRF + nonce 로 일반적 보호 수준 확보.
+ *
+ * 개발자 모드(접이식) — 앱키 발급 전 또는 백엔드 단독 검증용:
+ *  - 사용자가 직접 발급받은 OIDC `id_token` 을 textarea 에 붙여넣고 Kakao provider 로 제출.
  *  - 기존 `useExchangeOauth` 뮤테이션 (id_token 직접 교환) 사용.
  *
  * SSR 가드: hydration 전에는 placeholder 만 노출. 로그인 상태에서 진입 시 `/` 로 즉시 이동.
  */
 
 const KAKAO_APP_KEY = process.env.NEXT_PUBLIC_KAKAO_APP_KEY ?? '';
+// PR #106 (PR-W2) — Apple 웹 redirect flow.
+// SERVICE_ID 는 Apple Developer Portal 의 Services ID (예: io.crimp.web).
+// 미설정 시 Apple 버튼 비활성 (Kakao 와 동일 패턴).
+const APPLE_SERVICE_ID = process.env.NEXT_PUBLIC_APPLE_SERVICE_ID ?? '';
+const APPLE_AUTHORIZE_URL = 'https://appleid.apple.com/auth/authorize';
 
 // Kakao JS SDK v2.7.1 SHA-384 — 버전 업 시 재계산:
 // `curl -sL https://t1.kakaocdn.net/kakao_js_sdk/2.7.1/kakao.min.js | openssl dgst -sha384 -binary | openssl base64 -A`
@@ -129,14 +136,51 @@ export default function LoginPage(): JSX.Element {
       return;
     }
     const state = generateOauthState();
-    saveOauthState(state);
     const redirectUri = `${window.location.origin}/login/callback`;
+    saveOauthState({ provider: 'kakao', state, redirectUri });
     sdk.Auth.authorize({
       redirectUri,
       scope: 'openid',
       state,
     });
     // authorize 는 동기적으로 location 변경 → 이 라인 이후 코드는 실행되지 않을 가능성이 높다.
+  }, []);
+
+  /**
+   * Apple 로그인 — pure redirect (Apple JS SDK 미사용).
+   *
+   * Apple Service ID + redirect URI 를 query 로 박아 https://appleid.apple.com/auth/authorize
+   * 로 location 이동. 사용자 인증 후 Apple 이 `?code=...&state=...` 와 함께 우리
+   * /login/callback 으로 redirect. response_mode=query 사용 — form_post 는 SPA 처리 어려움.
+   */
+  const handleAppleLogin = useCallback(() => {
+    setKakaoError(null);
+    if (typeof window === 'undefined') return;
+    if (!APPLE_SERVICE_ID) {
+      setKakaoError(new Error('Apple Service ID not configured'));
+      return;
+    }
+    const state = generateOauthState();
+    const nonce = generateOauthState();
+    // [PR #106 fix] Apple 은 scope 에 name/email 이 포함되면 response_mode=form_post 강제.
+    // email 을 받기 위해 form_post 사용 — Apple 이 POST 로 보내는 응답을 별도 API 라우트
+    // (`/api/auth/apple/callback/route.ts`) 가 받아 query string 으로 변환 후 기존 callback page
+    // 로 303 redirect. Apple Service ID 의 Return URL 도 `/api/auth/apple/callback` 으로 등록.
+    // (page tree 자식이 아닌 /api 경로로 분리한 이유는 route.ts 의 JSDoc 참조)
+    const redirectUri = `${window.location.origin}/api/auth/apple/callback`;
+    // [PR #106 fix #2] redirectUri 를 oauthState 에 함께 저장 — code 교환 시 Apple 이 authorize
+    // 단계의 redirect_uri 와 정확히 일치해야 하므로 callback 페이지가 같은 값을 백엔드로 전달.
+    saveOauthState({ provider: 'apple', state, nonce, redirectUri });
+    const params = new URLSearchParams({
+      response_type: 'code',
+      response_mode: 'form_post',
+      client_id: APPLE_SERVICE_ID,
+      redirect_uri: redirectUri,
+      scope: 'name email',
+      state,
+      nonce,
+    });
+    window.location.href = `${APPLE_AUTHORIZE_URL}?${params.toString()}`;
   }, []);
 
   const handleDevSubmit = useCallback(
@@ -210,14 +254,11 @@ export default function LoginPage(): JSX.Element {
       ) : null}
 
       {/* 상단: 브랜드 + 큰 헤드라인 — mock paddingTop 120 / px 24 */}
+      {/* [PR #106] App 측 LoginScreen 과 동일한 CrimpLogo wordmark 사용 — globals.css 의
+           `--color-logo-mark` / `-wordmark` 가 prefers-color-scheme 에 자동 반응 (라이트:
+           ink boulder + lime wordmark, 다크: lime boulder + ink wordmark). */}
       <header className="flex flex-col gap-7 px-1">
-        <p
-          aria-label={t('common.brand')}
-          className="text-display font-extrabold tracking-[-0.06em] text-text"
-          style={{ fontSize: 56, lineHeight: 1 }}
-        >
-          {t('common.brand')}
-        </p>
+        <CrimpLogo variant="wordmark" width={140} />
         <div className="flex flex-col gap-3">
           <h1 className="whitespace-pre-line text-[32px] font-extrabold leading-[1.2] tracking-[-0.04em] text-text">
             {headline}
@@ -264,6 +305,26 @@ export default function LoginPage(): JSX.Element {
             {t('auth.login.kakaoUnavailableHint')}
           </p>
         ) : null}
+
+        {/* PR-W2: Apple 버튼 — Service ID 설정 시 노출. App 디자인 정합 (검은 bg + 흰 텍스트 +
+            Apple 로고 SVG). app/AppleLoginButton 의 톤과 동일. */}
+        {APPLE_SERVICE_ID ? (
+          <button
+            type="button"
+            aria-label={t('auth.login.appleCta')}
+            onClick={handleAppleLogin}
+            disabled={exchange.isPending}
+            className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-black text-[16px] font-bold tracking-[-0.02em] text-white transition-transform duration-fast ease-standard active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
+          >
+            <AppleMark />
+            {t('auth.login.appleCta')}
+          </button>
+        ) : (
+          <p className="text-caption text-text-3">
+            {t('auth.login.appleUnavailableHint')}
+          </p>
+        )}
 
         {/* 약관 안내 — 12px text-3, center, marginTop 12 */}
         <p className="mt-3 px-2 text-center text-caption font-medium leading-[1.5] text-text-3">
@@ -324,6 +385,25 @@ export default function LoginPage(): JSX.Element {
         </section>
       </div>
     </main>
+  );
+}
+
+/**
+ * Apple 로고 SVG — 브라우저는 Apple PUA 글리프(U+F8FF) 를 SF Pro 가 아니면 렌더 못 하므로
+ * 명시 SVG path. Apple HIG 의 Sign In with Apple 가이드라인 정합 (단색 fill currentColor).
+ */
+function AppleMark(): JSX.Element {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 18 18"
+      fill="currentColor"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M14.84 9.42c-.02-2.18 1.78-3.23 1.86-3.28-1.02-1.49-2.6-1.69-3.16-1.71-1.34-.14-2.62.79-3.31.79-.7 0-1.74-.77-2.86-.75-1.47.02-2.83.86-3.59 2.18-1.53 2.65-.39 6.56 1.1 8.71.73 1.05 1.6 2.23 2.74 2.19 1.1-.05 1.52-.71 2.86-.71 1.33 0 1.71.71 2.86.69 1.18-.02 1.93-1.07 2.65-2.13.83-1.22 1.18-2.4 1.2-2.46-.03-.01-2.31-.89-2.34-3.52ZM12.66 2.97c.61-.74 1.03-1.77.91-2.79-.88.04-1.95.59-2.59 1.32-.57.65-1.07 1.7-.94 2.7.99.08 1.99-.5 2.62-1.23Z" />
+    </svg>
   );
 }
 

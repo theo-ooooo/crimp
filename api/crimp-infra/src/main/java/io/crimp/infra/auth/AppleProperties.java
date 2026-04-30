@@ -30,9 +30,27 @@ public record AppleProperties(
         String clientId,
         String issuer,
         String jwksUri,
-        List<String> additionalAudiences
+        List<String> additionalAudiences,
+        // PR #106 (PR-W2) — 웹 v2 redirect flow 의 authorization_code 교환용.
+        // serviceId/teamId/keyId/privateKeyPem 모두 채워졌을 때만 활성.
+        // privateKeyPem 은 Apple Developer Portal 에서 발급한 .p8 파일 내용 그대로
+        // (BEGIN PRIVATE KEY / END PRIVATE KEY 포함). 환경 변수 주입 권장.
+        String serviceId,
+        String teamId,
+        String keyId,
+        String privateKeyPem,
+        String tokenUri
 ) {
-    // [PR #102 리뷰 I1] verifier 활성화 헬퍼 (`isVerificationEnabled`) 는 현재 사용처가 없어
-    // 도입 시점까지 보류. PR-D2 (Google) 에서 동일 패턴 + KakaoProperties 의 isCodeExchangeEnabled
-    // 와 같이 운영 토글 자리가 생기면 함께 부활.
+
+    /** 웹 code 교환 활성화 — 4개 필수 항목이 모두 채워졌는지. */
+    public boolean isCodeExchangeEnabled() {
+        return notBlank(serviceId)
+                && notBlank(teamId)
+                && notBlank(keyId)
+                && notBlank(privateKeyPem);
+    }
+
+    private static boolean notBlank(String s) {
+        return s != null && !s.isBlank();
+    }
 }
