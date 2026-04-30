@@ -25,6 +25,14 @@ export interface CrimpLogoProps {
 const BOULDER_POINTS =
   '50,180 30,120 70,40 160,20 250,30 320,80 350,150 320,200 200,210 110,200';
 
+// [PR #106] 보울더 폴리곤의 실 bounding box (x: 30~350, y: 20~210). viewBox 를 이
+// 박스에 타이트하게 잡아 SVG 좌우/상하 빈 패딩 없이 렌더 — TopNav 등에서 인접 요소와
+// 시각적 정렬이 깔끔.
+const VIEWBOX_X = 30;
+const VIEWBOX_Y = 20;
+const VIEWBOX_W = 320;
+const VIEWBOX_H = 190;
+
 export function CrimpLogo({
   width = 120,
   color,
@@ -37,12 +45,12 @@ export function CrimpLogo({
   // var 가 prefers-color-scheme 에 맞춰 자동 스왑.
   const fillColor = color ?? 'var(--color-logo-mark)';
   const wordColor = textColor ?? 'var(--color-logo-wordmark)';
-  const height = (width * 220) / 380;
+  const height = (width * VIEWBOX_H) / VIEWBOX_W;
   return (
     <svg
       width={width}
       height={height}
-      viewBox="0 0 380 220"
+      viewBox={`${VIEWBOX_X} ${VIEWBOX_Y} ${VIEWBOX_W} ${VIEWBOX_H}`}
       role="img"
       aria-label="Crimp"
       className={className}
