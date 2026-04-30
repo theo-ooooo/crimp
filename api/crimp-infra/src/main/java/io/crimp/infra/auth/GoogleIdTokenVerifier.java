@@ -37,9 +37,13 @@ public class GoogleIdTokenVerifier implements OauthIdTokenVerifier {
 
     public GoogleIdTokenVerifier(GoogleProperties props) {
         NimbusJwtDecoder d = NimbusJwtDecoder.withJwkSetUri(props.jwksUri()).build();
+        // [PR #103 리뷰 I1] Google 의 id_token 의 iss 는 spec 상 https://accounts.google.com
+        // 또는 bare accounts.google.com 둘 다 가능. JwtValidators.createDefaultWithIssuer 는
+        // 정확 일치만 허용하므로 multi-issuer validator + default(만료/iat 등) 분리해 둘 다 통과.
         d.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
                 List.of(
-                        JwtValidators.createDefaultWithIssuer(props.issuer()),
+                        JwtValidators.createDefault(),
+                        issuerValidator(allowedIssuers(props.issuer())),
                         audienceValidator(allowedAudiences(props))
                 )
         ));
@@ -77,6 +81,41 @@ public class GoogleIdTokenVerifier implements OauthIdTokenVerifier {
         if (value != null && !value.isBlank()) {
             set.add(value);
         }
+    }
+
+    /**
+     * [PR #103 리뷰 I1] Google 의 dual-form iss 허용. 설정 값이
+     * {@code https://accounts.google.com} 이면 {@code accounts.google.com} 도 함께 허용 —
+     * 그 반대도 동일. SDK/JWT 생성기 차이로 인한 가짜 invalid_iss 거부 회피.
+     */
+    static Set<String> allowedIssuers(String configured) {
+        Set<String> set = new LinkedHashSet<>();
+        if (configured == null || configured.isBlank()) {
+            return set;
+        }
+        set.add(configured);
+        if (configured.startsWith("https://")) {
+            set.add(configured.substring("https://".length()));
+        } else {
+            set.add("https://" + configured);
+        }
+        return set;
+    }
+
+    static OAuth2TokenValidator<Jwt> issuerValidator(Set<String> allowed) {
+        return jwt -> {
+            // jwt.getIssuer() 는 URL 변환을 시도해 bare form ("accounts.google.com") 에서
+            // IllegalArgumentException — 직접 string claim 으로 읽어 비교.
+            String iss = jwt.getClaimAsString("iss");
+            if (iss != null && allowed.contains(iss)) {
+                return OAuth2TokenValidatorResult.success();
+            }
+            return OAuth2TokenValidatorResult.failure(
+                    new OAuth2Error(
+                            "invalid_issuer",
+                            "Issuer does not match any allowed Google issuer (with/without https scheme)",
+                            null));
+        };
     }
 
     static OAuth2TokenValidator<Jwt> audienceValidator(Set<String> allowed) {

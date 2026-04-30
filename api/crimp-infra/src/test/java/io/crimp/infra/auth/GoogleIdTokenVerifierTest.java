@@ -124,4 +124,62 @@ class GoogleIdTokenVerifierTest {
         assertThat(result.getErrors()).anySatisfy(err ->
                 assertThat(err.getErrorCode()).isEqualTo("invalid_audience"));
     }
+
+    // [PR #103 리뷰 I1] Google iss 의 with/without https 듀얼 폼 허용 검증.
+
+    @Test
+    void allowedIssuers_expandsHttpsForm() {
+        Set<String> allowed = GoogleIdTokenVerifier.allowedIssuers("https://accounts.google.com");
+
+        assertThat(allowed).containsExactlyInAnyOrder(
+                "https://accounts.google.com", "accounts.google.com");
+    }
+
+    @Test
+    void allowedIssuers_expandsBareForm() {
+        Set<String> allowed = GoogleIdTokenVerifier.allowedIssuers("accounts.google.com");
+
+        assertThat(allowed).containsExactlyInAnyOrder(
+                "accounts.google.com", "https://accounts.google.com");
+    }
+
+    @Test
+    void allowedIssuers_emptyForBlank() {
+        assertThat(GoogleIdTokenVerifier.allowedIssuers("")).isEmpty();
+        assertThat(GoogleIdTokenVerifier.allowedIssuers(null)).isEmpty();
+    }
+
+    @Test
+    void issuerValidator_succeedsForBothForms() {
+        OAuth2TokenValidator<Jwt> v = GoogleIdTokenVerifier.issuerValidator(
+                Set.of("https://accounts.google.com", "accounts.google.com"));
+
+        Jwt withScheme = Jwt.withTokenValue("t").header("alg", "RS256")
+                .issuer("https://accounts.google.com")
+                .issuedAt(Instant.now()).expiresAt(Instant.now().plusSeconds(60))
+                .audience(List.of("c")).subject("s").build();
+        Jwt bare = Jwt.withTokenValue("t").header("alg", "RS256")
+                .issuer("accounts.google.com")
+                .issuedAt(Instant.now()).expiresAt(Instant.now().plusSeconds(60))
+                .audience(List.of("c")).subject("s").build();
+
+        assertThat(v.validate(withScheme).hasErrors()).isFalse();
+        assertThat(v.validate(bare).hasErrors()).isFalse();
+    }
+
+    @Test
+    void issuerValidator_failsForOtherIssuer() {
+        OAuth2TokenValidator<Jwt> v = GoogleIdTokenVerifier.issuerValidator(
+                Set.of("https://accounts.google.com", "accounts.google.com"));
+
+        Jwt other = Jwt.withTokenValue("t").header("alg", "RS256")
+                .issuer("https://attacker.example.com")
+                .issuedAt(Instant.now()).expiresAt(Instant.now().plusSeconds(60))
+                .audience(List.of("c")).subject("s").build();
+
+        OAuth2TokenValidatorResult r = v.validate(other);
+        assertThat(r.hasErrors()).isTrue();
+        assertThat(r.getErrors()).anySatisfy(err ->
+                assertThat(err.getErrorCode()).isEqualTo("invalid_issuer"));
+    }
 }
