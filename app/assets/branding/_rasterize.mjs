@@ -45,50 +45,27 @@ const icon = `<?xml version="1.0" encoding="UTF-8"?>
   </g>
 </svg>`;
 
-// splash logo: 정사각 1024 + 투명 bg + 부울더 + "crimp" 워드마크 오버레이.
-// boulder fill 과 wordmark fill 은 항상 대비되어야 함 (워드마크가 부울더 위에 올라감).
-//   light variant: ink boulder + lime wordmark — 라이트 bg 위에 사용 시 (현재 미사용).
-//   dark  variant: lime boulder + ink wordmark — 현재 사용 중인 splash bg 가 ink 라
-//                  boulder 가 lime 으로 떠 보이고, 그 위 wordmark 가 ink 로 박힘.
-//
-// (PR-S1 후속) 사용자 피드백 — 부울더 작아 보임 + 워드마크 추가 요청 반영.
-//   scale 2.0 → 2.6 (icon 과 동일 톤), wordmark 는 CrimpLogo.tsx 의 좌표 (190, 130)
-//   font-size 58 / letter-spacing -3.48 / weight 900 을 동일 스케일로 옮김.
-function splash(boulderFill, wordmarkFill) {
-  const s = 2.6;
-  const w = 320 * s;
-  const h = 190 * s;
-  const x = (SIZE - w) / 2 - 30 * s; // polygon left at 30
-  const y = (SIZE - h) / 2 - 20 * s; // polygon top at 20
+// splash logo: 정사각 1024 + 투명 bg + 부울더 (중앙). 색만 라이트/다크 다름.
+function splash(fill) {
+  const splashScale = 2.0; // 더 작게 — 스플래쉬는 여백이 넉넉해야 자연스러움.
+  const w = 320 * splashScale;
+  const h = 190 * splashScale;
+  const x = (SIZE - w) / 2 - 30 * splashScale;
+  const y = (SIZE - h) / 2 - 20 * splashScale;
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}">
-  <g transform="translate(${x.toFixed(2)}, ${y.toFixed(2)}) scale(${s})">
-    <polygon points="${POINTS}" fill="${boulderFill}"/>
-    <text
-      x="190"
-      y="130"
-      text-anchor="middle"
-      font-family="Helvetica, -apple-system, system-ui, sans-serif"
-      font-weight="900"
-      font-size="58"
-      letter-spacing="-3.48"
-      fill="${wordmarkFill}"
-    >crimp</text>
+  <g transform="translate(${x.toFixed(2)}, ${y.toFixed(2)}) scale(${splashScale})">
+    <polygon points="${POINTS}" fill="${fill}"/>
   </g>
 </svg>`;
 }
 
-// boulder=ink, wordmark=lime — 라이트 bg(#FFFFFF) 위 표시용 (현재 미사용, 후속 옵션).
-const splashLight = splash('#0F1419', '#C9F84B');
-// boulder=lime, wordmark=ink — 다크 bg(#0D0F12) 위 표시용 (현재 사용 중).
-const splashDark = splash('#C9F84B', '#0F1419');
-
 await rasterize('icon', icon);
-await rasterize('splash-logo-light', splashLight);
-await rasterize('splash-logo-dark', splashDark);
+await rasterize('splash-logo-light', splash('#0F1419'));
+await rasterize('splash-logo-dark', splash('#C9F84B'));
 
 // 소스 SVG 들도 최종 형태로 덮어써 둠 — git 에 함께 커밋해 재생성 가능하게.
 await fs.writeFile(path.join(HERE, 'icon.svg'), icon);
-await fs.writeFile(path.join(HERE, 'splash-logo-light.svg'), splashLight);
-await fs.writeFile(path.join(HERE, 'splash-logo-dark.svg'), splashDark);
+await fs.writeFile(path.join(HERE, 'splash-logo-light.svg'), splash('#0F1419'));
+await fs.writeFile(path.join(HERE, 'splash-logo-dark.svg'), splash('#C9F84B'));
 console.log('source SVGs synced');

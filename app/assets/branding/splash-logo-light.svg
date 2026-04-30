@@ -1,16 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <g transform="translate(18.00, 213.00) scale(2.6)">
+  <g transform="translate(132.00, 282.00) scale(2)">
     <polygon points="50,180 30,120 70,40 160,20 250,30 320,80 350,150 320,200 200,210 110,200" fill="#0F1419"/>
-    <text
-      x="190"
-      y="130"
-      text-anchor="middle"
-      font-family="Helvetica, -apple-system, system-ui, sans-serif"
-      font-weight="900"
-      font-size="58"
-      letter-spacing="-3.48"
-      fill="#C9F84B"
-    >crimp</text>
   </g>
 </svg>
