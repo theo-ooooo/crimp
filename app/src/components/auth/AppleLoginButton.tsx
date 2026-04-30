@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text } from 'react-native';
 
 import { t } from '@/lib/i18n';
 import { fontFamily, fontWeight, radius, space } from '@/lib/tokens';
@@ -12,11 +12,13 @@ import { fontFamily, fontWeight, radius, space } from '@/lib/tokens';
  * <ul>
  *   <li>버튼 색: 검정 또는 흰색 (앱 톤에 맞게). Crimp 는 다크/라이트 모두 검은 배경 + 흰 텍스트
  *       조합으로 통일성 (KakaoLoginButton 의 노랑/검정과 시각적 구분).</li>
- *   <li>최소 높이 44pt, 최소 너비 140pt — RN spacing token 으로 충족.</li>
+ *   <li>최소 높이 44pt — 56pt 로 충족.</li>
  *   <li>로고 + 텍스트 좌우 배치, 텍스트는 시스템 SF Pro 권장 — 본 앱은 fontFamily 토큰 사용.</li>
+ *   <li><b>Apple 로고는 필수</b> — App Store Review Guideline 4.8. 본 컴포넌트는 iOS 전용
+ *       조건에서만 렌더되므로 Apple PUA 코드포인트 U+F8FF () 를 사용 — iOS 의 SF Pro 가
+ *       렌더 시 Apple 로고로 자동 치환. Android 에서는 tofu 로 보이지만 컴포넌트가
+ *       null 반환이라 영향 없음.</li>
  * </ul>
- *
- * <p>실 Apple Logo SVG 는 향후 react-native-svg 도입 시 교체. 현재는 단순 텍스트 마크.
  */
 
 type Props = {
@@ -27,6 +29,10 @@ type Props = {
 
 const APPLE_BLACK = '#000000';
 const APPLE_WHITE = '#FFFFFF';
+// [PR #104 리뷰 B1] Apple 로고 글리프 — Apple PUA 코드포인트 U+F8FF.
+// iOS 의 SF Pro 가 자동으로 Apple 로고로 렌더. App Store Review 4.8 충족.
+// Unicode escape 로 박아 editor/diff 도구에서 빈 문자열로 오인되지 않게 함 (실제 단일 char).
+const APPLE_LOGO_GLYPH = '\uF8FF';
 
 export function AppleLoginButton({
   onPress,
@@ -54,11 +60,7 @@ export function AppleLoginButton({
         <ActivityIndicator color={APPLE_WHITE} />
       ) : (
         <>
-          <View style={styles.markCircle}>
-            <Text style={styles.mark} allowFontScaling={false}>
-              {''}
-            </Text>
-          </View>
+          <Text style={styles.mark} allowFontScaling={false}>{APPLE_LOGO_GLYPH}</Text>
           <Text style={styles.label}>{t('auth.login.appleCta')}</Text>
         </>
       )}
@@ -83,16 +85,10 @@ const styles = StyleSheet.create({
   disabled: {
     opacity: 0.6,
   },
-  markCircle: {
-    width: 22,
-    height: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   mark: {
     fontSize: 22,
     color: APPLE_WHITE,
-    lineHeight: 22,
+    lineHeight: 26,
   },
   label: {
     fontFamily,

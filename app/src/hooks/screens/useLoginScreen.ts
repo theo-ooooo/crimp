@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import { useExchangeOauth } from '@/hooks/queries/useAuth';
 import { toUserMessage } from '@/lib/api/errorMessage';
 import { t } from '@/lib/i18n';
+import type { OauthProvider } from '@/lib/schemas/auth';
 
 type KakaoTokenLike = { idToken?: string | null; accessToken?: string | null };
 type KakaoLoginFn = (nonce?: string | null) => Promise<KakaoTokenLike>;
@@ -21,30 +22,13 @@ try {
  *
  * <p>iOS 만 지원. {@code @invertase/react-native-apple-authentication} 가 빌드에 없거나
  * Android 면 `appleAuth` 가 null 이라 호출 측에서 비활성 처리 + 적절한 메시지 노출.
+ *
+ * <p>[PR #104 리뷰 I3] 매뉴얼 interface 선언 → 패키지의 type 직접 import. type-only
+ * import 는 native 모듈을 로드하지 않아 Android 빌드에도 안전.
  */
-type AppleAuthRequestResponse = {
-  identityToken: string | null;
-  nonce: string;
-  user: string;
-  email: string | null;
-  authorizationCode: string | null;
-};
+type AppleAuthApi = typeof import('@invertase/react-native-apple-authentication').appleAuth;
 
-type AppleAuthOperation = number;
-type AppleAuthScope = number;
-
-type AppleAuthModule = {
-  isSupported: boolean;
-  performRequest: (options: {
-    requestedOperation: AppleAuthOperation;
-    requestedScopes?: AppleAuthScope[];
-  }) => Promise<AppleAuthRequestResponse>;
-  Operation: { LOGIN: AppleAuthOperation };
-  Scope: { EMAIL: AppleAuthScope; FULL_NAME: AppleAuthScope };
-  Error: { CANCELED: string };
-};
-
-let appleAuth: AppleAuthModule | null = null;
+let appleAuth: AppleAuthApi | null = null;
 if (Platform.OS === 'ios') {
   try {
     const mod = require('@invertase/react-native-apple-authentication');
@@ -69,7 +53,7 @@ export function useLoginScreen(onLoggedIn: () => void) {
   const [devToken, setDevToken] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const submitIdToken = async (provider: 'kakao' | 'apple', idToken: string) => {
+  const submitIdToken = async (provider: OauthProvider, idToken: string) => {
     setErrorMessage(null);
     try {
       await exchange.mutateAsync({ provider, idToken });
