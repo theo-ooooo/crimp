@@ -186,20 +186,10 @@
       "resultLabel": "결과",
       "gradeLabel": "그레이드",
       "holdLabel": "홀드 색",
-      "mediaLabel": "영상 · 사진",
-      "mediaAttached": "첨부됨",
-      "cameraVideoTitle": "동영상 촬영",
-      "cameraVideoHint": "최대 60초",
-      "cameraPhotoTitle": "사진 촬영",
-      "cameraPhotoHint": "또는 갤러리",
-      "cameraVideoModeLabel": "동영상",
-      "cameraPhotoModeLabel": "사진",
-      "cameraBetaModeLabel": "베타",
       "noteLabel": "메모 (선택)",
       "notePlaceholder": "예: 크림프 잡고 데드포인트 무브...",
       "save": "저장",
-      "openCta": "시도 기록",
-      "cameraComingSoon": "카메라 캡처는 곧 출시됩니다"
+      "openCta": "시도 기록"
     }
   },
   "attempt": {

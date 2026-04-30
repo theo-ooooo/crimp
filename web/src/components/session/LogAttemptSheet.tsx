@@ -11,7 +11,6 @@
  *  - 그레이드 horizontal scroll (V0 ~ V8) — null 허용 (기본 V5).
  *  - 홀드 색 picker — 시각적 메타데이터로만 활용. 백엔드는 별도 hold-color 컬럼이 없으므로
  *    `tagsJson` 에 `{ "hold": "red" }` 형태로 저장한다 (TODO: 정식 컬럼 도입 시 마이그레이션).
- *  - 카메라 CTA: video / photo 두 개의 점선 박스 — `onCamera` 콜백을 부모에 위임.
  *  - 메모: 300자 이하 textarea.
  *  - Save: `useLogAttempt` 뮤테이션 호출. 성공 시 시트 닫힘.
  *
@@ -21,7 +20,9 @@
  *  - backdrop 클릭 닫힘 (단, 시트 내부 클릭은 stopPropagation)
  *  - useReducedMotion 가드 — prefers-reduced-motion 일 때 enter 애니메이션 생략
  *
- * Z-index: 70 (CameraSheet 의 90 보다 낮다 — CameraSheet 는 시트 위에 덮인다).
+ * Z-index: 70 — 다른 fullscreen overlay (예: 향후 file-picker 시트) 가 도입되면 그쪽이 위에 덮이도록.
+ *
+ * (PR-W1) 사진/영상 첨부는 모바일 전용 — 웹 LogAttemptSheet 에는 카메라 CTA 없음.
  */
 
 import { useEffect, useId, useRef, useState, type FC } from 'react';
@@ -39,8 +40,6 @@ import { useLogAttempt } from '@/hooks/useAttempts';
 import { toUserMessage } from '@/lib/api/errorMessage';
 import { t } from '@/lib/i18n';
 import type { LogAttemptBody } from '@/lib/schemas/attempt';
-
-import type { CameraSheetMode } from './CameraSheet';
 
 /** Result picker 4그리드. ONSIGHT 는 v2 디자인 spec 에 포함되지 않음. */
 const RESULT_OPTIONS = ['SEND', 'FLASH', 'TRY', 'FAIL'] as const satisfies ReadonlyArray<ResultKind>;
@@ -76,17 +75,6 @@ export interface LogAttemptSheetProps {
   /** 인증 토큰 */
   accessToken: string;
   onClose: () => void;
-  /**
-   * 카메라 CTA 클릭. 부모 (`SessionDetailPage`) 가 `CameraSheet` 를 열어준다.
-   * mode 는 video/photo 둘 중 하나.
-   */
-  onCamera: (mode: CameraSheetMode) => void;
-  /**
-   * CameraSheet 가 닫힌 후 미디어가 첨부되었는지 여부.
-   * 부모(SessionDetailPage)가 onShoot 완료 시 true 로 셋, 시트 닫힐 때 false 로 리셋.
-   * 현재는 시각적 indicator 만 — 실제 mediaId 전송은 F5.
-   */
-  mediaAttached?: boolean;
 }
 
 /**
@@ -114,8 +102,6 @@ export const LogAttemptSheet: FC<LogAttemptSheetProps> = ({
   sessionExtId,
   accessToken,
   onClose,
-  onCamera,
-  mediaAttached = false,
 }) => {
   const titleId = useId();
   const reducedMotion = useReducedMotion();
@@ -344,99 +330,10 @@ export const LogAttemptSheet: FC<LogAttemptSheetProps> = ({
           </div>
         </section>
 
-        {/* Camera CTA */}
-        <section className="mb-6">
-          <div className="mb-2.5 flex items-center justify-between gap-2">
-            <p className="text-[12px] font-bold uppercase tracking-[0.04em] text-text-3">
-              {t('session.log.mediaLabel')}
-            </p>
-            {mediaAttached ? (
-              <span
-                role="status"
-                aria-live="polite"
-                className="inline-flex items-center gap-1 rounded-full bg-accent-soft px-2.5 py-0.5 text-[11px] font-bold text-accent-ink"
-              >
-                <svg
-                  width="11"
-                  height="11"
-                  viewBox="0 0 12 12"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M2.5 6.5l2.5 2.5 4.5-5" />
-                </svg>
-                {t('session.log.mediaAttached')}
-              </span>
-            ) : null}
-          </div>
-          <div className="flex gap-2.5">
-            <button
-              type="button"
-              onClick={() => onCamera('video')}
-              className="flex h-[88px] flex-1 flex-col items-center justify-center gap-1.5 rounded-2xl bg-subtle text-text-2"
-              style={{
-                border: '1.5px dashed var(--color-hairline)',
-                WebkitTapHighlightColor: 'transparent',
-              }}
-            >
-              <svg
-                width="26"
-                height="26"
-                viewBox="0 0 26 26"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinejoin="round"
-                strokeLinecap="round"
-                aria-hidden="true"
-              >
-                <rect x="2" y="6" width="15" height="14" rx="2.5" />
-                <path d="M17 11l6-3v10l-6-3z" />
-              </svg>
-              <span className="text-[13px] font-bold tracking-[-0.01em]">
-                {t('session.log.cameraVideoTitle')}
-              </span>
-              <span className="text-[10px] font-semibold text-text-3">
-                {t('session.log.cameraVideoHint')}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onCamera('photo')}
-              className="flex h-[88px] flex-1 flex-col items-center justify-center gap-1.5 rounded-2xl bg-subtle text-text-2"
-              style={{
-                border: '1.5px dashed var(--color-hairline)',
-                WebkitTapHighlightColor: 'transparent',
-              }}
-            >
-              <svg
-                width="26"
-                height="26"
-                viewBox="0 0 26 26"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinejoin="round"
-                strokeLinecap="round"
-                aria-hidden="true"
-              >
-                <path d="M3 8a2 2 0 0 1 2-2h3l1.5-2h7L18 6h3a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                <circle cx="13" cy="13" r="4" />
-              </svg>
-              <span className="text-[13px] font-bold tracking-[-0.01em]">
-                {t('session.log.cameraPhotoTitle')}
-              </span>
-              <span className="text-[10px] font-semibold text-text-3">
-                {t('session.log.cameraPhotoHint')}
-              </span>
-            </button>
-          </div>
-        </section>
+        {/* [PR-W1] 카메라 CTA 섹션 제거 — 웹은 native camera 미지원이라 사진/영상 첨부는
+            모바일 전용. 백엔드 미디어 업로드 인프라(presign/complete) 는 그대로 두고,
+            웹에서는 attempts 의 텍스트 메타만 입력. 향후 웹 파일 업로드 (input[type=file] +
+            드래그앤드롭) 도입 시 별도 PR. */}
 
         {/* Note */}
         <section className="mb-6">
