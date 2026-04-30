@@ -94,9 +94,13 @@ export function CameraSheet({
   // [PR #100 리뷰 I3·I4] handlePermAllow 더블탭 + unmount 가드.
   // - I3: requestAll 진행 중 사용자가 "허용" 다시 탭하면 OS 다이얼로그 race. 동기 ref 로 차단.
   // - I4: requestAll 도중 시트 X 닫히면 setIntroDismissed 가 unmounted 후 fire. visible 가드.
+  // [PR #101 폴리시] visibleRef 갱신을 useEffect 로 이동 (React 18 strict mode + concurrent
+  // rendering 안전). visible 변경 시 시점에 .current 가 최신 값을 보장.
   const allowingRef = useRef(false);
   const visibleRef = useRef(visible);
-  visibleRef.current = visible;
+  useEffect(() => {
+    visibleRef.current = visible;
+  }, [visible]);
 
   const [recording, setRecording] = useState(false);
   const [busy, setBusy] = useState(false);

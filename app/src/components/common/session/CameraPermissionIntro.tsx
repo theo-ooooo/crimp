@@ -61,8 +61,12 @@ export function CameraPermissionIntro({
 
   const opacity = useRef(new Animated.Value(visible ? 1 : 0)).current;
   const slide = useRef(new Animated.Value(visible ? 0 : 1)).current;
+  // [PR #101 폴리시] CrimpModal 과 동일 — ref 갱신을 useEffect 로 이동해 React 18 strict
+  // mode + concurrent rendering 안전 확보.
   const reducedMotionRef = useRef(reducedMotion);
-  reducedMotionRef.current = reducedMotion;
+  useEffect(() => {
+    reducedMotionRef.current = reducedMotion;
+  }, [reducedMotion]);
   const [mounted, setMounted] = React.useState(visible);
 
   useEffect(() => {
