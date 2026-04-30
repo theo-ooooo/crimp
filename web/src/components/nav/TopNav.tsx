@@ -89,9 +89,9 @@ export function TopNav(): JSX.Element | null {
           aria-label={t('common.brand')}
           className="inline-flex items-center transition-opacity duration-fast ease-standard hover:opacity-80"
         >
-          {/* [PR #106] 워드마크 형태로 노출 — 모바일 / 데스크탑 모두 적정 가독성. mark variant
-              만 노출하면 작아서 알아보기 어려움. wordmark 가 사용자 인식에 더 강함. */}
-          <CrimpLogo variant="wordmark" width={86} />
+          {/* [PR #106] 워드마크 형태로 노출 — width 64 로 nav 텍스트(~16px) 와 시각 무게 정합.
+              너무 크면 헤더 위아래로 튀어나와 보이고, 너무 작으면 워드마크 텍스트 가독성 저하. */}
+          <CrimpLogo variant="wordmark" width={64} />
         </Link>
         <nav aria-label={t('nav.ariaLabel')}>
           <ul className="flex items-center gap-0.5 sm:gap-1">
