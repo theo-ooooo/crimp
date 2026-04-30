@@ -400,7 +400,9 @@ function CapturePreview({
     <>
       <View
         style={styles.previewMediaWrap}
-        accessibilityRole="image"
+        // [PR #98 리뷰] role="image" 는 사진 브랜치에만 — 영상 브랜치는 메타 패널이라
+        // image 라고 선언하면 의미 불일치. 영상은 라벨만으로 컨텍스트 전달.
+        accessibilityRole={isImage ? 'image' : undefined}
         accessibilityLabel={mediaA11y}
       >
         {isImage ? (
