@@ -11,6 +11,11 @@ import { ApiError, ApiSchemaError, ApiTransportError } from './errors';
 const CODE_TO_KEY: Record<string, MessageKey> = {
   AUTH_REQUIRED: 'error.authRequired',
   AUTH_EXPIRED: 'error.authExpired',
+  // PR #104 리뷰: OAuth id_token 검증 실패 — Apple/Google/Kakao 모두 동일 코드 사용.
+  // placeholder client-id 로 운영 시작했거나 audience 불일치, 만료 등에서 발생.
+  AUTH_INVALID: 'error.authInvalid',
+  AUTH_PROVIDER_UNSUPPORTED: 'error.authProviderUnsupported',
+  AUTH_USER_MISSING: 'error.authUserMissing',
   FORBIDDEN: 'error.forbidden',
   FORBIDDEN_RESOURCE: 'error.forbidden',
   NOT_FOUND: 'error.notFound',
