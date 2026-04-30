@@ -40,15 +40,14 @@ public class KakaoOAuthClient {
     private final KakaoProperties props;
 
     /**
-     * 운영 생성자 — Spring 이 RestTemplate 을 직접 만들어 주입한다.
-     * `@Autowired` 를 명시해야 두 생성자 중 어느 걸 쓸지 Spring 이 결정 가능.
+     * 운영/테스트 공용 생성자 — Spring 이 {@link io.crimp.infra.http.HttpClientConfig}
+     * 의 timeout-적용 RestTemplate 빈을 주입한다. 단위 테스트는 mock RestTemplate 을
+     * 직접 전달.
+     *
+     * <p>(PR #109) 이전의 두 생성자 (no-RestTemplate @Autowired + RestTemplate 명시) 통합
+     * — `new RestTemplate()` 가 hardcode 되어 connect/read timeout 미설정이던 회귀 차단.
      */
     @Autowired
-    public KakaoOAuthClient(KakaoProperties props) {
-        this(new RestTemplate(), props);
-    }
-
-    /** 단위 테스트에서 RestTemplate 을 주입할 수 있도록 공개. */
     public KakaoOAuthClient(RestTemplate restTemplate, KakaoProperties props) {
         this.restTemplate = restTemplate;
         this.props = props;

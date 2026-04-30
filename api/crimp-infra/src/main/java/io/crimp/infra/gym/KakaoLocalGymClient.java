@@ -47,12 +47,14 @@ public class KakaoLocalGymClient implements GymSyncSource {
     private final KakaoProperties auth;
     private final KakaoLocalProperties props;
 
+    /**
+     * 운영/테스트 공용 생성자 — Spring 이 {@link io.crimp.infra.http.HttpClientConfig}
+     * 의 timeout-적용 RestTemplate 빈을 주입. 단위 테스트는 mock RestTemplate 직접 전달.
+     *
+     * <p>(PR #109) 이전 두 생성자 (no-RestTemplate @Autowired + 명시) 통합 — `new
+     * RestTemplate()` 하드코딩으로 timeout 미설정이던 회귀 차단.
+     */
     @Autowired
-    public KakaoLocalGymClient(KakaoProperties auth, KakaoLocalProperties props) {
-        this(new RestTemplate(), auth, props);
-    }
-
-    /** 단위 테스트에서 RestTemplate 을 주입할 수 있도록 공개. */
     public KakaoLocalGymClient(RestTemplate restTemplate, KakaoProperties auth, KakaoLocalProperties props) {
         this.restTemplate = restTemplate;
         this.auth = auth;
