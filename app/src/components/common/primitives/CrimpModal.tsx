@@ -96,8 +96,16 @@ export function CrimpModal({
     }
   }, [visible, mounted]);
 
+  // [PR #99 리뷰 I4] reducedMotion 의 런타임 변경이 in-flight 애니메이션을 점프시키지
+  // 않도록 visible 토글 시점의 값을 ref 로 스냅샷. 시스템 설정 변경 직후 모달 토글 한 번
+  // 까지는 이전 값으로 동작하지만 다음 토글부터 반영됨 — 시각적 일관성 확보.
+  const reducedMotionRef = useRef(reducedMotion);
+  const animationTypeRef = useRef(animationType);
+  reducedMotionRef.current = reducedMotion; // 항상 최신화 — 다음 visible 토글에서 사용.
+  animationTypeRef.current = animationType;
+
   useEffect(() => {
-    const useReduced = reducedMotion || animationType === 'none';
+    const useReduced = reducedMotionRef.current || animationTypeRef.current === 'none';
 
     if (visible) {
       // Enter: backdrop fade-in + content slide/fade
@@ -135,16 +143,22 @@ export function CrimpModal({
         useNativeDriver: true,
       }),
     ]).start(({ finished }) => {
-      if (finished) setMounted(false);
+      if (finished) {
+        setMounted(false);
+      }
     });
-  }, [visible, reducedMotion, animationType, opacity, slide]);
+    // [I4] reducedMotion / animationType 은 ref 스냅샷 사용 — deps 에 두면 런타임 변경
+    // 시 useEffect 재실행되며 in-flight 점프. visible 만 effect 재실행 트리거.
+  }, [visible, opacity, slide]);
 
   // Android 하드웨어 백 — 뜬 상태에서만 가로채고 onRequestClose 호출.
   // [PR #99 리뷰 I1] visible 가 false 가 된 직후 exit 윈도우(아직 mounted=true) 에서도
   // 백 버튼이 onRequestClose 를 다시 트리거하면 닫히는 모달을 한 번 더 닫는 셈 — visible
   // 가 살아있을 때만 가로챈다.
   useEffect(() => {
-    if (!visible || !mounted) return undefined;
+    if (!visible || !mounted) {
+      return undefined;
+    }
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       onRequestClose();
       return true;
@@ -152,7 +166,9 @@ export function CrimpModal({
     return () => sub.remove();
   }, [visible, mounted, onRequestClose]);
 
-  if (!mounted) return null;
+  if (!mounted) {
+    return null;
+  }
 
   const dismissable = dismissOnBackdrop ?? variant === 'centered';
 
