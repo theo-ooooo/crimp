@@ -12,10 +12,6 @@ import {
   SecondaryButton,
   Skeleton,
 } from '@/components/primitives';
-import {
-  CameraSheet,
-  type CameraSheetMode,
-} from '@/components/session/CameraSheet';
 import { LogAttemptSheet } from '@/components/session/LogAttemptSheet';
 import { useAttemptsQuery } from '@/hooks/useAttempts';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
@@ -34,8 +30,7 @@ import type { Session } from '@/lib/schemas/session';
  * - 통계 타일 3개 (완등 / 시도 / 최고 그레이드) — `bg-subtle` 카드
  * - "시도 기록" PrimaryButton — 탭 시 `LogAttemptSheet` (바텀시트) 가 열림.
  *   기존 인라인 폼 (`LogAttemptForm`) 은 v2 시트 패턴으로 대체.
- * - LogAttemptSheet 안의 카메라 CTA 는 `CameraSheet` (full-screen overlay) 로 진입.
- *   현재 카메라는 placeholder — 실 캡처/업로드는 F5 follow-up.
+ * - 사진/영상 첨부는 모바일 전용 (PR-W1). 웹 LogAttemptSheet 에는 카메라 CTA 없음.
  * - 타임라인: ResultMark + GradeBadge + 시각 + 메모 한 줄 카드
  * - 하단 고정 SecondaryButton "세션 종료" (진행 중인 세션 한정)
  *
@@ -50,13 +45,8 @@ export default function SessionDetailPage(): JSX.Element {
   const attemptsQuery = useAttemptsQuery(accessToken, extId);
   const endSession = useEndSession(accessToken);
 
-  // v2 시트 패턴 — LogAttemptSheet / CameraSheet 토글 상태.
+  // v2 시트 패턴 — LogAttemptSheet 토글 상태. (PR-W1: 웹 카메라 제거 — 모바일 전용)
   const [logSheetOpen, setLogSheetOpen] = useState<boolean>(false);
-  const [cameraMode, setCameraMode] = useState<CameraSheetMode | null>(null);
-  const [recording, setRecording] = useState<boolean>(false);
-  // CameraSheet 가 onShoot 으로 닫힌 직후 LogAttemptSheet 에 첨부 indicator 노출.
-  // 시트가 닫힐 때 false 로 리셋. 실 mediaId 전송은 F5.
-  const [mediaAttached, setMediaAttached] = useState<boolean>(false);
 
   // hydration 전 OR 토큰 없음(redirect 대기) → 동일 skeleton.
   if (!accessToken) {
@@ -184,48 +174,7 @@ export default function SessionDetailPage(): JSX.Element {
         <LogAttemptSheet
           accessToken={accessToken}
           sessionExtId={extId}
-          mediaAttached={mediaAttached}
-          onClose={() => {
-            setLogSheetOpen(false);
-            setMediaAttached(false);
-          }}
-          onCamera={(mode) => {
-            setCameraMode(mode);
-            setRecording(false);
-          }}
-        />
-      ) : null}
-
-      {/*
-       * v2 CameraSheet — placeholder.
-       * TODO(F5): 실 카메라 캡처 + S3 업로드 + mediaId 전달 구현.
-       * 현재는 onShoot 시 alert 후 시트만 닫힌다.
-       */}
-      {cameraMode ? (
-        <CameraSheet
-          mode={cameraMode}
-          recording={recording}
-          onClose={() => {
-            setCameraMode(null);
-            setRecording(false);
-          }}
-          onShoot={() => {
-            if (cameraMode === 'video' && !recording) {
-              // video 첫 탭: 녹화 시작 (placeholder).
-              setRecording(true);
-              return;
-            }
-            // photo 또는 video 두 번째 탭: "곧 출시" 안내 후 시트 닫힘.
-            // TODO(F5): toast 컴포넌트 도입 후 alert → toast 교체.
-            if (typeof window !== 'undefined') {
-              window.alert(t('session.log.cameraComingSoon'));
-            }
-            // placeholder 단계지만 사용자 의도(촬영 완료) 는 LogAttemptSheet 에서
-            // visual feedback 으로 반영. 실 mediaId 첨부는 F5.
-            setMediaAttached(true);
-            setCameraMode(null);
-            setRecording(false);
-          }}
+          onClose={() => setLogSheetOpen(false)}
         />
       ) : null}
     </main>
