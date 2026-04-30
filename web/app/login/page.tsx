@@ -136,8 +136,8 @@ export default function LoginPage(): JSX.Element {
       return;
     }
     const state = generateOauthState();
-    saveOauthState({ provider: 'kakao', state });
     const redirectUri = `${window.location.origin}/login/callback`;
+    saveOauthState({ provider: 'kakao', state, redirectUri });
     sdk.Auth.authorize({
       redirectUri,
       scope: 'openid',
@@ -162,13 +162,15 @@ export default function LoginPage(): JSX.Element {
     }
     const state = generateOauthState();
     const nonce = generateOauthState();
-    saveOauthState({ provider: 'apple', state, nonce });
     // [PR #106 fix] Apple 은 scope 에 name/email 이 포함되면 response_mode=form_post 강제.
     // email 을 받기 위해 form_post 사용 — Apple 이 POST 로 보내는 응답을 별도 API 라우트
     // (`/api/auth/apple/callback/route.ts`) 가 받아 query string 으로 변환 후 기존 callback page
     // 로 303 redirect. Apple Service ID 의 Return URL 도 `/api/auth/apple/callback` 으로 등록.
     // (page tree 자식이 아닌 /api 경로로 분리한 이유는 route.ts 의 JSDoc 참조)
     const redirectUri = `${window.location.origin}/api/auth/apple/callback`;
+    // [PR #106 fix #2] redirectUri 를 oauthState 에 함께 저장 — code 교환 시 Apple 이 authorize
+    // 단계의 redirect_uri 와 정확히 일치해야 하므로 callback 페이지가 같은 값을 백엔드로 전달.
+    saveOauthState({ provider: 'apple', state, nonce, redirectUri });
     const params = new URLSearchParams({
       response_type: 'code',
       response_mode: 'form_post',

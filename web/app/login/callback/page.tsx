@@ -117,8 +117,12 @@ function CallbackInner(): JSX.Element {
     }
 
     // 4) 백엔드 교환 — provider 별 동일 endpoint (`/auth/oauth/{provider}/code`).
+    //    redirectUri 는 authorize 단계에서 사용한 값을 그대로 사용 — Apple/Kakao 모두
+    //    /auth/token 호출 시 정확 일치 요구 (mismatch 면 invalid_grant 400).
+    //    저장값이 누락되면 호환을 위해 kakao 디폴트로 fallback.
     setPhase('loading');
-    const redirectUri = `${window.location.origin}/login/callback`;
+    const redirectUri =
+      expected.redirectUri ?? `${window.location.origin}/login/callback`;
     exchange.mutate(
       { provider: expected.provider, code, redirectUri },
       {

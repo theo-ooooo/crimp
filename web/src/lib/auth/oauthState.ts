@@ -20,6 +20,13 @@ export interface OauthState {
   state: string;
   /** 일부 provider (Apple/Google) 가 nonce 도 요구. 미사용 provider 는 빈 문자열. */
   nonce?: string;
+  /**
+   * authorize 단계에서 provider 에 전달한 redirect_uri 그대로 — code 교환 시점에 같은
+   * URI 를 백엔드로 전달해 Apple/Kakao 의 redirect_uri mismatch (400) 회귀 차단.
+   * (Apple form_post 라우트는 `/api/auth/apple/callback`, Kakao 는 `/login/callback`
+   *  으로 서로 다름.)
+   */
+  redirectUri?: string;
 }
 
 /** 16자 영숫자 state 생성. crypto.getRandomValues 가 가능하면 사용. */
