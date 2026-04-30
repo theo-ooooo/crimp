@@ -31,7 +31,7 @@
 
 | 단계 | 방법 |
 | --- | --- |
-| 소셜 로그인 (id_token 직접 교환) | `POST /api/v1/auth/oauth/{provider}` (provider: `kakao`/`apple`/`google`) — 모바일/JS SDK 가 직접 받은 OIDC `id_token` 을 본문 `idToken` 으로 전달 |
+| 소셜 로그인 (id_token 직접 교환) | `POST /api/v1/auth/oauth/{provider}` (provider: `kakao`/`apple`) — 모바일/JS SDK 가 직접 받은 OIDC `id_token` 을 본문 `idToken` 으로 전달 |
 | 소셜 로그인 (code 교환) | `POST /api/v1/auth/oauth/{provider}/code` — 웹 v2 redirect flow 전용. 본문 `{ code, redirectUri }`. 서버가 provider `/oauth/token` 호출 후 id_token 을 검증해 JWT 발급 |
 | 토큰 재발급 | `POST /api/v1/auth/refresh` |
 | 로그아웃 | `POST /api/v1/auth/logout` (refresh 블랙리스트) |

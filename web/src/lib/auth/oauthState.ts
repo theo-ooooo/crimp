@@ -3,7 +3,7 @@
  *
  * <p>v2 redirect flow 는 popup callback 이 없으므로 CSRF 보호를 위해 사용자가 브라우저로
  * provider 사이트에 갔다가 돌아올 때 우리가 발급했던 `state` 와 응답 `state` 의 일치를
- * 확인한다. 또한 callback 페이지 한 곳이 여러 provider (kakao/apple/google) 를 처리하므로
+ * 확인한다. 또한 callback 페이지 한 곳이 여러 provider (kakao/apple) 를 처리하므로
  * 어떤 provider 였는지 함께 저장.
  *
  * <p>sessionStorage 사용 이유: 탭 단위 격리, 탭 닫힘 시 자동 폐기.
@@ -13,12 +13,12 @@
 
 export const OAUTH_STATE_KEY = 'crimp.oauth.state';
 
-export type OauthStateProvider = 'kakao' | 'apple' | 'google';
+export type OauthStateProvider = 'kakao' | 'apple';
 
 export interface OauthState {
   provider: OauthStateProvider;
   state: string;
-  /** 일부 provider (Apple/Google) 가 nonce 도 요구. 미사용 provider 는 빈 문자열. */
+  /** 일부 provider (Apple) 가 nonce 도 요구. 미사용 provider 는 빈 문자열. */
   nonce?: string;
   /**
    * authorize 단계에서 provider 에 전달한 redirect_uri 그대로 — code 교환 시점에 같은
@@ -71,7 +71,7 @@ export function consumeOauthState(): OauthState | null {
     const parsed = JSON.parse(raw) as OauthState;
     if (
       typeof parsed?.state === 'string' &&
-      (parsed.provider === 'kakao' || parsed.provider === 'apple' || parsed.provider === 'google')
+      (parsed.provider === 'kakao' || parsed.provider === 'apple')
     ) {
       return parsed;
     }
