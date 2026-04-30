@@ -50,6 +50,8 @@ async function postRefresh(refreshToken: string): Promise<{ accessToken: string;
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json',
+      // ngrok free tier 의 browser warning 우회 — apiRequest 와 동일.
+      'ngrok-skip-browser-warning': '1',
     },
     body: JSON.stringify({ refreshToken }),
     credentials: 'omit',
@@ -126,6 +128,10 @@ async function doRequest<TBody, TResponse>(
 
   const finalHeaders: Record<string, string> = {
     Accept: 'application/json',
+    // [PR #106 fix] ngrok free tier 의 browser warning 인터스티셜 (ERR_NGROK_6024)
+    // 우회 — 임의의 값이라도 본 헤더가 있으면 ngrok 이 HTML 인터스티셜 대신 실 응답
+    // pass-through. 운영 도메인엔 무영향 (ngrok 미사용).
+    'ngrok-skip-browser-warning': '1',
     ...(headers ?? {}),
   };
   if (accessToken) {
