@@ -26,21 +26,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const errParam = stringOrNull(form.get('error'));
   const errDesc = stringOrNull(form.get('error_description'));
 
-  // 같은 도메인의 GET 페이지(`/login/callback/page.tsx`) 가 처리할 query string 으로 변환.
-  const redirectUrl = new URL('/login/callback', request.url);
+  const params = new URLSearchParams();
   if (errParam) {
-    redirectUrl.searchParams.set('error', errParam);
+    params.set('error', errParam);
     if (errDesc) {
-      redirectUrl.searchParams.set('error_description', errDesc);
+      params.set('error_description', errDesc);
     }
   } else {
-    if (code) redirectUrl.searchParams.set('code', code);
-    if (state) redirectUrl.searchParams.set('state', state);
+    if (code) params.set('code', code);
+    if (state) params.set('state', state);
   }
 
-  // 303 (See Other) — POST → GET 변환의 정석. 302 도 대부분 동작하지만 일부 클라이언트가
-  // method 를 보존하는 케이스가 있어 303 명시.
-  return NextResponse.redirect(redirectUrl, 303);
+  // [PR #106 fix] **상대경로 Location** 으로 응답 — `new URL('/login/callback', request.url)` 은
+  // Next.js 가 ngrok / proxy 뒤에서 받는 internal `request.url` (localhost) 로 base 를 잡아
+  // 외부 브라우저가 localhost 로 가버리는 회귀 발생. 상대경로 Location 은 브라우저가 현재
+  // request URL (= ngrok 도메인) 기준으로 해석해 정상 도메인 유지.
+  // 303 (See Other) — POST → GET method 전환의 정석.
+  return new NextResponse(null, {
+    status: 303,
+    headers: {
+      Location: `/login/callback?${params.toString()}`,
+    },
+  });
 }
 
 function stringOrNull(value: FormDataEntryValue | null): string | null {
