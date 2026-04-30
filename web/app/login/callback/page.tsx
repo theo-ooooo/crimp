@@ -12,13 +12,16 @@ import { t } from '@/lib/i18n';
 import { useAccessToken, useTokenStore } from '@/store/tokenStore';
 
 /**
- * `/login/callback` — Kakao Auth.authorize 의 redirect 도착 페이지.
+ * `/login/callback` — OAuth provider redirect 도착 페이지.
+ *
+ * 지원 provider: kakao / apple (PR #106 일반화). 저장된 oauthState 의 `provider` 필드를
+ * 신뢰해 백엔드 교환 endpoint 를 분기.
  *
  * 흐름:
  *  1) `?code=...&state=...&error=...` 파싱.
  *  2) `error` 가 있으면 그대로 사용자에게 표시 후 로그인 페이지 재시도 링크.
- *  3) sessionStorage 의 `state` 와 일치 검증 (CSRF 가드). 불일치 시 즉시 실패.
- *  4) `useExchangeOauthCode` 뮤테이션으로 백엔드 `POST /auth/oauth/kakao/code` 교환.
+ *  3) sessionStorage 의 `{provider, state}` 와 일치 검증 (CSRF 가드). 불일치 시 즉시 실패.
+ *  4) `useExchangeOauthCode` 뮤테이션으로 백엔드 `POST /auth/oauth/{provider}/code` 교환.
  *  5) 성공 시 `tokenStore.setTokens` (훅 내부) → `router.replace('/')`.
  *
  * 동작 보장:

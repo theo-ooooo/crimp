@@ -118,7 +118,6 @@ app:
         key-id: ${APPLE_KEY_ID:}
         private-key-pem: ${APPLE_PRIVATE_KEY_PEM:}
         token-uri: ${APPLE_TOKEN_URI:https://appleid.apple.com/auth/token}
-        token-audience: https://appleid.apple.com
       # Google Sign In (PR #103, F-D2) — OIDC ID Token 검증.
       # client-id 는 platform 별로 다름 (iOS / Android / Web). RN google-signin 은
       # 양 플랫폼이 webClientId 로 id_token 을 받는 경우가 많아 web client id 를

@@ -79,6 +79,35 @@ class AppleClientSecretGeneratorTest {
         assertThat(key.getAlgorithm()).isEqualTo("EC");
     }
 
+    // [PR #106 리뷰 I6] 식별자 null/blank 가드 검증.
+
+    @Test
+    void constructor_rejectsBlankTeamId() throws Exception {
+        String pem = encodeToPkcs8Pem(generateP256KeyPair().getPrivate());
+        assertThatThrownBy(() -> new AppleClientSecretGenerator("", "svc", "key", pem))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("teamId");
+        assertThatThrownBy(() -> new AppleClientSecretGenerator(null, "svc", "key", pem))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("teamId");
+    }
+
+    @Test
+    void constructor_rejectsBlankServiceId() throws Exception {
+        String pem = encodeToPkcs8Pem(generateP256KeyPair().getPrivate());
+        assertThatThrownBy(() -> new AppleClientSecretGenerator("team", "", "key", pem))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("serviceId");
+    }
+
+    @Test
+    void constructor_rejectsBlankKeyId() throws Exception {
+        String pem = encodeToPkcs8Pem(generateP256KeyPair().getPrivate());
+        assertThatThrownBy(() -> new AppleClientSecretGenerator("team", "svc", "  ", pem))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("keyId");
+    }
+
     private static KeyPair generateP256KeyPair() throws Exception {
         KeyPairGenerator g = KeyPairGenerator.getInstance("EC");
         g.initialize(new ECGenParameterSpec("secp256r1"));

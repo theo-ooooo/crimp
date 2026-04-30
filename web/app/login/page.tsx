@@ -12,28 +12,30 @@ import { t } from '@/lib/i18n';
 import { useAccessToken, useTokenStore } from '@/store/tokenStore';
 
 /**
- * `/login` — Kakao OIDC 소셜 로그인 (v2 redirect) + 개발자 모드 ID 토큰 폴백.
+ * `/login` — Kakao + Apple OIDC 소셜 로그인 (v2 redirect) + 개발자 모드 ID 토큰 폴백.
  *
  * 디자인 (`docs/design/claude/v2/screens-ios-2.jsx:6-48` LoginScreen):
  * - 상단: 브랜드 마크 "Crimp" + 큰 2줄 헤드라인 + 보조 카피
- * - 하단: 카카오 시작 버튼 + (Phase 1.5) Apple/이메일 보조 + 약관 안내
- * - Apple/이메일은 본 PR 에서 미구현 — 카카오만 노출, 나머지는 후속.
+ * - 하단: 카카오 시작 버튼 + Apple 시작 버튼 (PR #106) + 약관 안내. Google 은 PR-W3 후속.
  *
- * 흐름 (v2 redirect — Kakao JS SDK 2.7.x 기준):
- * 1) Kakao JS SDK 를 CDN 으로 로드 (`afterInteractive`, SRI integrity 적용).
- * 2) `Kakao.init(NEXT_PUBLIC_KAKAO_APP_KEY)` — 키 미설정 시 카카오 버튼은 비활성화.
- * 3) 사용자가 카카오 버튼을 클릭하면 `state` (CSRF 가드) 를 sessionStorage 에
- *    저장한 뒤 `Kakao.Auth.authorize({ redirectUri, scope:'openid', state })` 호출.
- *    브라우저가 카카오 로그인 페이지로 redirect.
- * 4) 카카오가 `redirectUri` (= `/login/callback`) 로 `?code=...&state=...` 와
- *    함께 돌려보내면 `/login/callback` 페이지가 state 검증 → 백엔드
- *    `POST /api/v1/auth/oauth/kakao/code` 로 code 교환 → 토큰 저장 → `/` 이동.
+ * 흐름 (v2 redirect):
+ * 1) [Kakao] Kakao JS SDK 를 CDN 으로 로드 (`afterInteractive`, SRI integrity 적용),
+ *    `Kakao.init(NEXT_PUBLIC_KAKAO_APP_KEY)` — 키 미설정 시 카카오 버튼은 비활성.
+ *    버튼 클릭 → `Kakao.Auth.authorize({ redirectUri, scope:'openid', state })`.
+ * 2) [Apple] 별도 SDK 없이 직접 redirect — `appleid.apple.com/auth/authorize` 로 location 이동.
+ *    NEXT_PUBLIC_APPLE_SERVICE_ID 미설정 시 Apple 버튼 비활성.
+ * 3) 두 provider 공통 — `state` (CSRF 가드) 를 sessionStorage 에 `{provider, state}` 로 저장.
+ *    redirect 도착 페이지(`/login/callback`)가 provider 별로 백엔드 교환 endpoint 분기:
+ *    `POST /api/v1/auth/oauth/{provider}/code` → 토큰 저장 → `/` 이동.
  *
- * 왜 redirect? — Kakao JS SDK v2.x 에서 popup 기반 `Auth.login` 이 제거되었기 때문.
+ * 왜 Kakao redirect? — Kakao JS SDK v2.x 에서 popup 기반 `Auth.login` 이 제거되었기 때문.
  * v1.x 의 `Auth.login({success,fail})` 은 v2.x 에서 호출 시 `TypeError`.
  *
- * 개발자 모드(접이식) — Kakao 앱키 발급 전 또는 백엔드 단독 검증용:
- *  - 사용자가 직접 발급받은 OIDC `id_token` 을 textarea 에 붙여넣고 제출.
+ * 왜 Apple redirect? — `response_mode=form_post` 가 더 안전하지만 SPA 에서 처리 어려움.
+ * `response_mode=query` + state CSRF + nonce 로 일반적 보호 수준 확보.
+ *
+ * 개발자 모드(접이식) — 앱키 발급 전 또는 백엔드 단독 검증용:
+ *  - 사용자가 직접 발급받은 OIDC `id_token` 을 textarea 에 붙여넣고 Kakao provider 로 제출.
  *  - 기존 `useExchangeOauth` 뮤테이션 (id_token 직접 교환) 사용.
  *
  * SSR 가드: hydration 전에는 placeholder 만 노출. 로그인 상태에서 진입 시 `/` 로 즉시 이동.

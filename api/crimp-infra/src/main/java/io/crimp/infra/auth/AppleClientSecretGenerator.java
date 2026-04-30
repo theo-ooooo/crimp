@@ -45,10 +45,19 @@ public class AppleClientSecretGenerator {
     private final PrivateKey privateKey;
 
     public AppleClientSecretGenerator(String teamId, String serviceId, String keyId, String privateKeyPem) {
-        this.teamId = teamId;
-        this.serviceId = serviceId;
-        this.keyId = keyId;
+        // [PR #106 리뷰 I6] 비어있는 식별자가 들어오면 JWT iss/sub/kid 가 빈 문자열로 박혀
+        // Apple 이 invalid_client 으로 거부 — 생성 단계에서 명시 차단해 디버깅 짧게.
+        this.teamId = requireNonBlank(teamId, "teamId");
+        this.serviceId = requireNonBlank(serviceId, "serviceId");
+        this.keyId = requireNonBlank(keyId, "keyId");
         this.privateKey = parsePkcs8Pem(privateKeyPem);
+    }
+
+    private static String requireNonBlank(String value, String name) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("Apple " + name + " is empty");
+        }
+        return value;
     }
 
     /** 호출 시점에 새 JWT 생성. {@link Instant#now()} 가 iat/exp 에 직접 박힘. */

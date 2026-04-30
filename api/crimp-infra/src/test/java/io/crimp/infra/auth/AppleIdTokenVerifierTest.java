@@ -27,7 +27,7 @@ class AppleIdTokenVerifierTest {
                 "https://appleid.apple.com/auth/keys",
                 additional,
                 // PR #106 (PR-W2) 추가 필드 — verifier 테스트는 의존 X, 빈 값으로 충분.
-                "", "", "", "", "", ""
+                "", "", "", "", ""
         );
     }
 

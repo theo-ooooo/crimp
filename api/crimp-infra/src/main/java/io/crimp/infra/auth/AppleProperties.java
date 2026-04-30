@@ -39,8 +39,7 @@ public record AppleProperties(
         String teamId,
         String keyId,
         String privateKeyPem,
-        String tokenUri,
-        String tokenAudience
+        String tokenUri
 ) {
 
     /** 웹 code 교환 활성화 — 4개 필수 항목이 모두 채워졌는지. */
