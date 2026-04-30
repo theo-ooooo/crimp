@@ -99,10 +99,17 @@ export function CrimpModal({
   // [PR #99 리뷰 I4] reducedMotion 의 런타임 변경이 in-flight 애니메이션을 점프시키지
   // 않도록 visible 토글 시점의 값을 ref 로 스냅샷. 시스템 설정 변경 직후 모달 토글 한 번
   // 까지는 이전 값으로 동작하지만 다음 토글부터 반영됨 — 시각적 일관성 확보.
+  // [PR #101 폴리시] React 18 strict mode + concurrent rendering 안전을 위해 ref 갱신을
+  // useEffect 로 이동 — 함수 본문 side-effect 는 double-render 시 의도와 다른 시점에 적용될 수
+  // 있음. visible 변경 시 use*Ref.current 는 최신 값을 보장.
   const reducedMotionRef = useRef(reducedMotion);
   const animationTypeRef = useRef(animationType);
-  reducedMotionRef.current = reducedMotion; // 항상 최신화 — 다음 visible 토글에서 사용.
-  animationTypeRef.current = animationType;
+  useEffect(() => {
+    reducedMotionRef.current = reducedMotion;
+  }, [reducedMotion]);
+  useEffect(() => {
+    animationTypeRef.current = animationType;
+  }, [animationType]);
 
   useEffect(() => {
     const useReduced = reducedMotionRef.current || animationTypeRef.current === 'none';
