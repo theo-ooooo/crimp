@@ -108,6 +108,16 @@ app:
         additional-audiences: ${APPLE_ADDITIONAL_AUDIENCES:}
         issuer: https://appleid.apple.com
         jwks-uri: https://appleid.apple.com/auth/keys
+      # Google Sign In (PR #103, F-D2) — OIDC ID Token 검증.
+      # client-id 는 platform 별로 다름 (iOS / Android / Web). RN google-signin 은
+      # 양 플랫폼이 webClientId 로 id_token 을 받는 경우가 많아 web client id 를
+      # client-id 로 박고, 네이티브 client id 가 별도로 사용되면 additional-audiences
+      # 에 추가 (예: GOOGLE_ADDITIONAL_AUDIENCES=ios.googleusercontent.com,...)
+      google:
+        client-id: ${GOOGLE_CLIENT_ID:placeholder-google-client-id}
+        additional-audiences: ${GOOGLE_ADDITIONAL_AUDIENCES:}
+        issuer: https://accounts.google.com
+        jwks-uri: https://www.googleapis.com/oauth2/v3/certs
     # HttpOnly 쿠키 발급 설정 (PR #94, HttpOnly 전환). 웹은 본 쿠키로 토큰 보유, 모바일은
     # 쿠키 무시하고 JSON body 의 토큰 사용 (둘 다 발행).
     #
