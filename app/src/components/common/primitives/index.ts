@@ -34,3 +34,6 @@ export type { IconName, IconProps } from '@/components/common/primitives/Icon';
 
 export { CrimpLogo } from '@/components/common/primitives/CrimpLogo';
 export type { CrimpLogoProps } from '@/components/common/primitives/CrimpLogo';
+
+export { CrimpModal } from '@/components/common/primitives/CrimpModal';
+export type { CrimpModalProps, CrimpModalVariant } from '@/components/common/primitives/CrimpModal';
