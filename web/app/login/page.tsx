@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { PrimaryButton, Skeleton } from '@/components/primitives';
 import { useExchangeOauth } from '@/hooks/useAuth';
 import { toUserMessage } from '@/lib/api/errorMessage';
-import { generateOauthState, saveOauthState } from '@/lib/auth/kakaoOauthState';
+import { generateOauthState, saveOauthState } from '@/lib/auth/oauthState';
 import { t } from '@/lib/i18n';
 import { useAccessToken, useTokenStore } from '@/store/tokenStore';
 
@@ -40,6 +40,11 @@ import { useAccessToken, useTokenStore } from '@/store/tokenStore';
  */
 
 const KAKAO_APP_KEY = process.env.NEXT_PUBLIC_KAKAO_APP_KEY ?? '';
+// PR #106 (PR-W2) — Apple 웹 redirect flow.
+// SERVICE_ID 는 Apple Developer Portal 의 Services ID (예: io.crimp.web).
+// 미설정 시 Apple 버튼 비활성 (Kakao 와 동일 패턴).
+const APPLE_SERVICE_ID = process.env.NEXT_PUBLIC_APPLE_SERVICE_ID ?? '';
+const APPLE_AUTHORIZE_URL = 'https://appleid.apple.com/auth/authorize';
 
 // Kakao JS SDK v2.7.1 SHA-384 — 버전 업 시 재계산:
 // `curl -sL https://t1.kakaocdn.net/kakao_js_sdk/2.7.1/kakao.min.js | openssl dgst -sha384 -binary | openssl base64 -A`
@@ -129,7 +134,7 @@ export default function LoginPage(): JSX.Element {
       return;
     }
     const state = generateOauthState();
-    saveOauthState(state);
+    saveOauthState({ provider: 'kakao', state });
     const redirectUri = `${window.location.origin}/login/callback`;
     sdk.Auth.authorize({
       redirectUri,
@@ -137,6 +142,36 @@ export default function LoginPage(): JSX.Element {
       state,
     });
     // authorize 는 동기적으로 location 변경 → 이 라인 이후 코드는 실행되지 않을 가능성이 높다.
+  }, []);
+
+  /**
+   * Apple 로그인 — pure redirect (Apple JS SDK 미사용).
+   *
+   * Apple Service ID + redirect URI 를 query 로 박아 https://appleid.apple.com/auth/authorize
+   * 로 location 이동. 사용자 인증 후 Apple 이 `?code=...&state=...` 와 함께 우리
+   * /login/callback 으로 redirect. response_mode=query 사용 — form_post 는 SPA 처리 어려움.
+   */
+  const handleAppleLogin = useCallback(() => {
+    setKakaoError(null);
+    if (typeof window === 'undefined') return;
+    if (!APPLE_SERVICE_ID) {
+      setKakaoError(new Error('Apple Service ID not configured'));
+      return;
+    }
+    const state = generateOauthState();
+    const nonce = generateOauthState();
+    saveOauthState({ provider: 'apple', state, nonce });
+    const redirectUri = `${window.location.origin}/login/callback`;
+    const params = new URLSearchParams({
+      response_type: 'code',
+      response_mode: 'query',
+      client_id: APPLE_SERVICE_ID,
+      redirect_uri: redirectUri,
+      scope: 'name email',
+      state,
+      nonce,
+    });
+    window.location.href = `${APPLE_AUTHORIZE_URL}?${params.toString()}`;
   }, []);
 
   const handleDevSubmit = useCallback(
@@ -265,6 +300,26 @@ export default function LoginPage(): JSX.Element {
           </p>
         ) : null}
 
+        {/* PR-W2: Apple 버튼 — Service ID 설정 시 노출. App 디자인 정합 (검은 bg + 흰 텍스트 +
+            Apple 로고 SVG). app/AppleLoginButton 의 톤과 동일. */}
+        {APPLE_SERVICE_ID ? (
+          <button
+            type="button"
+            aria-label={t('auth.login.appleCta')}
+            onClick={handleAppleLogin}
+            disabled={exchange.isPending}
+            className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-black text-[16px] font-bold tracking-[-0.02em] text-white transition-transform duration-fast ease-standard active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
+          >
+            <AppleMark />
+            {t('auth.login.appleCta')}
+          </button>
+        ) : (
+          <p className="text-caption text-text-3">
+            {t('auth.login.appleUnavailableHint')}
+          </p>
+        )}
+
         {/* 약관 안내 — 12px text-3, center, marginTop 12 */}
         <p className="mt-3 px-2 text-center text-caption font-medium leading-[1.5] text-text-3">
           {t('auth.login.termsNotice')}
@@ -324,6 +379,25 @@ export default function LoginPage(): JSX.Element {
         </section>
       </div>
     </main>
+  );
+}
+
+/**
+ * Apple 로고 SVG — 브라우저는 Apple PUA 글리프(U+F8FF) 를 SF Pro 가 아니면 렌더 못 하므로
+ * 명시 SVG path. Apple HIG 의 Sign In with Apple 가이드라인 정합 (단색 fill currentColor).
+ */
+function AppleMark(): JSX.Element {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 18 18"
+      fill="currentColor"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M14.84 9.42c-.02-2.18 1.78-3.23 1.86-3.28-1.02-1.49-2.6-1.69-3.16-1.71-1.34-.14-2.62.79-3.31.79-.7 0-1.74-.77-2.86-.75-1.47.02-2.83.86-3.59 2.18-1.53 2.65-.39 6.56 1.1 8.71.73 1.05 1.6 2.23 2.74 2.19 1.1-.05 1.52-.71 2.86-.71 1.33 0 1.71.71 2.86.69 1.18-.02 1.93-1.07 2.65-2.13.83-1.22 1.18-2.4 1.2-2.46-.03-.01-2.31-.89-2.34-3.52ZM12.66 2.97c.61-.74 1.03-1.77.91-2.79-.88.04-1.95.59-2.59 1.32-.57.65-1.07 1.7-.94 2.7.99.08 1.99-.5 2.62-1.23Z" />
+    </svg>
   );
 }
 

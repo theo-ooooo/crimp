@@ -6,7 +6,7 @@
  * 같은 탭/세션에 한해서만 게이트를 닫는다 — 새 탭이나 브라우저 재시작 시
  * sessionStorage 가 비어있어 게이트가 다시 뜬다.
  *
- * `kakaoOauthState.ts` 와 같은 격리 패턴 (SSR 안전 + 의도가 명확한 단일 키).
+ * `oauthState.ts` 와 같은 격리 패턴 (SSR 안전 + 의도가 명확한 단일 키).
  */
 
 const KEY = 'crimp.onboarding.dismissed';

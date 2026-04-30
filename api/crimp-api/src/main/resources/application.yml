@@ -108,6 +108,17 @@ app:
         additional-audiences: ${APPLE_ADDITIONAL_AUDIENCES:}
         issuer: https://appleid.apple.com
         jwks-uri: https://appleid.apple.com/auth/keys
+        # PR #106 (PR-W2) — 웹 v2 redirect flow 의 authorization_code 교환 설정.
+        # 4개 (service-id/team-id/key-id/private-key-pem) 모두 채워졌을 때 활성.
+        # private-key-pem 은 Apple Developer Portal 에서 발급한 .p8 파일 내용 그대로
+        # (BEGIN/END 라인 포함). 운영은 Secrets Manager 환경 변수로 주입 권장.
+        # 미설정 시 /auth/oauth/apple/code 엔드포인트는 503 (AUTH_PROVIDER_NOT_CONFIGURED)
+        service-id: ${APPLE_SERVICE_ID:}
+        team-id: ${APPLE_TEAM_ID:}
+        key-id: ${APPLE_KEY_ID:}
+        private-key-pem: ${APPLE_PRIVATE_KEY_PEM:}
+        token-uri: ${APPLE_TOKEN_URI:https://appleid.apple.com/auth/token}
+        token-audience: https://appleid.apple.com
       # Google Sign In (PR #103, F-D2) — OIDC ID Token 검증.
       # client-id 는 platform 별로 다름 (iOS / Android / Web). RN google-signin 은
       # 양 플랫폼이 webClientId 로 id_token 을 받는 경우가 많아 web client id 를

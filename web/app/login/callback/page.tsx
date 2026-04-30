@@ -7,7 +7,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { Skeleton } from '@/components/primitives';
 import { useExchangeOauthCode } from '@/hooks/useAuth';
 import { toUserMessage } from '@/lib/api/errorMessage';
-import { consumeOauthState } from '@/lib/auth/kakaoOauthState';
+import { consumeOauthState } from '@/lib/auth/oauthState';
 import { t } from '@/lib/i18n';
 import { useAccessToken, useTokenStore } from '@/store/tokenStore';
 
@@ -103,19 +103,21 @@ function CallbackInner(): JSX.Element {
       return;
     }
 
-    // 3) state CSRF 검증 — sessionStorage 에 저장된 값을 한 번 읽고 즉시 제거.
+    // 3) state CSRF 검증 + provider 식별 — sessionStorage 에서 한 번 읽고 즉시 제거.
+    //    (PR #106, PR-W2: kakao/apple 모두 같은 callback 으로 돌아오므로 저장된 provider
+    //    필드를 신뢰해 백엔드 교환 endpoint 분기.)
     const expected = consumeOauthState();
-    if (!expected || expected !== state) {
+    if (!expected || expected.state !== state) {
       setPhase('error');
       setError({ message: t('auth.login.callbackStateMismatch') });
       return;
     }
 
-    // 4) 백엔드 교환.
+    // 4) 백엔드 교환 — provider 별 동일 endpoint (`/auth/oauth/{provider}/code`).
     setPhase('loading');
     const redirectUri = `${window.location.origin}/login/callback`;
     exchange.mutate(
-      { provider: 'kakao', code, redirectUri },
+      { provider: expected.provider, code, redirectUri },
       {
         onSuccess: () => {
           setPhase('success');
