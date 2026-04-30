@@ -75,6 +75,15 @@ class AppleIdTokenVerifierTest {
     }
 
     @Test
+    void allowedAudiences_filtersNullClientId() {
+        // [PR #102 리뷰 I2] null clientId 도 안전 처리 — addIfPresent 가 null 를 거름.
+        Set<String> allowed = AppleIdTokenVerifier.allowedAudiences(
+                props(null, List.of("crimp.web")));
+
+        assertThat(allowed).containsExactly("crimp.web");
+    }
+
+    @Test
     void audienceValidator_succeedsWhenAnyAudienceMatches() {
         OAuth2TokenValidator<Jwt> v = AppleIdTokenVerifier.audienceValidator(
                 Set.of("io.crimp.app", "crimp.web"));

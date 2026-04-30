@@ -32,9 +32,7 @@ public record AppleProperties(
         String jwksUri,
         List<String> additionalAudiences
 ) {
-
-    /** clientId 가 의미 있는 값인지 — verifier 활성화 여부. */
-    public boolean isVerificationEnabled() {
-        return clientId != null && !clientId.isBlank();
-    }
+    // [PR #102 리뷰 I1] verifier 활성화 헬퍼 (`isVerificationEnabled`) 는 현재 사용처가 없어
+    // 도입 시점까지 보류. PR-D2 (Google) 에서 동일 패턴 + KakaoProperties 의 isCodeExchangeEnabled
+    // 와 같이 운영 토글 자리가 생기면 함께 부활.
 }
