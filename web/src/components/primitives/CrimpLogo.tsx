@@ -1,0 +1,64 @@
+/**
+ * Crimp 부울더 마크 — `docs/design/claude/v2/Crimp Logo.html` 의 `#boulder-mark`
+ * polygon (viewBox 380x220) 을 웹 SVG 로 옮긴 형태. 앱 측 (`app/src/components/common/
+ * primitives/CrimpLogo.tsx`) 과 동일한 path / viewBox / aspect ratio 사용.
+ *
+ * `variant="mark"` (기본): 부울더 도형 단독 — 색상은 `color` prop 또는 currentColor.
+ * `variant="wordmark"`: 부울더 + "crimp" 텍스트 (LoginPage hero 용).
+ *  - 부울더 = 외부 색 (color prop)
+ *  - 텍스트 = textColor prop — 보통 accent (lime) 으로 강조.
+ */
+
+export type CrimpLogoVariant = 'mark' | 'wordmark';
+
+export interface CrimpLogoProps {
+  /** 너비 (px). height 는 220:380 비율로 자동 계산. */
+  width?: number;
+  /** 마크/wordmark 색. 미지정 시 currentColor (CSS text 색 상속). */
+  color?: string;
+  /** wordmark 일 때 텍스트가 칠해지는 색. 미지정 시 var(--color-bg). */
+  textColor?: string;
+  variant?: CrimpLogoVariant;
+  className?: string;
+}
+
+const BOULDER_POINTS =
+  '50,180 30,120 70,40 160,20 250,30 320,80 350,150 320,200 200,210 110,200';
+
+export function CrimpLogo({
+  width = 120,
+  color,
+  textColor,
+  variant = 'mark',
+  className,
+}: CrimpLogoProps): JSX.Element {
+  const fillColor = color ?? 'currentColor';
+  const wordColor = textColor ?? 'var(--color-bg)';
+  const height = (width * 220) / 380;
+  return (
+    <svg
+      width={width}
+      height={height}
+      viewBox="0 0 380 220"
+      role="img"
+      aria-label="Crimp"
+      className={className}
+    >
+      <polygon points={BOULDER_POINTS} fill={fillColor} />
+      {variant === 'wordmark' ? (
+        <text
+          x={190}
+          y={130}
+          textAnchor="middle"
+          fontWeight="900"
+          fontSize={58}
+          letterSpacing={-3.48}
+          fill={wordColor}
+          style={{ fontFamily: 'inherit' }}
+        >
+          crimp
+        </text>
+      ) : null}
+    </svg>
+  );
+}

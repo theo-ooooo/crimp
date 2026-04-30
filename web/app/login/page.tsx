@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import Script from 'next/script';
 import { useCallback, useEffect, useState } from 'react';
 
-import { PrimaryButton, Skeleton } from '@/components/primitives';
+import { CrimpLogo, PrimaryButton, Skeleton } from '@/components/primitives';
 import { useExchangeOauth } from '@/hooks/useAuth';
 import { toUserMessage } from '@/lib/api/errorMessage';
 import { generateOauthState, saveOauthState } from '@/lib/auth/oauthState';
@@ -254,14 +254,16 @@ export default function LoginPage(): JSX.Element {
       ) : null}
 
       {/* 상단: 브랜드 + 큰 헤드라인 — mock paddingTop 120 / px 24 */}
+      {/* [PR #106] App 측 LoginScreen 과 동일한 CrimpLogo wordmark 사용 — boulder polygon
+           위에 "crimp" 텍스트가 lime accent 로 박힌 형태. */}
       <header className="flex flex-col gap-7 px-1">
-        <p
-          aria-label={t('common.brand')}
-          className="text-display font-extrabold tracking-[-0.06em] text-text"
-          style={{ fontSize: 56, lineHeight: 1 }}
-        >
-          {t('common.brand')}
-        </p>
+        <div className="text-text">
+          <CrimpLogo
+            variant="wordmark"
+            width={140}
+            textColor="var(--color-accent)"
+          />
+        </div>
         <div className="flex flex-col gap-3">
           <h1 className="whitespace-pre-line text-[32px] font-extrabold leading-[1.2] tracking-[-0.04em] text-text">
             {headline}
