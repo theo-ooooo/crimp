@@ -109,6 +109,11 @@ export function useLoginScreen(onLoggedIn: () => void) {
       if (code === appleAuth.Error.CANCELED) {
         return;
       }
+      // [PR #104 디버그] 운영 메시지 외에 raw error 를 console 로 노출 — Metro/Xcode 로그에서
+      // 실제 실패 원인 (네이티브 모듈 미연결 / capability 미설정 / 백엔드 audience 불일치 등)
+      // 추적 가능. 사용자에게는 toUserMessage 의 매핑 결과만 노출.
+      // eslint-disable-next-line no-console
+      console.error('[apple-signin]', err);
       setErrorMessage(toUserMessage(err));
     }
   };
