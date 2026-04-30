@@ -143,8 +143,10 @@ export default function SessionDetailPage(): JSX.Element {
       </section>
 
       {canEnd && session ? (
+        // [PR #108 리뷰 B1] BottomTabs (모바일 z-40) 와 겹치지 않게 모바일에선 56px 위로
+        // 띄움. 데스크탑(md+)은 BottomTabs 가 hidden 이라 bottom-0 그대로.
         <div
-          className="fixed inset-x-0 bottom-0 z-20 bg-gradient-to-t from-bg via-bg/95 to-transparent px-6 pt-4 pb-[max(2rem,env(safe-area-inset-bottom))]"
+          className="fixed inset-x-0 bottom-14 z-20 bg-gradient-to-t from-bg via-bg/95 to-transparent px-6 pt-4 pb-[max(2rem,env(safe-area-inset-bottom))] md:bottom-0"
         >
           <div className="mx-auto flex max-w-2xl flex-col gap-2">
             <SecondaryButton

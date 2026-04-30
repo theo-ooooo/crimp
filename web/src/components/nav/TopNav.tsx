@@ -2,11 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, type ComponentType } from 'react';
+import { useEffect } from 'react';
 
-import { CrimpIcon, CrimpLogo, type IconProps } from '@/components/primitives';
-import { t, type MessageKey } from '@/lib/i18n';
+import { CrimpLogo } from '@/components/primitives';
+import { t } from '@/lib/i18n';
 import { useAccessToken, useTokenStore } from '@/store/tokenStore';
+
+import { isNavItemActive, NAV_ITEMS, type NavItem } from './navItems';
 
 /**
  * 글로벌 상단 내비게이션 바.
@@ -29,36 +31,6 @@ import { useAccessToken, useTokenStore } from '@/store/tokenStore';
  * - 단, 홈("/")은 정확 매칭만 (다른 모든 경로의 prefix 이므로).
  */
 
-interface NavItem {
-  /** typed routes 와 호환되는 경로 (`as const` 로 리터럴 유지) */
-  readonly href: '/' | '/feed' | '/sessions' | '/gyms' | '/me';
-  /** 활성 prefix (해당 경로 + 하위) */
-  readonly prefix: string;
-  /** i18n 라벨 키 */
-  readonly labelKey: MessageKey;
-  /** CrimpIcon 항목 — fillable 아이콘이어야 active 토글 가능 */
-  readonly Icon: ComponentType<IconProps>;
-}
-
-const NAV_ITEMS: readonly NavItem[] = [
-  { href: '/', prefix: '/', labelKey: 'nav.home', Icon: CrimpIcon.home },
-  { href: '/feed', prefix: '/feed', labelKey: 'nav.feed', Icon: CrimpIcon.feed },
-  // 세션 아이콘은 시계(시간 흐름)로 — `clock` 은 fillable 이 아니므로 active 시 굵기/색만 변경.
-  { href: '/sessions', prefix: '/sessions', labelKey: 'nav.sessions', Icon: CrimpIcon.clock },
-  // 암장은 위치 핀.
-  { href: '/gyms', prefix: '/gyms', labelKey: 'nav.gyms', Icon: CrimpIcon.pin },
-  { href: '/me', prefix: '/me', labelKey: 'nav.profile', Icon: CrimpIcon.profile },
-] as const;
-
-/**
- * 활성 여부 판정. 홈은 정확 매칭, 그 외는 prefix 매칭.
- * - `/sessions` 활성 시 `/sessions/abc`, `/sessions/new` 도 활성으로 간주.
- */
-function isActive(pathname: string, item: NavItem): boolean {
-  if (item.prefix === '/') return pathname === '/';
-  return pathname === item.prefix || pathname.startsWith(`${item.prefix}/`);
-}
-
 export function TopNav(): JSX.Element | null {
   const hydrated = useTokenStore((s) => s.hydrated);
   const hydrate = useTokenStore((s) => s.hydrate);
@@ -80,8 +52,9 @@ export function TopNav(): JSX.Element | null {
 
   return (
     // I2: HTML5 <header> 가 암시적으로 banner role 을 가져 명시 role 제거 (redundant).
+    // [PR #108] 데스크탑 전용 — md 미만 (모바일/태블릿) 은 BottomTabs 가 책임.
     <header
-      className="sticky top-0 z-40 border-b border-hairline bg-bg/90 backdrop-blur supports-[backdrop-filter]:bg-bg/75"
+      className="sticky top-0 z-40 hidden border-b border-hairline bg-bg/90 backdrop-blur supports-[backdrop-filter]:bg-bg/75 md:block"
     >
       <div className="mx-auto flex h-14 max-w-2xl items-center justify-between gap-2 px-4 sm:px-6">
         <Link
@@ -99,7 +72,7 @@ export function TopNav(): JSX.Element | null {
               <NavLinkItem
                 key={item.href}
                 item={item}
-                active={isActive(pathname, item)}
+                active={isNavItemActive(pathname, item)}
               />
             ))}
           </ul>
