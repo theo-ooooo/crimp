@@ -150,7 +150,15 @@
       "capturePreviewVideoNoPlayback": "Playback will be supported in a later update",
       "capturePreviewPhotoA11y": "Captured photo preview",
       "capturePreviewVideoA11y": "Captured video preview",
-      "capturePreviewVideoMeta": "{{seconds}}s · {{mb}}MB"
+      "capturePreviewVideoMeta": "{{seconds}}s · {{mb}}MB",
+      "permIntroTitle": "Capture permissions",
+      "permIntroBody": "These permissions are used to record your climbing attempts. You can still use the app if you decline.",
+      "permIntroCamera": "Camera — capture photos and videos",
+      "permIntroMicrophone": "Microphone — record audio with video",
+      "permIntroLocation": "Location (when in use) — tag attempts with gym location",
+      "permIntroAllow": "Allow",
+      "permIntroSkip": "Skip",
+      "permIntroNote": "Declined permissions can be re-enabled in Settings."
     }
   },
   "attempt": {

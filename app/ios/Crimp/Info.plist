@@ -47,7 +47,7 @@
 		<true/>
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string></string>
+	<string>등반 기록에 암장 위치를 함께 저장하기 위해 위치 정보가 필요합니다. 사용 중일 때만 접근합니다.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>등반 시도와 루트 사진/영상을 촬영하기 위해 카메라가 필요합니다.</string>
 	<key>NSMicrophoneUsageDescription</key>
