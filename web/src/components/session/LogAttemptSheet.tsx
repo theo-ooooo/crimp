@@ -11,7 +11,6 @@
  *  - 그레이드 horizontal scroll (V0 ~ V8) — null 허용 (기본 V5).
  *  - 홀드 색 picker — 시각적 메타데이터로만 활용. 백엔드는 별도 hold-color 컬럼이 없으므로
  *    `tagsJson` 에 `{ "hold": "red" }` 형태로 저장한다 (TODO: 정식 컬럼 도입 시 마이그레이션).
- *  - 카메라 CTA: video / photo 두 개의 점선 박스 — `onCamera` 콜백을 부모에 위임.
  *  - 메모: 300자 이하 textarea.
  *  - Save: `useLogAttempt` 뮤테이션 호출. 성공 시 시트 닫힘.
  *
@@ -21,7 +20,9 @@
  *  - backdrop 클릭 닫힘 (단, 시트 내부 클릭은 stopPropagation)
  *  - useReducedMotion 가드 — prefers-reduced-motion 일 때 enter 애니메이션 생략
  *
- * Z-index: 70 (CameraSheet 의 90 보다 낮다 — CameraSheet 는 시트 위에 덮인다).
+ * Z-index: 70 — 다른 fullscreen overlay (예: 향후 file-picker 시트) 가 도입되면 그쪽이 위에 덮이도록.
+ *
+ * (PR-W1) 사진/영상 첨부는 모바일 전용 — 웹 LogAttemptSheet 에는 카메라 CTA 없음.
  */
 
 import { useEffect, useId, useRef, useState, type FC } from 'react';
@@ -39,7 +40,6 @@ import { useLogAttempt } from '@/hooks/useAttempts';
 import { toUserMessage } from '@/lib/api/errorMessage';
 import { t } from '@/lib/i18n';
 import type { LogAttemptBody } from '@/lib/schemas/attempt';
-
 
 /** Result picker 4그리드. ONSIGHT 는 v2 디자인 spec 에 포함되지 않음. */
 const RESULT_OPTIONS = ['SEND', 'FLASH', 'TRY', 'FAIL'] as const satisfies ReadonlyArray<ResultKind>;
