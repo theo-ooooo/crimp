@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
+import { BottomTabs } from '@/components/nav/BottomTabs';
 import { TopNav } from '@/components/nav/TopNav';
 import ko from '@/lib/i18n/ko.json';
 import { QueryProvider } from '@/lib/query/QueryProvider';
@@ -40,11 +41,20 @@ export default function RootLayout({
       <body>
         <QueryProvider>
           {/*
-            TopNav 는 클라이언트 컴포넌트이며, 로그인 상태일 때만 렌더링한다.
-            hydration 전 / 비로그인 / 로그인 페이지에서는 자체적으로 null 을 반환.
+            TopNav: 데스크탑 (md+) 전용. BottomTabs: 모바일 (md 미만) 전용.
+            둘 다 클라이언트 컴포넌트, 로그인 상태일 때만 렌더링 (자체 null guard).
+            (PR #108)
           */}
           <TopNav />
-          {children}
+          {/*
+            모바일 전용 하단 padding — BottomTabs 가 fixed 라 마지막 컨텐츠가 가려지지
+            않도록 56px (탭 높이) + safe-area inset. 데스크탑(md+)은 BottomTabs 가
+            hidden 이라 padding 0.
+          */}
+          <div className="pb-[calc(56px+env(safe-area-inset-bottom))] md:pb-0">
+            {children}
+          </div>
+          <BottomTabs />
         </QueryProvider>
       </body>
     </html>
