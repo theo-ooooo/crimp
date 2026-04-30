@@ -1,12 +1,12 @@
 package io.crimp.api.scheduling;
 
+import io.crimp.api.admin.AdminGymSyncController;
 import io.crimp.domain.gym.sync.DryRunResult;
 import io.crimp.domain.gym.sync.GymSyncGridPreset;
 import io.crimp.domain.gym.sync.GymSyncRegion;
 import io.crimp.domain.gym.sync.GymSyncService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -73,19 +73,14 @@ public class GymSyncScheduler {
                         region.label(), report.status(), report.inserted(), report.updated());
                 ok++;
             } catch (RuntimeException e) {
-                // 한 region 의 외부 호출 실패 / 트랜잭션 실패 → 나머지 region 은 계속.
-                log.warn("[gym-sync-scheduler] region={} failed: {}", region.label(), e.getMessage(), e);
+                // [PR #110 리뷰 I5] admin API (`AdminGymSyncController.syncGrid`) 와 동일하게
+                // exception 클래스 + message 만 남겨 25개 region 다중 실패 시 로그 폭증 회피.
+                // 운영 안정화 후 stack trace 가 필요해지면 본 호출만 e 인자 추가.
+                log.warn("[gym-sync-scheduler] region={} failed: {}: {}",
+                        region.label(), e.getClass().getSimpleName(), e.getMessage());
                 failed++;
             }
         }
         log.info("[gym-sync-scheduler] done ok={} failed={}", ok, failed);
-    }
-
-    /**
-     * 스케줄러 활성 여부 + cron 설정. 환경 변수 / application.yml 의 {@code app.gym-sync.scheduler}
-     * 아래 정의.
-     */
-    @ConfigurationProperties(prefix = "app.gym-sync.scheduler")
-    public record GymSyncSchedulerProperties(boolean enabled) {
     }
 }
