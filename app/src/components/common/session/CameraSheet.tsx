@@ -89,6 +89,11 @@ export function CameraSheet({
   // pending != null 이면 viewfinder 위로 preview 오버레이가 떠 있는 상태.
   // "사용" 으로만 onCaptured 가 발동, "다시촬영" 은 pending 만 비우고 viewfinder 복귀.
   const [pending, setPending] = useState<CapturedMedia | null>(null);
+  // [PR #97 리뷰 I1] handleConfirm 더블탭 가드. 같은 렌더 클로저에서 두 번의 onPress 가
+  // 들어와 둘 다 `pending !== null` 체크를 통과해 onCaptured 가 2회 발동 → 부모 업로드
+  // 중복 시작을 차단. 동기 ref 라 setState 의 다음 렌더 반영을 기다리지 않아도 됨.
+  // 다음 캡처(setPending(media))가 들어올 때 false 로 리셋.
+  const confirmingRef = useRef(false);
   // [PR #91 리뷰 I3] 시트 닫힘으로 녹화가 강제 종료된 경우, onRecordingFinished 콜백이
   // 사후 발동해도 onCaptured 를 호출하지 않도록 표시. 사용자가 "취소했는데 캡처 Alert"
   // 가 뜨는 회귀를 차단.
@@ -135,6 +140,9 @@ export function CameraSheet({
       const mime: CapturedMedia['mime'] = resolvePhotoMime(meta.mime, photo.path);
       // [PR #97 F5 PR-5] onCaptured 즉시 발동 → setPending 으로 변경. 사용자가 "사용"
       // 누를 때 onCaptured 가 발동되어 부모(SessionDetailScreen)의 업로드 흐름이 시작.
+      // [I1] 새 캡처가 들어오면 confirmingRef 도 리셋 — 이전 캡처 confirm 후 곧장 다음 촬영해도
+      // 가드가 막지 않도록.
+      confirmingRef.current = false;
       setPending({
         kind: 'IMAGE',
         uri,
@@ -170,6 +178,8 @@ export function CameraSheet({
             ? 'video/quicktime'
             : 'video/mp4';
           // [PR #97 F5 PR-5] onCaptured 즉시 발동 → setPending 으로 변경 (사진과 동일).
+          // [I1] 새 캡처마다 confirmingRef 리셋.
+          confirmingRef.current = false;
           setPending({
             kind: 'VIDEO',
             uri,
@@ -223,7 +233,10 @@ export function CameraSheet({
   // 그 시점에는 이미 pending 이 비어있어 위쪽 useEffect 의 cleanup 이 no-op. 반대 순서면
   // 부모 close → useEffect 가 setPending(null) 을 한 번 더 — 결과는 같지만 노이즈.
   const handleConfirm = useCallback(() => {
-    if (!pending) return;
+    // [PR #97 리뷰 I1] 더블탭 가드 — 같은 클로저 두 번 진입 시 confirmingRef 가 동기적으로
+    // 두 번째 호출을 차단해 onCaptured 중복 발동 방지.
+    if (!pending || confirmingRef.current) return;
+    confirmingRef.current = true;
     const captured = pending;
     setPending(null);
     onCaptured(captured);
@@ -379,9 +392,19 @@ function CapturePreview({
   onConfirm: () => void;
 }) {
   const isImage = media.kind === 'IMAGE';
+  // [PR #97 리뷰 I3] 미디어 영역 사진/영상 명시 — 보이스오버 사용자가 무엇을 미리보고 있는지 인식.
+  const mediaA11y = isImage
+    ? t('session.log.capturePreviewPhotoA11y')
+    : t('session.log.capturePreviewVideoA11y');
   return (
     <>
-      <View style={styles.previewMediaWrap}>
+      <View
+        style={styles.previewMediaWrap}
+        // [PR #98 리뷰] role="image" 는 사진 브랜치에만 — 영상 브랜치는 메타 패널이라
+        // image 라고 선언하면 의미 불일치. 영상은 라벨만으로 컨텍스트 전달.
+        accessibilityRole={isImage ? 'image' : undefined}
+        accessibilityLabel={mediaA11y}
+      >
         {isImage ? (
           <Image
             source={{ uri: media.uri }}
@@ -403,7 +426,10 @@ function CapturePreview({
       </View>
 
       <View style={styles.previewActions}>
-        <Text style={styles.previewTitle}>{t('session.log.capturePreviewTitle')}</Text>
+        {/* [PR #97 리뷰 I3] header role — 보이스오버가 컨텍스트 헤더로 인식. */}
+        <Text style={styles.previewTitle} accessibilityRole="header">
+          {t('session.log.capturePreviewTitle')}
+        </Text>
         <View style={styles.previewButtonRow}>
           <Pressable
             onPress={onRetake}
@@ -431,10 +457,17 @@ function CapturePreview({
   );
 }
 
+/**
+ * [PR #97 리뷰 I2] 단위 하드코딩 → i18n 템플릿 분리. ko/en 양쪽에 `{{seconds}}`/`{{mb}}`
+ * placeholder 가 정의돼 있어 locale 별 단위 표기/순서 자유. 코드는 코드베이스 관습대로
+ * `.replace('{{key}}', value)` 로 치환 (FeedPostCard 등과 동일 패턴).
+ */
 function formatVideoMeta(media: CapturedMedia): string {
   const seconds = media.durationMs ? Math.round(media.durationMs / 1000) : 0;
   const mb = (media.byteSize / (1024 * 1024)).toFixed(1);
-  return `${seconds}s · ${mb}MB`;
+  return t('session.log.capturePreviewVideoMeta')
+    .replace('{{seconds}}', String(seconds))
+    .replace('{{mb}}', mb);
 }
 
 function PermissionFallback({
