@@ -24,3 +24,7 @@ app:
         rest-api-key: ""
         client-secret: ""
         token-uri: https://kauth.kakao.com/oauth/token
+      apple:
+        client-id: io.crimp.app.test
+        issuer: https://appleid.apple.com
+        jwks-uri: https://appleid.apple.com/auth/keys

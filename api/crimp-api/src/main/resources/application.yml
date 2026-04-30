@@ -98,6 +98,16 @@ app:
         rest-api-key: ${KAKAO_REST_API_KEY:}
         client-secret: ${KAKAO_CLIENT_SECRET:}
         token-uri: ${KAKAO_TOKEN_URI:https://kauth.kakao.com/oauth/token}
+      # Apple Sign In (PR #102, F-D1) — OIDC ID Token 검증.
+      # client-id 는 보통 iOS 앱 번들 ID. 웹 Service ID 는 별도 audience 라
+      # additional-audiences 에 콤마로 추가 (예: APPLE_ADDITIONAL_AUDIENCES=services.crimp.web,...).
+      # placeholder 값일 때도 verifier 빈은 등록되며 실 검증은 운영 시 환경 변수로 주입.
+      # 추후 PR (D2 이후) 에서 Apple 의 authorization_code 교환 (client_secret JWT 생성) 추가 예정.
+      apple:
+        client-id: ${APPLE_CLIENT_ID:placeholder-apple-client-id}
+        additional-audiences: ${APPLE_ADDITIONAL_AUDIENCES:}
+        issuer: https://appleid.apple.com
+        jwks-uri: https://appleid.apple.com/auth/keys
     # HttpOnly 쿠키 발급 설정 (PR #94, HttpOnly 전환). 웹은 본 쿠키로 토큰 보유, 모바일은
     # 쿠키 무시하고 JSON body 의 토큰 사용 (둘 다 발행).
     #
