@@ -91,6 +91,12 @@ export function CameraSheet({
   // 인트로는 시트 진입 후 1회만 — 사용자가 "건너뛰기" 누르거나 결정 끝낸 뒤에는 같은
   // 세션에서 다시 띄우지 않음. 시트가 닫혔다 다시 열리면 useEffect 가 false 로 초기화.
   const [introDismissed, setIntroDismissed] = useState(false);
+  // [PR #100 리뷰 I3·I4] handlePermAllow 더블탭 + unmount 가드.
+  // - I3: requestAll 진행 중 사용자가 "허용" 다시 탭하면 OS 다이얼로그 race. 동기 ref 로 차단.
+  // - I4: requestAll 도중 시트 X 닫히면 setIntroDismissed 가 unmounted 후 fire. visible 가드.
+  const allowingRef = useRef(false);
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
 
   const [recording, setRecording] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -276,7 +282,20 @@ export function CameraSheet({
   const showPermIntro = visible && entryPerms.ready && entryPerms.state.needsIntro && !introDismissed;
 
   const handlePermAllow = useCallback(async () => {
-    await entryPerms.requestAll();
+    if (allowingRef.current) {
+      return;
+    }
+    allowingRef.current = true;
+    try {
+      await entryPerms.requestAll();
+    } finally {
+      allowingRef.current = false;
+    }
+    // [I4] requestAll 도중 시트가 닫혔으면 setIntroDismissed 시도 X — 다음 진입 시 인트로
+    // 다시 보여야 일관됨.
+    if (!visibleRef.current) {
+      return;
+    }
     setIntroDismissed(true);
   }, [entryPerms]);
 

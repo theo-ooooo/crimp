@@ -131,26 +131,34 @@ export function useCameraEntryPermissions(active: boolean): UseCameraEntryPermis
   }, []);
 
   const requestAll = useCallback(async () => {
-    // denied 인 항목만 요청 — 이미 granted/blocked/unavailable 은 다시 요청해도 의미 없음.
-    // (특히 blocked 는 시스템 다이얼로그가 다시 뜨지 않음.)
-    const target = targetPermissions().filter((p) => {
-      // 항상 검사한 다음 denied 인 것만 요청. 호출 시점의 state 가 stale 일 수 있어
-      // 한 번 더 검사 후 분기.
-      const cam = state.camera;
-      const mic = state.microphone;
-      const loc = state.location;
-      if (p === cameraKey()) {
-        return cam === 'denied';
-      }
-      if (p === microphoneKey()) {
-        return mic === 'denied';
-      }
-      if (p === locationKey()) {
-        return loc === 'denied';
-      }
-      return false;
-    });
+    // [PR #100 리뷰 I2] denied 인 항목만 요청 — 이미 granted/blocked/unavailable 은 다시 요청해도
+    // 의미 없음 (특히 blocked 는 시스템 다이얼로그가 다시 뜨지 않음). race 회피 위해 호출 시점에
+    // OS 권한 상태를 한 번 더 fresh-check 한 다음 필터링 — useCallback closure 가 stale 일 수 있는
+    // 시나리오 (refresh 가 아직 fire 되지 않은 첫 호출 등) 대응.
+    let camNow: PermStatus = state.camera;
+    let micNow: PermStatus = state.microphone;
+    let locNow: PermStatus = state.location;
+    try {
+      const fresh = await checkMultiple(targetPermissions());
+      camNow = toStatus(fresh[cameraKey()]);
+      micNow = toStatus(fresh[microphoneKey()]);
+      locNow = toStatus(fresh[locationKey()]);
+    } catch {
+      // checkMultiple 실패 시 closure state 로 fallback.
+    }
+    const target: Permission[] = [];
+    if (camNow === 'denied') {
+      target.push(cameraKey());
+    }
+    if (micNow === 'denied') {
+      target.push(microphoneKey());
+    }
+    if (locNow === 'denied') {
+      target.push(locationKey());
+    }
     if (target.length === 0) {
+      // denied 가 없으면 (모두 결정됨) refresh 만 하고 종료.
+      await refresh();
       return;
     }
     await requestMultiple(target);
@@ -158,8 +166,13 @@ export function useCameraEntryPermissions(active: boolean): UseCameraEntryPermis
     await refresh();
   }, [state.camera, state.microphone, state.location, refresh]);
 
+  // [PR #100 리뷰 I1] active=false 가 되면 ready 와 state 를 초기화 — 시트 닫고 재진입 시
+  // 이전 사이클의 stale 결과로 인트로가 한 프레임 깜빡이는 회귀 차단. 다음 active=true 에서
+  // refresh 가 OS 응답 도착할 때까지 ready=false 라 showPermIntro 가 false 로 안정.
   useEffect(() => {
     if (!active) {
+      setReady(false);
+      setState(initial);
       return;
     }
     refresh().catch(() => undefined);

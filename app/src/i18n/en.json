@@ -151,7 +151,7 @@
       "capturePreviewPhotoA11y": "Captured photo preview",
       "capturePreviewVideoA11y": "Captured video preview",
       "capturePreviewVideoMeta": "{{seconds}}s · {{mb}}MB",
-      "permIntroTitle": "Capture permissions",
+      "permIntroTitle": "Before you start capturing",
       "permIntroBody": "These permissions are used to record your climbing attempts. You can still use the app if you decline.",
       "permIntroCamera": "Camera — capture photos and videos",
       "permIntroMicrophone": "Microphone — record audio with video",
