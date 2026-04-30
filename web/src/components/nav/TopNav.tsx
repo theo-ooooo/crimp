@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, type ComponentType } from 'react';
 
-import { CrimpIcon, type IconProps } from '@/components/primitives';
+import { CrimpIcon, CrimpLogo, type IconProps } from '@/components/primitives';
 import { t, type MessageKey } from '@/lib/i18n';
 import { useAccessToken, useTokenStore } from '@/store/tokenStore';
 
@@ -87,9 +87,11 @@ export function TopNav(): JSX.Element | null {
         <Link
           href="/"
           aria-label={t('common.brand')}
-          className="text-title font-extrabold tracking-tight text-text transition-colors duration-fast ease-standard hover:opacity-80"
+          className="inline-flex items-center transition-opacity duration-fast ease-standard hover:opacity-80"
         >
-          {t('common.brand')}
+          {/* [PR #106] 워드마크 형태로 노출 — 모바일 / 데스크탑 모두 적정 가독성. mark variant
+              만 노출하면 작아서 알아보기 어려움. wordmark 가 사용자 인식에 더 강함. */}
+          <CrimpLogo variant="wordmark" width={86} />
         </Link>
         <nav aria-label={t('nav.ariaLabel')}>
           <ul className="flex items-center gap-0.5 sm:gap-1">

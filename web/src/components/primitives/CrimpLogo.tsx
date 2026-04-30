@@ -32,8 +32,11 @@ export function CrimpLogo({
   variant = 'mark',
   className,
 }: CrimpLogoProps): JSX.Element {
-  const fillColor = color ?? 'currentColor';
-  const wordColor = textColor ?? 'var(--color-bg)';
+  // [PR #106] 디자인 spec — 라이트: ink 보울더 + lime 워드마크, 다크: 자동 reverse
+  // (lime 보울더 + ink 워드마크). globals.css 의 `--color-logo-mark` / `-wordmark` CSS
+  // var 가 prefers-color-scheme 에 맞춰 자동 스왑.
+  const fillColor = color ?? 'var(--color-logo-mark)';
+  const wordColor = textColor ?? 'var(--color-logo-wordmark)';
   const height = (width * 220) / 380;
   return (
     <svg

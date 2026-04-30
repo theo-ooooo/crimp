@@ -254,16 +254,11 @@ export default function LoginPage(): JSX.Element {
       ) : null}
 
       {/* 상단: 브랜드 + 큰 헤드라인 — mock paddingTop 120 / px 24 */}
-      {/* [PR #106] App 측 LoginScreen 과 동일한 CrimpLogo wordmark 사용 — boulder polygon
-           위에 "crimp" 텍스트가 lime accent 로 박힌 형태. */}
+      {/* [PR #106] App 측 LoginScreen 과 동일한 CrimpLogo wordmark 사용 — globals.css 의
+           `--color-logo-mark` / `-wordmark` 가 prefers-color-scheme 에 자동 반응 (라이트:
+           ink boulder + lime wordmark, 다크: lime boulder + ink wordmark). */}
       <header className="flex flex-col gap-7 px-1">
-        <div className="text-text">
-          <CrimpLogo
-            variant="wordmark"
-            width={140}
-            textColor="var(--color-accent)"
-          />
-        </div>
+        <CrimpLogo variant="wordmark" width={140} />
         <div className="flex flex-col gap-3">
           <h1 className="whitespace-pre-line text-[32px] font-extrabold leading-[1.2] tracking-[-0.04em] text-text">
             {headline}
