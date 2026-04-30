@@ -20,6 +20,8 @@ import {
 } from 'react-native-vision-camera';
 
 import { CrimpIcon } from '@/components/common/primitives';
+import { CameraPermissionIntro } from '@/components/common/session/CameraPermissionIntro';
+import { useCameraEntryPermissions } from '@/hooks/permissions/useCameraEntryPermissions';
 import { measureFileBytes, readImageMeta, type DetectedImageMime } from '@/lib/camera/measure';
 import type { CapturedMedia } from '@/lib/camera/types';
 import { t } from '@/lib/i18n';
@@ -83,6 +85,19 @@ export function CameraSheet({
   const cameraPerm = useCameraPermission();
   const micPerm = useMicrophonePermission();
 
+  // [PR #100, F5 PR-B] 카메라/마이크/위치 묶음 권한 체크 + 인트로 모달.
+  // visible 일 때만 active — 시트 닫혀있을 때 불필요한 OS 호출 방지.
+  const entryPerms = useCameraEntryPermissions(visible);
+  // 인트로는 시트 진입 후 1회만 — 사용자가 "건너뛰기" 누르거나 결정 끝낸 뒤에는 같은
+  // 세션에서 다시 띄우지 않음. 시트가 닫혔다 다시 열리면 useEffect 가 false 로 초기화.
+  const [introDismissed, setIntroDismissed] = useState(false);
+  // [PR #100 리뷰 I3·I4] handlePermAllow 더블탭 + unmount 가드.
+  // - I3: requestAll 진행 중 사용자가 "허용" 다시 탭하면 OS 다이얼로그 race. 동기 ref 로 차단.
+  // - I4: requestAll 도중 시트 X 닫히면 setIntroDismissed 가 unmounted 후 fire. visible 가드.
+  const allowingRef = useRef(false);
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
+
   const [recording, setRecording] = useState(false);
   const [busy, setBusy] = useState(false);
   // [PR #97, F5 PR-5] 캡처 직후 자동 업로드 대신 미리보기 + 사용/다시촬영 분기.
@@ -101,16 +116,31 @@ export function CameraSheet({
   // 영상 모드인데 mic 권한이 없으면 사운드 없이 녹화 — 권한 요청은 시트 진입 시 한 번 시도.
   const audioEnabled = mode === 'video' && micPerm.hasPermission;
 
-  // 시트가 열릴 때 권한 요청. 거부된 상태면 fallback UI 노출.
+  // [PR #100] 인트로 모달이 권한 요청을 책임지므로 본 useEffect 는 인트로가 닫힌 뒤
+  // (introDismissed=true) 에만 vision-camera 의 자체 훅으로 세부 보정을 수행.
+  // 인트로에서 "허용" 누르면 react-native-permissions 가 OS 다이얼로그를 한 번에 띄우고,
+  // "건너뛰기" 면 본 훅으로도 추가 시도하지 않는다 (각 권한별 fallback UI 가 처리).
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || !introDismissed) {
+      return;
+    }
+    // 인트로가 닫힌 직후 vision-camera 가 자체 캐시한 권한 상태 동기화.
+    // 본 호출은 OS 다이얼로그를 추가로 띄우지 않음 (이미 거부되었거나 허용된 상태 단순 조회).
     if (!cameraPerm.hasPermission) {
       cameraPerm.requestPermission();
     }
     if (mode === 'video' && !micPerm.hasPermission) {
       micPerm.requestPermission();
     }
-  }, [visible, mode, cameraPerm, micPerm]);
+  }, [visible, introDismissed, mode, cameraPerm, micPerm]);
+
+  // [PR #100] 시트 재진입 시 인트로 dismissed 상태 초기화 — 다시 열면 인트로가 다시 떠야 함
+  // (단, 사용자가 영구 거부했을 땐 인트로의 "설정으로 이동" 으로 자연스럽게 유도).
+  useEffect(() => {
+    if (!visible && introDismissed) {
+      setIntroDismissed(false);
+    }
+  }, [visible, introDismissed]);
 
   // 시트 닫힐 때 녹화 중이면 중단 — cancelRequestedRef 를 세팅해 onRecordingFinished 가
   // onCaptured 를 발동하지 않도록 표시. pending preview 도 함께 폐기 (시트 재진입 시
@@ -246,6 +276,33 @@ export function CameraSheet({
     setPending(null);
   }, []);
 
+  // [PR #100, F5 PR-B] 인트로 표시 결정 — entryPerms.ready 가 true 이고 (OS 응답 도착)
+  // needsIntro 가 true (denied 인 권한 1개 이상) 인 경우만. introDismissed 면 사용자가
+  // 이미 건넌 상태라 다시 띄우지 않음.
+  const showPermIntro = visible && entryPerms.ready && entryPerms.state.needsIntro && !introDismissed;
+
+  const handlePermAllow = useCallback(async () => {
+    if (allowingRef.current) {
+      return;
+    }
+    allowingRef.current = true;
+    try {
+      await entryPerms.requestAll();
+    } finally {
+      allowingRef.current = false;
+    }
+    // [I4] requestAll 도중 시트가 닫혔으면 setIntroDismissed 시도 X — 다음 진입 시 인트로
+    // 다시 보여야 일관됨.
+    if (!visibleRef.current) {
+      return;
+    }
+    setIntroDismissed(true);
+  }, [entryPerms]);
+
+  const handlePermSkip = useCallback(() => {
+    setIntroDismissed(true);
+  }, []);
+
   return (
     <Modal
       visible={visible}
@@ -366,6 +423,18 @@ export function CameraSheet({
             </View>
           </>
         )}
+
+        {/* [PR #100, F5 PR-B] 권한 인트로 — viewfinder/preview 위에 떠 있는 inline overlay.
+            CrimpModal 을 쓰지 않는 이유는 CameraSheet 자체가 RN Modal 안에서 동작 → nested
+            Modal 의 iOS 가림 한계 회피 (CameraPermissionIntro JSDoc 참조). */}
+        <CameraPermissionIntro
+          visible={showPermIntro}
+          cameraStatus={entryPerms.state.camera}
+          microphoneStatus={entryPerms.state.microphone}
+          locationStatus={entryPerms.state.location}
+          onAllow={handlePermAllow}
+          onSkip={handlePermSkip}
+        />
       </View>
     </Modal>
   );

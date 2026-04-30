@@ -150,7 +150,15 @@
       "capturePreviewVideoNoPlayback": "재생은 다음 업데이트에서 지원돼요",
       "capturePreviewPhotoA11y": "촬영된 사진 미리보기",
       "capturePreviewVideoA11y": "촬영된 동영상 미리보기",
-      "capturePreviewVideoMeta": "{{seconds}}초 · {{mb}}MB"
+      "capturePreviewVideoMeta": "{{seconds}}초 · {{mb}}MB",
+      "permIntroTitle": "촬영 권한 안내",
+      "permIntroBody": "등반 시도를 기록하기 위해 다음 권한을 사용합니다. 거부해도 일부 기능을 그대로 사용할 수 있어요.",
+      "permIntroCamera": "카메라 — 사진·영상 촬영",
+      "permIntroMicrophone": "마이크 — 영상 사운드 녹음",
+      "permIntroLocation": "위치 (사용 중) — 등반 기록에 암장 위치 기록",
+      "permIntroAllow": "허용하기",
+      "permIntroSkip": "건너뛰기",
+      "permIntroNote": "거부한 권한은 설정에서 다시 허용할 수 있어요."
     }
   },
   "attempt": {

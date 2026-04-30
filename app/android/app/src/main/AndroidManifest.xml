@@ -8,6 +8,13 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
+    <!-- PR #100, F5 PR-B — 등반 기록 위치 메타용. WhenInUse 만 사용.
+         [리뷰 I5] react-native-permissions 의 PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION
+         만 요청하므로 FINE 단일 선언으로 충분. Android 12+ 에서 OS 가 자동으로 "정확한/
+         대략적" 토글을 사용자에게 보여주고, 사용자가 approximate 만 허용해도 결과는
+         단일 status 로 반환됨. COARSE 매니페스트 항목은 사용처가 없어 제거. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+
     <application
       android:name=".MainApplication"
       android:label="@string/app_name"
