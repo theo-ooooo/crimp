@@ -47,6 +47,6 @@ export type RefreshTokenBody = z.infer<typeof RefreshTokenBodySchema>;
 /**
  * 지원 OAuth provider. 백엔드 `OauthProvider` enum 과 동기화.
  */
-export const OauthProviderSchema = z.enum(['kakao', 'apple', 'google']);
+export const OauthProviderSchema = z.enum(['kakao', 'apple']);
 
 export type OauthProvider = z.infer<typeof OauthProviderSchema>;

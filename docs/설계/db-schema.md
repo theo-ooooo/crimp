@@ -65,7 +65,7 @@ CREATE TABLE users (
 CREATE TABLE oauth_identities (
   id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   user_id     BIGINT UNSIGNED NOT NULL,
-  provider    VARCHAR(20) NOT NULL,         -- 'KAKAO', 'APPLE', 'GOOGLE'
+  provider    VARCHAR(20) NOT NULL,         -- 'KAKAO', 'APPLE'
   provider_uid VARCHAR(255) NOT NULL,
   linked_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),

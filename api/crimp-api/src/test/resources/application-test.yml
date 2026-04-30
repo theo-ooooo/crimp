@@ -28,7 +28,3 @@ app:
         client-id: io.crimp.app.test
         issuer: https://appleid.apple.com
         jwks-uri: https://appleid.apple.com/auth/keys
-      google:
-        client-id: test-web.apps.googleusercontent.com
-        issuer: https://accounts.google.com
-        jwks-uri: https://www.googleapis.com/oauth2/v3/certs
