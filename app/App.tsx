@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import BootSplash from 'react-native-bootsplash';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -58,6 +59,15 @@ export default function App(): JSX.Element {
         /* 초기 hydrate 실패는 무시 — 후속 PR 에서 로깅 연결 */
       });
   }, []);
+
+  // [PR-S1] hydrate 가 끝나면 native splash 를 페이드 아웃. 콜드 스타트 ~ JS 준비 ~
+  // 토큰 hydrate 까지 splash 가 그대로 머무른다 (LoginScreen / Home 으로의 깜빡임 차단).
+  useEffect(() => {
+    if (!hydrated) return;
+    BootSplash.hide({ fade: true }).catch(() => {
+      /* 이미 hide 된 상태거나 native bridge 미준비 — 무시 */
+    });
+  }, [hydrated]);
 
   return (
     <SafeAreaProvider>
