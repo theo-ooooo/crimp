@@ -47,6 +47,7 @@ export default function LoginScreen(): JSX.Element {
           styles={styles}
           theme={theme}
           isKakaoLinked={login.isKakaoLinked}
+          isAppleLinked={login.isAppleLinked}
           isPending={login.isPending}
           errorMessage={login.errorMessage}
           devOpen={login.devOpen}
@@ -55,6 +56,7 @@ export default function LoginScreen(): JSX.Element {
           setDevToken={login.setDevToken}
           onDevSubmit={login.onDevSubmit}
           onKakaoPress={login.onKakaoPress}
+          onApplePress={login.onApplePress}
         />
       )}
     >

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Platform } from 'react-native';
 
 import { useExchangeOauth } from '@/hooks/queries/useAuth';
 import { toUserMessage } from '@/lib/api/errorMessage';
@@ -13,6 +14,44 @@ try {
   kakaoLogin = typeof mod.login === 'function' ? mod.login : null;
 } catch {
   kakaoLogin = null;
+}
+
+/**
+ * Apple Sign In 모듈 (PR #104, F-D3) — require 폴백 패턴 (Kakao 와 동일).
+ *
+ * <p>iOS 만 지원. {@code @invertase/react-native-apple-authentication} 가 빌드에 없거나
+ * Android 면 `appleAuth` 가 null 이라 호출 측에서 비활성 처리 + 적절한 메시지 노출.
+ */
+type AppleAuthRequestResponse = {
+  identityToken: string | null;
+  nonce: string;
+  user: string;
+  email: string | null;
+  authorizationCode: string | null;
+};
+
+type AppleAuthOperation = number;
+type AppleAuthScope = number;
+
+type AppleAuthModule = {
+  isSupported: boolean;
+  performRequest: (options: {
+    requestedOperation: AppleAuthOperation;
+    requestedScopes?: AppleAuthScope[];
+  }) => Promise<AppleAuthRequestResponse>;
+  Operation: { LOGIN: AppleAuthOperation };
+  Scope: { EMAIL: AppleAuthScope; FULL_NAME: AppleAuthScope };
+  Error: { CANCELED: string };
+};
+
+let appleAuth: AppleAuthModule | null = null;
+if (Platform.OS === 'ios') {
+  try {
+    const mod = require('@invertase/react-native-apple-authentication');
+    appleAuth = mod?.appleAuth ?? mod?.default ?? null;
+  } catch {
+    appleAuth = null;
+  }
 }
 
 function generateKakaoNonce(): string {
@@ -30,10 +69,10 @@ export function useLoginScreen(onLoggedIn: () => void) {
   const [devToken, setDevToken] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const submitIdToken = async (idToken: string) => {
+  const submitIdToken = async (provider: 'kakao' | 'apple', idToken: string) => {
     setErrorMessage(null);
     try {
-      await exchange.mutateAsync({ provider: 'kakao', idToken });
+      await exchange.mutateAsync({ provider, idToken });
       setDevToken('');
       setDevOpen(false);
       onLoggedIn();
@@ -56,8 +95,36 @@ export function useLoginScreen(onLoggedIn: () => void) {
         setErrorMessage(t('auth.login.kakaoNoIdToken'));
         return;
       }
-      await submitIdToken(idToken);
+      await submitIdToken('kakao', idToken);
     } catch (err) {
+      setErrorMessage(toUserMessage(err));
+    }
+  };
+
+  const onApplePress = async () => {
+    if (!appleAuth || !appleAuth.isSupported) {
+      setErrorMessage(t('auth.login.appleUnavailable'));
+      return;
+    }
+    setErrorMessage(null);
+    try {
+      const result = await appleAuth.performRequest({
+        requestedOperation: appleAuth.Operation.LOGIN,
+        requestedScopes: [appleAuth.Scope.EMAIL, appleAuth.Scope.FULL_NAME],
+      });
+      const idToken = result?.identityToken;
+      if (!idToken) {
+        setErrorMessage(t('auth.login.appleNoIdToken'));
+        return;
+      }
+      await submitIdToken('apple', idToken);
+    } catch (err) {
+      // [PR #104] 사용자가 다이얼로그 dismiss 한 케이스는 errorMessage 로 노출하지 않고
+      // 조용히 패스 — appleAuth.Error.CANCELED 또는 메시지 패턴 매칭.
+      const code = (err as { code?: string } | undefined)?.code;
+      if (code === appleAuth.Error.CANCELED) {
+        return;
+      }
       setErrorMessage(toUserMessage(err));
     }
   };
@@ -67,7 +134,8 @@ export function useLoginScreen(onLoggedIn: () => void) {
     if (trimmed.length === 0) {
       return;
     }
-    await submitIdToken(trimmed);
+    // dev 모드는 카카오 idToken 가정 (기존 흐름). 다른 provider 도 필요하면 향후 확장.
+    await submitIdToken('kakao', trimmed);
   };
 
   return {
@@ -77,8 +145,10 @@ export function useLoginScreen(onLoggedIn: () => void) {
     setDevToken,
     errorMessage,
     onKakaoPress,
+    onApplePress,
     onDevSubmit,
     isPending: exchange.isPending,
     isKakaoLinked: kakaoLogin !== null,
+    isAppleLinked: appleAuth !== null && appleAuth.isSupported,
   };
 }

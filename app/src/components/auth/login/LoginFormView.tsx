@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppleLoginButton } from '@/components/auth/AppleLoginButton';
 import { KakaoLoginButton } from '@/components/auth/KakaoLoginButton';
 import { CrimpLogo, SecondaryButton } from '@/components/common/primitives';
 import { t } from '@/lib/i18n';
@@ -13,6 +14,7 @@ type Props = {
   styles: LoginStyles;
   theme: Theme;
   isKakaoLinked: boolean;
+  isAppleLinked: boolean;
   isPending: boolean;
   errorMessage: string | null;
   devOpen: boolean;
@@ -21,12 +23,14 @@ type Props = {
   setDevToken: React.Dispatch<React.SetStateAction<string>>;
   onDevSubmit: () => Promise<void>;
   onKakaoPress: () => Promise<void>;
+  onApplePress: () => Promise<void>;
 };
 
 export function LoginFormView({
   styles,
   theme,
   isKakaoLinked,
+  isAppleLinked,
   isPending,
   errorMessage,
   devOpen,
@@ -35,6 +39,7 @@ export function LoginFormView({
   setDevToken,
   onDevSubmit,
   onKakaoPress,
+  onApplePress,
 }: Props): JSX.Element {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -129,6 +134,20 @@ export function LoginFormView({
           loading={isPending}
           accessibilityLabel={t('auth.login.kakaoCta')}
         />
+        {/* [PR #104, F-D3] Apple Sign In 버튼 — iOS 만 노출. AppleLoginButton 내부에서
+            Platform.OS !== 'ios' 면 null 반환. isAppleLinked 가 false (lib 미연결 또는
+            isSupported=false) 면 그릴 필요 없으므로 conditional rendering. */}
+        {isAppleLinked ? (
+          <AppleLoginButton
+            onPress={() => {
+              onApplePress().catch(() => {
+                /* errorMessage 상태로 노출 */
+              });
+            }}
+            loading={isPending}
+            accessibilityLabel={t('auth.login.appleCta')}
+          />
+        ) : null}
         <Text style={styles.termsNotice}>{t('auth.login.termsNotice')}</Text>
       </View>
     </SafeAreaView>

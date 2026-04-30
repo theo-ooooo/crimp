@@ -13,6 +13,9 @@ importers:
 
   .:
     dependencies:
+      '@invertase/react-native-apple-authentication':
+        specifier: ^2.5.1
+        version: 2.5.1
       '@react-native-seoul/kakao-login':
         specifier: 5.4.2
         version: 5.4.2(patch_hash=da3kmoryi6shvcjqhzo3ed7gg4)(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1)
@@ -841,6 +844,10 @@ packages:
   '@humanwhocodes/object-schema@2.0.3':
     resolution: {integrity: sha512-93zYdMES/c1D69yZiKDBj0V24vqNzB/koF26KPaagAfd3P/4gUlh3Dys5ogAK+Exi9QyzlD8x/08Zt7wIKcDcA==}
     deprecated: Use @eslint/object-schema instead
+
+  '@invertase/react-native-apple-authentication@2.5.1':
+    resolution: {integrity: sha512-KPKKc0wtRYpH4J0RkDfHzoKSZ+dYPEHmCXhpPdgHsT2MbK5AIkW1cYurjhAgev/kL7nOHFmWITjY1At5WhFEMQ==}
+    engines: {node: '>=14'}
 
   '@isaacs/ttlcache@1.4.1':
     resolution: {integrity: sha512-RQgQ4uQ+pLbqXfOmieB91ejmLwvSgv9nLx6sT6sD83s7umBypgg+OIBOBbEUiJXrfpnp9j0mRhYYdzp9uqq3lA==}
@@ -4883,6 +4890,8 @@ snapshots:
   '@humanwhocodes/module-importer@1.0.1': {}
 
   '@humanwhocodes/object-schema@2.0.3': {}
+
+  '@invertase/react-native-apple-authentication@2.5.1': {}
 
   '@isaacs/ttlcache@1.4.1': {}
 
