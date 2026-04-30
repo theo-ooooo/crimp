@@ -35,6 +35,11 @@ import { useTokens } from '@/lib/useTokens';
  * - Android 하드웨어 백 → {@link onRequestClose}
  * - backdrop 탭 → {@link dismissOnBackdrop} 옵션 (centered 기본 true, fullscreen 기본 false)
  * - 본 컴포넌트는 자체 트랩/포커스 처리 X — 컨텐츠 측에서 a11yLabel/role 부여
+ *
+ * <h3>fullscreen + SafeArea (PR #99 리뷰 I3)</h3>
+ * fullscreen variant 는 `statusBarTranslucent` 하에 status bar 영역을 children 이 직접 책임.
+ * children 측에서 `useSafeAreaInsets` 또는 `paddingTop`/`paddingBottom` 으로 노치/홈 인디케이터
+ * 를 회피해야 한다. primitive 는 일반적인 frame 만 제공.
  */
 
 export type CrimpModalVariant = 'centered' | 'fullscreen';
@@ -49,8 +54,12 @@ export type CrimpModalProps = {
   dismissOnBackdrop?: boolean;
   /** content container 추가 스타일 — variant 별 기본 스타일 위에 덮어쓴다. */
   contentStyle?: ViewStyle;
-  /** 모션 강도 — 운영 환경 또는 reducedMotion 켜진 경우 자동 'none'. */
-  animationType?: 'fade' | 'slide' | 'none';
+  /**
+   * 모션 강도 — 운영 환경 또는 reducedMotion 켜진 경우 자동 'none'.
+   * [PR #99 리뷰 B1] 'slide' 는 현재 분기 미구현 — 별도 슬라이드 variant 추가 시점에
+   * 부활시키도록 타입에서 제거. 기본 'fade' 도 fade + 가벼운 translateY 를 같이 한다.
+   */
+  animationType?: 'fade' | 'none';
   testID?: string;
 };
 
@@ -131,14 +140,17 @@ export function CrimpModal({
   }, [visible, reducedMotion, animationType, opacity, slide]);
 
   // Android 하드웨어 백 — 뜬 상태에서만 가로채고 onRequestClose 호출.
+  // [PR #99 리뷰 I1] visible 가 false 가 된 직후 exit 윈도우(아직 mounted=true) 에서도
+  // 백 버튼이 onRequestClose 를 다시 트리거하면 닫히는 모달을 한 번 더 닫는 셈 — visible
+  // 가 살아있을 때만 가로챈다.
   useEffect(() => {
-    if (!mounted) return undefined;
+    if (!visible || !mounted) return undefined;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       onRequestClose();
       return true;
     });
     return () => sub.remove();
-  }, [mounted, onRequestClose]);
+  }, [visible, mounted, onRequestClose]);
 
   if (!mounted) return null;
 
@@ -163,13 +175,24 @@ export function CrimpModal({
       testID={testID}
     >
       <Animated.View style={[styles.backdrop, { opacity }]} pointerEvents="auto">
-        <Pressable
-          style={StyleSheet.absoluteFill}
-          onPress={dismissable ? onRequestClose : undefined}
+        {dismissable ? (
+          // [PR #99 리뷰 I2] dismissable 이면 backdrop 도 활성 컨트롤이라 role/label 부여 —
+          // 보이스오버 사용자도 "닫기" 액션을 인지 가능.
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={onRequestClose}
+            accessibilityRole="button"
+            accessibilityLabel="닫기"
+          />
+        ) : (
           // dismissable 아니면 Pressable 이 그냥 클릭 흡수 — 백드롭 위로 통과 안 됨.
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-        />
+          // 보이스오버 트리에선 숨김.
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          />
+        )}
       </Animated.View>
 
       <Animated.View
