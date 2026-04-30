@@ -8,9 +8,13 @@
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 
-const ROOT = '/Users/kwkang/Workspace/crimp/app';
+// (PR #113 리뷰 B1) 절대 경로 하드코딩 제거 — 어떤 머신/CI 에서도 실행되도록 스크립트
+// 위치 기준 상대 경로로 해석. _rasterize.mjs 와 동일한 패턴.
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(HERE, '../../');
 const SOURCE = path.join(ROOT, 'assets/branding/icon.png');
 
 // iOS — AppIcon.appiconset.

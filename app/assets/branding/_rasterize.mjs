@@ -2,8 +2,13 @@
 // (PR-S1) bootsplash CLI 입력으로 쓸 1024×1024 PNG 생성. qlmanage 가 alpha 를
 // flatten 해 흰 배경을 박는 이슈가 있어 sharp(libvips) 로 직접 렌더한다.
 // 실행:  node assets/branding/_rasterize.mjs
-// 산출물: icon.png (lime bg + ink boulder), splash-logo-light.png (투명 bg +
-// ink boulder, 1024×1024 정중앙), splash-logo-dark.png (투명 bg + lime boulder).
+//
+// (PR #113 리뷰 I2) 명명 규칙 — 파일명의 `light/dark` 접미어는 부울더 fill 색이 아닌
+// "어떤 배경에 올릴지" 를 가리킨다:
+//   splash-logo-light.png — **라이트 배경** 에 얹는 자산 → ink fill boulder
+//   splash-logo-dark.png  — **다크 배경**  에 얹는 자산 → lime fill boulder
+// 현재 splash bg 가 ink (#0D0F12) 이므로 실제 사용은 splash-logo-dark.png.
+// 산출물: icon.png (lime bg + ink boulder), splash-logo-light/dark.png (투명 bg).
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
