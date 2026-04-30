@@ -104,12 +104,11 @@ export function CrimpModal({
   // 있음. visible 변경 시 use*Ref.current 는 최신 값을 보장.
   const reducedMotionRef = useRef(reducedMotion);
   const animationTypeRef = useRef(animationType);
+  // 두 ref 갱신을 하나의 effect 로 묶음 — 같은 commit 페이즈에 한 번에 처리.
   useEffect(() => {
     reducedMotionRef.current = reducedMotion;
-  }, [reducedMotion]);
-  useEffect(() => {
     animationTypeRef.current = animationType;
-  }, [animationType]);
+  }, [reducedMotion, animationType]);
 
   useEffect(() => {
     const useReduced = reducedMotionRef.current || animationTypeRef.current === 'none';
