@@ -38,9 +38,15 @@ public class AppleOAuthClient {
     private final AppleProperties props;
     private final AppleClientSecretGenerator clientSecretGenerator;
 
+    /**
+     * 운영 생성자 — Spring 이 {@link io.crimp.infra.http.HttpClientConfig} 의 timeout-적용
+     * RestTemplate 빈을 주입. ClientSecretGenerator 는 props 가 code 교환 활성일 때만 생성.
+     *
+     * <p>(PR #109) 이전 `new RestTemplate()` 하드코딩으로 timeout 미설정이던 회귀 차단.
+     */
     @Autowired
-    public AppleOAuthClient(AppleProperties props) {
-        this(new RestTemplate(), props,
+    public AppleOAuthClient(RestTemplate restTemplate, AppleProperties props) {
+        this(restTemplate, props,
                 props.isCodeExchangeEnabled()
                         ? new AppleClientSecretGenerator(
                                 props.teamId(), props.serviceId(), props.keyId(), props.privateKeyPem())
