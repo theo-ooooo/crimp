@@ -40,7 +40,8 @@ class KakaoLocalGymClientTest {
 
     private KakaoLocalProperties props() {
         // 모든 필드 null → record 의 default 메서드가 합리적 default 반환.
-        return new KakaoLocalProperties(null, null, null, null, null, null);
+        // (PR #111) queryKeywords 추가 — null 이면 단일 queryKeyword 또는 DEFAULT_KEYWORDS fallback.
+        return new KakaoLocalProperties(null, null, null, null, null, null, null);
     }
 
     private Document doc(String id, String name, String addr, String roadAddr, String x, String y, String phone) {

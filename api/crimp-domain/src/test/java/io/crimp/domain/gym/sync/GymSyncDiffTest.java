@@ -134,6 +134,25 @@ class GymSyncDiffTest {
     }
 
     @Test
+    void suffixVariantsAreMatched() {
+        // [PR #111] "강남" / "강남점" / "강남지점" / "강남직영점" / "강남 점" 모두 동일 매장.
+        var existing = gym(1L, "더클라임 강남점", "서울 강남구 테헤란로8길 21", LAT, LNG, "더클라임", null);
+        var remoteVariants = List.of(
+                remote("더클라임 강남",       "서울 강남구 테헤란로8길 21", LAT, LNG, "더클라임", null),
+                remote("더클라임 강남점",     "서울 강남구 테헤란로8길 21", LAT, LNG, "더클라임", null),
+                remote("더클라임 강남지점",   "서울 강남구 테헤란로8길 21", LAT, LNG, "더클라임", null),
+                remote("더클라임 강남직영점", "서울 강남구 테헤란로8길 21", LAT, LNG, "더클라임", null),
+                remote("더클라임강남",       "서울 강남구 테헤란로8길 21", LAT, LNG, "더클라임", null)
+        );
+        for (var r : remoteVariants) {
+            var result = GymSyncDiff.compute(List.of(r), List.of(existing));
+            assertThat(result.additions())
+                    .as("variant '%s' should match existing", r.name())
+                    .isEmpty();
+        }
+    }
+
+    @Test
     void currentEntryNotInRemoteIsMissing() {
         var existing = gym(1L, "더클라임 강남점", "서울 강남구 테헤란로8길 21", LAT, LNG, "더클라임", null);
         var remote = List.<RemoteGym>of();

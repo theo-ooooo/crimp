@@ -63,11 +63,14 @@ public final class GymSyncDiff {
     }
 
     /**
-     * 동일 매장 판단 키 — trim + lower-case + 공백 압축. 대소문자/공백 변형으로
-     * 인한 잘못된 신규 등록을 막는다.
+     * 동일 매장 판단 키 — trim + lower-case + 공백 압축 + 매장명 접미어 정규화.
+     * 대소문자/공백/접미어 변형으로 인한 잘못된 신규 등록을 막는다.
+     *
+     * <p>(PR #111) 매장명 접미어 정규화 추가 — "더클라임 강남" / "더클라임 강남점" /
+     * "더클라임강남점" 모두 동일 매장으로 매칭.
      */
     static String matchKey(String name, String address) {
-        return normalize(name) + "|" + normalize(address);
+        return normalizeName(name) + "|" + normalize(address);
     }
 
     private static String normalize(String s) {
@@ -88,6 +91,26 @@ public final class GymSyncDiff {
             }
         }
         return sb.toString().trim();
+    }
+
+    /**
+     * (PR #111) 매장명 정규화 — {@link #normalize} 기본 처리 + Kakao 가 접미어로 붙이는
+     * "지점/직영점/점" 등을 제거하고 모든 공백 제거. 접미어 만 제거하면 "강남" 과 "강남점" 가
+     * 다르게 키 매칭되는 회귀가 남으므로, 공백도 함께 제거해 "강남" / "강 남" / "강남점" / "강남 점"
+     * 모두 같은 키로 수렴.
+     */
+    static String normalizeName(String name) {
+        String base = normalize(name);
+        // 마지막 "지점" / "직영점" / "점" 제거 (한 번만).
+        if (base.endsWith("직영점")) {
+            base = base.substring(0, base.length() - 3);
+        } else if (base.endsWith("지점")) {
+            base = base.substring(0, base.length() - 2);
+        } else if (base.endsWith("점")) {
+            base = base.substring(0, base.length() - 1);
+        }
+        // 공백 모두 제거 — "더클라임 강남" / "더클라임강남" 매칭.
+        return base.replace(" ", "").trim();
     }
 
     private static boolean hasMeaningfulChange(Gym current, RemoteGym remote) {

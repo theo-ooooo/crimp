@@ -159,11 +159,19 @@ app:
       keyword-search-path: /v2/local/search/keyword.json
       # 한 번의 호출에서 검색할 반경(미터) — Kakao 상한 20km. 클라이밍 매장 밀도상 5km 권장.
       default-radius-meters: 5000
-      # 매장 검색 키워드 — Kakao Local 의 카테고리(SP1) 매핑이 없어 한글 키워드로 검색.
+      # 매장 검색 키워드 (단일 — PR #110 까지의 호환성). PR #111 부터는 query-keywords 우선.
       query-keyword: 클라이밍
-      # 한 호출당 응답 사이즈 (Kakao 상한 15) 와 페이지네이션 한도 — 한 좌표에서 최대 45건.
+      # (PR #111) 다중 키워드 — Kakao 가 같은 매장을 다른 표기 (클라이밍/볼더링/암벽) 로 등록하는
+      # 케이스를 포괄. 각 키워드별로 호출 후 Kakao place id 기준 union dedup.
+      query-keywords:
+        - 클라이밍
+        - 볼더링
+        - 암벽
+        - 클라이밍짐
+      # 한 호출당 응답 사이즈 (Kakao 상한 15) 와 페이지네이션 한도. PR #111 — max-pages 3 → 5
+      # 상향 (밀집 지역 누락 회피). 좌표·키워드당 최대 75건.
       page-size: 15
-      max-pages: 3
+      max-pages: 5
     # PR #110 — cron 스케줄러. 기본 비활성. 환경 변수로 활성/cron 갱신 가능:
     #   GYM_SYNC_SCHEDULER_ENABLED=true GYM_SYNC_SCHEDULER_CRON="0 0 4 * * MON"
     # cron 표기는 Spring (sec min hour day month weekday). 기본 매주 월 04:00 zone 기준.
