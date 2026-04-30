@@ -164,6 +164,13 @@ app:
       # 한 호출당 응답 사이즈 (Kakao 상한 15) 와 페이지네이션 한도 — 한 좌표에서 최대 45건.
       page-size: 15
       max-pages: 3
+    # PR #110 — cron 스케줄러. 기본 비활성. 환경 변수로 활성/cron 갱신 가능:
+    #   GYM_SYNC_SCHEDULER_ENABLED=true GYM_SYNC_SCHEDULER_CRON="0 0 4 * * MON"
+    # cron 표기는 Spring (sec min hour day month weekday). 기본 매주 월 04:00 zone 기준.
+    scheduler:
+      enabled: ${GYM_SYNC_SCHEDULER_ENABLED:false}
+      cron: ${GYM_SYNC_SCHEDULER_CRON:0 0 4 * * MON}
+      zone: ${GYM_SYNC_SCHEDULER_ZONE:UTC}
 
 logging:
   level:
