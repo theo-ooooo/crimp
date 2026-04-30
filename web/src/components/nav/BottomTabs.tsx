@@ -73,7 +73,11 @@ interface BottomTabItemProps {
 function BottomTabItem({ item, active }: BottomTabItemProps): JSX.Element {
   const { Icon } = item;
   const label = t(item.labelKey);
-  const colorClass = active ? 'text-text font-bold' : 'text-text-2';
+  // [PR #108 리뷰 I1] hover 상태도 TopNav 와 비대칭 안 되게 추가. 모바일 터치 환경에선
+  // 거의 무의미하지만 큰 모니터 + touch screen 또는 dev 환경에서 일관성 확보.
+  const colorClass = active
+    ? 'text-text font-bold'
+    : 'text-text-2 hover:text-text';
 
   return (
     <li className="flex-1">
@@ -88,7 +92,8 @@ function BottomTabItem({ item, active }: BottomTabItemProps): JSX.Element {
         ].join(' ')}
       >
         <Icon s={22} fill={active} aria-hidden />
-        <span className="text-[10px] leading-tight">{label}</span>
+        {/* [PR #108 리뷰 I2] 인라인 px 대신 디자인 토큰 — tailwind config 의 fontSize.tab (10px). */}
+        <span className="text-tab leading-tight">{label}</span>
         {active && (
           <span
             aria-hidden

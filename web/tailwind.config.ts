@@ -50,6 +50,8 @@ const config: Config = {
         mono: ['ui-monospace', '"SF Mono"', '"JetBrains Mono"', 'Menlo', 'Consolas', 'monospace'],
       },
       fontSize: {
+        // [PR #108] 모바일 BottomTabs 라벨용 — iOS HIG 의 tab bar 텍스트 권장(10pt).
+        tab: ['10px', { lineHeight: '1.2', letterSpacing: '0em' }],
         caption: ['12px', { lineHeight: '1.5', letterSpacing: '0em' }],
         body: ['15px', { lineHeight: '1.5', letterSpacing: '-0.01em' }],
         title: ['18px', { lineHeight: '1.3', letterSpacing: '-0.02em' }],

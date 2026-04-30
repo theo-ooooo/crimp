@@ -18,6 +18,10 @@ export const viewport: Viewport = {
   themeColor: '#C9F84B',
   width: 'device-width',
   initialScale: 1,
+  // [PR #108 리뷰 B2] iOS Safari 가 env(safe-area-inset-*) 를 실제 값으로 보고하려면
+  // viewport-fit=cover 필요. 미설정 시 모든 inset 이 0 으로 평가되어 BottomTabs +
+  // 페이지 하단 CTA 의 safe-area padding 이 무의미.
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({
