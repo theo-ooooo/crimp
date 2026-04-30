@@ -52,16 +52,21 @@ import { apiRequest } from './client';
  * `POST /api/v1/auth/oauth/{provider}` — provider OIDC `id_token` 을 백엔드 JWT 로 교환.
  *
  * 인증이 필요 없는 공개 엔드포인트이므로 `accessToken` 을 전달하지 않는다.
+ *
+ * (PR #112) `nonce` 는 client 가 OAuth authorize 단계에서 생성·전송한 원본 값.
+ * Apple 은 SHA-256 hex, Kakao 는 평문으로 비교한다 (서버측에서 처리). 미전송 시
+ * 서버는 검증을 건너뛴다 (구버전 클라 호환).
  */
 export function exchangeOauth(
   provider: OauthProvider,
   idToken: string,
+  nonce?: string,
   signal?: AbortSignal,
 ): Promise<TokenResponse> {
   return apiRequest({
     method: 'POST',
     path: `/api/v1/auth/oauth/${encodeURIComponent(provider)}`,
-    body: { idToken },
+    body: nonce ? { idToken, nonce } : { idToken },
     schema: TokenResponseSchema,
     signal,
   });
@@ -75,17 +80,20 @@ export function exchangeOauth(
  * `redirectUri` 를 그대로 전달하면 백엔드가 id_token 을 받아 검증·JWT 발급.
  *
  * 키 미설정 시 `KAKAO_OAUTH_NOT_CONFIGURED` (HTTP 503).
+ *
+ * (PR #112) {@link exchangeOauth} 와 동일한 nonce 규약.
  */
 export function exchangeOauthCode(
   provider: OauthProvider,
   code: string,
   redirectUri: string,
+  nonce?: string,
   signal?: AbortSignal,
 ): Promise<TokenResponse> {
   return apiRequest({
     method: 'POST',
     path: `/api/v1/auth/oauth/${encodeURIComponent(provider)}/code`,
-    body: { code, redirectUri },
+    body: nonce ? { code, redirectUri, nonce } : { code, redirectUri },
     schema: TokenResponseSchema,
     signal,
   });

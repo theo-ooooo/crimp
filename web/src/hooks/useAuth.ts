@@ -20,12 +20,14 @@ import { useTokenStore } from '@/store/tokenStore';
 export interface ExchangeOauthVars {
   provider: OauthProvider;
   idToken: string;
+  /** (PR #112) authorize 단계에서 생성·전송한 원본 nonce — 서버 측 nonce 클레임 검증용. */
+  nonce?: string;
 }
 
 export function useExchangeOauth() {
   const setTokens = useTokenStore((s) => s.setTokens);
   return useMutation<TokenResponse, Error, ExchangeOauthVars>({
-    mutationFn: ({ provider, idToken }) => exchangeOauth(provider, idToken),
+    mutationFn: ({ provider, idToken, nonce }) => exchangeOauth(provider, idToken, nonce),
     onSuccess: (tokens) => {
       setTokens({
         accessToken: tokens.accessToken,
@@ -39,6 +41,8 @@ export interface ExchangeOauthCodeVars {
   provider: OauthProvider;
   code: string;
   redirectUri: string;
+  /** (PR #112) authorize 단계에서 생성·전송한 원본 nonce — 서버 측 nonce 클레임 검증용. */
+  nonce?: string;
 }
 
 /**
@@ -51,8 +55,8 @@ export interface ExchangeOauthCodeVars {
 export function useExchangeOauthCode() {
   const setTokens = useTokenStore((s) => s.setTokens);
   return useMutation<TokenResponse, Error, ExchangeOauthCodeVars>({
-    mutationFn: ({ provider, code, redirectUri }) =>
-      exchangeOauthCode(provider, code, redirectUri),
+    mutationFn: ({ provider, code, redirectUri, nonce }) =>
+      exchangeOauthCode(provider, code, redirectUri, nonce),
     onSuccess: (tokens) => {
       setTokens({
         accessToken: tokens.accessToken,

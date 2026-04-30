@@ -44,7 +44,10 @@ public class KakaoIdTokenVerifier implements OauthIdTokenVerifier {
         Jwt jwt = decoder.decode(idToken);
         String providerUid = jwt.getSubject();
         String email = jwt.getClaimAsString("email");
-        return new OauthUserInfo(OauthProvider.KAKAO, providerUid, email);
+        // [PR #112] nonce 클레임 — 클라가 OIDC authorize 시 보낸 값 그대로 (Kakao 는 hashing X).
+        // 호출 측 AuthService 가 client 가 다시 보내준 원본과 직접 비교.
+        String nonce = jwt.getClaimAsString("nonce");
+        return new OauthUserInfo(OauthProvider.KAKAO, providerUid, email, nonce);
     }
 
     /**

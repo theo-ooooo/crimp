@@ -51,14 +51,17 @@ class AuthControllerTest {
 
     @Test
     void exchange_returnsTokenResponse_andSetsCookies() {
-        when(authService.exchange(eq(OauthProvider.KAKAO), eq("id-token-1")))
+        when(authService.exchange(eq(OauthProvider.KAKAO), eq("id-token-1"), any()))
                 .thenReturn(new AuthTokens("access", "refresh", 900L, 1209600L));
 
-        TokenResponse res = controller.exchange("kakao", new OauthExchangeRequest("id-token-1"), response);
+        TokenResponse res = controller.exchange("kakao",
+                new OauthExchangeRequest("id-token-1", "client-nonce"), response);
 
         assertThat(res.accessToken()).isEqualTo("access");
         assertThat(res.refreshToken()).isEqualTo("refresh");
         assertThat(res.expiresIn()).isEqualTo(900L);
+        // [PR #112] nonce 가 그대로 service 까지 전달되어야 한다.
+        verify(authService).exchange(OauthProvider.KAKAO, "id-token-1", "client-nonce");
         // [PR #94] Set-Cookie 가 발행되어야 함.
         verify(cookieFactory).setAuthCookies(eq(response), any(AuthTokens.class));
     }
@@ -66,14 +69,15 @@ class AuthControllerTest {
     @Test
     void exchangeCode_returnsTokenResponse_andSetsCookies() {
         when(authService.exchangeCode(
-                eq(OauthProvider.KAKAO), eq("auth-code-1"), eq("https://app/cb")))
+                eq(OauthProvider.KAKAO), eq("auth-code-1"), eq("https://app/cb"), any()))
                 .thenReturn(new AuthTokens("access", "refresh", 900L, 1209600L));
 
         TokenResponse res = controller.exchangeCode("kakao",
-                new OauthCodeExchangeRequest("auth-code-1", "https://app/cb"), response);
+                new OauthCodeExchangeRequest("auth-code-1", "https://app/cb", "client-nonce"), response);
 
         assertThat(res.accessToken()).isEqualTo("access");
-        verify(authService).exchangeCode(OauthProvider.KAKAO, "auth-code-1", "https://app/cb");
+        verify(authService).exchangeCode(
+                OauthProvider.KAKAO, "auth-code-1", "https://app/cb", "client-nonce");
         verify(cookieFactory).setAuthCookies(eq(response), any(AuthTokens.class));
     }
 
@@ -81,7 +85,8 @@ class AuthControllerTest {
     void exchangeCode_unknownProvider_throws_AUTH_PROVIDER_UNSUPPORTED() {
         // parseProvider 에서 valueOf 실패 → AuthException 그대로 throw
         try {
-            controller.exchangeCode("naver", new OauthCodeExchangeRequest("c", "https://app/cb"), response);
+            controller.exchangeCode("naver",
+                    new OauthCodeExchangeRequest("c", "https://app/cb", null), response);
             org.junit.jupiter.api.Assertions.fail("expected AuthException");
         } catch (AuthException e) {
             assertThat(e.code()).isEqualTo("AUTH_PROVIDER_UNSUPPORTED");

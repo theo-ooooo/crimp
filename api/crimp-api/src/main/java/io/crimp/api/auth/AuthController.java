@@ -39,7 +39,7 @@ public class AuthController {
             @RequestBody OauthExchangeRequest req,
             HttpServletResponse response) {
         OauthProvider p = parseProvider(provider);
-        AuthTokens tokens = authService.exchange(p, req.idToken());
+        AuthTokens tokens = authService.exchange(p, req.idToken(), req.nonce());
         // [PR #94] 웹은 HttpOnly 쿠키로 토큰을 보유. 모바일은 JSON body 의 토큰을 사용 (둘 다 발행).
         cookieFactory.setAuthCookies(response, tokens);
         return TokenResponse.of(tokens);
@@ -55,7 +55,7 @@ public class AuthController {
             @RequestBody OauthCodeExchangeRequest req,
             HttpServletResponse response) {
         OauthProvider p = parseProvider(provider);
-        AuthTokens tokens = authService.exchangeCode(p, req.code(), req.redirectUri());
+        AuthTokens tokens = authService.exchangeCode(p, req.code(), req.redirectUri(), req.nonce());
         cookieFactory.setAuthCookies(response, tokens);
         return TokenResponse.of(tokens);
     }
@@ -140,10 +140,14 @@ public class AuthController {
         return null;
     }
 
-    public record OauthExchangeRequest(@NotBlank String idToken) {}
+    /**
+     * (PR #112) {@code nonce} 는 client 가 OAuth authorize 시 생성·전송한 원본 값. 누락 시
+     * 서버는 nonce 검증을 건너뜀 (구버전 클라 호환). 새 클라는 항상 전송 권장.
+     */
+    public record OauthExchangeRequest(@NotBlank String idToken, String nonce) {}
 
-    /** 웹 v2 redirect flow 의 code 교환 요청. */
-    public record OauthCodeExchangeRequest(@NotBlank String code, @NotBlank String redirectUri) {}
+    /** 웹 v2 redirect flow 의 code 교환 요청. {@code nonce} 는 {@link OauthExchangeRequest} 와 동일 규약. */
+    public record OauthCodeExchangeRequest(@NotBlank String code, @NotBlank String redirectUri, String nonce) {}
 
     /** refresh / logout 본문 — refreshToken 누락 시 백엔드가 쿠키에서 fallback 으로 읽음. */
     public record TokenPair(String refreshToken) {}

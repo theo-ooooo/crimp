@@ -77,17 +77,21 @@ function buildQueryString(
  * `POST /api/v1/auth/oauth/{provider}` — provider 가 발급한 idToken 을 백엔드에 제출하고
  * Crimp JWT (access/refresh) 쌍을 받는다.
  *
- * provider 는 백엔드 `OauthProvider` enum 의 lower-case 표현 (`kakao`, `apple`, `google`).
+ * provider 는 백엔드 `OauthProvider` enum 의 lower-case 표현 (`kakao`, `apple`).
+ *
+ * (PR #112) `nonce` 는 client 가 OAuth authorize 시 생성·전송한 원본 값. Apple 은
+ * SHA-256 hex, Kakao 는 평문으로 비교 (서버 측). 미전송 시 서버는 검증을 건너뛴다.
  */
 export function exchangeOauth(
   provider: OauthProvider,
   idToken: string,
+  nonce?: string,
   signal?: AbortSignal,
 ): Promise<TokenResponse> {
   return apiRequest({
     method: 'POST',
     path: `/api/v1/auth/oauth/${provider}`,
-    body: { idToken },
+    body: nonce ? { idToken, nonce } : { idToken },
     schema: TokenResponseSchema,
     signal,
   });

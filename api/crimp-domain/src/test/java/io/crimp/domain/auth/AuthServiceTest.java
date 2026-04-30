@@ -64,9 +64,16 @@ class AuthServiceTest {
                 jwtProvider, jwtProps, refreshStore);
     }
 
+    /** [PR #112] Apple verifier 까지 등록된 service 인스턴스 — nonce SHA-256 비교 테스트용. */
+    private AuthService serviceWithApple(OauthIdTokenVerifier appleVerifier) {
+        return new AuthService(userRepo, oauthRepo, profileRepo,
+                List.of(kakaoVerifier, appleVerifier), List.of(kakaoExchanger),
+                jwtProvider, jwtProps, refreshStore);
+    }
+
     @Test
     void exchange_existing_user_issuesTokens() {
-        OauthUserInfo info = new OauthUserInfo(OauthProvider.KAKAO, "kakao-uid-1", "a@b.com");
+        OauthUserInfo info = new OauthUserInfo(OauthProvider.KAKAO, "kakao-uid-1", "a@b.com", null);
         when(kakaoVerifier.verify("valid-token")).thenReturn(info);
 
         OauthIdentity identity = OauthIdentity.link(10L, OauthProvider.KAKAO, "kakao-uid-1");
@@ -89,7 +96,7 @@ class AuthServiceTest {
 
     @Test
     void exchange_new_user_createsUserAndIdentity() {
-        OauthUserInfo info = new OauthUserInfo(OauthProvider.KAKAO, "new-uid", "n@b.com");
+        OauthUserInfo info = new OauthUserInfo(OauthProvider.KAKAO, "new-uid", "n@b.com", null);
         when(kakaoVerifier.verify("valid-token")).thenReturn(info);
         when(oauthRepo.findByProviderAndProviderUid(OauthProvider.KAKAO, "new-uid"))
                 .thenReturn(Optional.empty());
@@ -134,7 +141,7 @@ class AuthServiceTest {
         when(kakaoExchanger.exchange("auth-code-1", "https://app/callback"))
                 .thenReturn("verified-id-token");
 
-        OauthUserInfo info = new OauthUserInfo(OauthProvider.KAKAO, "kakao-uid-1", "a@b.com");
+        OauthUserInfo info = new OauthUserInfo(OauthProvider.KAKAO, "kakao-uid-1", "a@b.com", null);
         when(kakaoVerifier.verify("verified-id-token")).thenReturn(info);
 
         OauthIdentity identity = OauthIdentity.link(10L, OauthProvider.KAKAO, "kakao-uid-1");
@@ -158,7 +165,7 @@ class AuthServiceTest {
     void exchangeCode_newUser_createsAndIssues() {
         when(kakaoExchanger.exchange(eq("c"), eq("https://app/callback")))
                 .thenReturn("verified-id-token");
-        OauthUserInfo info = new OauthUserInfo(OauthProvider.KAKAO, "new-uid", null);
+        OauthUserInfo info = new OauthUserInfo(OauthProvider.KAKAO, "new-uid", null, null);
         when(kakaoVerifier.verify("verified-id-token")).thenReturn(info);
         when(oauthRepo.findByProviderAndProviderUid(OauthProvider.KAKAO, "new-uid"))
                 .thenReturn(Optional.empty());
@@ -268,10 +275,133 @@ class AuthServiceTest {
         assertThat(refreshStore.size()).isZero();
     }
 
+    // ===== nonce verification (PR #112) =====
+
+    @Test
+    void exchange_kakao_nonceMatch_passes() {
+        // Kakao 는 id_token 에 client 가 보낸 원본 nonce 가 그대로 박힘 → 평문 비교.
+        OauthUserInfo info = new OauthUserInfo(
+                OauthProvider.KAKAO, "kakao-uid-1", null, "client-nonce-xyz");
+        when(kakaoVerifier.verify("tok")).thenReturn(info);
+        when(oauthRepo.findByProviderAndProviderUid(OauthProvider.KAKAO, "kakao-uid-1"))
+                .thenReturn(Optional.empty());
+        when(userRepo.save(any(User.class))).thenAnswer(inv -> {
+            User u = inv.getArgument(0);
+            setField(u, "id", 1L);
+            return u;
+        });
+
+        AuthTokens tokens = service.exchange(OauthProvider.KAKAO, "tok", "client-nonce-xyz");
+        assertThat(tokens.accessToken()).isNotBlank();
+    }
+
+    @Test
+    void exchange_kakao_nonceMismatch_throws_AUTH_INVALID() {
+        OauthUserInfo info = new OauthUserInfo(
+                OauthProvider.KAKAO, "kakao-uid-1", null, "server-side-nonce");
+        when(kakaoVerifier.verify("tok")).thenReturn(info);
+
+        assertThatThrownBy(() -> service.exchange(OauthProvider.KAKAO, "tok", "different-client-nonce"))
+                .isInstanceOf(AuthException.class)
+                .satisfies(e -> assertThat(((AuthException) e).code()).isEqualTo("AUTH_INVALID"));
+    }
+
+    @Test
+    void exchange_kakao_idTokenMissingNonce_butExpected_throws_AUTH_INVALID() {
+        // id_token 에 nonce 클레임이 없는데 client 는 nonce 를 보낸 경우 → 명확한 mismatch.
+        OauthUserInfo info = new OauthUserInfo(OauthProvider.KAKAO, "kakao-uid-1", null, null);
+        when(kakaoVerifier.verify("tok")).thenReturn(info);
+
+        assertThatThrownBy(() -> service.exchange(OauthProvider.KAKAO, "tok", "client-nonce"))
+                .isInstanceOf(AuthException.class)
+                .satisfies(e -> assertThat(((AuthException) e).code()).isEqualTo("AUTH_INVALID"));
+    }
+
+    @Test
+    void exchange_kakao_blankExpectedNonce_skipsVerification() {
+        // 구버전 클라 호환 — expectedNonce 가 null/blank 이면 검증 자체를 건너뛴다.
+        OauthUserInfo info = new OauthUserInfo(
+                OauthProvider.KAKAO, "kakao-uid-1", null, "id-token-nonce");
+        when(kakaoVerifier.verify("tok")).thenReturn(info);
+        when(oauthRepo.findByProviderAndProviderUid(OauthProvider.KAKAO, "kakao-uid-1"))
+                .thenReturn(Optional.empty());
+        when(userRepo.save(any(User.class))).thenAnswer(inv -> {
+            User u = inv.getArgument(0);
+            setField(u, "id", 1L);
+            return u;
+        });
+
+        AuthTokens tokens = service.exchange(OauthProvider.KAKAO, "tok", "  ");
+        assertThat(tokens.accessToken()).isNotBlank();
+    }
+
+    @Test
+    void exchange_apple_nonceMatchesSha256Hex_passes() {
+        // Apple 은 client 가 보낸 nonce 를 SHA-256 해 hex 로 박는다.
+        String rawNonce = "client-original-nonce";
+        String expectedHashed = sha256Hex(rawNonce);
+
+        OauthIdTokenVerifier appleVerifier = mock(OauthIdTokenVerifier.class);
+        when(appleVerifier.supports()).thenReturn(OauthProvider.APPLE);
+        when(appleVerifier.verify("apple-tok")).thenReturn(
+                new OauthUserInfo(OauthProvider.APPLE, "apple-uid-1", null, expectedHashed));
+        AuthService svc = serviceWithApple(appleVerifier);
+
+        when(oauthRepo.findByProviderAndProviderUid(OauthProvider.APPLE, "apple-uid-1"))
+                .thenReturn(Optional.empty());
+        when(userRepo.save(any(User.class))).thenAnswer(inv -> {
+            User u = inv.getArgument(0);
+            setField(u, "id", 2L);
+            return u;
+        });
+
+        AuthTokens tokens = svc.exchange(OauthProvider.APPLE, "apple-tok", rawNonce);
+        assertThat(tokens.accessToken()).isNotBlank();
+    }
+
+    @Test
+    void exchange_apple_rawNoncePassedAsTokenNonce_throws_AUTH_INVALID() {
+        // 흔한 클라 버그 시나리오 — Apple 인데 hashing 을 안 거치고 raw 를 비교하면 mismatch.
+        String rawNonce = "client-original-nonce";
+
+        OauthIdTokenVerifier appleVerifier = mock(OauthIdTokenVerifier.class);
+        when(appleVerifier.supports()).thenReturn(OauthProvider.APPLE);
+        when(appleVerifier.verify("apple-tok")).thenReturn(
+                new OauthUserInfo(OauthProvider.APPLE, "apple-uid-1", null, rawNonce));
+        AuthService svc = serviceWithApple(appleVerifier);
+
+        assertThatThrownBy(() -> svc.exchange(OauthProvider.APPLE, "apple-tok", rawNonce))
+                .isInstanceOf(AuthException.class)
+                .satisfies(e -> assertThat(((AuthException) e).code()).isEqualTo("AUTH_INVALID"));
+    }
+
+    @Test
+    void exchangeCode_propagatesNonceToVerification() {
+        // exchangeCode 도 expectedNonce 를 끝까지 전달해 같은 검증 경로를 탄다.
+        when(kakaoExchanger.exchange(eq("c"), eq("https://app/cb"))).thenReturn("verified-id-token");
+        when(kakaoVerifier.verify("verified-id-token")).thenReturn(
+                new OauthUserInfo(OauthProvider.KAKAO, "uid", null, "server-nonce"));
+
+        assertThatThrownBy(() -> service.exchangeCode(
+                OauthProvider.KAKAO, "c", "https://app/cb", "client-nonce-mismatch"))
+                .isInstanceOf(AuthException.class)
+                .satisfies(e -> assertThat(((AuthException) e).code()).isEqualTo("AUTH_INVALID"));
+    }
+
+    private static String sha256Hex(String value) {
+        try {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            return java.util.HexFormat.of().formatHex(
+                    md.digest(value.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
     // --- helpers ---
 
     private void stubNewLogin(String providerUid, long userIdAssigned) {
-        OauthUserInfo info = new OauthUserInfo(OauthProvider.KAKAO, providerUid, null);
+        OauthUserInfo info = new OauthUserInfo(OauthProvider.KAKAO, providerUid, null, null);
         when(kakaoVerifier.verify(any())).thenReturn(info);
         when(oauthRepo.findByProviderAndProviderUid(OauthProvider.KAKAO, providerUid))
                 .thenReturn(Optional.empty());

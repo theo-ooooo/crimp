@@ -70,6 +70,8 @@ interface KakaoSdk {
       redirectUri: string;
       scope?: string;
       state?: string;
+      /** (PR #112) OIDC nonce — 평문 그대로 id_token 의 nonce 클레임에 박힘. */
+      nonce?: string;
       throughTalk?: boolean;
       prompts?: string;
     }) => void;
@@ -136,12 +138,15 @@ export default function LoginPage(): JSX.Element {
       return;
     }
     const state = generateOauthState();
+    // [PR #112] Kakao OIDC nonce — id_token replay 방어. callback 에서 같은 값 백엔드 전달.
+    const nonce = generateOauthState();
     const redirectUri = `${window.location.origin}/login/callback`;
-    saveOauthState({ provider: 'kakao', state, redirectUri });
+    saveOauthState({ provider: 'kakao', state, nonce, redirectUri });
     sdk.Auth.authorize({
       redirectUri,
       scope: 'openid',
       state,
+      nonce,
     });
     // authorize 는 동기적으로 location 변경 → 이 라인 이후 코드는 실행되지 않을 가능성이 높다.
   }, []);
