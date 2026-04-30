@@ -71,6 +71,18 @@ class AuthServiceTest {
                 jwtProvider, jwtProps, refreshStore);
     }
 
+    /**
+     * [PR #112 리뷰 I4] Apple verifier + Apple code exchanger 까지 등록된 service —
+     * Apple {@code exchangeCode} end-to-end nonce 검증 테스트용.
+     */
+    private AuthService serviceWithAppleCodeFlow(
+            OauthIdTokenVerifier appleVerifier, OauthCodeExchanger appleExchanger) {
+        return new AuthService(userRepo, oauthRepo, profileRepo,
+                List.of(kakaoVerifier, appleVerifier),
+                List.of(kakaoExchanger, appleExchanger),
+                jwtProvider, jwtProps, refreshStore);
+    }
+
     @Test
     void exchange_existing_user_issuesTokens() {
         OauthUserInfo info = new OauthUserInfo(OauthProvider.KAKAO, "kakao-uid-1", "a@b.com", null);
@@ -384,6 +396,98 @@ class AuthServiceTest {
 
         assertThatThrownBy(() -> service.exchangeCode(
                 OauthProvider.KAKAO, "c", "https://app/cb", "client-nonce-mismatch"))
+                .isInstanceOf(AuthException.class)
+                .satisfies(e -> assertThat(((AuthException) e).code()).isEqualTo("AUTH_INVALID"));
+    }
+
+    @Test
+    void exchange_apple_uppercaseHexNonce_stillMatches() {
+        // [PR #112 리뷰 I3] Apple 명세는 소문자 hex 지만, provider 가 향후 대문자/혼합으로
+        // 바꿔도 회귀하지 않도록 토큰측 값을 lowercase 정규화 후 비교.
+        String rawNonce = "client-original-nonce";
+        String upperHashed = sha256Hex(rawNonce).toUpperCase(java.util.Locale.ROOT);
+
+        OauthIdTokenVerifier appleVerifier = mock(OauthIdTokenVerifier.class);
+        when(appleVerifier.supports()).thenReturn(OauthProvider.APPLE);
+        when(appleVerifier.verify("apple-tok")).thenReturn(
+                new OauthUserInfo(OauthProvider.APPLE, "apple-uid-1", null, upperHashed));
+        AuthService svc = serviceWithApple(appleVerifier);
+
+        when(oauthRepo.findByProviderAndProviderUid(OauthProvider.APPLE, "apple-uid-1"))
+                .thenReturn(Optional.empty());
+        when(userRepo.save(any(User.class))).thenAnswer(inv -> {
+            User u = inv.getArgument(0);
+            setField(u, "id", 3L);
+            return u;
+        });
+
+        AuthTokens tokens = svc.exchange(OauthProvider.APPLE, "apple-tok", rawNonce);
+        assertThat(tokens.accessToken()).isNotBlank();
+    }
+
+    @Test
+    void exchange_kakao_emptyStringTokenNonce_throws_AUTH_INVALID() {
+        // [PR #112 리뷰 I4] id_token 의 nonce 클레임이 빈 문자열인 경우 — null 과 동일하게
+        // mismatch 처리. equals("") 가 false 로 떨어지는지 명시 검증.
+        OauthUserInfo info = new OauthUserInfo(OauthProvider.KAKAO, "uid", null, "");
+        when(kakaoVerifier.verify("tok")).thenReturn(info);
+
+        assertThatThrownBy(() -> service.exchange(OauthProvider.KAKAO, "tok", "client-nonce"))
+                .isInstanceOf(AuthException.class)
+                .satisfies(e -> assertThat(((AuthException) e).code()).isEqualTo("AUTH_INVALID"));
+    }
+
+    @Test
+    void exchangeCode_apple_endToEnd_withNonce() {
+        // [PR #112 리뷰 I4] Apple 경로 exchangeCode end-to-end — provider /oauth/token 호출
+        // → id_token 검증 → SHA-256 nonce 비교 → 사용자 생성/JWT 발급 까지 한 번에.
+        String rawNonce = "client-apple-nonce";
+        String hashed = sha256Hex(rawNonce);
+
+        OauthIdTokenVerifier appleVerifier = mock(OauthIdTokenVerifier.class);
+        when(appleVerifier.supports()).thenReturn(OauthProvider.APPLE);
+        when(appleVerifier.verify("apple-id-token")).thenReturn(
+                new OauthUserInfo(OauthProvider.APPLE, "apple-uid-9", null, hashed));
+
+        OauthCodeExchanger appleExchanger = mock(OauthCodeExchanger.class);
+        when(appleExchanger.supports()).thenReturn(OauthProvider.APPLE);
+        when(appleExchanger.isConfigured()).thenReturn(true);
+        when(appleExchanger.exchange("apple-code", "https://web/cb")).thenReturn("apple-id-token");
+
+        AuthService svc = serviceWithAppleCodeFlow(appleVerifier, appleExchanger);
+
+        when(oauthRepo.findByProviderAndProviderUid(OauthProvider.APPLE, "apple-uid-9"))
+                .thenReturn(Optional.empty());
+        when(userRepo.save(any(User.class))).thenAnswer(inv -> {
+            User u = inv.getArgument(0);
+            setField(u, "id", 99L);
+            return u;
+        });
+
+        AuthTokens tokens = svc.exchangeCode(
+                OauthProvider.APPLE, "apple-code", "https://web/cb", rawNonce);
+        assertThat(tokens.accessToken()).isNotBlank();
+    }
+
+    @Test
+    void exchangeCode_apple_endToEnd_nonceMismatch_throws() {
+        // mismatch 시 AUTH_INVALID 가 끝까지 전파되는지.
+        String rawNonce = "client-apple-nonce";
+
+        OauthIdTokenVerifier appleVerifier = mock(OauthIdTokenVerifier.class);
+        when(appleVerifier.supports()).thenReturn(OauthProvider.APPLE);
+        when(appleVerifier.verify("apple-id-token")).thenReturn(
+                new OauthUserInfo(OauthProvider.APPLE, "apple-uid-9", null, "wrong-hash"));
+
+        OauthCodeExchanger appleExchanger = mock(OauthCodeExchanger.class);
+        when(appleExchanger.supports()).thenReturn(OauthProvider.APPLE);
+        when(appleExchanger.isConfigured()).thenReturn(true);
+        when(appleExchanger.exchange(any(), any())).thenReturn("apple-id-token");
+
+        AuthService svc = serviceWithAppleCodeFlow(appleVerifier, appleExchanger);
+
+        assertThatThrownBy(() -> svc.exchangeCode(
+                OauthProvider.APPLE, "apple-code", "https://web/cb", rawNonce))
                 .isInstanceOf(AuthException.class)
                 .satisfies(e -> assertThat(((AuthException) e).code()).isEqualTo("AUTH_INVALID"));
     }

@@ -19,6 +19,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -217,7 +218,8 @@ public class AuthService {
      * (PR #112) provider 별 규약에 맞춰 client 가 보낸 원본 nonce 와 id_token 의 nonce 클레임을 비교.
      *
      * <ul>
-     *   <li>Apple: id_token 의 nonce 는 SHA-256(원본) 의 hex (소문자). 동일 해시 후 비교.</li>
+     *   <li>Apple: id_token 의 nonce 는 SHA-256(원본) 의 hex. 명세상 소문자지만, provider 가 향후
+     *       대문자로 바꿀 가능성에 대비해 비교 시 토큰 측 값을 lowercase 로 정규화 (PR #112 리뷰 I3).</li>
      *   <li>Kakao: id_token 의 nonce 는 원본 그대로. 평문 비교.</li>
      * </ul>
      * client 가 nonce 를 보내지 않은 경우 (null/blank) 검증을 건너뛴다 — 구버전 클라 호환.
@@ -227,11 +229,24 @@ public class AuthService {
         if (expectedRaw == null || expectedRaw.isBlank()) {
             return;
         }
-        String expected = switch (provider) {
-            case APPLE -> hash(expectedRaw);
-            case KAKAO -> expectedRaw;
-        };
-        if (tokenNonce == null || !expected.equals(tokenNonce)) {
+        if (tokenNonce == null) {
+            throw new AuthException("AUTH_INVALID", "nonce mismatch");
+        }
+        String expected;
+        String actual;
+        switch (provider) {
+            case APPLE -> {
+                expected = hash(expectedRaw);
+                actual = tokenNonce.toLowerCase(Locale.ROOT);
+            }
+            case KAKAO -> {
+                expected = expectedRaw;
+                actual = tokenNonce;
+            }
+            default -> throw new AuthException(
+                    "AUTH_PROVIDER_UNSUPPORTED", "Unsupported provider for nonce: " + provider);
+        }
+        if (!expected.equals(actual)) {
             throw new AuthException("AUTH_INVALID", "nonce mismatch");
         }
     }
