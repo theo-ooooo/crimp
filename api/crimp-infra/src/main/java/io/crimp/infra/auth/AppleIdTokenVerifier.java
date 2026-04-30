@@ -58,7 +58,10 @@ public class AppleIdTokenVerifier implements OauthIdTokenVerifier {
         // Apple 은 첫 인증에서만 email 제공 — 이후 인증에서는 claim 자체가 없음.
         // null 일 수 있다는 의미가 도메인 모델에 이미 반영되어 있어 그대로 통과.
         String email = jwt.getClaimAsString("email");
-        return new OauthUserInfo(OauthProvider.APPLE, providerUid, email);
+        // [PR #112] nonce 클레임 — Apple 은 client 가 보낸 nonce 를 SHA-256 해 박는다.
+        // 비교는 AuthService 가 client 원본을 동일 해시 후 일치 검사.
+        String nonce = jwt.getClaimAsString("nonce");
+        return new OauthUserInfo(OauthProvider.APPLE, providerUid, email, nonce);
     }
 
     /**

@@ -5,8 +5,8 @@ import type { GymItem } from '@/lib/schemas/gym';
 
 export const GYM_BRAND_OPTIONS = [
   { key: '', labelKey: 'gym.list.brandAllLabel' as const },
-  { key: '클라임파크', labelKey: null },
-  { key: '더클라이밍', labelKey: null },
+  { key: '클라이밍파크', labelKey: null },
+  { key: '더클라임', labelKey: null },
   { key: '볼더스', labelKey: null },
   { key: '락트리퍼', labelKey: null },
 ] as const;

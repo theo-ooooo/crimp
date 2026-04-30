@@ -11,6 +11,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -39,7 +40,7 @@ public class AuthController {
             @RequestBody OauthExchangeRequest req,
             HttpServletResponse response) {
         OauthProvider p = parseProvider(provider);
-        AuthTokens tokens = authService.exchange(p, req.idToken());
+        AuthTokens tokens = authService.exchange(p, req.idToken(), req.nonce());
         // [PR #94] 웹은 HttpOnly 쿠키로 토큰을 보유. 모바일은 JSON body 의 토큰을 사용 (둘 다 발행).
         cookieFactory.setAuthCookies(response, tokens);
         return TokenResponse.of(tokens);
@@ -55,7 +56,7 @@ public class AuthController {
             @RequestBody OauthCodeExchangeRequest req,
             HttpServletResponse response) {
         OauthProvider p = parseProvider(provider);
-        AuthTokens tokens = authService.exchangeCode(p, req.code(), req.redirectUri());
+        AuthTokens tokens = authService.exchangeCode(p, req.code(), req.redirectUri(), req.nonce());
         cookieFactory.setAuthCookies(response, tokens);
         return TokenResponse.of(tokens);
     }
@@ -140,10 +141,24 @@ public class AuthController {
         return null;
     }
 
-    public record OauthExchangeRequest(@NotBlank String idToken) {}
+    /**
+     * (PR #112) {@code nonce} 는 client 가 OAuth authorize 시 생성·전송한 원본 값. 누락 시
+     * 서버는 nonce 검증을 건너뜀 (구버전 클라 호환). 새 클라는 항상 전송 권장.
+     *
+     * <p>(PR #112 리뷰 I2) {@code @Size(max=128)} — Apple 표준 SHA-256 hex 64자, Kakao 권장
+     * 32자 내외. 거대 페이로드 공격 표면 축소.
+     */
+    public record OauthExchangeRequest(
+            @NotBlank String idToken,
+            @Size(max = 128) String nonce
+    ) {}
 
-    /** 웹 v2 redirect flow 의 code 교환 요청. */
-    public record OauthCodeExchangeRequest(@NotBlank String code, @NotBlank String redirectUri) {}
+    /** 웹 v2 redirect flow 의 code 교환 요청. {@code nonce} 는 {@link OauthExchangeRequest} 와 동일 규약. */
+    public record OauthCodeExchangeRequest(
+            @NotBlank String code,
+            @NotBlank String redirectUri,
+            @Size(max = 128) String nonce
+    ) {}
 
     /** refresh / logout 본문 — refreshToken 누락 시 백엔드가 쿠키에서 fallback 으로 읽음. */
     public record TokenPair(String refreshToken) {}

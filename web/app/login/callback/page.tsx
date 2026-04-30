@@ -123,8 +123,10 @@ function CallbackInner(): JSX.Element {
     setPhase('loading');
     const redirectUri =
       expected.redirectUri ?? `${window.location.origin}/login/callback`;
+    // [PR #112] authorize 단계에서 저장한 원본 nonce 를 그대로 백엔드로 전달 →
+    // 서버가 provider 별 규칙 (Apple SHA-256 / Kakao 평문) 으로 id_token 클레임과 비교.
     exchange.mutate(
-      { provider: expected.provider, code, redirectUri },
+      { provider: expected.provider, code, redirectUri, nonce: expected.nonce },
       {
         onSuccess: () => {
           setPhase('success');

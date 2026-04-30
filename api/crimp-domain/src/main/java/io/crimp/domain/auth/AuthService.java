@@ -19,6 +19,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -59,6 +60,22 @@ public class AuthService {
 
     @Transactional
     public AuthTokens exchange(OauthProvider provider, String idToken) {
+        return exchange(provider, idToken, null);
+    }
+
+    /**
+     * (PR #112) nonce 검증을 포함한 id_token 교환.
+     *
+     * <p>{@code expectedNonce} 는 client 가 OAuth authorize 요청 시 생성·전송한 원본 nonce.
+     * provider 별 비교 규칙:
+     * <ul>
+     *   <li>Apple: id_token 에는 SHA-256(원본) hex 가 박혀 있으므로 동일 해시 후 비교.</li>
+     *   <li>Kakao: id_token 에 원본이 그대로 박히므로 평문 비교.</li>
+     * </ul>
+     * {@code expectedNonce} 가 null/blank 이면 검증을 건너뛴다 (구버전 클라 호환).
+     */
+    @Transactional
+    public AuthTokens exchange(OauthProvider provider, String idToken, String expectedNonce) {
         OauthIdTokenVerifier verifier = verifiers.get(provider);
         if (verifier == null) {
             throw new AuthException("AUTH_PROVIDER_UNSUPPORTED", "Unsupported provider: " + provider);
@@ -69,6 +86,8 @@ public class AuthService {
         } catch (RuntimeException e) {
             throw new AuthException("AUTH_INVALID", "ID token verification failed: " + e.getMessage());
         }
+
+        verifyNonce(provider, expectedNonce, info.nonce());
 
         User user = oauthIdentityRepository
                 .findByProviderAndProviderUid(info.provider(), info.providerUid())
@@ -93,6 +112,12 @@ public class AuthService {
      */
     @Transactional
     public AuthTokens exchangeCode(OauthProvider provider, String code, String redirectUri) {
+        return exchangeCode(provider, code, redirectUri, null);
+    }
+
+    /** (PR #112) nonce 검증을 포함한 code 교환. {@link #exchange(OauthProvider, String, String)} 참고. */
+    @Transactional
+    public AuthTokens exchangeCode(OauthProvider provider, String code, String redirectUri, String expectedNonce) {
         OauthCodeExchanger exchanger = codeExchangers.get(provider);
         if (exchanger == null) {
             throw new AuthException("AUTH_PROVIDER_UNSUPPORTED",
@@ -114,7 +139,7 @@ public class AuthService {
         if (idToken == null || idToken.isBlank()) {
             throw new AuthException("AUTH_INVALID", "Provider returned empty id_token");
         }
-        return exchange(provider, idToken);
+        return exchange(provider, idToken, expectedNonce);
     }
 
     @Transactional(readOnly = true)
@@ -186,6 +211,43 @@ public class AuthService {
             return HexFormat.of().formatHex(md.digest(value.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);
+        }
+    }
+
+    /**
+     * (PR #112) provider 별 규약에 맞춰 client 가 보낸 원본 nonce 와 id_token 의 nonce 클레임을 비교.
+     *
+     * <ul>
+     *   <li>Apple: id_token 의 nonce 는 SHA-256(원본) 의 hex. 명세상 소문자지만, provider 가 향후
+     *       대문자로 바꿀 가능성에 대비해 비교 시 토큰 측 값을 lowercase 로 정규화 (PR #112 리뷰 I3).</li>
+     *   <li>Kakao: id_token 의 nonce 는 원본 그대로. 평문 비교.</li>
+     * </ul>
+     * client 가 nonce 를 보내지 않은 경우 (null/blank) 검증을 건너뛴다 — 구버전 클라 호환.
+     * client 가 nonce 를 보냈지만 id_token 에 클레임이 없거나 일치하지 않으면 {@code AUTH_INVALID}.
+     */
+    private static void verifyNonce(OauthProvider provider, String expectedRaw, String tokenNonce) {
+        if (expectedRaw == null || expectedRaw.isBlank()) {
+            return;
+        }
+        if (tokenNonce == null) {
+            throw new AuthException("AUTH_INVALID", "nonce mismatch");
+        }
+        String expected;
+        String actual;
+        switch (provider) {
+            case APPLE -> {
+                expected = hash(expectedRaw);
+                actual = tokenNonce.toLowerCase(Locale.ROOT);
+            }
+            case KAKAO -> {
+                expected = expectedRaw;
+                actual = tokenNonce;
+            }
+            default -> throw new AuthException(
+                    "AUTH_PROVIDER_UNSUPPORTED", "Unsupported provider for nonce: " + provider);
+        }
+        if (!expected.equals(actual)) {
+            throw new AuthException("AUTH_INVALID", "nonce mismatch");
         }
     }
 }

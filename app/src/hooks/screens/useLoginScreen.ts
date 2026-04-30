@@ -38,11 +38,35 @@ if (Platform.OS === 'ios') {
   }
 }
 
-function generateKakaoNonce(): string {
+/**
+ * OAuth nonce 생성기 — Kakao/Apple 공통.
+ *
+ * (PR #112 리뷰 I1) `crypto.getRandomValues` 사용. `index.js` 에서 미리 로드하는
+ * `react-native-get-random-values` 폴리필이 RN 에서 globalThis.crypto.getRandomValues
+ * 를 설치한다. 폴리필 미로드 환경 (예: 테스트 jest jsdom) 에선 Math.random fallback
+ * — 운영 빌드에선 절대 도달하지 않음.
+ */
+function generateOauthNonce(): string {
   const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  const len = 24;
+  const cryptoApi =
+    typeof globalThis !== 'undefined' && typeof globalThis.crypto !== 'undefined'
+      ? globalThis.crypto
+      : undefined;
+  if (cryptoApi && typeof cryptoApi.getRandomValues === 'function') {
+    const bytes = new Uint8Array(len);
+    cryptoApi.getRandomValues(bytes);
+    let s = '';
+    for (let i = 0; i < len; i += 1) {
+      const byte = bytes[i] ?? 0;
+      s += alphabet.charAt(byte % alphabet.length);
+    }
+    return s;
+  }
+  // dev/test fallback — globalThis.crypto 가 없는 환경에서만 (운영 빌드는 폴리필이 깔림).
   let s = '';
-  for (let i = 0; i < 16; i += 1) {
-    s += alphabet[Math.floor(Math.random() * alphabet.length)];
+  for (let i = 0; i < len; i += 1) {
+    s += alphabet.charAt(Math.floor(Math.random() * alphabet.length));
   }
   return s;
 }
@@ -53,10 +77,14 @@ export function useLoginScreen(onLoggedIn: () => void) {
   const [devToken, setDevToken] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const submitIdToken = async (provider: OauthProvider, idToken: string) => {
+  const submitIdToken = async (
+    provider: OauthProvider,
+    idToken: string,
+    nonce?: string,
+  ) => {
     setErrorMessage(null);
     try {
-      await exchange.mutateAsync({ provider, idToken });
+      await exchange.mutateAsync({ provider, idToken, nonce });
       setDevToken('');
       setDevOpen(false);
       onLoggedIn();
@@ -73,13 +101,16 @@ export function useLoginScreen(onLoggedIn: () => void) {
     }
     setErrorMessage(null);
     try {
-      const result = await kakaoLogin(generateKakaoNonce());
+      // [PR #112] 동일 nonce 를 (1) Kakao SDK 에 넘겨 id_token 에 박히게 하고
+      // (2) 백엔드에 함께 보내 서버가 평문 비교로 replay 방어하도록 한다.
+      const nonce = generateOauthNonce();
+      const result = await kakaoLogin(nonce);
       const idToken = result?.idToken;
       if (!idToken) {
         setErrorMessage(t('auth.login.kakaoNoIdToken'));
         return;
       }
-      await submitIdToken('kakao', idToken);
+      await submitIdToken('kakao', idToken, nonce);
     } catch (err) {
       setErrorMessage(toUserMessage(err));
     }
@@ -92,16 +123,20 @@ export function useLoginScreen(onLoggedIn: () => void) {
     }
     setErrorMessage(null);
     try {
+      // [PR #112] Apple 은 SHA-256(원본) 을 id_token 에 박는다. 동일 원본을 백엔드에 전달하면
+      // 서버가 같은 해시 후 비교 — replay 방어.
+      const nonce = generateOauthNonce();
       const result = await appleAuth.performRequest({
         requestedOperation: appleAuth.Operation.LOGIN,
         requestedScopes: [appleAuth.Scope.EMAIL, appleAuth.Scope.FULL_NAME],
+        nonce,
       });
       const idToken = result?.identityToken;
       if (!idToken) {
         setErrorMessage(t('auth.login.appleNoIdToken'));
         return;
       }
-      await submitIdToken('apple', idToken);
+      await submitIdToken('apple', idToken, nonce);
     } catch (err) {
       // [PR #104] 사용자가 다이얼로그 dismiss 한 케이스는 errorMessage 로 노출하지 않고
       // 조용히 패스 — appleAuth.Error.CANCELED 또는 메시지 패턴 매칭.

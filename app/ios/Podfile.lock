@@ -1516,6 +1516,10 @@ PODS:
     - React-logger (= 0.75.4)
     - React-perflogger (= 0.75.4)
     - React-utils (= 0.75.4)
+  - RNAppleAuthentication (2.5.1):
+    - React-Core
+  - RNPermissions (5.5.1):
+    - React-Core
   - RNScreens (3.34.0):
     - DoubleConversion
     - glog
@@ -1538,7 +1542,15 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
+  - RNSVG (15.15.4):
+    - React-Core
   - SocketRocket (0.7.0)
+  - VisionCamera (4.7.3):
+    - VisionCamera/Core (= 4.7.3)
+    - VisionCamera/React (= 4.7.3)
+  - VisionCamera/Core (4.7.3)
+  - VisionCamera/React (4.7.3):
+    - React-Core
   - Yoga (0.0.0)
 
 DEPENDENCIES:
@@ -1607,7 +1619,11 @@ DEPENDENCIES:
   - React-utils (from `../node_modules/react-native/ReactCommon/react/utils`)
   - ReactCodegen (from `build/generated/ios`)
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
+  - "RNAppleAuthentication (from `../node_modules/@invertase/react-native-apple-authentication`)"
+  - RNPermissions (from `../node_modules/react-native-permissions`)
   - RNScreens (from `../node_modules/react-native-screens`)
+  - RNSVG (from `../node_modules/react-native-svg`)
+  - VisionCamera (from `../node_modules/react-native-vision-camera`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
 SPEC REPOS:
@@ -1746,8 +1762,16 @@ EXTERNAL SOURCES:
     :path: build/generated/ios
   ReactCommon:
     :path: "../node_modules/react-native/ReactCommon"
+  RNAppleAuthentication:
+    :path: "../node_modules/@invertase/react-native-apple-authentication"
+  RNPermissions:
+    :path: "../node_modules/react-native-permissions"
   RNScreens:
     :path: "../node_modules/react-native-screens"
+  RNSVG:
+    :path: "../node_modules/react-native-svg"
+  VisionCamera:
+    :path: "../node_modules/react-native-vision-camera"
   Yoga:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
@@ -1819,10 +1843,14 @@ SPEC CHECKSUMS:
   React-utils: 02526ea15628a768b8db9517b6017a1785c734d2
   ReactCodegen: 8b5341ecb61898b8bd40a73ebc443c6bf2d14423
   ReactCommon: 36d48f542b4010786d6b2bcee615fe5f906b7105
+  RNAppleAuthentication: a89c9804592b38ed4ab11f0aee68d05ba12ad432
+  RNPermissions: 48458b6caf05c13ddae0c50cbbb470f8d58f3221
   RNScreens: 28fbd73104cc9719371da9d9aaa3c70d876a8c6b
+  RNSVG: fc707517bcf04a9c0a09da7c20b2e02446dce7b9
   SocketRocket: abac6f5de4d4d62d24e11868d7a2f427e0ef940d
+  VisionCamera: 7187b3dac1ff3071234ead959ce311875748e14f
   Yoga: 055f92ad73f8c8600a93f0e25ac0b2344c3b07e6
 
-PODFILE CHECKSUM: 6dc5a6715d50f2f0c0e67ae0b5caef5e1c8ca426
+PODFILE CHECKSUM: d3cb4d9abb06efbd8d2cc8b4b87ec9e5c34249fe
 
 COCOAPODS: 1.16.2
