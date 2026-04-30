@@ -2,6 +2,8 @@ package io.crimp.infra.gym;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.util.List;
+
 /**
  * Kakao Local API 설정.
  *
@@ -11,9 +13,14 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param baseUrl 기본 {@code https://dapi.kakao.com}.
  * @param keywordSearchPath 키워드 검색 path. 기본 {@code /v2/local/search/keyword.json}.
  * @param defaultRadiusMeters 한 호출에서 검색할 반경. Kakao 상한 20000(20km).
- * @param queryKeyword 매장 검색에 사용할 한글 키워드. 기본 {@code 클라이밍}.
+ * @param queryKeyword (단일) 매장 검색 키워드. 기본 {@code 클라이밍}. 호환성 유지 — 신규
+ *                     케이스는 {@link #queryKeywords} 사용 권장.
+ * @param queryKeywords (다중) 매장 검색 키워드 목록 (PR #111). 비어있으면 {@link #queryKeyword}
+ *                      한 개로 fallback. Kakao 가 같은 매장을 여러 표기로 등록하는 케이스를
+ *                      포괄하기 위해 ["클라이밍", "볼더링", "암벽"] 등 다중 호출 후 union dedup.
  * @param pageSize 1 호출당 결과 수. Kakao 최대 15.
- * @param maxPages 한 좌표 호출에서 최대 몇 페이지까지 가져올지 (페이지네이션).
+ * @param maxPages 한 좌표·키워드 호출에서 최대 몇 페이지까지 가져올지 (페이지네이션).
+ *                 PR #111 기본값 3 → 5 상향 (밀집 지역 누락 회피).
  */
 @ConfigurationProperties(prefix = "app.gym-sync.kakao-local")
 public record KakaoLocalProperties(
@@ -21,9 +28,14 @@ public record KakaoLocalProperties(
         String keywordSearchPath,
         Integer defaultRadiusMeters,
         String queryKeyword,
+        List<String> queryKeywords,
         Integer pageSize,
         Integer maxPages
 ) {
+
+    private static final List<String> DEFAULT_KEYWORDS = List.of(
+            "클라이밍", "볼더링", "암벽", "클라이밍짐"
+    );
 
     public String resolvedBaseUrl() {
         return baseUrl != null && !baseUrl.isBlank() ? baseUrl : "https://dapi.kakao.com";
@@ -40,8 +52,25 @@ public record KakaoLocalProperties(
                 ? defaultRadiusMeters : 5000;
     }
 
+    /**
+     * (단일) 키워드 — 호환성 유지. 호출자는 보통 {@link #resolvedQueryKeywords()} 사용.
+     */
     public String resolvedQueryKeyword() {
         return queryKeyword != null && !queryKeyword.isBlank() ? queryKeyword : "클라이밍";
+    }
+
+    /**
+     * 다중 키워드 (PR #111). queryKeywords 가 명시되면 그대로, 비어있으면 queryKeyword 한 개,
+     * 둘 다 비어있으면 {@link #DEFAULT_KEYWORDS} fallback.
+     */
+    public List<String> resolvedQueryKeywords() {
+        if (queryKeywords != null && !queryKeywords.isEmpty()) {
+            return queryKeywords.stream().filter(s -> s != null && !s.isBlank()).toList();
+        }
+        if (queryKeyword != null && !queryKeyword.isBlank()) {
+            return List.of(queryKeyword);
+        }
+        return DEFAULT_KEYWORDS;
     }
 
     public int resolvedPageSize() {
@@ -49,6 +78,6 @@ public record KakaoLocalProperties(
     }
 
     public int resolvedMaxPages() {
-        return maxPages != null && maxPages > 0 ? maxPages : 3;
+        return maxPages != null && maxPages > 0 ? maxPages : 5;
     }
 }

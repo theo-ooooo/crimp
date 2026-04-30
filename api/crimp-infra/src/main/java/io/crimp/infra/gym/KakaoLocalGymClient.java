@@ -20,7 +20,9 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Kakao Local API 의 키워드 검색 어댑터. {@link GymSyncSource} 도메인 포트 구현.
@@ -71,13 +73,29 @@ public class KakaoLocalGymClient implements GymSyncSource {
         headers.set(HttpHeaders.AUTHORIZATION, "KakaoAK " + auth.restApiKey());
         HttpEntity<Void> request = new HttpEntity<>(headers);
 
-        List<RemoteGym> all = new ArrayList<>();
+        // [PR #111] 다중 키워드로 검색 후 Kakao place id (externalKey) 기준 union dedup —
+        // 동일 매장이 여러 키워드에 매칭되어도 결과는 1건. LinkedHashMap 으로 첫 매칭 순서 유지.
+        Map<String, RemoteGym> byExternalKey = new LinkedHashMap<>();
+        for (String keyword : props.resolvedQueryKeywords()) {
+            fetchKeyword(keyword, lat, lng, radiusMeters, headers, request, byExternalKey);
+        }
+        return new ArrayList<>(byExternalKey.values());
+    }
+
+    private void fetchKeyword(String keyword,
+                              BigDecimal lat,
+                              BigDecimal lng,
+                              int radiusMeters,
+                              HttpHeaders headers,
+                              HttpEntity<Void> request,
+                              Map<String, RemoteGym> byExternalKey) {
         int maxPages = props.resolvedMaxPages();
+        int beforeCount = byExternalKey.size();
         for (int page = 1; page <= maxPages; page++) {
             String uri = UriComponentsBuilder
                     .fromHttpUrl(props.resolvedBaseUrl())
                     .path(props.resolvedKeywordSearchPath())
-                    .queryParam("query", props.resolvedQueryKeyword())
+                    .queryParam("query", keyword)
                     .queryParam("x", lng)
                     .queryParam("y", lat)
                     .queryParam("radius", radiusMeters)
@@ -98,16 +116,24 @@ public class KakaoLocalGymClient implements GymSyncSource {
                         log.debug("[gym-sync/kakao] skip doc with blank coord: id={} name={}", d.id(), d.placeName());
                         continue;
                     }
-                    all.add(toRemoteGym(d));
+                    if (d.id() == null || d.id().isBlank()) {
+                        // externalKey 가 없는 doc 은 dedup 키로 사용 불가 — 안전하게 스킵.
+                        log.debug("[gym-sync/kakao] skip doc with blank id: name={}", d.placeName());
+                        continue;
+                    }
+                    // putIfAbsent — 이미 다른 키워드 호출에서 들어왔으면 첫 매칭 유지.
+                    byExternalKey.putIfAbsent(d.id(), toRemoteGym(d));
                 }
                 if (body.meta() != null && Boolean.TRUE.equals(body.meta().isEnd())) break;
             } catch (RestClientException e) {
-                log.warn("[gym-sync/kakao] page {} failed for ({},{}): {}", page, lat, lng, e.getMessage());
-                // 한 페이지 실패는 해당 페이지만 스킵하고 종료 — 누적 결과는 반환.
+                log.warn("[gym-sync/kakao] keyword='{}' page {} failed for ({},{}): {}",
+                        keyword, page, lat, lng, e.getMessage());
+                // 한 페이지 실패는 해당 키워드의 후속 페이지만 스킵 — 다음 키워드는 계속.
                 break;
             }
         }
-        return all;
+        log.debug("[gym-sync/kakao] keyword='{}' added {} new docs (cumulative {})",
+                keyword, byExternalKey.size() - beforeCount, byExternalKey.size());
     }
 
     private static RemoteGym toRemoteGym(Document d) {
