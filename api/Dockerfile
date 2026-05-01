@@ -22,7 +22,9 @@ FROM eclipse-temurin:21-jre AS runtime
 WORKDIR /app
 
 # 비루트 유저로 실행 — distroless 가 가장 안전하지만 디버깅 편의를 위해 jre 유지.
-RUN groupadd --system app && useradd --system --gid app --uid 1000 app
+# UID 1000 명시 안 함 — eclipse-temurin:21-jre 의 Ubuntu 베이스에 이미 UID 1000 (ubuntu 유저)
+# 점유돼 useradd 가 exit 4 ("UID not unique") 로 실패. system uid 자동 할당.
+RUN groupadd --system app && useradd --system --gid app --no-create-home app
 
 COPY --from=build --chown=app:app /workspace/crimp-api/build/libs/crimp-api-*.jar /app/app.jar
 
