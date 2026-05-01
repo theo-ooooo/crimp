@@ -294,7 +294,10 @@ export default function MainTabs(): JSX.Element {
       screenOptions={{
         // 각 탭의 inner Stack 헤더가 별도로 그려지므로 Tab 헤더는 숨긴다.
         headerShown: false,
-        tabBarActiveTintColor: theme.accent.ink,
+        // (PR-A2) `accent.ink` 는 lime 배경 위 전경 색 (#0F1419 고정) — 다크모드의 dark bg
+        // (#0D0F12) 위에선 거의 동색 → active 탭이 보이지 않는 회귀가 있었다. 웹 BottomTabs
+        // 패턴 (`text-text`) 과 통일해 light/dark 양쪽에서 가시성 보장하는 `theme.text` 사용.
+        tabBarActiveTintColor: theme.text,
         tabBarInactiveTintColor: theme.text3,
         tabBarStyle: tabBarStyles.bar,
         tabBarItemStyle: tabBarStyles.item,
