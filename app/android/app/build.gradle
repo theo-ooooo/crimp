@@ -1,6 +1,10 @@
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
+// (PR-A1) react-native-config — `.env` 파일을 빌드 타임에 읽어 BuildConfig.java + xml resource 로 주입.
+// JS 측 `Config.X` 와 native (Android) BuildConfig 양쪽에서 동일 값 접근 가능.
+// ENVFILE 환경변수로 다른 파일 선택: `ENVFILE=.env.staging ./gradlew assembleRelease`
+apply from: project(':react-native-config').projectDir.getPath() + "/dotenv.gradle"
 
 /**
  * This is the configuration block to customize your React Native Android app.
