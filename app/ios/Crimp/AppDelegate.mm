@@ -1,6 +1,8 @@
 #import "AppDelegate.h"
 
 #import <React/RCTBundleURLProvider.h>
+#import <React/RCTRootView.h>
+#import <RNBootSplash.h>
 
 @implementation AppDelegate
 
@@ -12,6 +14,14 @@
   self.initialProps = @{};
 
   return [super application:application didFinishLaunchingWithOptions:launchOptions];
+}
+
+// [PR-S1] 부모 RCTAppDelegate 가 호출하는 customize 훅에서 BootSplash storyboard 를 띄운다.
+// JS 가 BootSplash.hide() 를 부를 때까지 native 스플래시가 그대로 유지된다.
+- (void)customizeRootView:(RCTRootView *)rootView
+{
+  [super customizeRootView:rootView];
+  [RNBootSplash initWithStoryboard:@"BootSplash" rootView:rootView];
 }
 
 - (NSURL *)sourceURLForBridge:(RCTBridge *)bridge

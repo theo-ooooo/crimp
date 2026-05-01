@@ -1,56 +1,50 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.INTERNET" />
 
-    <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.CAMERA" />
+  <uses-permission android:name="android.permission.RECORD_AUDIO" />
+  <uses-feature
+    android:name="android.hardware.camera"
+    android:required="false" />
+  <uses-feature
+    android:name="android.hardware.camera.autofocus"
+    android:required="false" />
 
-    <!-- vision-camera (PR #91, F5) — 촬영·녹음 권한. -->
-    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <uses-feature android:name="android.hardware.camera" android:required="false" />
-    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
-    <!-- PR #100, F5 PR-B — 등반 기록 위치 메타용. WhenInUse 만 사용.
-         [리뷰 I5] react-native-permissions 의 PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION
-         만 요청하므로 FINE 단일 선언으로 충분. Android 12+ 에서 OS 가 자동으로 "정확한/
-         대략적" 토글을 사용자에게 보여주고, 사용자가 approximate 만 허용해도 결과는
-         단일 status 로 반환됨. COARSE 매니페스트 항목은 사용처가 없어 제거. -->
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-
-    <application
-      android:name=".MainApplication"
+  <application
+    android:name=".MainApplication"
+    android:label="@string/app_name"
+    android:icon="@mipmap/ic_launcher"
+    android:roundIcon="@mipmap/ic_launcher_round"
+    android:allowBackup="false"
+    android:theme="@style/AppTheme"
+    android:supportsRtl="true">
+    <activity
+      android:name=".MainActivity"
       android:label="@string/app_name"
-      android:icon="@mipmap/ic_launcher"
-      android:roundIcon="@mipmap/ic_launcher_round"
-      android:allowBackup="false"
-      android:theme="@style/AppTheme"
-      android:supportsRtl="true">
-      <activity
-        android:name=".MainActivity"
-        android:label="@string/app_name"
-        android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
-        android:launchMode="singleTask"
-        android:windowSoftInputMode="adjustResize"
-        android:exported="true">
-        <intent-filter>
-            <action android:name="android.intent.action.MAIN" />
-            <category android:name="android.intent.category.LAUNCHER" />
-        </intent-filter>
-      </activity>
+      android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
+      android:launchMode="singleTask"
+      android:windowSoftInputMode="adjustResize"
+      android:exported="true"
+      android:theme="@style/BootTheme">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+      </intent-filter>
+    </activity>
 
-      <!--
-        Kakao OAuth redirect handler.
-        scheme = `kakao${KAKAO_APP_KEY}` — `app/build.gradle` 에서 manifestPlaceholders 로 주입.
-        host   = `oauth`
-        @react-native-seoul/kakao-login 이 Custom Tabs 로 카카오 로그인 후 이 인텐트로 복귀한다.
-      -->
-      <activity
-        android:name="com.kakao.sdk.auth.AuthCodeHandlerActivity"
-        android:exported="true">
-        <intent-filter>
-            <action android:name="android.intent.action.VIEW" />
-            <category android:name="android.intent.category.DEFAULT" />
-            <category android:name="android.intent.category.BROWSABLE" />
-            <data android:scheme="kakao${kakaoAppKey}" android:host="oauth" />
-        </intent-filter>
-      </activity>
-    </application>
+    <activity
+      android:name="com.kakao.sdk.auth.AuthCodeHandlerActivity"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data
+          android:scheme="kakao${kakaoAppKey}"
+          android:host="oauth" />
+      </intent-filter>
+    </activity>
+  </application>
 </manifest>
