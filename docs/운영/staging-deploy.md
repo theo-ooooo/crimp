@@ -150,6 +150,15 @@ flyctl secrets set --app crimp-api-staging \
   APPLE_PRIVATE_KEY_PEM="$(cat path/to/AuthKey_XXX.p8)"
 ```
 
+> ⚠️ (PR #114 리뷰 I5) `$(cat ...)` 는 파일이 없어도 stderr 만 내고 빈 문자열을 set 한다 →
+> API 부팅은 성공하지만 Apple OAuth 가 런타임 503. 다음 가드를 명령 직전에:
+> ```bash
+> APPLE_KEY_FILE="$HOME/Downloads/AuthKey_XXXXXXXXXX.p8"
+> [[ -f "$APPLE_KEY_FILE" ]] || { echo "missing p8: $APPLE_KEY_FILE" >&2; return 1; }
+> ```
+> 또는 .p8 내용을 직접 인라인 문자열로 (`APPLE_PRIVATE_KEY_PEM='-----BEGIN PRIVATE KEY-----\n...'`)
+> 넣어도 OK — 파일 경로가 자주 바뀌는 환경에서 더 안정.
+
 > ⚠️ `AUTH_COOKIE_SAME_SITE=None` 은 cross-site (`web` 도메인 ↔ `api` 도메인 다른 경우)
 > 시 필요. 같은 sub-domain 운영이면 `Lax` 로. `None` 인데 `secure=true` 가 아니면 부팅 실패.
 
@@ -166,11 +175,17 @@ flyctl status --app crimp-api-staging
 
 ## 7. Cloudflare DNS + 커스텀 도메인 (선택)
 
+> (PR #114 리뷰 I7) **선행 조건**: 도메인이 **Cloudflare DNS (네임서버) 로 위임 완료** 되어
+> 있어야 함. 다른 레지스트라 (GoDaddy 등) 에서 새로 산 직후라면 Cloudflare 로의 DNS 이전이
+> 끝날 때까지 (보통 수 분~24시간) 본 단계는 실패한다. `dig NS crimp.example.com` 으로
+> nameserver 가 `*.ns.cloudflare.com` 인지 먼저 확인.
+
 1. Cloudflare Dashboard → 도메인 → DNS → "Add record"
    - Type: **CNAME**
    - Name: `staging-api` (예: `staging-api.crimp.example.com`)
    - Target: `crimp-api-staging.fly.dev`
-   - Proxy: **Proxied (orange cloud)**
+   - Proxy: **DNS only (회색 구름)** — staging 단계 권장. 프록시 (오렌지) 켜려면 SSL/TLS
+     mode 를 "Full" 이상으로 두고 Fly cert 도 별도 유지.
 2. Fly 측 도메인 등록:
    ```bash
    flyctl certs create staging-api.crimp.example.com --app crimp-api-staging
@@ -179,12 +194,38 @@ flyctl status --app crimp-api-staging
 
 ## 8. CI 자동 배포 활성화
 
-GitHub repo Settings → Secrets and variables → Actions → New repository secret:
+(PR #114 리뷰 I1) **앱-스코프 deploy 토큰 사용을 강력 권장.** personal 토큰
+(`flyctl auth token`) 은 organization 전체에 write 가능해 GitHub Secrets 노출 시
+다른 앱까지 위험.
 
-- `FLY_API_TOKEN` — `flyctl auth token` 출력 또는 organization deploy token (권장).
+```bash
+# 권장: crimp-api-staging 만 deploy 가능, 1년 만료.
+flyctl tokens create deploy --app crimp-api-staging --expiry 8760h
+# 출력 끝의 'FlyV1 fm2_xxx...' 한 줄 통째로 복사.
+```
+
+GitHub repo Settings → Secrets and variables → Actions → **New repository secret**:
+- Name: `FLY_API_TOKEN`
+- Secret: 위에서 복사한 토큰 통째로
 
 이후 `develop` 브랜치 push (PR 머지 포함) 시 `.github/workflows/staging-deploy.yml`
 이 자동으로 `flyctl deploy --remote-only` 실행.
+
+> Fallback (권장 X): organization 전체 권한 토큰이 필요하면 `flyctl auth token`. 보안 리스크
+> 인지하고 사용. 정기 회전(90일) 필수.
+
+### 8-bis. DB (MySQL) 변경 시 수동 재배포
+
+(PR #114 리뷰 I4) `staging-deploy.yml` 의 `paths` 필터는 `api/**` 만 포함하므로
+`infra/fly/mysql/**` (예: init SQL 추가, MySQL 메이저 버전 업) 변경은 자동 배포되지
+않는다. 다음 명령으로 수동 재배포:
+
+```bash
+cd infra/fly/mysql
+flyctl deploy --remote-only --app crimp-mysql-staging
+```
+
+> ⚠️ DB 재배포는 짧은 다운타임 동반 (`strategy = immediate`). 트래픽 적은 시간대 권장.
 
 ## 9. 검증 체크리스트
 
@@ -199,9 +240,11 @@ GitHub repo Settings → Secrets and variables → Actions → New repository se
 | 증상 | 원인 / 처방 |
 | --- | --- |
 | API 부팅 실패 / `Communications link failure` | MySQL 미기동 — `flyctl status --app crimp-mysql-staging` 확인 / 볼륨 attach 여부 |
+| 첫 요청 5~15s 지연 (이후 정상) | (PR #114 리뷰 I6) **cold-start — 정상 동작.** `min_machines_running=0` + `auto_stop_machines=stop` 으로 idle 머신 정지 → JVM warm-up + DataSource init + Flyway validate 시간. 항상 켜두려면 `flyctl scale count 1 --app crimp-api-staging` + `auto_stop=false` |
 | `AUTH_COOKIE_SAME_SITE=None requires secure=true` | application-staging.yml 이 `secure: true` 명시 — 시크릿이 누락됐는지 (`AUTH_COOKIE_DOMAIN`) |
 | R2 presigned PUT 403 | `S3_ENDPOINT_URL` / `path-style-access-enabled` 미적용. 토큰의 권한 (`Object Read & Write`) 확인 |
 | OOM / 잦은 재시작 | `JAVA_OPTS` 의 `MaxRAMPercentage` 낮추거나 머신 메모리 ↑ (`flyctl scale memory 2048`) |
+| `Public Key Retrieval is not allowed` (첫 부팅) | JDBC URL 에 `allowPublicKeyRetrieval=true` 누락. `application-staging.yml` 의 `DB_URL` default 가 이 옵션 포함 — 환경변수로 override 시 함께 박아야 함 |
 
 ## 운영 (prod) 차이점 (요약)
 

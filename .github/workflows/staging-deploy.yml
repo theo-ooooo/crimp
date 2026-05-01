@@ -15,9 +15,12 @@ permissions:
   contents: read
 
 concurrency:
-  # 같은 시점에 두 배포가 겹치지 않도록 — 진행 중 배포는 취소하고 최신만.
+  # 같은 시점에 두 배포가 겹치지 않도록 큐잉. 진행 중 배포는 그대로 두고 다음 push 는 줄 세움.
+  # (PR #114 리뷰 I2) 이전엔 cancel-in-progress=true 였는데, rolling 배포 중간 SIGTERM
+  # 으로 부분 교체 상태가 발생할 수 있어 false 로 변경. 큐 길이는 GitHub 가 마지막 1건만
+  # 보존하는 것이 기본이라 짧은 간격 push 들이 쌓여도 마지막 deploy 가 최종 상태가 됨.
   group: staging-deploy
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:

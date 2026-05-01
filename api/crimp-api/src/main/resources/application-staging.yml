@@ -18,6 +18,12 @@ spring:
     #   Connector/J 가 서버 RSA public key 를 받아오도록 허용. SSL 사용 안 하는
     #   internal 6PN 환경에서 필수 (없으면 첫 부팅 Flyway 가 'Public Key Retrieval
     #   is not allowed' 로 실패).
+    #
+    # (PR #114 리뷰 I3 — follow-up): 6PN 자체 방어로 평문 통신 자체는 안전하지만, 운영 단계
+    # 진입 전 다음 둘 중 하나로 보강 권장:
+    #   1) Fly 6PN 노드 간 TLS 활성화 후 useSSL=true&requireSSL=true&verifyServerCertificate=true
+    #   2) MySQL 측 default_authentication_plugin=mysql_native_password 으로 caching_sha2 의존 제거
+    # staging 한정 임시 설정 — prod 는 매니지드 DB (RDS/PlanetScale) 권장이라 본 옵션 자체 불필요.
     url: ${DB_URL:jdbc:mysql://crimp-mysql-staging.internal:3306/crimp?serverTimezone=UTC&characterEncoding=UTF-8&useUnicode=true&useSSL=false&allowPublicKeyRetrieval=true}
     username: ${DB_USER:crimp}
     password: ${DB_PASSWORD}
