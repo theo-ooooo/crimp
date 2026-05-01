@@ -85,6 +85,22 @@ export function CameraSheet({
   const cameraPerm = useCameraPermission();
   const micPerm = useMicrophonePermission();
 
+  // (PR #115 후속) 줌 컨트롤 — vision-camera 의 controlled `zoom` prop 사용. neutral(=1x)
+  // 부터 시작해 사용자가 칩 (1×/2×/3×) 으로 빠르게 전환. 디바이스 maxZoom 으로 클램프.
+  // pinch 제스처는 react-native-gesture-handler 가 없어 현 단계 미지원 — Phase 2.
+  const [zoom, setZoom] = useState<number>(1);
+  // 디바이스 변경 (시트 재진입 등) 시 1× 로 리셋.
+  useEffect(() => {
+    if (device) {
+      setZoom(device.neutralZoom ?? 1);
+    }
+  }, [device]);
+  const zoomLevels = useMemo(() => {
+    if (!device) return [1] as const;
+    const max = device.maxZoom ?? 1;
+    return [1, 2, 3].filter((z) => z <= max) as readonly number[];
+  }, [device]);
+
   // [PR #100, F5 PR-B] 카메라/마이크/위치 묶음 권한 체크 + 인트로 모달.
   // visible 일 때만 active — 시트 닫혀있을 때 불필요한 OS 호출 방지.
   const entryPerms = useCameraEntryPermissions(visible);
@@ -117,6 +133,8 @@ export function CameraSheet({
   // 사후 발동해도 onCaptured 를 호출하지 않도록 표시. 사용자가 "취소했는데 캡처 Alert"
   // 가 뜨는 회귀를 차단.
   const cancelRequestedRef = useRef(false);
+  // (PR #115 후속) 10분 자동 컷오프 타이머 핸들 — start 시 set, stop/finish/error/unmount 시 clear.
+  const maxDurationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // 영상 모드인데 mic 권한이 없으면 사운드 없이 녹화 — 권한 요청은 시트 진입 시 한 번 시도.
   const audioEnabled = mode === 'video' && micPerm.hasPermission;
 
@@ -154,11 +172,26 @@ export function CameraSheet({
       cancelRequestedRef.current = true;
       cameraRef.current?.stopRecording().catch(() => undefined);
       setRecording(false);
+      // (PR #115 후속) 시트 닫힘 → max-duration 타이머도 함께 정리.
+      if (maxDurationTimerRef.current) {
+        clearTimeout(maxDurationTimerRef.current);
+        maxDurationTimerRef.current = null;
+      }
     }
     if (!visible && pending) {
       setPending(null);
     }
   }, [visible, recording, pending]);
+
+  // unmount 시 잔류 타이머 정리.
+  useEffect(() => {
+    return () => {
+      if (maxDurationTimerRef.current) {
+        clearTimeout(maxDurationTimerRef.current);
+        maxDurationTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const handlePhoto = useCallback(async () => {
     if (busy || !cameraRef.current) return;
@@ -198,6 +231,11 @@ export function CameraSheet({
     setBusy(true);
     setRecording(true);
     cancelRequestedRef.current = false;
+    // (PR #115 후속) 10분 자동 컷오프 — vision-camera 의 maxDuration 옵션 사용.
+    // Apple Photo 의 ProRes / 일반 사용자 영상 기준 10분이 합리적 상한 (S3/CloudFront 비용 +
+    // FeedPost video duration 상한 동시 충족). 한도 도달 시 vision-camera 가 자동으로
+    // onRecordingFinished 호출.
+    const MAX_RECORDING_SECONDS = 600;
     cameraRef.current.startRecording({
       onRecordingFinished: async (video) => {
         try {
@@ -229,15 +267,30 @@ export function CameraSheet({
           setBusy(false);
           setRecording(false);
           cancelRequestedRef.current = false;
+          if (maxDurationTimerRef.current) {
+            clearTimeout(maxDurationTimerRef.current);
+            maxDurationTimerRef.current = null;
+          }
         }
       },
       onRecordingError: (err: CameraCaptureError) => {
         setBusy(false);
         setRecording(false);
         cancelRequestedRef.current = false;
+        if (maxDurationTimerRef.current) {
+          clearTimeout(maxDurationTimerRef.current);
+          maxDurationTimerRef.current = null;
+        }
         Alert.alert(t('session.log.cameraError'), err.message);
       },
     });
+    // vision-camera 4.x 의 RecordVideoOptions 에 maxDuration 미지원 → JS 측 setTimeout
+    // 으로 자동 stopRecording 트리거. 10분 도달 시 onRecordingFinished 가 호출되어
+    // 정상 캡처 흐름으로 흡수됨 (잘리지 않은 만큼 저장).
+    maxDurationTimerRef.current = setTimeout(() => {
+      maxDurationTimerRef.current = null;
+      cameraRef.current?.stopRecording().catch(() => undefined);
+    }, MAX_RECORDING_SECONDS * 1000);
   }, [busy]);
 
   const handleStopRecording = useCallback(async () => {
@@ -376,6 +429,7 @@ export function CameraSheet({
                     photo={mode === 'photo'}
                     video={mode === 'video'}
                     audio={audioEnabled}
+                    zoom={zoom}
                   />
                   {/* focus reticle */}
                   <View style={styles.reticle} pointerEvents="none" />
@@ -387,6 +441,29 @@ export function CameraSheet({
                         : t('session.log.cameraPhotoTitle')}
                     </Text>
                   </View>
+                  {/* (PR #115 후속) 줌 셀렉터 — viewfinder 위, shutter 바로 위쪽. */}
+                  {zoomLevels.length > 1 ? (
+                    <View style={styles.zoomBar} pointerEvents="auto">
+                      {zoomLevels.map((z) => {
+                        const active = Math.abs(zoom - z) < 0.01;
+                        return (
+                          <Pressable
+                            key={z}
+                            onPress={() => setZoom(z)}
+                            style={[styles.zoomChip, active && styles.zoomChipActive]}
+                            accessibilityRole="button"
+                            accessibilityLabel={`${z}x zoom`}
+                            accessibilityState={{ selected: active }}
+                            hitSlop={6}
+                          >
+                            <Text style={[styles.zoomChipLabel, active && styles.zoomChipLabelActive]}>
+                              {z}×
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  ) : null}
                 </>
               )}
             </View>
@@ -686,6 +763,38 @@ function makeStyles(theme: Theme) {
       fontSize: 12,
       fontWeight: fontWeight.bold,
       color: CAMERA_FG,
+    },
+    // (PR #115 후속) 줌 셀렉터 — viewfinder 하단 중앙, shutter 위쪽.
+    zoomBar: {
+      position: 'absolute',
+      bottom: space[4],
+      alignSelf: 'center',
+      flexDirection: 'row',
+      gap: space[2],
+      paddingHorizontal: space[3],
+      paddingVertical: space[2],
+      backgroundColor: overlayBg,
+      borderRadius: radius.full,
+    },
+    zoomChip: {
+      minWidth: 36,
+      paddingHorizontal: space[3],
+      paddingVertical: space[1],
+      borderRadius: radius.full,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    zoomChipActive: {
+      backgroundColor: theme.accent.base,
+    },
+    zoomChipLabel: {
+      fontFamily,
+      fontSize: 13,
+      fontWeight: fontWeight.semibold,
+      color: CAMERA_FG,
+    },
+    zoomChipLabelActive: {
+      color: theme.accent.on,
     },
     bottomBar: {
       paddingHorizontal: space[6],
