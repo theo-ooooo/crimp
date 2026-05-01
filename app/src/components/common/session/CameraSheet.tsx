@@ -84,7 +84,18 @@ export function CameraSheet({
   // (PR #115 후속) 카메라 flip — back/front 토글. 사용자 피드백으로 우상단 메뉴를 정적
   // dots 에서 동작하는 flip 버튼으로 교체.
   const [cameraPosition, setCameraPosition] = useState<'back' | 'front'>('back');
-  const device = useCameraDevice(cameraPosition);
+  // (PR #115 후속) physicalDevices 명시 — vision-camera 의 useCameraDevice('back') 기본값은
+  // 'best' 단일 wide-angle 디바이스를 고를 수 있어 minZoom=1 로 떨어지고 0.5× 가 적용되지
+  // 않는다. ultrawide + wide + telephoto 3종을 모두 묶은 multi-cam **virtual device** 를
+  // 명시적으로 요청해야 minZoom=0.5 가 노출되어 0.5× → ultrawide 렌즈 자동 스위치 동작.
+  // front 는 일반적으로 단일 wide 라 hint 무영향 (있어도 안전).
+  const device = useCameraDevice(cameraPosition, {
+    physicalDevices: [
+      'ultra-wide-angle-camera',
+      'wide-angle-camera',
+      'telephoto-camera',
+    ],
+  });
   const cameraPerm = useCameraPermission();
   const micPerm = useMicrophonePermission();
 
