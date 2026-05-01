@@ -96,9 +96,12 @@ export function CameraSheet({
     }
   }, [device]);
   const zoomLevels = useMemo(() => {
-    if (!device) return [1] as const;
+    if (!device) return [1] as readonly number[];
+    const min = device.minZoom ?? 1;
     const max = device.maxZoom ?? 1;
-    return [1, 2, 3].filter((z) => z <= max) as readonly number[];
+    // 0.5× 는 iPhone 의 multi-cam 디바이스 (Pro / Plus) 가 ultrawide 렌즈를 포함할 때만 활성.
+    // useCameraDevice('back') 가 multi-cam 가상 디바이스를 반환하면 minZoom <= 0.5 — 그 경우만 노출.
+    return [0.5, 1, 2, 3].filter((z) => z >= min && z <= max);
   }, [device]);
 
   // [PR #100, F5 PR-B] 카메라/마이크/위치 묶음 권한 체크 + 인트로 모달.
