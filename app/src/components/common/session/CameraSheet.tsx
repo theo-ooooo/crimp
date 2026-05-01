@@ -99,11 +99,17 @@ export function CameraSheet({
   const cameraPerm = useCameraPermission();
   const micPerm = useMicrophonePermission();
 
-  // (PR #115 후속) 줌 컨트롤 — vision-camera 의 controlled `zoom` prop 사용. neutral(=1x)
-  // 부터 시작해 사용자가 칩 (1×/2×/3×) 으로 빠르게 전환. 디바이스 maxZoom 으로 클램프.
-  // pinch 제스처는 react-native-gesture-handler 가 없어 현 단계 미지원 — Phase 2.
+  // (PR #115 후속) 줌 컨트롤 — vision-camera 의 controlled `zoom` prop 사용.
+  //
+  // ⚠️ 좌표계 주의 — multi-cam virtual device 의 vision-camera `zoom` 값은 **가장 넓은
+  // 렌즈(ultrawide) 의 native FOV 가 1.0** 이고, neutral(=wide) 은 보통 2.0, 사용자가
+  // 부르는 "2×" 는 약 4.0 이다 (== neutralZoom × userMultiplier).
+  // iPhone Camera 앱 UI 와 동일한 사용자 친화 레이블 (0.5×/1×/2×/3×) 을 그대로 보여주려면
+  // user-zoom × neutralZoom = device-zoom 변환이 필요. 사용자 피드백:
+  // "최초 1배가아니라 2배로 잡히고 0.5는 클릭도안됨, 1배가 0.5배줌인듯" — 좌표계 미변환
+  // 회귀.
   const [zoom, setZoom] = useState<number>(1);
-  // 디바이스 변경 (시트 재진입 등) 시 1× 로 리셋.
+  // 디바이스 변경 (시트 재진입 등) 시 사용자 기준 1× = neutralZoom 으로 리셋.
   useEffect(() => {
     if (device) {
       setZoom(device.neutralZoom ?? 1);
@@ -111,21 +117,31 @@ export function CameraSheet({
   }, [device]);
   const zoomLevels = useMemo(() => {
     if (!device) return [1] as readonly number[];
+    const neutral = device.neutralZoom ?? 1;
     const max = device.maxZoom ?? 1;
-    // (PR #115 후속) 사용자 피드백 — 디바이스에 ultrawide 가 없어도 0.5× 칩은 항상 노출
-    // 한다. 실제 zoom 값은 setZoom 시 device.minZoom 으로 클램프 (단일 렌즈 디바이스에선
-    // 시각 변화 없음). UI 일관성 우선.
-    return [0.5, 1, 2, 3].filter((z) => z <= max);
+    // 사용자 기준 [0.5, 1, 2, 3] 중 디바이스가 처리 가능한 (user × neutral ≤ max) 것만 노출.
+    return [0.5, 1, 2, 3].filter((u) => u * neutral <= max);
   }, [device]);
 
-  // 디바이스의 minZoom 으로 클램프해 안전하게 zoom 값 적용.
+  // 사용자 기준 zoom (예: 0.5/1/2/3) → 디바이스 zoom 좌표로 변환 + min/max 클램프.
   const applyZoom = useCallback(
-    (z: number) => {
-      const min = device?.minZoom ?? 1;
-      setZoom(Math.max(min, z));
+    (userZoom: number) => {
+      if (!device) return;
+      const neutral = device.neutralZoom ?? 1;
+      const min = device.minZoom ?? 1;
+      const max = device.maxZoom ?? 1;
+      const target = Math.max(min, Math.min(max, userZoom * neutral));
+      setZoom(target);
     },
     [device],
   );
+
+  // 칩 active 비교를 위해 현재 zoom 을 사용자 좌표로 환산.
+  const currentUserZoom = useMemo(() => {
+    if (!device) return 1;
+    const neutral = device.neutralZoom ?? 1;
+    return zoom / neutral;
+  }, [zoom, device]);
 
   // [PR #100, F5 PR-B] 카메라/마이크/위치 묶음 권한 체크 + 인트로 모달.
   // visible 일 때만 active — 시트 닫혀있을 때 불필요한 OS 호출 방지.
@@ -479,7 +495,9 @@ export function CameraSheet({
                   {zoomLevels.length > 1 ? (
                     <View style={styles.zoomBar} pointerEvents="auto">
                       {zoomLevels.map((z) => {
-                        const active = Math.abs(zoom - z) < 0.01;
+                        // active 비교는 사용자 좌표 기준 (currentUserZoom). vision-camera
+                        // 의 raw zoom 은 multi-cam 가상 디바이스에서 neutral 배수라 직접 비교 X.
+                        const active = Math.abs(currentUserZoom - z) < 0.05;
                         return (
                           <Pressable
                             key={z}
