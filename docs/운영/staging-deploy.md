@@ -208,8 +208,11 @@ GitHub repo Settings → Secrets and variables → Actions → **New repository 
 - Name: `FLY_API_TOKEN`
 - Secret: 위에서 복사한 토큰 통째로
 
-이후 `develop` 브랜치 push (PR 머지 포함) 시 `.github/workflows/staging-deploy.yml`
-이 자동으로 `flyctl deploy --remote-only` 실행.
+이후 `develop` push (PR 머지 포함) → `ci.yml` 그린 → `staging-deploy.yml` 이
+`workflow_run` 으로 체이닝되어 자동 `flyctl deploy --remote-only` 실행.
+
+> 게이팅 흐름: `ci.yml` (gradle check) 실패 시 staging 배포 차단. 수동 강제 배포가
+> 필요하면 Actions UI 의 "Run workflow" 또는 `gh workflow run staging-deploy.yml`.
 
 > Fallback (권장 X): organization 전체 권한 토큰이 필요하면 `flyctl auth token`. 보안 리스크
 > 인지하고 사용. 정기 회전(90일) 필수.

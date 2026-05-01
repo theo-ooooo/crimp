@@ -1,14 +1,22 @@
 name: Staging — API deploy (Fly.io)
 
-# develop 브랜치에 push (PR 머지 포함) 되면 staging 자동 배포.
-# api/ 또는 의존 모듈 변경시에만 트리거 — 무관한 web/app PR 의 불필요한 배포 회피.
+# develop 에서 CI 가 그린이 되면 자동으로 staging 배포.
+#
+# (PR #114 후속) workflow_run 으로 ci.yml conclusion=success 시에만 트리거.
+# 이전엔 push 트리거였는데, CI 와 병렬로 돌아 테스트가 빨갛게 깨진 채로 staging 에
+# 올라갈 위험이 있었다. workflow_run 체이닝으로 게이팅.
+#
+# 트레이드오프 — workflow_run 은 paths 필터 미지원. CI 가 어떤 push 든 트리거되므로
+# (ci.yml 도 paths 필터 없음) 본 워크플로도 develop 의 모든 그린 빌드에서 1회 deploy.
+# 비-API 변경 (web/app/docs) 시에도 Fly 머신이 한 번 돌지만 Dockerfile 캐시 + 동일
+# bootJar 면 머신 재시작만이라 영향 미미. paths 필터가 필요해지면 dorny/paths-filter
+# 로 head_sha 의 변경 경로 검사 후 분기 권장.
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
     branches: [develop]
-    paths:
-      - 'api/**'
-      - '.github/workflows/staging-deploy.yml'
-  # 수동 트리거 (예: 시크릿 갱신 후 재배포).
+    types: [completed]
+  # 수동 트리거 — 시크릿 갱신 후 재배포 등.
   workflow_dispatch:
 
 permissions:
@@ -17,8 +25,7 @@ permissions:
 concurrency:
   # 같은 시점에 두 배포가 겹치지 않도록 큐잉. 진행 중 배포는 그대로 두고 다음 push 는 줄 세움.
   # (PR #114 리뷰 I2) 이전엔 cancel-in-progress=true 였는데, rolling 배포 중간 SIGTERM
-  # 으로 부분 교체 상태가 발생할 수 있어 false 로 변경. 큐 길이는 GitHub 가 마지막 1건만
-  # 보존하는 것이 기본이라 짧은 간격 push 들이 쌓여도 마지막 deploy 가 최종 상태가 됨.
+  # 으로 부분 교체 상태가 발생할 수 있어 false 로 변경.
   group: staging-deploy
   cancel-in-progress: false
 
@@ -26,14 +33,22 @@ jobs:
   deploy:
     name: Deploy crimp-api-staging
     runs-on: ubuntu-latest
+    # workflow_run 으로 들어오면 CI 결과가 success 일 때만, workflow_dispatch 면 무조건.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     steps:
       - uses: actions/checkout@v4
+        with:
+          # workflow_run 의 경우 GitHub 기본 동작은 default branch 체크아웃이므로
+          # 트리거된 커밋 SHA 로 명시. workflow_dispatch 는 폴백으로 github.sha.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
 
       # FLY_API_TOKEN — Settings > Secrets 에 등록 필요.
-      # 토큰 발급:  flyctl auth token  (또는 organization deploy token 권장)
+      # (런북 §8) flyctl tokens create deploy --app crimp-api-staging --expiry 8760h.
       - name: Deploy
         working-directory: api
         env:
