@@ -81,7 +81,10 @@ export function CameraSheet({
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
   const cameraRef = useRef<Camera>(null);
-  const device = useCameraDevice('back');
+  // (PR #115 후속) 카메라 flip — back/front 토글. 사용자 피드백으로 우상단 메뉴를 정적
+  // dots 에서 동작하는 flip 버튼으로 교체.
+  const [cameraPosition, setCameraPosition] = useState<'back' | 'front'>('back');
+  const device = useCameraDevice(cameraPosition);
   const cameraPerm = useCameraPermission();
   const micPerm = useMicrophonePermission();
 
@@ -97,12 +100,21 @@ export function CameraSheet({
   }, [device]);
   const zoomLevels = useMemo(() => {
     if (!device) return [1] as readonly number[];
-    const min = device.minZoom ?? 1;
     const max = device.maxZoom ?? 1;
-    // 0.5× 는 iPhone 의 multi-cam 디바이스 (Pro / Plus) 가 ultrawide 렌즈를 포함할 때만 활성.
-    // useCameraDevice('back') 가 multi-cam 가상 디바이스를 반환하면 minZoom <= 0.5 — 그 경우만 노출.
-    return [0.5, 1, 2, 3].filter((z) => z >= min && z <= max);
+    // (PR #115 후속) 사용자 피드백 — 디바이스에 ultrawide 가 없어도 0.5× 칩은 항상 노출
+    // 한다. 실제 zoom 값은 setZoom 시 device.minZoom 으로 클램프 (단일 렌즈 디바이스에선
+    // 시각 변화 없음). UI 일관성 우선.
+    return [0.5, 1, 2, 3].filter((z) => z <= max);
   }, [device]);
+
+  // 디바이스의 minZoom 으로 클램프해 안전하게 zoom 값 적용.
+  const applyZoom = useCallback(
+    (z: number) => {
+      const min = device?.minZoom ?? 1;
+      setZoom(Math.max(min, z));
+    },
+    [device],
+  );
 
   // [PR #100, F5 PR-B] 카메라/마이크/위치 묶음 권한 체크 + 인트로 모달.
   // visible 일 때만 active — 시트 닫혀있을 때 불필요한 OS 호출 방지.
@@ -393,10 +405,18 @@ export function CameraSheet({
             <View style={styles.recSpacer} />
           )}
 
-          <View style={styles.iconBtn}>
-            {/* 추후 flip 카메라용 — 현재는 정적 아이콘 */}
-            <CrimpIcon.dots size={20} color={CAMERA_FG} />
-          </View>
+          <Pressable
+            onPress={() =>
+              setCameraPosition((prev) => (prev === 'back' ? 'front' : 'back'))
+            }
+            style={styles.iconBtn}
+            accessibilityRole="button"
+            accessibilityLabel={t('session.log.cameraFlip')}
+            hitSlop={8}
+            disabled={recording}
+          >
+            <CrimpIcon.flip size={20} color={CAMERA_FG} />
+          </Pressable>
         </View>
 
         {pending ? (
@@ -452,7 +472,7 @@ export function CameraSheet({
                         return (
                           <Pressable
                             key={z}
-                            onPress={() => setZoom(z)}
+                            onPress={() => applyZoom(z)}
                             style={[styles.zoomChip, active && styles.zoomChipActive]}
                             accessibilityRole="button"
                             accessibilityLabel={`${z}x zoom`}
