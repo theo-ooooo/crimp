@@ -25,11 +25,37 @@
 
 ## 사전 준비
 
-- macOS / Linux 셸
-- `flyctl` 설치: `brew install flyctl` (또는 `curl -L https://fly.io/install.sh | sh`)
-- Fly 계정 + organization (개인 organization 으로 시작 무방)
-- Cloudflare 계정 (도메인 없어도 R2 만 사용 가능)
-- Upstash 계정 (https://upstash.com — GitHub OAuth 가능)
+### 0-1. flyctl 설치
+
+macOS:
+```bash
+brew install flyctl       # Homebrew 권장
+flyctl version            # 설치 확인 — "flyctl v0.x.x ..." 출력
+```
+
+Homebrew 미사용 / Linux:
+```bash
+curl -L https://fly.io/install.sh | sh
+echo 'export FLYCTL_INSTALL="$HOME/.fly"' >> ~/.zshrc
+echo 'export PATH="$FLYCTL_INSTALL/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+flyctl version
+```
+
+> Apple Silicon + 새 Homebrew 환경에서 `command not found: flyctl` 이 뜨면 `/opt/homebrew/bin` 이 PATH 에 없어서일 가능성 ↑. `eval "$(/opt/homebrew/bin/brew shellenv)"` 또는 `~/.zshrc` 에 brew shellenv 추가.
+
+### 0-2. 계정 / 외부 서비스
+
+- **Fly.io** — `flyctl auth signup` (또는 `auth login`). 무료 tier 에도 결제수단(카드) 등록 필요 (2024+ 정책).
+- **Upstash** (https://upstash.com) — GitHub OAuth 로 가입. Redis free tier 등록.
+- **Cloudflare** — R2 사용. 도메인 없어도 R2 단독 사용 가능 (presigned URL 만 쓰면 충분).
+
+### 0-3. 검증
+
+```bash
+flyctl auth whoami        # 이메일 출력 확인
+flyctl orgs list          # organization slug 메모 (예: "personal")
+```
 
 ## 1. Fly 로그인
 
