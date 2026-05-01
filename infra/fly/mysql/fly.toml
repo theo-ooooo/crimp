@@ -1,0 +1,46 @@
+# Fly.io 앱 정의 — Crimp MySQL staging.
+#
+# crimp-api-staging 와 같은 organization 에 두면 6PN 내부 네트워크로
+# crimp-mysql-staging.internal:3306 으로 접근 가능 (외부 노출 없음).
+#
+# 1) 앱 생성 + 볼륨 (1회):
+#    flyctl apps create crimp-mysql-staging --org <org>
+#    flyctl volumes create crimp_mysql_data \
+#      --app crimp-mysql-staging --region nrt --size 1
+# 2) 시크릿:
+#    flyctl secrets set --app crimp-mysql-staging \
+#      MYSQL_ROOT_PASSWORD=... MYSQL_DATABASE=crimp MYSQL_USER=crimp MYSQL_PASSWORD=...
+# 3) 배포:
+#    cd infra/fly/mysql && flyctl deploy --remote-only
+
+app  = "crimp-mysql-staging"
+primary_region = "nrt"
+
+[build]
+  dockerfile = "Dockerfile"
+
+# 외부 노출 X — internal 6PN 만 허용 (auto stop 하지 않음 — DB 는 항상 켜져 있어야).
+[[services]]
+  internal_port = 3306
+  protocol      = "tcp"
+  auto_stop_machines  = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  # 외부 포트 매핑 없음 — 같은 organization 의 다른 app 에서만 접근 가능.
+
+# 데이터 볼륨 — fly.toml 의 [mounts] 가 머신 시작 시 자동 attach.
+[mounts]
+  source = "crimp_mysql_data"
+  destination = "/var/lib/mysql"
+
+# MySQL 8 메모리 — innodb_buffer_pool 등 고려해 1GB 권장. staging 비용 ↓ 위해 1GB.
+[[vm]]
+  size     = "shared-cpu-1x"
+  memory   = "1gb"
+  cpu_kind = "shared"
+  cpus     = 1
+
+[deploy]
+  # DB 는 single instance — rolling 보다 immediate 가 안전 (병렬 두 머신이 같은 볼륨 공유 시 깨짐).
+  strategy = "immediate"

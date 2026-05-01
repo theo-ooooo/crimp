@@ -1,0 +1,23 @@
+# 빌드 컨텍스트 슬림화 — Spring Boot bootJar 빌드에 필요한 것만 남김.
+**/build
+**/.gradle
+**/.idea
+**/.vscode
+**/*.iml
+**/.DS_Store
+
+# 호스트 측 환경 / 시크릿 / 작업물.
+.env
+.env.*
+*.log
+*.tmp
+
+# git 메타 — Docker 빌드는 git 정보 불필요.
+.git
+.gitignore
+.gitattributes
+.github
+
+# 별도 모듈은 컨텍스트 안에 들어와선 안 됨.
+# (api/ 가 루트로 사용되므로 형제 디렉터리는 자동 제외됨, 안전 장치만.)
+node_modules

@@ -11,11 +11,13 @@ import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
+import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
 
@@ -50,10 +52,22 @@ public class S3MediaPresigner implements MediaPresigner {
             throw new IllegalStateException("app.media.s3.region 미설정");
         }
         AwsCredentialsProvider creds = resolveCredentials(props);
-        this.presigner = S3Presigner.builder()
+        S3Presigner.Builder builder = S3Presigner.builder()
                 .region(Region.of(props.region()))
-                .credentialsProvider(creds)
-                .build();
+                .credentialsProvider(creds);
+        // (staging) Cloudflare R2 같은 S3-compatible 엔드포인트 사용 시 endpoint override + path-style.
+        // 두 옵션이 비어 있으면 SDK 기본값 (AWS S3 virtual-hosted style) 그대로.
+        if (props.endpointUrl() != null && !props.endpointUrl().isBlank()) {
+            log.info("[media/s3] using S3-compatible endpoint {} (path-style={})",
+                    props.endpointUrl(), props.pathStyleAccessEnabled());
+            builder.endpointOverride(URI.create(props.endpointUrl()));
+        }
+        if (props.pathStyleAccessEnabled()) {
+            builder.serviceConfiguration(S3Configuration.builder()
+                    .pathStyleAccessEnabled(true)
+                    .build());
+        }
+        this.presigner = builder.build();
     }
 
     private static AwsCredentialsProvider resolveCredentials(S3Properties p) {

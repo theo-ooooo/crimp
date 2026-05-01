@@ -1,0 +1,54 @@
+# Fly.io 앱 정의 — Crimp API staging.
+# 프로덕션은 별도 fly.production.toml 또는 다른 app name 으로 분리 (Phase 2).
+#
+# 배포: cd api && flyctl deploy --remote-only
+# 시크릿: flyctl secrets set --app crimp-api-staging KEY=value ...
+# 로그:   flyctl logs --app crimp-api-staging
+#
+# 이 파일은 *공개 가능* 한 설정만 담는다 — 모든 자격증명/키는 Fly secrets 로.
+# DB / Redis 호스트는 internal address (`<app>.internal`) 또는 Upstash 외부 URL.
+
+app  = "crimp-api-staging"
+primary_region = "nrt"  # Tokyo — 한국 사용자 latency 최적
+
+# 빌드: 같은 디렉터리의 Dockerfile 사용. flyctl 이 자동 감지하지만 명시.
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  SPRING_PROFILES_ACTIVE = "staging"
+  SERVER_PORT            = "8080"
+  TZ                     = "UTC"
+
+# HTTP 서비스 — 8080 → 80/443. Fly proxy 가 자동으로 TLS 종단 처리.
+[http_service]
+  internal_port       = 8080
+  force_https         = true
+  auto_stop_machines  = "stop"  # idle 시 자동 정지 (staging 비용 절감)
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type       = "requests"
+    soft_limit = 200
+    hard_limit = 250
+
+# 헬스체크 — Spring Actuator /actuator/health.
+[[http_service.checks]]
+  protocol      = "http"
+  method        = "GET"
+  path          = "/actuator/health"
+  interval      = "30s"
+  timeout       = "5s"
+  grace_period  = "60s"
+
+# 머신 사양 — staging 은 1 vCPU / 1GB. JVM 최소 권장치.
+[[vm]]
+  size        = "shared-cpu-1x"
+  memory      = "1gb"
+  cpu_kind    = "shared"
+  cpus        = 1
+
+# 배포 전략 — rolling 으로 다운타임 최소화. staging 은 1 머신이라 immediate 도 무방.
+[deploy]
+  strategy = "rolling"
