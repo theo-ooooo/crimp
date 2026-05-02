@@ -47,6 +47,12 @@ export function useSessionDetailScreen(accessToken: string, extId: string) {
   // 보관하다 onDismiss 안에서 flush. Android 는 nested Modal 허용이라 즉시 실행.
   const pendingCameraModeRef = useRef<CameraMode | null>(null);
   const pendingLogReopenRef = useRef<boolean>(false);
+  // (PR #123) 비디오 캡처 → 카메라 dismiss → VideoPosterModal 시리얼라이즈.
+  // CameraSheet 가 닫히는 동안 VideoPosterModal 을 present 하면 iOS 가 거절 →
+  // 모달 자체가 안 떠 사용자가 "선택 불가능" 으로 인식.
+  const pendingPosterAfterCameraRef = useRef<CapturedMedia | null>(null);
+  // VideoPosterModal 이 닫힌 후 LogAttemptSheet 를 다시 띄울지 플래그.
+  const pendingLogReopenAfterPosterRef = useRef<boolean>(false);
 
   const openCamera = (mode: CameraMode) => {
     if (Platform.OS === 'android') {
@@ -86,8 +92,23 @@ export function useSessionDetailScreen(accessToken: string, extId: string) {
   };
 
   const onCameraDismissed = () => {
+    // 비디오 캡처 후 포스터 선택 모달 → 카메라 닫힘이 끝난 시점에 시리얼라이즈로 띄움.
+    if (pendingPosterAfterCameraRef.current) {
+      const captured = pendingPosterAfterCameraRef.current;
+      pendingPosterAfterCameraRef.current = null;
+      setVideoAwaitingPoster(captured);
+      return;
+    }
     if (pendingLogReopenRef.current) {
       pendingLogReopenRef.current = false;
+      setLogSheetOpen(true);
+    }
+  };
+
+  // VideoPosterModal 이 닫힌 후 LogAttemptSheet 를 시리얼라이즈로 띄움 (iOS).
+  const onPosterModalDismissed = () => {
+    if (pendingLogReopenAfterPosterRef.current) {
+      pendingLogReopenAfterPosterRef.current = false;
       setLogSheetOpen(true);
     }
   };
@@ -96,7 +117,15 @@ export function useSessionDetailScreen(accessToken: string, extId: string) {
     (poster: CapturedMedia | null) => {
       const v = pendingVideoForPosterRef.current;
       pendingVideoForPosterRef.current = null;
+      // iOS 는 VideoPosterModal 이 dismiss 되는 동안 LogAttemptSheet 를 또 띄우면 거절 —
+      // pending 플래그 두고 onPosterModalDismissed 에서 띄움. Android 는 nested OK 라 즉시.
+      if (Platform.OS === 'ios') {
+        pendingLogReopenAfterPosterRef.current = true;
+      }
       setVideoAwaitingPoster(null);
+      if (Platform.OS === 'android') {
+        setLogSheetOpen(true);
+      }
       if (!v) {
         return;
       }
@@ -124,7 +153,7 @@ export function useSessionDetailScreen(accessToken: string, extId: string) {
           Alert.alert(t('session.log.uploadFailed'), body);
         } finally {
           setMediaPhase('idle');
-          setLogSheetOpen(true);
+          // LogAttemptSheet 재오픈은 위에서 (Android 는 즉시 / iOS 는 onPosterModalDismissed) 처리.
         }
       };
       run().catch(() => {});
@@ -134,12 +163,20 @@ export function useSessionDetailScreen(accessToken: string, extId: string) {
 
   const handleCaptured = async (captured: CapturedMedia) => {
     if (captured.kind === 'VIDEO') {
+      pendingVideoForPosterRef.current = captured;
       if (Platform.OS === 'ios') {
+        // iOS: CameraSheet dismiss 가 끝난 뒤에 VideoPosterModal 을 띄움.
+        // 동시 present 시 iOS RCTModalHostViewController 가 거절 → 모달이 안 떠
+        // 사용자가 "선택 불가능" 으로 인식하던 회귀 차단.
         pendingLogReopenRef.current = false;
+        pendingPosterAfterCameraRef.current = captured;
+        setCameraOpen(false);
+        setLogSheetOpen(false);
+        return;
       }
+      // Android: nested modal 허용이라 즉시 전환.
       setCameraOpen(false);
       setLogSheetOpen(false);
-      pendingVideoForPosterRef.current = captured;
       setVideoAwaitingPoster(captured);
       return;
     }
@@ -208,5 +245,6 @@ export function useSessionDetailScreen(accessToken: string, extId: string) {
     endSessionAction,
     videoAwaitingPoster,
     onPosterUploadRequest,
+    onPosterModalDismissed,
   };
 }

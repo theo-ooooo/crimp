@@ -86,6 +86,7 @@ function SessionDetailLoggedInContainer({
       onCaptured={detail.handleCaptured}
       videoAwaitingPoster={detail.videoAwaitingPoster}
       onPosterUploadRequest={detail.onPosterUploadRequest}
+      onPosterModalDismissed={detail.onPosterModalDismissed}
       mediaPhase={detail.mediaPhase}
       uploadedMediaId={detail.uploadedMediaId}
       onClearMedia={() => detail.setUploadedMediaId(null)}
