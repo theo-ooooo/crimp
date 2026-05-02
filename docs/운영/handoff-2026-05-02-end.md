@@ -11,7 +11,7 @@
 | --- | --- |
 | 04-30 | PR #112 (OAuth nonce 검증), #113 (스플래쉬 + 앱 아이콘) |
 | 05-01 | PR #114 (Fly.io staging 인프라), #115 (rn-config + 카메라 폴리시) |
-| 05-02 | PR #116 (업로드 압축), #117 (R2 CDN 런북), #118 (프로필 편집 UI — 사용자 직접), #119 (피드 mediaUrls), #120 (피드 카드 미디어 + 비디오 재생, 오픈) |
+| 05-02 | PR #116 (업로드 압축), #117 (R2 CDN 런북), #118 (프로필 편집 UI — 사용자 직접), #119 (피드 mediaUrls), #120 (피드 카드 미디어 + 비디오 재생 + cdn_url DROP 리팩토링 + 리뷰 6건 반영, 머지 대기) |
 
 PRD §12 (2026-04-28 기준) 의 폴리시 항목 + Phase 1.5 인프라가 거의 닫혔고, 남은 큰
 빈 칸은 **#6 크루 개설/가입 기초**.
@@ -29,21 +29,35 @@ PRD §12 (2026-04-28 기준) 의 폴리시 항목 + Phase 1.5 인프라가 거�
 - **PR #119** 피드 아이템에 `mediaUrls` 노출 — `FeedMediaItem` 도메인 record + `FeedMediaRow` projection + repo `findFeedMediaForPosts(postIds)` (post_media JOIN media_assets, status=READY filter, ORDER BY post_id, seq). FeedService 에서 batch fetch + LinkedHashMap 그룹핑 + null cdnUrl 항목 제외. web/app zod 스키마 required `mediaUrls`. FeedServiceTest +4 케이스.
 
 ### 오픈 (이 핸드오프 시점 기준)
-- **PR #120** — 피드 카드 이미지/비디오 렌더링 (F3)
-  - 첫 커밋 (`3436468`): web `<img loading="lazy">` + `<video controls poster preload="metadata" playsInline>`, app `<Image>` + thumbnail + ▶ 오버레이.
-  - 두번째 커밋 (`975850c`): 사용자 피드백 — 비디오 재생까지 추가. `react-native-video ^6.19.2` 설치, FeedMediaTile 을 Pressable 로, 비디오 탭 → 풀스크린 RN Modal + autoplay + ✕ 닫기.
-  - **리뷰 에이전트 백그라운드 실행 중** — 결과 미게시 상태에서 핸드오프. 리뷰 코멘트 게시되면 항목별 결정 후 머지.
+- **PR #120** — 피드 카드 이미지/비디오 렌더링 + cdn_url 컬럼 폐기 + 리뷰 반영 (F3 묶음, 4커밋)
+  - `3436468` web `<img loading="lazy">` + `<video controls poster preload="metadata" playsInline>`, app `<Image>` + ▶ 오버레이.
+  - `975850c` 비디오 재생 추가. `react-native-video ^6.19.2`, FeedMediaTile Pressable, 비디오 탭 → 풀스크린 RN Modal + autoplay + ✕ 닫기.
+  - `736cd12` **cdn_url / thumbnail_cdn_url 컬럼 DROP** (Flyway V202605021000). 응답 시점에 `app.media.cdn-base-url + s3_key` 합성. CDN 도메인 변경 시 backfill 불필요. `MediaAsset.markReady(variantsJson)` 시그니처 단순화. 기존에 `cdn_url=NULL` 행이 `groupMedia` null 가드에 걸려 mediaUrls 가 빈 배열로 떨어지던 회귀도 동시 해결.
+  - `44d620f` 리뷰 개선 6건 반영:
+    - I1 앱 모달 동시 표시 가드 — 모듈 스코프 `videoModalLock`
+    - I2 웹 이미지 alt — note 80자 클립 → 작성자/인덱스 fallback
+    - I3 앱 image 타일 → `<View>` 폴백 (안드로이드 ripple 오인 차단)
+    - I4 `FeedService` cdn-base 미설정 시 첫 호출 1회 `log.warn` (AtomicBoolean 가드)
+    - I5 앱 비디오 placeholder — `theme.subtle` 배경 + ▶ (Image 가 mp4 디코드 못해 회색 박스 되던 것)
+    - I6 웹 비디오 placeholder — `bg-neutral-200 dark:bg-neutral-800` + ▶ 오버레이
+  - **리뷰 결과**: 블로커 0건 / 개선 제안 적용 6건 / 후속 별도 PR 5건 (단일 모달 매니저, thumbnail_s3_key 도입, Zero-downtime 3단계 흐름 등). PR 코멘트가 정본.
+  - 검증: `./gradlew check`, `pnpm typecheck` (web+app), `pnpm jest` (83 PASS) 그린.
+  - **상태**: 머지 대기 (사용자 액션). 머지 후 `cd app/ios && pod install` + Metro reset + 재빌드 필요.
 
 ## 3. 다음 작업 (코덱스 / 다음 진행자)
 
 ### 우선 (이번 PR #120 마무리)
-1. **PR #120 의 코드 리뷰 결과 처리** — 백그라운드 reviewer 가 코멘트 게시하면 블로커/제안 항목별 사용자 승인 받아 반영. PR 본문 Test plan 미체크 항목 (네이티브 검증) 사용자 측 진행.
-2. PR #120 머지 → 사용자 측 `cd app/ios && pod install` (RNVideo native) + Metro reset + 재빌드.
+1. **사용자 머지** — PR #120 머지 후 staging-deploy.yml 자동 트리거 → Flyway V202605021000 가 staging DB 의 `cdn_url`/`thumbnail_cdn_url` 컬럼 DROP. 새 인스턴스가 합성된 cdnUrl 응답 내려보냄.
+2. 사용자 측 `cd app/ios && pod install` (RNVideo native) + Metro reset + 재빌드.
 
 ### 중기 (PRD §12 기준)
 1. **#6 크루 개설/가입 기초** — Phase 1.5 우선순위. PRD/유저스토리 레벨 설계부터. 큰 작업이라 `/설계시작` 필요할 수 있음.
 
 ### 후속 (작은 폴리시)
+- **단일 모달 매니저** — 현재 PR #120 의 `videoModalLock` 모듈 락은 임시 가드. Context/글로벌 상태 기반의 진짜 단일 모달 매니저로 승격 (리뷰 후속 F5).
+- **`thumbnail_s3_key` + `variants` JSON 도입** — Phase 1.5 트랜스코드 진입 시 비디오 썸네일을 실제로 그릴 수 있도록. 도입 후 web/app 의 placeholder ▶ 분기 제거.
+- **DB Zero-downtime 3단계 흐름 도입** — 다음 동일 패턴 변경 시 ① 코드에서 컬럼 사용 중단 배포 → ② 마이그레이션 DROP → ③ 후속 정리. PR #120 의 V202605021000 은 단일 머지 (회귀 수정 성격) 로 진행.
+- **`MediaUrlComposer` 합성 유틸 통합** — 현재 `FeedService.groupMedia` 와 `MediaService.buildCdnUrl` 두 곳에 cdn-base + s3Key 결합 로직 중복. 단, 두 곳의 정책 (FeedService 는 base 비면 미디어 통째 제외 / MediaService 는 cdnUrl=null 만 반환) 이 미묘히 다르므로 그 차이를 보존하는 형태로.
 - 이미지 lightbox (탭 → 확대) — F3 후속.
 - 비디오 다중 미디어 carousel indicator (현재 인덱스/총 개수).
 - 카메라 0.5×/1×/2×/3× 의 active chip 비교 부동소수 조정 (필요 시).
@@ -81,6 +95,7 @@ PRD §12 (2026-04-28 기준) 의 폴리시 항목 + Phase 1.5 인프라가 거�
 - 🌐 도메인 `crimp.run` 의 Cloudflare DNS 전입 완료 확인 (`dig NS crimp.run`).
 - 🔒 Cloudflare R2 의 `CDN_BASE_URL` 시크릿 주입 (Path A 또는 B 결정 후) — Path A 가 빠름.
 - 🔑 (이전 세션 잔여) 디스코드에 노출된 Kakao REST API 키 로테이션 — 아직이라면 우선순위 ↑.
+- 🎬 PR #120 머지 → staging-deploy.yml 로 자동 배포 (Flyway V202605021000 가 staging DB 의 cdn_url/thumbnail_cdn_url 컬럼 DROP).
 - 🎥 PR #120 머지 후 `cd app/ios && pod install` (RNVideo native) + Metro reset + 재빌드.
 - 📊 staging 동작 회귀 테스트 — F1~F4 + 비디오 재생까지의 end-to-end (캡처 → 압축 → 업로드 → 피드 표시 → 비디오 재생).
 
@@ -125,4 +140,4 @@ PRD §12 (2026-04-28 기준) 의 폴리시 항목 + Phase 1.5 인프라가 거�
 - `docs/기획/{prd,user-story,persona,maingym-onboarding}.md` — 기획.
 - `docs/운영/staging-deploy.md` — staging 셋업 런북 (Fly + R2 + Upstash).
 - `docs/운영/handoff-2026-05-02.md` — F1 진행 시점의 이전 핸드오프 (보존).
-- `docs/운영/handoff-2026-05-02-end.md` (본 문서) — F1~F4 + 비디오 재생까지 정리.
+- `docs/운영/handoff-2026-05-02-end.md` (본 문서) — F1~F4 + 비디오 재생 + cdn_url 컬럼 폐기 리팩토링 + 리뷰 6건 반영까지 정리.
