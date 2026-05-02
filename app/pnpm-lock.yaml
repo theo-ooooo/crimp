@@ -73,6 +73,9 @@ importers:
       react-native-svg:
         specifier: ^15.15.4
         version: 15.15.4(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1)
+      react-native-video:
+        specifier: ^6.19.2
+        version: 6.19.2(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1)
       react-native-vision-camera:
         specifier: ^4
         version: 4.7.3(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1)
@@ -3591,6 +3594,12 @@ packages:
       react: '*'
       react-native: '*'
 
+  react-native-video@6.19.2:
+    resolution: {integrity: sha512-gh5dBMGSHywKr8+p4azRXrFQgT+QTmS1tI4sz6kVRjSENORfsrGGLQzmyo/7S9m+ZOTLWQJ3h8ONaXxR4F2Fcw==}
+    peerDependencies:
+      react: '*'
+      react-native: '*'
+
   react-native-vision-camera@4.7.3:
     resolution: {integrity: sha512-g1/neOyjSqn1kaAa2FxI/qp5KzNvPcF0bnQw6NntfbxH6tm0+8WFZszlgb5OV+iYlB6lFUztCbDtyz5IpL47OA==}
     peerDependencies:
@@ -5919,7 +5928,9 @@ snapshots:
     transitivePeerDependencies:
       - '@babel/core'
       - '@babel/preset-env'
+      - bufferutil
       - supports-color
+      - utf-8-validate
 
   '@react-native/normalize-colors@0.75.4': {}
 
@@ -8885,6 +8896,11 @@ snapshots:
       react: 18.3.1
       react-native: 0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3)
       warn-once: 0.1.1
+
+  react-native-video@6.19.2(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1):
+    dependencies:
+      react: 18.3.1
+      react-native: 0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3)
 
   react-native-vision-camera@4.7.3(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1):
     dependencies:

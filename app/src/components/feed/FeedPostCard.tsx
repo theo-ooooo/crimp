@@ -1,8 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
   Image,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -11,6 +12,7 @@ import {
   type PressableStateCallbackType,
   type ViewStyle,
 } from 'react-native';
+import Video from 'react-native-video';
 
 import {
   CrimpIcon,
@@ -292,9 +294,9 @@ function pressableFooterStyle({
 /**
  * (PR-F3) 피드 카드 미디어 — RN 측.
  *
- * - 단일: 카드 가득찬 4:5 이미지/비디오썸네일.
- * - 다중: 가로 FlatList (snap pagingEnabled). 카드 폭 80% 씩.
- * - 비디오 재생은 Phase 2 (풀스크린 player) — 현 단계는 thumbnail + ▶ 오버레이 정적 표시.
+ * - 단일: 카드 가득찬 4:5 이미지/비디오 썸네일.
+ * - 다중: 가로 FlatList (snap pagingEnabled). 카드 폭 280pt 씩.
+ * - 비디오 탭 → 풀스크린 Modal 의 react-native-video 로 재생.
  */
 function FeedCardMedia({
   mediaUrls,
@@ -303,51 +305,99 @@ function FeedCardMedia({
   mediaUrls: FeedItem['mediaUrls'];
   styles: ReturnType<typeof makeStyles>;
 }): JSX.Element {
-  const single = mediaUrls.length === 1;
-  if (single) {
-    const m = mediaUrls[0];
-    if (!m) {
-      return <View />;
+  // 풀스크린 비디오 재생용 — 카드 단위에서 한 번에 한 개만 재생.
+  const [activeVideo, setActiveVideo] = useState<string | null>(null);
+
+  const onTilePress = (m: FeedItem['mediaUrls'][number]) => {
+    if (m.kind === 'VIDEO') {
+      setActiveVideo(m.url);
     }
-    return (
+    // 이미지 lightbox 는 후속 — 현재는 탭 무동작.
+  };
+
+  const single = mediaUrls.length === 1;
+  const Body =
+    single && mediaUrls[0] ? (
       <View style={styles.mediaSingle}>
-        <FeedMediaTile media={m} styles={styles} />
+        <FeedMediaTile media={mediaUrls[0]} styles={styles} onPress={onTilePress} />
       </View>
+    ) : (
+      <FlatList
+        data={mediaUrls}
+        keyExtractor={(m, i) => `${m.url}-${i}`}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.mediaListContent}
+        renderItem={({ item: m }) => (
+          <View style={styles.mediaMultiCell}>
+            <FeedMediaTile media={m} styles={styles} onPress={onTilePress} />
+          </View>
+        )}
+      />
     );
-  }
+
   return (
-    <FlatList
-      data={mediaUrls}
-      keyExtractor={(m, i) => `${m.url}-${i}`}
-      horizontal
-      pagingEnabled
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.mediaListContent}
-      renderItem={({ item: m }) => (
-        <View style={styles.mediaMultiCell}>
-          <FeedMediaTile media={m} styles={styles} />
+    <>
+      {Body}
+      <Modal
+        visible={activeVideo !== null}
+        transparent={false}
+        animationType="fade"
+        onRequestClose={() => setActiveVideo(null)}
+        statusBarTranslucent
+        supportedOrientations={['portrait', 'landscape']}
+      >
+        <View style={styles.videoModalRoot}>
+          {activeVideo ? (
+            <Video
+              source={{ uri: activeVideo }}
+              style={StyleSheet.absoluteFill}
+              controls
+              resizeMode="contain"
+              paused={false}
+              onError={() => setActiveVideo(null)}
+            />
+          ) : null}
+          <Pressable
+            onPress={() => setActiveVideo(null)}
+            accessibilityRole="button"
+            accessibilityLabel="닫기"
+            hitSlop={12}
+            style={styles.videoModalClose}
+          >
+            <Text style={styles.videoModalCloseGlyph} allowFontScaling={false}>
+              ✕
+            </Text>
+          </Pressable>
         </View>
-      )}
-    />
+      </Modal>
+    </>
   );
 }
 
 function FeedMediaTile({
   media,
   styles,
+  onPress,
 }: {
   media: FeedItem['mediaUrls'][number];
   styles: ReturnType<typeof makeStyles>;
+  onPress?: (media: FeedItem['mediaUrls'][number]) => void;
 }): JSX.Element {
   const uri = media.kind === 'VIDEO' && media.thumbnailUrl ? media.thumbnailUrl : media.url;
   return (
-    <View style={styles.mediaTile}>
+    <Pressable
+      onPress={() => onPress?.(media)}
+      style={styles.mediaTile}
+      accessibilityRole={media.kind === 'VIDEO' ? 'button' : 'image'}
+      accessibilityLabel={media.kind === 'VIDEO' ? '동영상 재생' : '사진'}
+    >
       <Image
         source={{ uri }}
         style={styles.mediaImage}
         resizeMode="cover"
         accessibilityIgnoresInvertColors
-        accessibilityLabel={media.kind === 'VIDEO' ? '동영상 썸네일' : '사진'}
       />
       {media.kind === 'VIDEO' ? (
         <View style={styles.mediaPlayOverlay} pointerEvents="none">
@@ -358,7 +408,7 @@ function FeedMediaTile({
           </View>
         </View>
       ) : null}
-    </View>
+    </Pressable>
   );
 }
 
@@ -474,6 +524,27 @@ function makeStyles(theme: Theme) {
       includeFontPadding: false,
       // ▶ 글리프가 좌측 정렬돼 보이는 시각 효과 보정.
       marginLeft: 3,
+    },
+    videoModalRoot: {
+      flex: 1,
+      backgroundColor: '#000000',
+    },
+    videoModalClose: {
+      position: 'absolute',
+      top: space[10],
+      right: space[4],
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: 'rgba(0,0,0,0.55)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    videoModalCloseGlyph: {
+      fontFamily,
+      fontSize: 18,
+      color: '#FFFFFF',
+      includeFontPadding: false,
     },
     footer: {
       flexDirection: 'row',
