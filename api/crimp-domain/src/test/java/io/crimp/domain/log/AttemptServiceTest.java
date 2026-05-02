@@ -74,6 +74,29 @@ class AttemptServiceTest {
     }
 
     @Test
+    void log_falls_back_to_session_gym_when_command_gymId_is_null() {
+        ClimbingSession s = session(100L, "01HSESS", 42L, false);
+        setField(s, "gymId", 77L);
+        when(sessionRepo.findByExtId("01HSESS")).thenReturn(Optional.of(s));
+        when(attemptRepo.save(any(SessionAttempt.class))).thenAnswer(i -> {
+            SessionAttempt arg = i.getArgument(0);
+            setField(arg, "id", 1234L);
+            return arg;
+        });
+        when(feedPostRepo.findByAttemptId(anyLong())).thenReturn(Optional.empty());
+
+        var cmd = new LogAttemptCommand(
+                null, null, "V3", null,
+                AttemptResult.SEND, 1, null, null, null, null, null);
+        var view = service.log(42L, "01HSESS", cmd);
+
+        assertThat(view.gymId()).isEqualTo(77L);
+        ArgumentCaptor<FeedPost> postCap = ArgumentCaptor.forClass(FeedPost.class);
+        verify(feedPostRepo).save(postCap.capture());
+        assertThat(postCap.getValue().getGymId()).isEqualTo(77L);
+    }
+
+    @Test
     void log_with_mediaId_saves_post_media_link() {
         // attempt.mediaId 가 있을 때 자동 게시 흐름이 post_media 까지 INSERT 하는지.
         // 이게 빠지면 피드 응답의 mediaUrls 가 항상 빈 배열이 되는 회귀.
@@ -232,6 +255,26 @@ class AttemptServiceTest {
         assertThat(view.note()).isEqualTo("업데이트");
         // [PR #93 리뷰 S2] holdColor 도 entity 까지 도달해야 함.
         assertThat(view.holdColor()).isEqualTo("blue");
+    }
+
+    @Test
+    void update_command_gymId_overrides_session_gym_fallback() {
+        SessionAttempt a = attempt(1L, "01HATT", 100L, AttemptResult.TRY);
+        ClimbingSession s = session(100L, "01HSESS", 42L, false);
+        setField(s, "gymId", 77L);
+        when(attemptRepo.findByExtId("01HATT")).thenReturn(Optional.of(a));
+        when(sessionRepo.findById(100L)).thenReturn(Optional.of(s));
+        when(feedPostRepo.findByAttemptId(1L)).thenReturn(Optional.empty());
+
+        var cmd = new UpdateAttemptCommand(
+                null, 88L, null, null,
+                AttemptResult.SEND, null, null, null, null, null);
+        var view = service.update(42L, "01HATT", cmd);
+
+        assertThat(view.gymId()).isEqualTo(88L);
+        ArgumentCaptor<FeedPost> postCap = ArgumentCaptor.forClass(FeedPost.class);
+        verify(feedPostRepo).save(postCap.capture());
+        assertThat(postCap.getValue().getGymId()).isEqualTo(88L);
     }
 
     @Test

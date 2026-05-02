@@ -78,7 +78,8 @@ public class AttemptService {
                 cmd.result(),
                 attemptCount,
                 loggedAt);
-        if (cmd.gymId() != null) attempt.updateGymId(cmd.gymId());
+        Long gymId = cmd.gymId() != null ? cmd.gymId() : session.getGymId();
+        if (gymId != null) attempt.updateGymId(gymId);
         if (cmd.gradeValue() != null) attempt.updateGradeValue(cmd.gradeValue());
         if (cmd.gradeNumeric() != null) attempt.updateGradeNumeric(cmd.gradeNumeric());
         if (cmd.mediaId() != null) attempt.updateMediaId(cmd.mediaId());
@@ -141,12 +142,16 @@ public class AttemptService {
     @Transactional
     public AttemptView update(long userId, String attemptExtId, UpdateAttemptCommand cmd) {
         SessionAttempt attempt = fetchOwnedAttempt(userId, attemptExtId);
+        ClimbingSession session = sessionRepository.findById(attempt.getSessionId())
+                .orElseThrow(() -> new SessionException("ATTEMPT_NOT_FOUND",
+                        "Attempt " + attemptExtId + " not found"));
         if (cmd.attempts() != null && (cmd.attempts() < 1 || cmd.attempts() > SessionAttempt.MAX_ATTEMPTS)) {
             throw new SessionException("ATTEMPT_INVALID",
                     "attempts must be between 1 and " + SessionAttempt.MAX_ATTEMPTS);
         }
         if (cmd.routeId() != null) attempt.updateRoute(cmd.routeId());
-        if (cmd.gymId() != null) attempt.updateGymId(cmd.gymId());
+        Long gymId = cmd.gymId() != null ? cmd.gymId() : session.getGymId();
+        if (gymId != null) attempt.updateGymId(gymId);
         if (cmd.gradeValue() != null) attempt.updateGradeValue(cmd.gradeValue());
         if (cmd.gradeNumeric() != null) attempt.updateGradeNumeric(cmd.gradeNumeric());
         if (cmd.result() != null) attempt.updateResult(cmd.result());
@@ -160,9 +165,6 @@ public class AttemptService {
         // I1: result PATCH 가 자동 게시 정책에 영향. SEND/FLASH/ONSIGHT 로 전환되면 신규 게시,
         // 반대로 FAIL/TRY 로 전환되면 기존 게시를 soft-delete 하여 피드에서 숨긴다.
         // 같은 result 유지면 멱등(autoPublishToFeed 의 findByAttemptId 가드).
-        ClimbingSession session = sessionRepository.findById(attempt.getSessionId())
-                .orElseThrow(() -> new SessionException("ATTEMPT_NOT_FOUND",
-                        "Attempt " + attemptExtId + " not found"));
         if (AUTO_PUBLISH_RESULTS.contains(attempt.getResult())) {
             autoPublishToFeed(attempt, session.getUserId());
         } else {
