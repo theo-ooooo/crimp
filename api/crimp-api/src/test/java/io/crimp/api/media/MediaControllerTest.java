@@ -67,7 +67,7 @@ class MediaControllerTest {
 
     @Test
     void complete_returnsCdnUrl_andS3Key() {
-        when(service.completeUpload(eq(42L), eq(7L), eq(12345L), eq(1920), eq(1080), eq(null)))
+        when(service.completeUpload(eq(42L), eq(7L), eq(12345L), eq(1920), eq(1080), eq(null), eq(null)))
                 .thenReturn(new MediaService.CompleteResult(
                         42L, "01HMEDIA", MediaKind.IMAGE, MediaStatus.READY,
                         "image/jpeg", 12345L, 1920, 1080, null,
@@ -76,14 +76,14 @@ class MediaControllerTest {
                         Instant.parse("2026-04-28T13:00:00Z")));
 
         CompleteResponse res = controller.complete(USER, 42L,
-                new CompleteRequest(12345L, 1920, 1080, null));
+                new CompleteRequest(12345L, 1920, 1080, null, null));
 
         assertThat(res.id()).isEqualTo(42L);
         assertThat(res.status()).isEqualTo("READY");
         assertThat(res.cdnUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA.jpg");
         // [PR #90 리뷰 I1] s3Key 가 응답에 포함되어야 함.
         assertThat(res.s3Key()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
-        verify(service).completeUpload(42L, 7L, 12345L, 1920, 1080, null);
+        verify(service).completeUpload(42L, 7L, 12345L, 1920, 1080, null, null);
     }
 
     @Test

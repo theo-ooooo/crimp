@@ -222,6 +222,7 @@ CREATE TABLE media_assets (
   width        INT UNSIGNED NULL,
   height       INT UNSIGNED NULL,
   duration_ms  INT UNSIGNED NULL,
+  poster_media_id BIGINT UNSIGNED NULL,  -- VIDEO 전용: 사용자 지정 대표 이미지(media_assets.id), V202605031000
   s3_key       VARCHAR(500) NOT NULL,
   cdn_url      VARCHAR(500) NULL,
   thumbnail_cdn_url VARCHAR(500) NULL,

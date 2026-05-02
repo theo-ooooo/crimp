@@ -160,7 +160,16 @@
       "permIntroLocation": "Location (when in use) — tag attempts with gym location",
       "permIntroAllow": "Allow",
       "permIntroSkip": "Skip",
-      "permIntroNote": "Declined permissions can be re-enabled in Settings."
+      "permIntroNote": "Declined permissions can be re-enabled in Settings.",
+      "posterTitle": "Cover frame for the feed",
+      "posterHint": "Move the slider to pick the frame shown as the video thumbnail in the feed.",
+      "posterSkip": "Skip",
+      "posterUseFrame": "Use this frame",
+      "posterWorking": "Generating…",
+      "posterSeekA11y": "Cover frame position",
+      "posterPreview": "Preview",
+      "posterErrorTitle": "Could not create thumbnail",
+      "posterErrorBody": "Try another position or skip."
     }
   },
   "attempt": {

@@ -160,7 +160,16 @@
       "permIntroLocation": "위치 (사용 중) — 등반 기록에 암장 위치 기록",
       "permIntroAllow": "허용하기",
       "permIntroSkip": "건너뛰기",
-      "permIntroNote": "거부한 권한은 설정에서 다시 허용할 수 있어요."
+      "permIntroNote": "거부한 권한은 설정에서 다시 허용할 수 있어요.",
+      "posterTitle": "피드에 보일 대표 화면",
+      "posterHint": "슬라이더로 시점을 옮긴 뒤, 이 프레임을 대표 이미지로 쓸 수 있어요.",
+      "posterSkip": "건너뛰기",
+      "posterUseFrame": "이 프레임 사용",
+      "posterWorking": "만드는 중...",
+      "posterSeekA11y": "대표 프레임 시점",
+      "posterPreview": "미리보기",
+      "posterErrorTitle": "썸네일을 만들지 못했어요",
+      "posterErrorBody": "다른 시점을 선택하거나 건너뛰기를 눌러주세요."
     }
   },
   "attempt": {

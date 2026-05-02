@@ -132,7 +132,7 @@ class MediaServiceTest {
         setId(asset, 100L);
         when(repo.findById(100L)).thenReturn(Optional.of(asset));
 
-        var result = service.completeUpload(100L, 7L, 12345L, 1920, 1080, null);
+        var result = service.completeUpload(100L, 7L, 12345L, 1920, 1080, null, null);
 
         assertThat(asset.getStatus()).isEqualTo(MediaStatus.READY);
         assertThat(asset.getByteSize()).isEqualTo(12345L);
@@ -155,7 +155,7 @@ class MediaServiceTest {
         setId(asset, 100L);
         when(repo.findById(100L)).thenReturn(Optional.of(asset));
 
-        var result = noCdnService.completeUpload(100L, 7L, 12345L, 1920, 1080, null);
+        var result = noCdnService.completeUpload(100L, 7L, 12345L, 1920, 1080, null, null);
 
         assertThat(result.cdnUrl()).isNull();
         assertThat(result.s3Key()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
@@ -170,7 +170,7 @@ class MediaServiceTest {
         setId(asset, 100L);
         when(repo.findById(100L)).thenReturn(Optional.of(asset));
 
-        assertThatThrownBy(() -> service.completeUpload(100L, 999L, 100L, 1, 1, null))
+        assertThatThrownBy(() -> service.completeUpload(100L, 999L, 100L, 1, 1, null, null))
                 .isInstanceOf(MediaException.class)
                 .hasFieldOrPropertyWithValue("code", "MEDIA_FORBIDDEN");
         assertThat(asset.getStatus()).isEqualTo(MediaStatus.UPLOADING);
@@ -184,7 +184,7 @@ class MediaServiceTest {
         asset.markReady(null);
         when(repo.findById(100L)).thenReturn(Optional.of(asset));
 
-        assertThatThrownBy(() -> service.completeUpload(100L, 7L, 100L, 1, 1, null))
+        assertThatThrownBy(() -> service.completeUpload(100L, 7L, 100L, 1, 1, null, null))
                 .isInstanceOf(MediaException.class)
                 .hasFieldOrPropertyWithValue("code", "MEDIA_INVALID_STATE");
     }
@@ -193,9 +193,113 @@ class MediaServiceTest {
     void completeUpload_missing_throwsNotFound() {
         when(repo.findById(404L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.completeUpload(404L, 7L, 100L, 1, 1, null))
+        assertThatThrownBy(() -> service.completeUpload(404L, 7L, 100L, 1, 1, null, null))
                 .isInstanceOf(MediaException.class)
                 .hasFieldOrPropertyWithValue("code", "MEDIA_NOT_FOUND");
+    }
+
+    @Test
+    void completeUpload_image_with_posterLink_setsVideoPosterMediaId() {
+        MediaAsset image = MediaAsset.createUploading("01HIMG", 7L, MediaKind.IMAGE,
+                "image/jpeg", "media/users/7/image/2026/05/03/01HIMG.jpg");
+        setId(image, 200L);
+        MediaAsset video = MediaAsset.createUploading("01HVID", 7L, MediaKind.VIDEO,
+                "video/mp4", "media/users/7/video/2026/05/03/01HVID.mp4");
+        setId(video, 10L);
+        video.markReady(null);
+
+        when(repo.findById(200L)).thenReturn(Optional.of(image));
+        when(repo.findById(10L)).thenReturn(Optional.of(video));
+
+        service.completeUpload(200L, 7L, 5000L, 1280, 720, null, 10L);
+
+        assertThat(image.getStatus()).isEqualTo(MediaStatus.READY);
+        assertThat(video.getPosterMediaId()).isEqualTo(200L);
+        verify(repo).save(video);
+    }
+
+    @Test
+    void completeUpload_video_with_attachFlag_throws() {
+        MediaAsset videoUp = MediaAsset.createUploading("01HVID", 7L, MediaKind.VIDEO,
+                "video/mp4", "media/v.mp4");
+        setId(videoUp, 10L);
+        when(repo.findById(10L)).thenReturn(Optional.of(videoUp));
+
+        assertThatThrownBy(() -> service.completeUpload(10L, 7L, 1000L, null, null, 5000, 99L))
+                .isInstanceOf(MediaException.class)
+                .hasFieldOrPropertyWithValue("code", "MEDIA_POSTER_ATTACH_INVALID");
+    }
+
+    @Test
+    void completeUpload_image_with_attachFlag_selfReference_throws() {
+        // mediaId == attachAsPosterForVideoId 자기참조 거부 (PR #123 리뷰 I5).
+        MediaAsset image = MediaAsset.createUploading("01HIMG", 7L, MediaKind.IMAGE,
+                "image/jpeg", "media/i.jpg");
+        setId(image, 200L);
+        when(repo.findById(200L)).thenReturn(Optional.of(image));
+
+        assertThatThrownBy(() -> service.completeUpload(200L, 7L, 5000L, 1280, 720, null, 200L))
+                .isInstanceOf(MediaException.class)
+                .hasFieldOrPropertyWithValue("code", "MEDIA_POSTER_ATTACH_INVALID");
+        // 자기참조는 markReady 전에 거절되어 IMAGE 도 UPLOADING 그대로 (회귀 가드).
+        assertThat(image.getStatus()).isEqualTo(MediaStatus.UPLOADING);
+    }
+
+    @Test
+    void completeUpload_image_with_attachFlag_videoNotFound_throws_andImageStaysUploading() {
+        // [PR #123 리뷰 B1 회귀 가드] video 존재 가드를 markReady 전에 미리 검증 →
+        // attach 실패 시 IMAGE 가 UPLOADING 으로 동반 롤백 안 됨 (트랜잭션 자체는 롤백되지만
+        // 사용자 의도상 IMAGE 라이프사이클이 영향 X 임을 단위 테스트 단에서 명시).
+        MediaAsset image = MediaAsset.createUploading("01HIMG", 7L, MediaKind.IMAGE,
+                "image/jpeg", "media/i.jpg");
+        setId(image, 200L);
+        when(repo.findById(200L)).thenReturn(Optional.of(image));
+        when(repo.findById(404L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.completeUpload(200L, 7L, 5000L, 1280, 720, null, 404L))
+                .isInstanceOf(MediaException.class)
+                .hasFieldOrPropertyWithValue("code", "MEDIA_NOT_FOUND");
+        assertThat(image.getStatus()).isEqualTo(MediaStatus.UPLOADING);
+    }
+
+    @Test
+    void completeUpload_image_with_attachFlag_videoUploading_throws_andImageStaysUploading() {
+        // video 가 아직 READY 가 아니면 attach 거절. IMAGE 는 markReady 호출 전이므로 UPLOADING.
+        MediaAsset image = MediaAsset.createUploading("01HIMG", 7L, MediaKind.IMAGE,
+                "image/jpeg", "media/i.jpg");
+        setId(image, 200L);
+        MediaAsset video = MediaAsset.createUploading("01HVID", 7L, MediaKind.VIDEO,
+                "video/mp4", "media/v.mp4");
+        setId(video, 10L);
+        // video 는 UPLOADING 상태 — markReady 호출 X.
+        when(repo.findById(200L)).thenReturn(Optional.of(image));
+        when(repo.findById(10L)).thenReturn(Optional.of(video));
+
+        assertThatThrownBy(() -> service.completeUpload(200L, 7L, 5000L, 1280, 720, null, 10L))
+                .isInstanceOf(MediaException.class)
+                .hasFieldOrPropertyWithValue("code", "MEDIA_POSTER_ATTACH_INVALID");
+        assertThat(image.getStatus()).isEqualTo(MediaStatus.UPLOADING);
+        assertThat(video.getPosterMediaId()).isNull();
+    }
+
+    @Test
+    void completeUpload_image_with_attachFlag_videoOtherOwner_throws() {
+        // 다른 사용자 video 에 포스터 attach 시도 → MEDIA_FORBIDDEN.
+        MediaAsset image = MediaAsset.createUploading("01HIMG", 7L, MediaKind.IMAGE,
+                "image/jpeg", "media/i.jpg");
+        setId(image, 200L);
+        MediaAsset video = MediaAsset.createUploading("01HVID", 999L, MediaKind.VIDEO,
+                "video/mp4", "media/v.mp4");
+        setId(video, 10L);
+        video.markReady(null);
+        when(repo.findById(200L)).thenReturn(Optional.of(image));
+        when(repo.findById(10L)).thenReturn(Optional.of(video));
+
+        assertThatThrownBy(() -> service.completeUpload(200L, 7L, 5000L, 1280, 720, null, 10L))
+                .isInstanceOf(MediaException.class)
+                .hasFieldOrPropertyWithValue("code", "MEDIA_FORBIDDEN");
+        assertThat(image.getStatus()).isEqualTo(MediaStatus.UPLOADING);
+        assertThat(video.getPosterMediaId()).isNull();
     }
 
     private static void setId(MediaAsset target, long id) {

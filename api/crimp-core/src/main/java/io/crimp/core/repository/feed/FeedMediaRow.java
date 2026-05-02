@@ -13,11 +13,13 @@ import io.crimp.core.entity.enums.MediaKind;
  * @param feedPostId feed_posts.id (그룹 키)
  * @param seq        post_media.seq — 표시 순서 (이 record 자체는 seq 오름차순으로 도착)
  * @param kind       media_assets.kind (IMAGE / VIDEO)
- * @param s3Key      media_assets.s3_key — CDN URL 합성의 경로 부분
+ * @param s3Key       media_assets.s3_key — CDN URL 합성의 경로 부분
+ * @param posterS3Key VIDEO 전용: 대표 이미지 행의 s3_key (없으면 null)
  */
 public record FeedMediaRow(
         long feedPostId,
         short seq,
         MediaKind kind,
-        String s3Key
+        String s3Key,
+        String posterS3Key
 ) {}

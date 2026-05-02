@@ -1,8 +1,11 @@
 buildscript {
     ext {
-        buildToolsVersion = "34.0.0"
+        // [PR #123 follow-up] react-native-video 6.x 가 androidx.media3:1.8 에 의존, 이 라이브러리가
+        // compileSdk >= 35 를 요구. AGP 8.5 의 권장 max 가 34 라 build warning 은 발생하지만 실 빌드는 OK.
+        // targetSdk 는 34 유지 (앱 런타임 동작 변경 차단). 향후 RN 0.76 / AGP 8.6 업그레이드 시 정리.
+        buildToolsVersion = "35.0.0"
         minSdkVersion = 23
-        compileSdkVersion = 34
+        compileSdkVersion = 35
         targetSdkVersion = 34
         ndkVersion = "26.1.10909125"
         kotlinVersion = "1.9.24"

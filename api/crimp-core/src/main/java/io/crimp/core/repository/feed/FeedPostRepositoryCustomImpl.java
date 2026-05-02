@@ -141,15 +141,18 @@ public class FeedPostRepositoryCustomImpl implements FeedPostRepositoryCustom {
         }
         QPostMedia pm = QPostMedia.postMedia;
         QMediaAsset m = QMediaAsset.mediaAsset;
+        QMediaAsset poster = new QMediaAsset("posterMedia");
         return queryFactory
                 .select(Projections.constructor(
                         FeedMediaRow.class,
                         pm.id.postId,
                         pm.seq,
                         m.kind,
-                        m.s3Key))
+                        m.s3Key,
+                        poster.s3Key))
                 .from(pm)
                 .join(m).on(pm.id.mediaId.eq(m.id))
+                .leftJoin(poster).on(m.posterMediaId.eq(poster.id).and(poster.status.eq(MediaStatus.READY)))
                 // status=READY 만 노출. UPLOADING / PROCESSING / FAILED 모두 클라에 흘리지 않음.
                 .where(pm.id.postId.in(feedPostIds).and(m.status.eq(MediaStatus.READY)))
                 .orderBy(pm.id.postId.asc(), pm.seq.asc())

@@ -83,7 +83,8 @@ public class MediaController {
             @Valid @RequestBody CompleteRequest req) {
         var result = mediaService.completeUpload(
                 id, principal.userId(),
-                req.byteSize(), req.width(), req.height(), req.durationMs());
+                req.byteSize(), req.width(), req.height(), req.durationMs(),
+                req.attachAsPosterForVideoId());
         return new CompleteResponse(
                 result.id(), result.extId(), result.kind().name(), result.status().name(),
                 result.mime(), result.byteSize(),
@@ -96,6 +97,7 @@ public class MediaController {
         HttpStatus status = switch (e.code()) {
             case "MEDIA_NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "MEDIA_FORBIDDEN" -> HttpStatus.FORBIDDEN;
+            case "MEDIA_POSTER_ATTACH_INVALID" -> HttpStatus.BAD_REQUEST;
             case "MEDIA_INVALID_STATE" -> HttpStatus.CONFLICT;
             case "MEDIA_SIZE_TOO_LARGE" -> HttpStatus.PAYLOAD_TOO_LARGE;
             case "MEDIA_MIME_NOT_ALLOWED", "MEDIA_KIND_INVALID", "MEDIA_SIZE_INVALID" -> HttpStatus.BAD_REQUEST;
@@ -131,7 +133,9 @@ public class MediaController {
             @NotNull @PositiveOrZero @Max(2_000_000_000L) Long byteSize,
             @Min(0) @Max(20000) Integer width,
             @Min(0) @Max(20000) Integer height,
-            @Min(0) @Max(3_600_000) Integer durationMs
+            @Min(0) @Max(3_600_000) Integer durationMs,
+            /** IMAGE 완료 시에만: 이 id 의 VIDEO 미디어에 본 이미지를 대표 썸네일로 연결 (VIDEO 는 이미 READY). */
+            @Min(1) Long attachAsPosterForVideoId
     ) {}
 
     public record CompleteResponse(

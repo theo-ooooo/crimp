@@ -1,6 +1,7 @@
 package io.crimp.domain.feed;
 
 import io.crimp.common.config.AppProperties;
+import io.crimp.core.entity.enums.MediaKind;
 import io.crimp.core.repository.feed.FeedMediaRow;
 import io.crimp.core.repository.feed.FeedPostRepository;
 import io.crimp.core.repository.feed.FeedQueryMode;
@@ -137,9 +138,15 @@ public class FeedService {
                 : cdnBaseUrl;
         for (FeedMediaRow r : rows) {
             String url = base + "/" + r.s3Key();
+            String thumb = null;
+            if (r.kind() == MediaKind.VIDEO
+                    && r.posterS3Key() != null
+                    && !r.posterS3Key().isBlank()) {
+                thumb = base + "/" + r.posterS3Key();
+            }
             grouped
                     .computeIfAbsent(r.feedPostId(), k -> new ArrayList<>())
-                    .add(new FeedMediaItem(r.kind(), url, null));
+                    .add(new FeedMediaItem(r.kind(), url, thumb));
         }
         return grouped;
     }
