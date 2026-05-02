@@ -20,6 +20,7 @@ function makeMe(overrides: Partial<Me> = {}): Me {
   const base: Me = {
     extId: '01J9USR0000000000000000001',
     nickname: '서지우',
+    nicknameConfigured: true,
   };
   return { ...base, ...overrides };
 }

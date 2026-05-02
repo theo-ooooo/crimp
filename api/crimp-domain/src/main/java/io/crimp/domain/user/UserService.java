@@ -55,11 +55,15 @@ public class UserService {
                 .orElseThrow(() -> new UserException("PROFILE_MISSING", "Profile for user " + userId + " missing"));
 
         if (cmd.nickname() != null) {
-            if (!cmd.nickname().equals(profile.getNickname())
-                    && profileRepo.existsByNickname(cmd.nickname())) {
-                throw new UserException("NICKNAME_TAKEN", "Nickname already taken: " + cmd.nickname());
+            String trimmed = cmd.nickname().trim();
+            if (trimmed.length() < 2 || trimmed.length() > 30) {
+                throw new UserException("INVALID_NICKNAME", "Nickname must be 2-30 characters after trim");
             }
-            profile.updateNickname(cmd.nickname());
+            if (!trimmed.equals(profile.getNickname())
+                    && profileRepo.existsByNickname(trimmed)) {
+                throw new UserException("NICKNAME_TAKEN", "Nickname already taken: " + trimmed);
+            }
+            profile.updateNickname(trimmed);
         }
         if (cmd.bio() != null) profile.updateBio(cmd.bio());
         if (cmd.levelSelf() != null) profile.updateLevel(cmd.levelSelf());
@@ -114,6 +118,7 @@ public class UserService {
         return new ProfileView(
                 user.getExtId(),
                 profile.getNickname(),
+                profile.isNicknameConfigured(),
                 profile.getBio(),
                 profile.getAvatarMediaId(),
                 profile.getLevelSelf(),
@@ -129,6 +134,7 @@ public class UserService {
         return new ProfileView(
                 user.getExtId(),
                 profile.getNickname(),
+                profile.isNicknameConfigured(),
                 profile.getBio(),
                 profile.getAvatarMediaId(),
                 profile.getLevelSelf(),

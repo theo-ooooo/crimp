@@ -168,7 +168,7 @@
 ### 사용자 (`/api/v1/me`, `/api/v1/users`)
 | Method | Path | 설명 |
 | --- | --- | --- |
-| GET | `/api/v1/me` | 내 정보. 응답에 `mainGymId`(numeric, 호환) 와 `mainGym: { extId, name, brand }`(해석된 lightweight 객체, 미설정 시 null/누락) 를 함께 반환. |
+| GET | `/api/v1/me` | 내 정보. 응답에 `nicknameConfigured`(사용자가 닉네임을 직접 저장했는지), `mainGymId`(numeric, 호환) 와 `mainGym: { extId, name, brand }`(해석된 lightweight 객체, 미설정 시 null/누락) 를 함께 반환. |
 | PATCH | `/api/v1/me/profile` | 프로필 수정. 주 암장은 `mainGymExtId: String` (권장) / `mainGymId: number` (호환) / `clearMainGym: true` (명시 해제) 중 하나로 표현. 두 변경 입력을 동시에 set 하면 400 (`INVALID_MAIN_GYM_REQUEST`), `mainGymExtId` 가 존재하지 않는 ULID 면 404 (`MAIN_GYM_NOT_FOUND`). |
 | GET | `/api/v1/users/{extId}` | 타 사용자 프로필 |
 | POST | `/api/v1/users/{extId}:follow` | 팔로우 |

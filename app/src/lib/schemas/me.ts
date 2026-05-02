@@ -20,9 +20,10 @@ export const MainGymViewSchema = z.object({
 
 export type MainGymView = z.infer<typeof MainGymViewSchema>;
 
-export const MeSchema = z.object({
+const MeWireSchema = z.object({
   extId: z.string(),
   nickname: z.string().nullable().optional(),
+  nicknameConfigured: z.boolean().optional(),
   bio: z.string().nullable().optional(),
   // 백엔드 Byte 계약 범위 (-128~127). 음수는 비즈니스상 기대치 아님 — 표시 시 UI clamp.
   levelSelf: z.number().int().min(-128).max(127).nullable().optional(),
@@ -31,6 +32,11 @@ export const MeSchema = z.object({
   mainGym: MainGymViewSchema.nullable().optional(),
   avatarMediaId: z.number().nullable().optional(),
 });
+
+export const MeSchema = MeWireSchema.transform((value) => ({
+  ...value,
+  nicknameConfigured: value.nicknameConfigured ?? false,
+}));
 
 export type Me = z.infer<typeof MeSchema>;
 

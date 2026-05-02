@@ -121,6 +121,14 @@
       "saving": "Saving...",
       "errorTitle": "Failed to save profile"
     },
+    "nicknamePrompt": {
+      "eyebrow": "First setup",
+      "title": "Set your nickname",
+      "body": "You're still using the default nickname. Pick the name people will see in feeds and comments.",
+      "nicknameHelp": "Nickname must be 2-30 characters.",
+      "saveCta": "Save nickname",
+      "laterCta": "Later"
+    },
     "mainGym": {
       "title": "My gym",
       "unset": "Not set",
@@ -306,6 +314,7 @@
     "authExpired": "Your session expired. Please sign in again.",
     "forbidden": "You don't have permission for this action.",
     "notFound": "The requested item was not found.",
+    "nicknameTaken": "That nickname is already taken, so we couldn't save your profile.",
     "sessionNotFound": "Session not found.",
     "sessionInvalid": "Session data is invalid.",
     "attemptNotFound": "Attempt not found.",

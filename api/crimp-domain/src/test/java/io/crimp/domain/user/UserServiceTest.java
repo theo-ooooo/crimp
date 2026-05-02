@@ -49,6 +49,7 @@ class UserServiceTest {
         ProfileView view = service.getMe(1L);
         assertThat(view.extId()).isEqualTo("01HUUUUUUU");
         assertThat(view.nickname()).isEqualTo("crimper_abc");
+        assertThat(view.nicknameConfigured()).isFalse();
         assertThat(view.bio()).isEqualTo("hi");
     }
 
@@ -95,6 +96,7 @@ class UserServiceTest {
         ProfileView view = service.updateMyProfile(1L, cmd);
 
         assertThat(view.nickname()).isEqualTo("new_nick");
+        assertThat(view.nicknameConfigured()).isTrue();
         assertThat(view.bio()).isEqualTo("new bio");
         assertThat(view.levelSelf()).isEqualTo((byte) 4);
         assertThat(view.mainGymId()).isEqualTo(9L);
@@ -125,9 +127,53 @@ class UserServiceTest {
         when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
 
         var cmd = new UpdateProfileCommand("mine", "bio only", null, null, null, false, null);
-        service.updateMyProfile(1L, cmd);
+        ProfileView view = service.updateMyProfile(1L, cmd);
 
         verify(profileRepo, never()).existsByNickname(any());
+        assertThat(view.nicknameConfigured()).isTrue();
+    }
+
+    @Test
+    void updateMyProfile_same_nickname_with_leading_trailing_space_skipsExistsCheck() {
+        User user = user(1L, "01HU");
+        Profile profile = Profile.create(1L, "mine");
+        when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+        when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
+
+        var cmd = new UpdateProfileCommand("  mine  ", null, null, null, null, false, null);
+        ProfileView view = service.updateMyProfile(1L, cmd);
+
+        verify(profileRepo, never()).existsByNickname(any());
+        assertThat(view.nickname()).isEqualTo("mine");
+        assertThat(view.nicknameConfigured()).isTrue();
+    }
+
+    @Test
+    void updateMyProfile_trims_nickname_when_changing() {
+        User user = user(1L, "01HU");
+        Profile profile = Profile.create(1L, "old");
+        when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+        when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
+        when(profileRepo.existsByNickname("new_nick")).thenReturn(false);
+
+        var cmd = new UpdateProfileCommand("  new_nick  ", null, null, null, null, false, null);
+        ProfileView view = service.updateMyProfile(1L, cmd);
+
+        verify(profileRepo).existsByNickname("new_nick");
+        assertThat(view.nickname()).isEqualTo("new_nick");
+    }
+
+    @Test
+    void updateMyProfile_nickname_too_short_after_trim_throws() {
+        User user = user(1L, "01HU");
+        Profile profile = Profile.create(1L, "old");
+        when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+        when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
+
+        var cmd = new UpdateProfileCommand(" a ", null, null, null, null, false, null);
+        assertThatThrownBy(() -> service.updateMyProfile(1L, cmd))
+                .isInstanceOf(UserException.class)
+                .satisfies(e -> assertThat(((UserException) e).code()).isEqualTo("INVALID_NICKNAME"));
     }
 
     @Test

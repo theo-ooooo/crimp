@@ -80,6 +80,7 @@ CREATE TABLE oauth_identities (
 CREATE TABLE profiles (
   user_id      BIGINT UNSIGNED NOT NULL,
   nickname     VARCHAR(30) NOT NULL,
+  nickname_configured BOOLEAN NOT NULL DEFAULT FALSE,
   bio          VARCHAR(300) NULL,
   avatar_media_id BIGINT UNSIGNED NULL,
   level_self   TINYINT UNSIGNED NULL,       -- 자가 선언 레벨 (V0~V16)
