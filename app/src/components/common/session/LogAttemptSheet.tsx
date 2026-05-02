@@ -94,6 +94,11 @@ export type LogAttemptSheetProps = {
    */
   mediaPhase?: 'idle' | 'compressing' | 'uploading';
   /**
+   * (PR #116 후속) iOS Modal dismissal 완료 콜백. 부모가 chain 으로 다른 modal 을
+   * 열 때 setTimeout 추정 대신 본 콜백으로 정확한 시점 보장.
+   */
+  onDismissed?: () => void;
+  /**
    * 첨부 표시·영구 연결 상태에서 사용자가 "다시 촬영" 같은 액션으로 미디어를 해제할 때
    * 부모 상태 (uploaded media) 를 비우도록 알림. 본 PR 에선 호출 진입점만 마련, 실제
    * UI 토글은 후속에서 보강.
@@ -109,6 +114,7 @@ export function LogAttemptSheet({
   onCamera,
   attachedMediaId = null,
   mediaPhase = 'idle',
+  onDismissed,
   onClearMedia,
 }: LogAttemptSheetProps): JSX.Element {
   const theme = useTokens();
@@ -165,6 +171,7 @@ export function LogAttemptSheet({
       transparent
       animationType={reducedMotion ? 'none' : 'slide'}
       onRequestClose={handleClose}
+      onDismiss={onDismissed}
       statusBarTranslucent
     >
       <View style={styles.root}>

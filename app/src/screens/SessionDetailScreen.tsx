@@ -79,11 +79,10 @@ function SessionDetailLoggedInContainer({
       setLogSheetOpen={detail.setLogSheetOpen}
       cameraOpen={detail.cameraOpen}
       cameraMode={detail.cameraMode}
-      onCameraMode={(mode) => {
-        detail.setCameraMode(mode);
-        detail.setCameraOpen(true);
-      }}
+      onCameraMode={detail.openCamera}
       closeCamera={detail.closeCamera}
+      onLogSheetDismissed={detail.onLogSheetDismissed}
+      onCameraDismissed={detail.onCameraDismissed}
       onCaptured={detail.handleCaptured}
       mediaPhase={detail.mediaPhase}
       uploadedMediaId={detail.uploadedMediaId}

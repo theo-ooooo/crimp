@@ -65,6 +65,10 @@ export type CameraSheetProps = {
    * 후속 PR-3: presigned 업로드 + LogAttemptSheet 의 mediaId 연결) 를 진행.
    */
   onCaptured: (media: CapturedMedia) => void;
+  /**
+   * (PR #116 후속) iOS Modal dismissal 완료 후 부모 chain 알림. setTimeout 추정 대신.
+   */
+  onDismissed?: () => void;
 };
 
 const CAMERA_BG = '#000000';
@@ -75,6 +79,7 @@ export function CameraSheet({
   mode,
   onClose,
   onCaptured,
+  onDismissed,
 }: CameraSheetProps): JSX.Element {
   const theme = useTokens();
   const reducedMotion = useReducedMotion();
@@ -408,6 +413,7 @@ export function CameraSheet({
       transparent={false}
       animationType={reducedMotion ? 'none' : 'fade'}
       onRequestClose={onClose}
+      onDismiss={onDismissed}
       statusBarTranslucent
     >
       <View style={styles.root}>
