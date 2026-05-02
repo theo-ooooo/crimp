@@ -118,25 +118,34 @@ flyctl secrets list --app crimp-mysql-staging
 공개 캐시된 URL 이 필요. 두 가지 path 중 staging 은 (A) 가 가장 간단:
 
 **Path A — R2 public bucket URL (CDN 자동 적용, 가장 간단)**
-1. 버킷 → Settings → "Public access" → **Allow Access** ON.
-2. "R2.dev subdomain" 활성화 → `https://pub-<account_hash>.r2.dev` 형태의 URL 표시.
+
+> R2 콘솔 UI 라벨은 종종 변경됨 — 공식 문서 (https://developers.cloudflare.com/r2/buckets/public-buckets/) 기준 진행 권장.
+
+1. 버킷 → Settings → "Public Access" 섹션 → "R2.dev subdomain" 옆 토글 또는 "Allow access" 클릭. 약관 동의 단계 ("I confirm" 류) 가 표시되면 진행.
+2. 활성화 후 `https://pub-<account_hash>.r2.dev` 형태의 URL 이 표시됨.
 3. 백엔드 시크릿 (`CDN_BASE_URL`) 으로 주입 (다음 §5):
    ```
    CDN_BASE_URL=https://pub-<account_hash>.r2.dev
    ```
-4. Cloudflare 가 자동으로 edge 캐시 — CDN 별도 설정 불필요.
+4. Cloudflare edge 가 자동 캐시 (default TTL 수 시간) — CDN 별도 설정 불필요.
+   - 이미지/비디오 GET 은 CORS preflight 불필요 (simple GET). 비디오 `Range` request 도 R2 가 정상 처리.
+   - **주의**: 동일 `s3Key` 로 콘텐츠를 교체하면 stale 응답이 나옴. 우리 키 규약은 ULID 기반 write-once 라 일반적으로 안전, 강제 갱신 필요 시 cache purge.
 
-> 단점: URL 에 account hash 노출. staging 은 무방, prod 는 (B) 권장.
+> 단점:
+> - URL 에 account hash 노출 (staging 무방, prod 는 Path B 권장).
+> - **버킷의 모든 객체가 키만 알면 GET 가능**. ULID 라 추측 사실상 불가하지만, 민감 자료 (인증서, dump 등) 를 같은 버킷에 두지 말 것.
+> - Cloudflare 의 `r2.dev` subdomain 은 free-tier rate limit 이 걸려 있어 운영급 트래픽엔 부적합 — prod 는 Path B.
 
 **Path B — Cloudflare Custom Domain (브랜딩, prod 권장)**
 1. 버킷 → Settings → "Custom Domains" → "Connect Domain".
 2. 도메인: `media-staging.crimp.run` (또는 원하는 sub).
-3. Cloudflare 가 DNS CNAME 자동 생성 + cert 발급 (도메인이 Cloudflare 에 위임돼 있어야 함).
+3. R2 가 DNS 레코드 자동 생성 + Cloudflare Universal SSL cert 자동 발급 (도메인이 Cloudflare 에 위임돼 있어야 함).
+   - **cert 발급에 수 분~수 시간 소요** (특히 신규 zone). status 가 `Active` 로 바뀐 뒤 다음 단계.
 4. 백엔드 시크릿:
    ```
    CDN_BASE_URL=https://media-staging.crimp.run
    ```
-5. Cloudflare → 도메인 → Caching / Page Rules 에서 캐시 규칙 조정 가능.
+5. Cloudflare → 도메인 → Caching / Page Rules 에서 캐시 규칙 조정 가능. WAF / Bot Fight Mode 도 zone 단위로 적용 가능.
 
 > 둘 중 하나 선택 후 다음 §5 의 `S3_ENDPOINT_URL`/`S3_ACCESS_KEY` 등과 함께 `CDN_BASE_URL` 도 같이 주입.
 
@@ -274,6 +283,7 @@ flyctl deploy --remote-only --app crimp-mysql-staging
 | 첫 요청 5~15s 지연 (이후 정상) | (PR #114 리뷰 I6) **cold-start — 정상 동작.** `min_machines_running=0` + `auto_stop_machines=stop` 으로 idle 머신 정지 → JVM warm-up + DataSource init + Flyway validate 시간. 항상 켜두려면 `flyctl scale count 1 --app crimp-api-staging` + `auto_stop=false` |
 | `AUTH_COOKIE_SAME_SITE=None requires secure=true` | application-staging.yml 이 `secure: true` 명시 — 시크릿이 누락됐는지 (`AUTH_COOKIE_DOMAIN`) |
 | R2 presigned PUT 403 | `S3_ENDPOINT_URL` / `path-style-access-enabled` 미적용. 토큰의 권한 (`Object Read & Write`) 확인 |
+| CDN URL GET 403/404 | (PR-F4) Path A: 버킷 Public access OFF 또는 R2.dev subdomain 미활성. Path B: cert 미발급 (수 분 대기) 또는 Custom Domain status=`Pending`. 둘 다 아니면 `s3Key` prefix 가 실제 객체 key 와 다르거나 `CDN_BASE_URL` 호스트 오타 (`pub-` 누락 등) 가능 |
 | OOM / 잦은 재시작 | `JAVA_OPTS` 의 `MaxRAMPercentage` 낮추거나 머신 메모리 ↑ (`flyctl scale memory 2048`) |
 | `Public Key Retrieval is not allowed` (첫 부팅) | JDBC URL 에 `allowPublicKeyRetrieval=true` 누락. `application-staging.yml` 의 `DB_URL` default 가 이 옵션 포함 — 환경변수로 override 시 함께 박아야 함 |
 
