@@ -49,6 +49,7 @@ export default function ProfileEditScreen(): JSX.Element {
   const [nickname, setNickname] = useState('');
   const [bio, setBio] = useState('');
   const [levelSelf, setLevelSelf] = useState(0);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!me) {
@@ -58,6 +59,21 @@ export default function ProfileEditScreen(): JSX.Element {
     setBio(me.bio ?? '');
     setLevelSelf(clampLevel(me.levelSelf ?? 0));
   }, [me]);
+
+  useEffect(() => {
+    if (!updateMutation.error) {
+      return;
+    }
+    setToastMessage(toUserMessage(updateMutation.error));
+  }, [updateMutation.error]);
+
+  useEffect(() => {
+    if (!toastMessage) {
+      return;
+    }
+    const timer = setTimeout(() => setToastMessage(null), 3500);
+    return () => clearTimeout(timer);
+  }, [toastMessage]);
 
   const originalNickname = me?.nickname ?? '';
   const originalBio = me?.bio ?? '';
@@ -125,11 +141,12 @@ export default function ProfileEditScreen(): JSX.Element {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      keyboardShouldPersistTaps="handled"
-      contentContainerStyle={styles.scrollContent}
-    >
+    <View style={styles.container}>
+      <ScrollView
+        style={styles.container}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scrollContent}
+      >
       <View style={styles.header}>
         <Text style={styles.eyebrow}>{t('profile.title')}</Text>
         <Text style={styles.title}>{t('profile.edit.title')}</Text>
@@ -194,13 +211,6 @@ export default function ProfileEditScreen(): JSX.Element {
         </View>
       ) : null}
 
-      {updateMutation.error ? (
-        <View style={styles.inlineErrorBox}>
-          <Text style={styles.inlineErrorTitle}>{t('profile.edit.errorTitle')}</Text>
-          <Text style={styles.muted}>{toUserMessage(updateMutation.error)}</Text>
-        </View>
-      ) : null}
-
       <View style={styles.buttonRow}>
         <View style={styles.buttonFlex}>
           <SecondaryButton
@@ -219,7 +229,9 @@ export default function ProfileEditScreen(): JSX.Element {
           </PrimaryButton>
         </View>
       </View>
-    </ScrollView>
+      </ScrollView>
+      {toastMessage ? <Toast message={toastMessage} styles={styles} /> : null}
+    </View>
   );
 }
 
@@ -297,6 +309,26 @@ function LevelSlider({
 
 function clampLevel(value: number): number {
   return Math.max(LEVEL_MIN, Math.min(LEVEL_MAX, Math.round(value)));
+}
+
+function Toast({
+  message,
+  styles,
+}: {
+  message: string;
+  styles: ReturnType<typeof makeStyles>;
+}): JSX.Element {
+  return (
+    <View
+      pointerEvents="none"
+      accessibilityLiveRegion="polite"
+      style={styles.toastWrap}
+    >
+      <View style={styles.toast}>
+        <Text style={styles.toastText}>{message}</Text>
+      </View>
+    </View>
+  );
 }
 
 function makeStyles(theme: Theme) {
@@ -466,6 +498,32 @@ function makeStyles(theme: Theme) {
       fontSize: fontSize.body,
       fontWeight: fontWeight.bold,
       color: theme.semantic.danger,
+    },
+    toastWrap: {
+      position: 'absolute',
+      left: space[5],
+      right: space[5],
+      bottom: space[8],
+      alignItems: 'center',
+    },
+    toast: {
+      maxWidth: '100%',
+      borderRadius: radius.xl,
+      backgroundColor: theme.text,
+      paddingHorizontal: space[4],
+      paddingVertical: space[3],
+      shadowColor: '#0F1419',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.18,
+      shadowRadius: 16,
+      elevation: 8,
+    },
+    toastText: {
+      fontFamily,
+      fontSize: fontSize.body,
+      fontWeight: fontWeight.semibold,
+      color: theme.bg,
+      textAlign: 'center',
     },
   });
 }

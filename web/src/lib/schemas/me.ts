@@ -26,9 +26,10 @@ export const MainGymRefSchema = z.object({
 
 export type MainGymRef = z.infer<typeof MainGymRefSchema>;
 
-export const MeSchema = z.object({
+const MeWireSchema = z.object({
   extId: z.string(),
   nickname: z.string().nullable(),
+  nicknameConfigured: z.boolean().optional(),
   bio: z.string().nullable(),
   // 백엔드 Byte 계약 범위 (-128~127). 비즈니스상 음수는 나오지 않지만,
   // 백엔드가 실수로 음수를 반환해도 /me 화면이 깨지지 않도록 계약 범위 전체를 허용.
@@ -40,5 +41,10 @@ export const MeSchema = z.object({
   mainGym: MainGymRefSchema.nullable().optional(),
   avatarMediaId: z.number().nullable(),
 });
+
+export const MeSchema = MeWireSchema.transform((value) => ({
+  ...value,
+  nicknameConfigured: value.nicknameConfigured ?? false,
+}));
 
 export type Me = z.infer<typeof MeSchema>;

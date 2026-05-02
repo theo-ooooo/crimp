@@ -108,6 +108,7 @@ public class UserController {
     public record MeResponse(
             String extId,
             String nickname,
+            boolean nicknameConfigured,
             String bio,
             Byte levelSelf,
             Long mainGymId,
@@ -118,6 +119,7 @@ public class UserController {
             return new MeResponse(
                     v.extId(),
                     v.nickname(),
+                    v.nicknameConfigured(),
                     v.bio(),
                     v.levelSelf(),
                     v.mainGymId(),
