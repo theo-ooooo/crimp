@@ -1,7 +1,9 @@
 package io.crimp.domain.feed;
 
 import io.crimp.core.entity.enums.AttemptResult;
+import io.crimp.core.entity.enums.MediaKind;
 import io.crimp.core.entity.user.Profile;
+import io.crimp.core.repository.feed.FeedMediaRow;
 import io.crimp.core.repository.feed.FeedPostRepository;
 import io.crimp.core.repository.feed.FeedQueryMode;
 import io.crimp.core.repository.feed.FeedRow;
@@ -317,6 +319,85 @@ class FeedServiceTest {
         service.listFeed(7L, null, null, null);
 
         verify(feedRepository).findFeed(eq(7L), eq(FeedQueryMode.POPULAR), eq(null), eq(null), any());
+    }
+
+    // --- mediaUrls 그룹핑 (PR #119 리뷰 I2) ---
+
+    @Test
+    void media_urls_grouped_by_post_in_seq_order() {
+        // 서로 다른 post 의 미디어가 섞여 들어와도 LinkedHashMap 으로 post 별 + seq ASC 보존.
+        FeedRow r1 = baseRow().withFeedPostId(100L).build();
+        FeedRow r2 = baseRow().withFeedPostId(50L).build();
+        when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
+                .thenReturn(slice(List.of(r1, r2), false));
+        when(feedRepository.findFeedMediaForPosts(any())).thenReturn(List.of(
+                new FeedMediaRow(100L, (short) 0, MediaKind.IMAGE, "https://cdn/100-0.jpg", null),
+                new FeedMediaRow(100L, (short) 1, MediaKind.VIDEO, "https://cdn/100-1.mp4", "https://cdn/100-1-thumb.jpg"),
+                new FeedMediaRow(50L, (short) 0, MediaKind.IMAGE, "https://cdn/50-0.jpg", null)
+        ));
+
+        FeedPage page = service.listFeed(1L, FeedFilter.POPULAR, null, null);
+
+        assertThat(page.items()).hasSize(2);
+        // r1 (postId 100): seq 0 → 1 순
+        assertThat(page.items().get(0).mediaUrls()).hasSize(2);
+        assertThat(page.items().get(0).mediaUrls().get(0).url()).isEqualTo("https://cdn/100-0.jpg");
+        assertThat(page.items().get(0).mediaUrls().get(0).kind()).isEqualTo(MediaKind.IMAGE);
+        assertThat(page.items().get(0).mediaUrls().get(1).url()).isEqualTo("https://cdn/100-1.mp4");
+        assertThat(page.items().get(0).mediaUrls().get(1).thumbnailUrl()).isEqualTo("https://cdn/100-1-thumb.jpg");
+        // r2 (postId 50): 단 1건
+        assertThat(page.items().get(1).mediaUrls()).hasSize(1);
+        assertThat(page.items().get(1).mediaUrls().get(0).url()).isEqualTo("https://cdn/50-0.jpg");
+    }
+
+    @Test
+    void media_urls_with_null_or_blank_cdn_are_excluded() {
+        // cdnUrl=null 인 row 는 응답에서 제외 (CDN 미설정 / 미완료 미디어 → 깨진 이미지 방지).
+        FeedRow row = baseRow().withFeedPostId(100L).build();
+        when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
+                .thenReturn(slice(List.of(row), false));
+        when(feedRepository.findFeedMediaForPosts(any())).thenReturn(List.of(
+                new FeedMediaRow(100L, (short) 0, MediaKind.IMAGE, null, null),
+                new FeedMediaRow(100L, (short) 1, MediaKind.IMAGE, "  ", null),
+                new FeedMediaRow(100L, (short) 2, MediaKind.VIDEO, "https://cdn/ok.mp4", null)
+        ));
+
+        FeedPage page = service.listFeed(1L, FeedFilter.POPULAR, null, null);
+
+        assertThat(page.items().get(0).mediaUrls()).hasSize(1);
+        assertThat(page.items().get(0).mediaUrls().get(0).url()).isEqualTo("https://cdn/ok.mp4");
+    }
+
+    @Test
+    void media_urls_empty_list_when_post_has_no_media() {
+        // 미디어 없는 post 는 빈 리스트 반환 — 클라가 array 가 항상 존재한다고 가정 가능.
+        FeedRow row = baseRow().withFeedPostId(100L).build();
+        when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
+                .thenReturn(slice(List.of(row), false));
+        when(feedRepository.findFeedMediaForPosts(any())).thenReturn(List.of());
+
+        FeedPage page = service.listFeed(1L, FeedFilter.POPULAR, null, null);
+
+        assertThat(page.items().get(0).mediaUrls()).isEmpty();
+    }
+
+    @Test
+    void media_lookup_called_with_post_ids_from_slice() {
+        // 슬라이스 안 모든 post id 가 batch fetch 입력으로 정확히 전달되는지 — N+1 회피의 회귀 가드.
+        FeedRow r1 = baseRow().withFeedPostId(100L).build();
+        FeedRow r2 = baseRow().withFeedPostId(50L).build();
+        FeedRow r3 = baseRow().withFeedPostId(25L).build();
+        when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
+                .thenReturn(slice(List.of(r1, r2, r3), false));
+        when(feedRepository.findFeedMediaForPosts(any())).thenReturn(List.of());
+
+        service.listFeed(1L, FeedFilter.POPULAR, null, null);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<java.util.Collection<Long>> idsCap =
+                ArgumentCaptor.forClass(java.util.Collection.class);
+        verify(feedRepository).findFeedMediaForPosts(idsCap.capture());
+        assertThat(idsCap.getValue()).containsExactly(100L, 50L, 25L);
     }
 
     // --- helpers ---

@@ -6,6 +6,7 @@ import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import io.crimp.core.entity.enums.MediaStatus;
 import io.crimp.core.entity.enums.PostVisibility;
 import io.crimp.core.entity.feed.QFeedPost;
 import io.crimp.core.entity.feed.QPostLike;
@@ -150,7 +151,10 @@ public class FeedPostRepositoryCustomImpl implements FeedPostRepositoryCustom {
                         m.thumbnailCdnUrl))
                 .from(pm)
                 .join(m).on(pm.id.mediaId.eq(m.id))
-                .where(pm.id.postId.in(feedPostIds))
+                // (PR #119 리뷰 I1) status=READY 필터로 명시적 invariant 화. 현재는 cdnUrl
+                // null 가드가 자연 차단하지만, markFailed() 가 cdnUrl 을 비우지 않아
+                // READY → FAILED 전환 시 leak 가능성을 차단.
+                .where(pm.id.postId.in(feedPostIds).and(m.status.eq(MediaStatus.READY)))
                 .orderBy(pm.id.postId.asc(), pm.seq.asc())
                 .fetch();
     }
