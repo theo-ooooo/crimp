@@ -177,6 +177,25 @@ describe('UpdateProfileBodySchema', () => {
     ).toThrow();
   });
 
+  it('accepts clearing bio with an empty string', () => {
+    const parsed = UpdateProfileBodySchema.parse({ bio: '' });
+    expect(parsed.bio).toBe('');
+  });
+
+  it('accepts V-scale UI boundary values for levelSelf', () => {
+    expect(UpdateProfileBodySchema.parse({ levelSelf: 0 }).levelSelf).toBe(0);
+    expect(UpdateProfileBodySchema.parse({ levelSelf: 12 }).levelSelf).toBe(12);
+  });
+
+  it('accepts sparse profile field updates', () => {
+    expect(UpdateProfileBodySchema.parse({ nickname: 'crimper' })).toEqual({
+      nickname: 'crimper',
+    });
+    expect(UpdateProfileBodySchema.parse({ levelSelf: 7 })).toEqual({
+      levelSelf: 7,
+    });
+  });
+
   it('rejects unknown fields (strict)', () => {
     expect(() =>
       UpdateProfileBodySchema.parse({ unknownField: 'x' }),

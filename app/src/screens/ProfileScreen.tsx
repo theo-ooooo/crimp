@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useNavigation } from '@react-navigation/native';
 
 import { AuthHydrationGate } from '@/components/common/screen/AuthHydrationGate';
 import { MainGymPickerModal } from '@/components/profile/MainGymPickerModal';
@@ -6,6 +7,7 @@ import { ProfileBody } from '@/components/profile/ProfileBody';
 import { makeProfileStyles } from '@/components/profile/profileStyles';
 import { useProfileScreen } from '@/hooks/screens/useProfileScreen';
 import { useTokens } from '@/lib/useTokens';
+import type { RootStackNavigationProp } from '@/navigation/types';
 import { useTokenStore } from '@/store/tokenStore';
 
 /**
@@ -53,6 +55,7 @@ function ProfileLoggedInContainer({
   theme: ReturnType<typeof useTokens>;
 }): JSX.Element {
   const profile = useProfileScreen(accessToken);
+  const navigation = useNavigation<RootStackNavigationProp<'Profile'>>();
 
   return (
     <>
@@ -66,6 +69,7 @@ function ProfileLoggedInContainer({
         error={profile.meQuery.error ?? null}
         isRefetching={profile.meQuery.isRefetching}
         onRefresh={profile.onRefresh}
+        onEditProfile={() => navigation.navigate('ProfileEdit')}
         hasMainGym={profile.hasMainGym}
         mainGymName={profile.mainGym?.name ?? null}
         mainGymBrand={profile.mainGym?.brand ?? null}

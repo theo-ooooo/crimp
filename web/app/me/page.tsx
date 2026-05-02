@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { CrimpIcon, SecondaryButton, Skeleton } from '@/components/primitives';
@@ -172,9 +173,18 @@ function ProfileHeader({ me }: { me: Me }): JSX.Element {
         {initial}
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <h1 className="truncate text-[22px] font-extrabold tracking-[-0.03em] text-text">
-          {nickname}
-        </h1>
+        <div className="flex min-w-0 items-center gap-2">
+          <h1 className="truncate text-[22px] font-extrabold tracking-[-0.03em] text-text">
+            {nickname}
+          </h1>
+          <Link
+            href="/me/edit"
+            aria-label={t('me.edit.cta')}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-subtle text-text-2 transition-colors duration-fast ease-standard hover:text-text"
+          >
+            <CrimpIcon.edit s={18} />
+          </Link>
+        </div>
         <p className="truncate text-caption font-medium text-text-3">
           {levelLabel} · {bioLabel}
         </p>

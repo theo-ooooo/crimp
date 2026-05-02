@@ -1,7 +1,7 @@
 import React from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
-import { Skeleton } from '@/components/common/primitives';
+import { CrimpIcon, Skeleton } from '@/components/common/primitives';
 import { t } from '@/lib/i18n';
 import { space, type Theme } from '@/lib/tokens';
 import type { Me } from '@/lib/schemas/me';
@@ -13,9 +13,15 @@ type HeaderProps = {
   me: Me | null;
   styles: ProfileStyles;
   theme: Theme;
+  onEditProfile: () => void;
 };
 
-export function ProfileHeaderRow({ me, styles, theme }: HeaderProps): JSX.Element {
+export function ProfileHeaderRow({
+  me,
+  styles,
+  theme,
+  onEditProfile,
+}: HeaderProps): JSX.Element {
   const nickname = me?.nickname ?? t('home.nicknameFallback');
   const initial = nickname.trim().slice(0, 1) || '?';
   const bio = me?.bio ?? null;
@@ -28,9 +34,22 @@ export function ProfileHeaderRow({ me, styles, theme }: HeaderProps): JSX.Elemen
         </Text>
       </View>
       <View style={styles.headerRowBody}>
-        <Text style={styles.nickname} numberOfLines={1}>
-          {nickname}
-        </Text>
+        <View style={styles.nicknameRow}>
+          <Text style={styles.nickname} numberOfLines={1}>
+            {nickname}
+          </Text>
+          <Pressable
+            onPress={onEditProfile}
+            accessibilityRole="button"
+            accessibilityLabel={t('profile.edit.cta')}
+            style={({ pressed }) => [
+              styles.editIconButton,
+              pressed ? styles.ctaButtonPressed : null,
+            ]}
+          >
+            <CrimpIcon.edit size={18} color={theme.text2} />
+          </Pressable>
+        </View>
         {bio !== null && bio.length > 0 ? (
           <Text style={styles.bioText} numberOfLines={2}>
             {bio}

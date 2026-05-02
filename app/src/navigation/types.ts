@@ -63,6 +63,10 @@ export type RootStackParamList = {
    * 인증 필수 — 화면 내부에서 gate 처리. BottomTabs `ProfileTab` 의 루트 화면.
    */
   Profile: undefined;
+  /**
+   * 프로필 수정 화면. nickname/bio/levelSelf 를 `PATCH /me/profile` 로 저장한다.
+   */
+  ProfileEdit: undefined;
 };
 
 export type RootStackNavigationProp<RouteName extends keyof RootStackParamList> =

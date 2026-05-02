@@ -111,6 +111,16 @@
     "statsErrorTitle": "통계를 불러오지 못했습니다",
     "empty": "-",
     "errorTitle": "내 정보를 불러오지 못했습니다",
+    "edit": {
+      "title": "프로필 수정",
+      "cta": "프로필 수정",
+      "nicknameHelp": "닉네임은 2~30자로 입력해 주세요.",
+      "bioPlaceholder": "등반 스타일이나 목표를 짧게 적어보세요",
+      "bioHelp": "소개는 최대 300자까지 입력할 수 있어요.",
+      "levelHelp": "V0부터 V12까지 선택할 수 있어요.",
+      "saving": "저장 중...",
+      "errorTitle": "프로필을 저장하지 못했어요"
+    },
     "mainGym": {
       "title": "내 암장",
       "unset": "미설정",

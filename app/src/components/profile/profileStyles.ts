@@ -75,12 +75,27 @@ export function makeProfileStyles(theme: Theme) {
       minWidth: 0,
       gap: 2,
     },
+    nicknameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space[2],
+      minWidth: 0,
+    },
     nickname: {
+      flexShrink: 1,
       fontFamily,
       fontSize: 22,
       fontWeight: fontWeight.extrabold,
       letterSpacing: -0.66,
       color: theme.text,
+    },
+    editIconButton: {
+      width: 36,
+      height: 36,
+      borderRadius: radius.full,
+      backgroundColor: theme.subtle,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     bioText: {
       fontFamily,

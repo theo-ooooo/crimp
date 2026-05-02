@@ -25,6 +25,7 @@ type Props = {
   error: Error | null;
   isRefetching: boolean;
   onRefresh: () => void;
+  onEditProfile: () => void;
   hasMainGym: boolean;
   mainGymName: string | null;
   mainGymBrand: string | null;
@@ -44,6 +45,7 @@ export function ProfileBody({
   error,
   isRefetching,
   onRefresh,
+  onEditProfile,
   hasMainGym,
   mainGymName,
   mainGymBrand,
@@ -88,7 +90,7 @@ export function ProfileBody({
       <View style={styles.headerEyebrowBlock}>
         <Text style={styles.eyebrow}>{t('profile.title')}</Text>
       </View>
-      <ProfileHeaderRow me={me} styles={styles} theme={theme} />
+      <ProfileHeaderRow me={me} styles={styles} theme={theme} onEditProfile={onEditProfile} />
       <ProfileStatsRow stats={stats} loading={isStatsLoading} styles={styles} />
       <ProfileTopGradeHero stats={stats} styles={styles} theme={theme} />
 

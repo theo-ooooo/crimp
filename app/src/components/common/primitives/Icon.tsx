@@ -44,6 +44,7 @@ const iconDefs = {
   chevR: { glyph: '\u203A', scale: 0.95 },
   chevL: { glyph: '\u2039', scale: 0.95 },
   close: { glyph: '\u2715', scale: 0.72 },
+  edit: { glyph: '\u270E', scale: 0.72 },
   home: { glyph: '\u2302', scale: 0.9 },
   map: { glyph: '\u29C9', scale: 0.9 }, // ⧉ 두 사각형
   feed: { glyph: '\u25A4', scale: 0.85 },
@@ -127,6 +128,7 @@ export const CrimpIcon: Record<IconName, (props: IconProps) => JSX.Element> = {
   chevR: createIcon('chevR'),
   chevL: createIcon('chevL'),
   close: createIcon('close'),
+  edit: createIcon('edit'),
   home: createIcon('home'),
   map: createIcon('map'),
   feed: createIcon('feed'),
