@@ -274,6 +274,19 @@
     "loginRequiredDescription": "Sign in to view your profile.",
     "loadErrorTitle": "Failed to load profile",
     "errorTitle": "Update failed",
+    "edit": {
+      "title": "Edit profile",
+      "cta": "Edit profile",
+      "nicknamePlaceholder": "Nickname",
+      "nicknameHelp": "Nickname must be 2-30 characters.",
+      "bioLabel": "Bio",
+      "bioPlaceholder": "Add your climbing style or current goal",
+      "bioHelp": "Bio can be up to 300 characters.",
+      "levelLabel": "Self-rated grade",
+      "levelHelp": "Pick a grade from V0 to V12.",
+      "saving": "Saving...",
+      "errorTitle": "Failed to save profile"
+    },
     "logout": "Sign out",
     "logoutLoading": "Signing out…"
   },
@@ -351,6 +364,7 @@
     "authUserMissing": "User account could not be found.",
     "forbidden": "You don't have permission for this action.",
     "notFound": "The requested item was not found.",
+    "nicknameTaken": "That nickname is already taken, so we couldn't save your profile.",
     "sessionNotFound": "Session not found.",
     "sessionInvalid": "Session data is invalid.",
     "attemptNotFound": "Attempt not found.",

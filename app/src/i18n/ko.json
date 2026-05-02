@@ -274,6 +274,19 @@
     "loginRequiredDescription": "프로필을 보려면 로그인이 필요합니다.",
     "loadErrorTitle": "프로필을 불러오지 못했어요",
     "errorTitle": "변경에 실패했어요",
+    "edit": {
+      "title": "프로필 수정",
+      "cta": "프로필 수정",
+      "nicknamePlaceholder": "닉네임",
+      "nicknameHelp": "닉네임은 2~30자로 입력해 주세요.",
+      "bioLabel": "소개",
+      "bioPlaceholder": "등반 스타일이나 목표를 짧게 적어보세요",
+      "bioHelp": "소개는 최대 300자까지 입력할 수 있어요.",
+      "levelLabel": "자가 등급",
+      "levelHelp": "V0부터 V12까지 선택할 수 있어요.",
+      "saving": "저장 중...",
+      "errorTitle": "프로필을 저장하지 못했어요"
+    },
     "logout": "로그아웃",
     "logoutLoading": "로그아웃 중…"
   },
@@ -351,6 +364,7 @@
     "authUserMissing": "사용자 계정을 찾을 수 없어요.",
     "forbidden": "이 작업을 수행할 권한이 없어요.",
     "notFound": "요청한 항목을 찾을 수 없어요.",
+    "nicknameTaken": "이미 사용 중인 닉네임이라 저장하지 못했어요.",
     "sessionNotFound": "세션을 찾을 수 없어요.",
     "sessionInvalid": "세션 정보가 올바르지 않아요.",
     "attemptNotFound": "해당 시도를 찾을 수 없어요.",
