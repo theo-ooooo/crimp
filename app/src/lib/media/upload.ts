@@ -34,10 +34,14 @@ export async function uploadCapturedMedia(
   },
 ): Promise<CompleteResponse> {
   const signal = options?.signal;
+  // (PR #116 Codex P2) 호출 시점에 이미 abort 됐으면 네이티브 압축 자체를 시작하지 말 것.
+  if (signal?.aborted) {
+    throw new DOMException('aborted before upload', 'AbortError');
+  }
   // 0) (PR-F1) 압축 — 이미지 1920px JPEG q80 / 비디오 ~720p 2Mbps. 실패·확장 시 원본 유지.
   // mime/byteSize 가 바뀔 수 있어 presign 에 전달할 값은 압축 결과 기준.
   options?.onPhase?.('compressing');
-  const ready = await compressCapturedMedia(captured);
+  const ready = await compressCapturedMedia(captured, signal);
 
   options?.onPhase?.('uploading');
   // 1) presign — kind/mime/byteSize 백엔드 검증 (size 한도 등) 후 URL 발급

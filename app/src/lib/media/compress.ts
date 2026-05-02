@@ -24,8 +24,18 @@ const IMAGE_QUALITY = 80;
 /**
  * 입력 CapturedMedia 의 압축본을 반환. 압축 실패 / 결과가 더 크면 원본을 그대로 반환해
  * 업로드 흐름이 회귀하지 않게 한다.
+ *
+ * (PR #116 Codex P2) signal 이 이미 abort 된 경우 native 압축 자체를 시작하지 않고
+ * AbortError 로 빠짐. 압축 라이브러리는 mid-flight 취소를 지원하지 않아 이 시점 이후
+ * 의 cancel 은 결과를 폐기할 뿐 작업 자체는 끝까지 돈다 — 비용 ↓ 의 첫 단계.
  */
-export async function compressCapturedMedia(captured: CapturedMedia): Promise<CapturedMedia> {
+export async function compressCapturedMedia(
+  captured: CapturedMedia,
+  signal?: AbortSignal,
+): Promise<CapturedMedia> {
+  if (signal?.aborted) {
+    throw new DOMException('aborted before compression', 'AbortError');
+  }
   if (captured.kind === 'IMAGE') {
     return compressImage(captured);
   }
@@ -46,20 +56,20 @@ async function compressImage(captured: CapturedMedia): Promise<CapturedMedia> {
       { mode: 'contain', onlyScaleDown: true },
     );
     const newUri = result.uri.startsWith('file://') ? result.uri : `file://${result.uri}`;
-    // (PR #116 리뷰 B2) iOS ImageResizer 가 NSFileSize 조회 실패 시 size=0 을 반환할 수
-    // 있어 0 도 falsy 처리해야 한다. ?? 는 0 을 통과시켜 byteSize=0 → presign 의
-    // Content-Length 와 실제 PUT 바이트 수가 어긋나 S3 가 SignatureMismatch 로 거부.
+    // (PR #116 리뷰 B2 + Codex P1) iOS ImageResizer 는 NSFileSize 조회 실패 시 size=0
+    // 또는 누락된 응답을 줄 수 있다. 그 경우 새 URI 로 PUT 했을 때 정확한 byteSize 를 알 수
+    // 없어 presign 의 Content-Length 와 어긋남 → S3 SignatureMismatch. 신뢰 가능한 size
+    // 가 없으면 압축 결과를 채택하지 않고 원본 유지가 안전.
     const reportedSize =
       typeof result.size === 'number' && result.size > 0 ? result.size : null;
-    if (reportedSize !== null && reportedSize >= captured.byteSize) {
-      // 압축이 오히려 키우면 (이미 작은 파일) 원본 유지.
+    if (reportedSize === null || reportedSize >= captured.byteSize) {
       return captured;
     }
     return {
       ...captured,
       uri: newUri,
       mime: 'image/jpeg',
-      byteSize: reportedSize ?? captured.byteSize,
+      byteSize: reportedSize,
       width: result.width ?? captured.width,
       height: result.height ?? captured.height,
     };

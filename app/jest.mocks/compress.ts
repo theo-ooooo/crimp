@@ -3,6 +3,9 @@
 // 그대로 통과시킨다 — 실 디바이스 빌드에서는 src/lib/media/compress.ts 가 사용됨.
 import type { CapturedMedia } from '@/lib/camera/types';
 
-export async function compressCapturedMedia(captured: CapturedMedia): Promise<CapturedMedia> {
+export async function compressCapturedMedia(
+  captured: CapturedMedia,
+  _signal?: AbortSignal,
+): Promise<CapturedMedia> {
   return captured;
 }
