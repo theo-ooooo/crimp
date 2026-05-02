@@ -498,7 +498,8 @@ class AttemptServiceTest {
     void log_idempotent_when_feed_post_already_exists_for_attempt() {
         // defense-in-depth: 동일 attempt_id 로 이미 게시된 row 가 있다면 두 번째 자동 게시 skip.
         // 정상 흐름에서는 매 호출마다 새 attempt id 가 부여되어 발생하지 않지만, 재시도/리플레이
-        // 가드.
+        // 가드. mediaId 도 non-null 로 두어 "멱등 가드 발동 시 post_media INSERT 도 같이 skip"
+        // 회귀 가드로 동시 검증 — 이게 빠지면 fix 의 진입 위치가 가드 *이후* 임을 보장 못 함.
         ClimbingSession s = session(100L, "01HSESS", 42L, false);
         when(sessionRepo.findByExtId("01HSESS")).thenReturn(Optional.of(s));
         when(attemptRepo.save(any(SessionAttempt.class))).thenAnswer(i -> {
@@ -509,10 +510,11 @@ class AttemptServiceTest {
         when(feedPostRepo.findByAttemptId(999L)).thenReturn(Optional.of(mock(FeedPost.class)));
 
         var cmd = new LogAttemptCommand(
-                null, null, null, null, AttemptResult.SEND, 1, null, null, null, null, null);
+                null, null, null, null, AttemptResult.SEND, 1, 12345L, null, null, null, null);
         service.log(42L, "01HSESS", cmd);
 
         verify(feedPostRepo, never()).save(any(FeedPost.class));
+        verify(postMediaRepo, never()).save(any());
     }
 
     // --- helpers ---

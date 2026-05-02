@@ -11,6 +11,8 @@ import io.crimp.core.repository.feed.FeedPostRepository;
 import io.crimp.core.repository.feed.PostMediaRepository;
 import io.crimp.core.repository.log.ClimbingSessionRepository;
 import io.crimp.core.repository.log.SessionAttemptRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +24,8 @@ import java.util.Set;
 @Service
 @org.springframework.context.annotation.Profile("!test")
 public class AttemptService {
+
+    private static final Logger log = LoggerFactory.getLogger(AttemptService.class);
 
     /**
      * 시도 자동 게시 트리거 결과 코드 — 성공한 시도만 피드에 노출한다.
@@ -117,9 +121,14 @@ public class AttemptService {
                 attempt.getGymId(),
                 PostVisibility.PUBLIC);
         feedPostRepository.save(post);
+        boolean linked = false;
         if (attempt.getMediaId() != null) {
             postMediaRepository.save(PostMedia.attach(post.getId(), attempt.getMediaId(), 0));
+            linked = true;
         }
+        // 회귀 진단 가시성 — 다음 번 post_media 누락이 발생해도 로그 한 줄로 식별 가능.
+        log.info("[feed] auto-publish post={} attempt={} media={} linked={}",
+                post.getId(), attempt.getId(), attempt.getMediaId(), linked);
     }
 
     @Transactional(readOnly = true)
