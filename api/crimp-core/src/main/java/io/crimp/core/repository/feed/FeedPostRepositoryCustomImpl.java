@@ -9,8 +9,10 @@ import com.querydsl.jpa.impl.JPAQueryFactory;
 import io.crimp.core.entity.enums.PostVisibility;
 import io.crimp.core.entity.feed.QFeedPost;
 import io.crimp.core.entity.feed.QPostLike;
+import io.crimp.core.entity.feed.QPostMedia;
 import io.crimp.core.entity.gym.QGym;
 import io.crimp.core.entity.log.QSessionAttempt;
+import io.crimp.core.entity.media.QMediaAsset;
 import io.crimp.core.entity.social.QFollow;
 import io.crimp.core.entity.user.QProfile;
 import io.crimp.core.entity.user.QUser;
@@ -18,6 +20,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.SliceImpl;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -128,5 +131,27 @@ public class FeedPostRepositoryCustomImpl implements FeedPostRepositoryCustom {
         boolean hasNext = rows.size() > pageSize;
         List<FeedRow> content = hasNext ? rows.subList(0, pageSize) : rows;
         return new SliceImpl<>(content, pageable, hasNext);
+    }
+
+    @Override
+    public List<FeedMediaRow> findFeedMediaForPosts(Collection<Long> feedPostIds) {
+        if (feedPostIds == null || feedPostIds.isEmpty()) {
+            return List.of();
+        }
+        QPostMedia pm = QPostMedia.postMedia;
+        QMediaAsset m = QMediaAsset.mediaAsset;
+        return queryFactory
+                .select(Projections.constructor(
+                        FeedMediaRow.class,
+                        pm.id.postId,
+                        pm.seq,
+                        m.kind,
+                        m.cdnUrl,
+                        m.thumbnailCdnUrl))
+                .from(pm)
+                .join(m).on(pm.id.mediaId.eq(m.id))
+                .where(pm.id.postId.in(feedPostIds))
+                .orderBy(pm.id.postId.asc(), pm.seq.asc())
+                .fetch();
     }
 }

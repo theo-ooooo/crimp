@@ -51,6 +51,20 @@ export const FeedItemSchema = z.object({
   /** 호출자(현재 사용자)가 이 포스트를 좋아요했는지. v2 (PR #56) 부터 추가. */
   liked: z.boolean(),
   loggedAt: z.string(),
+  /**
+   * (PR-F2) 피드 카드에 표시할 미디어. seq 순서로 정렬됨. CDN URL 이 없는 항목은
+   * 백엔드 단계에서 제외되므로 응답에는 항상 사용 가능한 URL 만 포함.
+   * 빈 배열 = 미디어 없음.
+   */
+  // (PR-F2) `.default([])` 사용 시 zod input 타입이 optional 로 잡혀 consumer 측 TS 오류가
+  // 발생해 default 없이 required. 백엔드는 항상 배열 (없으면 빈 배열) 보장.
+  mediaUrls: z.array(
+    z.object({
+      kind: z.enum(['IMAGE', 'VIDEO']),
+      url: z.string().url(),
+      thumbnailUrl: z.string().url().nullable(),
+    }),
+  ),
 });
 
 export type FeedItem = z.infer<typeof FeedItemSchema>;

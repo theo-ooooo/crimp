@@ -1,5 +1,6 @@
 package io.crimp.domain.feed;
 
+import io.crimp.core.repository.feed.FeedMediaRow;
 import io.crimp.core.repository.feed.FeedPostRepository;
 import io.crimp.core.repository.feed.FeedQueryMode;
 import io.crimp.core.repository.feed.FeedRow;
@@ -10,7 +11,10 @@ import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -75,8 +79,14 @@ public class FeedService {
                 gymIdFilter,
                 PageRequest.of(0, pageSize));
 
+        // (PR-F2) 슬라이스 안 모든 post id 에 대해 post_media + media_assets 를 한 번에 batch fetch.
+        // N+1 회피 — 페이지당 1쿼리 추가.
+        List<Long> postIds = slice.getContent().stream().map(FeedRow::feedPostId).toList();
+        List<FeedMediaRow> mediaRows = feedRepository.findFeedMediaForPosts(postIds);
+        Map<Long, List<FeedMediaItem>> mediaByPost = groupMedia(mediaRows);
+
         List<FeedItemView> items = slice.getContent().stream()
-                .map(FeedService::toView)
+                .map(row -> toView(row, mediaByPost.getOrDefault(row.feedPostId(), List.of())))
                 .toList();
 
         Long nextCursor = slice.hasNext() && !slice.getContent().isEmpty()
@@ -84,6 +94,24 @@ public class FeedService {
                 : null;
 
         return new FeedPage(items, nextCursor, pageSize);
+    }
+
+    /**
+     * (PR-F2) post_media 행 리스트를 postId 별로 group + cdnUrl 이 null 인 항목 제외 + seq 순서
+     * 보존 (리포지토리 쿼리가 이미 seq ASC). LinkedHashMap 으로 입력 순서 유지.
+     */
+    private static Map<Long, List<FeedMediaItem>> groupMedia(List<FeedMediaRow> rows) {
+        Map<Long, List<FeedMediaItem>> grouped = new LinkedHashMap<>();
+        for (FeedMediaRow r : rows) {
+            if (r.cdnUrl() == null || r.cdnUrl().isBlank()) {
+                // cdn-base-url 미설정 등으로 cdnUrl 이 null 이면 클라가 깨진 이미지 표시 X — 응답에서 제외.
+                continue;
+            }
+            grouped
+                    .computeIfAbsent(r.feedPostId(), k -> new ArrayList<>())
+                    .add(new FeedMediaItem(r.kind(), r.cdnUrl(), r.thumbnailCdnUrl()));
+        }
+        return grouped;
     }
 
     /**
@@ -123,7 +151,7 @@ public class FeedService {
         };
     }
 
-    private static FeedItemView toView(FeedRow row) {
+    private static FeedItemView toView(FeedRow row, List<FeedMediaItem> mediaUrls) {
         // FeedRow.userId 는 primitive long — INNER JOIN + NOT NULL PK 로 null 가능성 컴파일
         // 타임 제거. silent fallback (hue=180) 으로 회귀가 가려지는 위험 차단.
         // [PR #93, F5 PR-4 — 리뷰 B1] holdColor 1급 컬럼 우선, 미저장(legacy) 시 tagsJson 의
@@ -143,6 +171,7 @@ public class FeedService {
                 row.likeCount(),
                 row.commentCount(),
                 row.liked(),
-                row.loggedAt());
+                row.loggedAt(),
+                mediaUrls);
     }
 }
