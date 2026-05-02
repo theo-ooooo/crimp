@@ -3,9 +3,11 @@ package io.crimp.domain.log;
 import io.crimp.core.entity.enums.AttemptResult;
 import io.crimp.core.entity.enums.PostVisibility;
 import io.crimp.core.entity.feed.FeedPost;
+import io.crimp.core.entity.feed.PostMedia;
 import io.crimp.core.entity.log.ClimbingSession;
 import io.crimp.core.entity.log.SessionAttempt;
 import io.crimp.core.repository.feed.FeedPostRepository;
+import io.crimp.core.repository.feed.PostMediaRepository;
 import io.crimp.core.repository.log.ClimbingSessionRepository;
 import io.crimp.core.repository.log.SessionAttemptRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,6 +33,7 @@ class AttemptServiceTest {
     private ClimbingSessionRepository sessionRepo;
     private SessionAttemptRepository attemptRepo;
     private FeedPostRepository feedPostRepo;
+    private PostMediaRepository postMediaRepo;
     private AttemptService service;
 
     @BeforeEach
@@ -38,7 +41,8 @@ class AttemptServiceTest {
         sessionRepo = mock(ClimbingSessionRepository.class);
         attemptRepo = mock(SessionAttemptRepository.class);
         feedPostRepo = mock(FeedPostRepository.class);
-        service = new AttemptService(sessionRepo, attemptRepo, feedPostRepo);
+        postMediaRepo = mock(PostMediaRepository.class);
+        service = new AttemptService(sessionRepo, attemptRepo, feedPostRepo, postMediaRepo);
     }
 
     @Test
@@ -67,6 +71,83 @@ class AttemptServiceTest {
         // [PR #93, F5 PR-4] holdColor 가 entity 까지 흘러가는지 검증.
         assertThat(view.holdColor()).isEqualTo("red");
         verify(attemptRepo).save(any(SessionAttempt.class));
+    }
+
+    @Test
+    void log_with_mediaId_saves_post_media_link() {
+        // attempt.mediaId 가 있을 때 자동 게시 흐름이 post_media 까지 INSERT 하는지.
+        // 이게 빠지면 피드 응답의 mediaUrls 가 항상 빈 배열이 되는 회귀.
+        ClimbingSession s = session(100L, "01HSESS", 42L, false);
+        when(sessionRepo.findByExtId("01HSESS")).thenReturn(Optional.of(s));
+        when(attemptRepo.save(any(SessionAttempt.class))).thenAnswer(i -> {
+            SessionAttempt arg = i.getArgument(0);
+            setField(arg, "id", 1234L);
+            return arg;
+        });
+        when(feedPostRepo.findByAttemptId(anyLong())).thenReturn(Optional.empty());
+        when(feedPostRepo.save(any(FeedPost.class))).thenAnswer(i -> {
+            FeedPost arg = i.getArgument(0);
+            setField(arg, "id", 5555L);
+            return arg;
+        });
+
+        var cmd = new LogAttemptCommand(
+                null, 7L, "V3", new java.math.BigDecimal("3.0"),
+                AttemptResult.SEND, 1, 999L, "메모", null,
+                "red",
+                Instant.parse("2026-04-20T10:30:00Z"));
+        service.log(42L, "01HSESS", cmd);
+
+        ArgumentCaptor<PostMedia> captor = ArgumentCaptor.forClass(PostMedia.class);
+        verify(postMediaRepo).save(captor.capture());
+        PostMedia pm = captor.getValue();
+        assertThat(pm.getId().getPostId()).isEqualTo(5555L);
+        assertThat(pm.getId().getMediaId()).isEqualTo(999L);
+        assertThat(pm.getSeq()).isEqualTo((short) 0);
+    }
+
+    @Test
+    void log_without_mediaId_does_not_save_post_media() {
+        // 미디어 없는 시도는 post_media INSERT 도 없어야 함 (불필요 row 방지).
+        ClimbingSession s = session(100L, "01HSESS", 42L, false);
+        when(sessionRepo.findByExtId("01HSESS")).thenReturn(Optional.of(s));
+        when(attemptRepo.save(any(SessionAttempt.class))).thenAnswer(i -> {
+            SessionAttempt arg = i.getArgument(0);
+            setField(arg, "id", 1234L);
+            return arg;
+        });
+        when(feedPostRepo.findByAttemptId(anyLong())).thenReturn(Optional.empty());
+        when(feedPostRepo.save(any(FeedPost.class))).thenAnswer(i -> i.getArgument(0));
+
+        var cmd = new LogAttemptCommand(
+                null, 7L, "V3", new java.math.BigDecimal("3.0"),
+                AttemptResult.SEND, 1, null, "메모", null,
+                "red",
+                Instant.parse("2026-04-20T10:30:00Z"));
+        service.log(42L, "01HSESS", cmd);
+
+        verify(postMediaRepo, never()).save(any());
+    }
+
+    @Test
+    void log_fail_with_mediaId_does_not_publish_or_link() {
+        // FAIL/TRY 는 자동 게시 대상이 아니므로 mediaId 가 있어도 post_media 도 안 만듦.
+        ClimbingSession s = session(100L, "01HSESS", 42L, false);
+        when(sessionRepo.findByExtId("01HSESS")).thenReturn(Optional.of(s));
+        when(attemptRepo.save(any(SessionAttempt.class))).thenAnswer(i -> {
+            SessionAttempt arg = i.getArgument(0);
+            setField(arg, "id", 1234L);
+            return arg;
+        });
+
+        var cmd = new LogAttemptCommand(
+                null, 7L, "V3", null,
+                AttemptResult.FAIL, 1, 999L, null, null, null,
+                Instant.parse("2026-04-20T10:30:00Z"));
+        service.log(42L, "01HSESS", cmd);
+
+        verify(feedPostRepo, never()).save(any());
+        verify(postMediaRepo, never()).save(any());
     }
 
     @Test

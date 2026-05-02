@@ -4,9 +4,11 @@ import io.crimp.common.id.UlidGenerator;
 import io.crimp.core.entity.enums.AttemptResult;
 import io.crimp.core.entity.enums.PostVisibility;
 import io.crimp.core.entity.feed.FeedPost;
+import io.crimp.core.entity.feed.PostMedia;
 import io.crimp.core.entity.log.ClimbingSession;
 import io.crimp.core.entity.log.SessionAttempt;
 import io.crimp.core.repository.feed.FeedPostRepository;
+import io.crimp.core.repository.feed.PostMediaRepository;
 import io.crimp.core.repository.log.ClimbingSessionRepository;
 import io.crimp.core.repository.log.SessionAttemptRepository;
 import org.springframework.stereotype.Service;
@@ -39,14 +41,17 @@ public class AttemptService {
     private final ClimbingSessionRepository sessionRepository;
     private final SessionAttemptRepository attemptRepository;
     private final FeedPostRepository feedPostRepository;
+    private final PostMediaRepository postMediaRepository;
 
     public AttemptService(
             ClimbingSessionRepository sessionRepository,
             SessionAttemptRepository attemptRepository,
-            FeedPostRepository feedPostRepository) {
+            FeedPostRepository feedPostRepository,
+            PostMediaRepository postMediaRepository) {
         this.sessionRepository = sessionRepository;
         this.attemptRepository = attemptRepository;
         this.feedPostRepository = feedPostRepository;
+        this.postMediaRepository = postMediaRepository;
     }
 
     @Transactional
@@ -91,6 +96,10 @@ public class AttemptService {
      * SEND/FLASH/ONSIGHT 시도에 대해 1:1 FeedPost 생성. 이미 attempt_id 로 게시된 row 가 있으면
      * 멱등 skip. 동일 attempt 가 두 번 들어오는 일은 정상 흐름에서는 없지만, 재시도/리플레이를
      * defense-in-depth 로 가드.
+     *
+     * <p>{@code attempt.mediaId} 가 있으면 동일 트랜잭션에서 {@code post_media} 도 INSERT —
+     * 이게 빠지면 피드 응답의 {@code mediaUrls} 가 항상 빈 배열로 떨어진다 (실제 staging
+     * 회귀 사례). attempt 는 단일 media_id 만 들고 있으므로 seq=0 고정.
      */
     private void autoPublishToFeed(SessionAttempt attempt, long userId) {
         if (!AUTO_PUBLISH_RESULTS.contains(attempt.getResult())) {
@@ -108,6 +117,9 @@ public class AttemptService {
                 attempt.getGymId(),
                 PostVisibility.PUBLIC);
         feedPostRepository.save(post);
+        if (attempt.getMediaId() != null) {
+            postMediaRepository.save(PostMedia.attach(post.getId(), attempt.getMediaId(), 0));
+        }
     }
 
     @Transactional(readOnly = true)
