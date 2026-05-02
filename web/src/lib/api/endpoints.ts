@@ -151,7 +151,7 @@ export function fetchMe(accessToken: string, signal?: AbortSignal): Promise<Me> 
     method: 'GET',
     path: '/api/v1/me',
     accessToken,
-    schema: MeSchema,
+    schema: MeSchema as z.ZodType<Me>,
     signal,
   });
 }
@@ -191,7 +191,7 @@ export function updateMyProfile(
     path: '/api/v1/me/profile',
     accessToken,
     body,
-    schema: MeSchema,
+    schema: MeSchema as z.ZodType<Me>,
     signal,
   });
 }

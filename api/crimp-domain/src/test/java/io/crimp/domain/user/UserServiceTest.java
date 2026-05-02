@@ -49,6 +49,7 @@ class UserServiceTest {
         ProfileView view = service.getMe(1L);
         assertThat(view.extId()).isEqualTo("01HUUUUUUU");
         assertThat(view.nickname()).isEqualTo("crimper_abc");
+        assertThat(view.nicknameConfigured()).isFalse();
         assertThat(view.bio()).isEqualTo("hi");
     }
 
@@ -95,6 +96,7 @@ class UserServiceTest {
         ProfileView view = service.updateMyProfile(1L, cmd);
 
         assertThat(view.nickname()).isEqualTo("new_nick");
+        assertThat(view.nicknameConfigured()).isTrue();
         assertThat(view.bio()).isEqualTo("new bio");
         assertThat(view.levelSelf()).isEqualTo((byte) 4);
         assertThat(view.mainGymId()).isEqualTo(9L);
@@ -125,9 +127,10 @@ class UserServiceTest {
         when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
 
         var cmd = new UpdateProfileCommand("mine", "bio only", null, null, null, false, null);
-        service.updateMyProfile(1L, cmd);
+        ProfileView view = service.updateMyProfile(1L, cmd);
 
         verify(profileRepo, never()).existsByNickname(any());
+        assertThat(view.nicknameConfigured()).isTrue();
     }
 
     @Test

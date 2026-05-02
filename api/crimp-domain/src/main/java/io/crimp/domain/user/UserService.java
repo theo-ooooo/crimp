@@ -114,6 +114,7 @@ public class UserService {
         return new ProfileView(
                 user.getExtId(),
                 profile.getNickname(),
+                profile.isNicknameConfigured(),
                 profile.getBio(),
                 profile.getAvatarMediaId(),
                 profile.getLevelSelf(),
@@ -129,6 +130,7 @@ public class UserService {
         return new ProfileView(
                 user.getExtId(),
                 profile.getNickname(),
+                profile.isNicknameConfigured(),
                 profile.getBio(),
                 profile.getAvatarMediaId(),
                 profile.getLevelSelf(),

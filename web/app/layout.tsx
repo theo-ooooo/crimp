@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
+import { NicknamePromptGate } from '@/components/me/NicknamePromptGate';
 import { BottomTabs } from '@/components/nav/BottomTabs';
 import { TopNav } from '@/components/nav/TopNav';
 import ko from '@/lib/i18n/ko.json';
@@ -59,6 +60,7 @@ export default function RootLayout({
             {children}
           </div>
           <BottomTabs />
+          <NicknamePromptGate />
         </QueryProvider>
       </body>
     </html>

@@ -17,6 +17,7 @@ describe('MeSchema', () => {
   const fullMe = {
     extId: '01J9USR0000000000000000001',
     nickname: '서지우',
+    nicknameConfigured: true,
     bio: '취미 클라이밍 1년차',
     levelSelf: 5,
     mainGymId: 1042,
@@ -32,6 +33,7 @@ describe('MeSchema', () => {
     const parsed = MeSchema.parse(fullMe);
     expect(parsed.extId).toBe(fullMe.extId);
     expect(parsed.nickname).toBe('서지우');
+    expect(parsed.nicknameConfigured).toBe(true);
     expect(parsed.mainGymId).toBe(1042);
     expect(parsed.mainGym?.extId).toBe(VALID_GYM_EXT_ID);
     expect(parsed.mainGym?.name).toBe('클라임파크 강남점');
@@ -59,6 +61,7 @@ describe('MeSchema', () => {
     const parsed = MeSchema.parse({ extId: fullMe.extId });
     expect(parsed.extId).toBe(fullMe.extId);
     expect(parsed.nickname).toBeUndefined();
+    expect(parsed.nicknameConfigured).toBe(false);
     expect(parsed.mainGymId).toBeUndefined();
     expect(parsed.mainGym).toBeUndefined();
   });
