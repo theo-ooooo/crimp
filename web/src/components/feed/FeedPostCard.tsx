@@ -108,7 +108,13 @@ export const FeedPostCard: FC<FeedPostCardProps> = ({
       ) : null}
 
       {/* (PR-F3) 미디어 — 백엔드가 cdnUrl 보장한 항목만 도착, 빈 배열이면 미렌더. */}
-      {item.mediaUrls.length > 0 ? <FeedCardMedia mediaUrls={item.mediaUrls} /> : null}
+      {item.mediaUrls.length > 0 ? (
+        <FeedCardMedia
+          mediaUrls={item.mediaUrls}
+          note={item.note}
+          authorNickname={item.userNickname}
+        />
+      ) : null}
 
       {/* 푸터 (좋아요 · 댓글) */}
       <div className="mt-3 flex gap-[18px] border-t border-hairline pt-3">
@@ -158,8 +164,12 @@ export const FeedPostCard: FC<FeedPostCardProps> = ({
  */
 function FeedCardMedia({
   mediaUrls,
+  note,
+  authorNickname,
 }: {
   mediaUrls: FeedItem['mediaUrls'];
+  note: FeedItem['note'];
+  authorNickname: string;
 }): JSX.Element {
   const single = mediaUrls.length === 1;
   return (
@@ -172,34 +182,58 @@ function FeedCardMedia({
       role="group"
       aria-label={`첨부 미디어 ${mediaUrls.length}개`}
     >
-      {mediaUrls.map((m, i) => (
-        <div
-          key={`${m.url}-${i}`}
-          className={
-            single
-              ? 'aspect-[4/5] w-full'
-              : 'aspect-[4/5] w-[80%] flex-none snap-center first:ml-0'
-          }
-        >
-          {m.kind === 'IMAGE' ? (
-            <img
-              src={m.url}
-              alt=""
-              loading="lazy"
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <video
-              src={m.url}
-              poster={m.thumbnailUrl ?? undefined}
-              controls
-              preload="metadata"
-              playsInline
-              className="h-full w-full bg-black object-cover"
-            />
-          )}
-        </div>
-      ))}
+      {mediaUrls.map((m, i) => {
+        // 본문(note) 가 있으면 첫 80자를 alt 로, 없으면 작성자 + 인덱스 fallback. 빈 alt 는
+        // 데코레이션 의미라 본문 미디어엔 부적절 — 스크린 리더 컨텍스트 보장.
+        const trimmedNote = note?.trim().slice(0, 80);
+        const imageAlt = trimmedNote && trimmedNote.length > 0
+          ? trimmedNote
+          : `${authorNickname}의 사진 ${i + 1}`;
+        return (
+          <div
+            key={`${m.url}-${i}`}
+            className={
+              single
+                ? 'aspect-[4/5] w-full'
+                : 'aspect-[4/5] w-[80%] flex-none snap-center first:ml-0'
+            }
+          >
+            {m.kind === 'IMAGE' ? (
+              <img
+                src={m.url}
+                alt={imageAlt}
+                loading="lazy"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              // poster 가 비어있을 때 첫 프레임을 그리지 못하는 브라우저 (iOS Safari 등) 대비
+              // 컨테이너에 명시적 placeholder bg + 중앙 ▶ 오버레이. 사용자가 클릭하면 controls
+              // 가 활성화되어 재생 시작.
+              <div className="relative h-full w-full bg-neutral-200 dark:bg-neutral-800">
+                <video
+                  src={m.url}
+                  poster={m.thumbnailUrl ?? undefined}
+                  controls
+                  preload="metadata"
+                  playsInline
+                  className="h-full w-full object-cover"
+                  aria-label="동영상"
+                />
+                {!m.thumbnailUrl ? (
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 flex items-center justify-center"
+                  >
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-black/55 text-white">
+                      <span className="ml-0.5 text-xl leading-none">▶</span>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

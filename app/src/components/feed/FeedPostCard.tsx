@@ -296,7 +296,13 @@ function pressableFooterStyle({
  * - 단일: 카드 가득찬 4:5 이미지/비디오 썸네일.
  * - 다중: 가로 FlatList (snap pagingEnabled). 카드 폭 280pt 씩.
  * - 비디오 탭 → 풀스크린 Modal 의 react-native-video 로 재생.
+ *
+ * 모달은 카드별 useState 로 보유하지만, 빠른 연속 탭 시 iOS 의 "already presenting"
+ * 거절을 막기 위해 모듈 스코프 락 (videoModalLock) 으로 동시에 열리지 않도록 1차 가드.
+ * 단일 모달 매니저로의 전면 리팩토링은 별도 PR (F5 후속).
  */
+let videoModalLock = false;
+
 function FeedCardMedia({
   mediaUrls,
   styles,
@@ -307,8 +313,16 @@ function FeedCardMedia({
   // 풀스크린 비디오 재생용 — 카드 단위에서 한 번에 한 개만 재생.
   const [activeVideo, setActiveVideo] = useState<string | null>(null);
 
+  const closeVideo = () => {
+    videoModalLock = false;
+    setActiveVideo(null);
+  };
+
   const onTilePress = (m: FeedItem['mediaUrls'][number]) => {
     if (m.kind === 'VIDEO') {
+      // 다른 카드의 모달이 열려있는 중이면 무시 — iOS 동시 present 거절 회피.
+      if (videoModalLock) return;
+      videoModalLock = true;
       setActiveVideo(m.url);
     }
     // 이미지 lightbox 는 후속 — 현재는 탭 무동작.
@@ -343,7 +357,7 @@ function FeedCardMedia({
         visible={activeVideo !== null}
         transparent={false}
         animationType="fade"
-        onRequestClose={() => setActiveVideo(null)}
+        onRequestClose={() => closeVideo()}
         statusBarTranslucent
         supportedOrientations={['portrait', 'landscape']}
       >
@@ -355,11 +369,11 @@ function FeedCardMedia({
               controls
               resizeMode="contain"
               paused={false}
-              onError={() => setActiveVideo(null)}
+              onError={() => closeVideo()}
             />
           ) : null}
           <Pressable
-            onPress={() => setActiveVideo(null)}
+            onPress={() => closeVideo()}
             accessibilityRole="button"
             accessibilityLabel="닫기"
             hitSlop={12}
@@ -384,21 +398,17 @@ function FeedMediaTile({
   styles: ReturnType<typeof makeStyles>;
   onPress?: (media: FeedItem['mediaUrls'][number]) => void;
 }): JSX.Element {
-  const uri = media.kind === 'VIDEO' && media.thumbnailUrl ? media.thumbnailUrl : media.url;
-  return (
-    <Pressable
-      onPress={() => onPress?.(media)}
-      style={styles.mediaTile}
-      accessibilityRole={media.kind === 'VIDEO' ? 'button' : 'image'}
-      accessibilityLabel={media.kind === 'VIDEO' ? '동영상 재생' : '사진'}
-    >
-      <Image
-        source={{ uri }}
-        style={styles.mediaImage}
-        resizeMode="cover"
-        accessibilityIgnoresInvertColors
-      />
-      {media.kind === 'VIDEO' ? (
+  if (media.kind === 'VIDEO') {
+    // 카드에선 비디오 첫 프레임/썸네일을 그리지 않는다 — Phase 1.5 트랜스코드 도입 전에는
+    // thumbnailUrl 이 항상 null 이고, RN <Image> 가 mp4 url 을 디코드 못해 회색 박스가 됨.
+    // 명시적 placeholder + ▶ 오버레이로 "탭하면 재생" UX 를 분명히 한다.
+    return (
+      <Pressable
+        onPress={() => onPress?.(media)}
+        style={[styles.mediaTile, styles.mediaVideoPlaceholder]}
+        accessibilityRole="button"
+        accessibilityLabel="동영상 재생"
+      >
         <View style={styles.mediaPlayOverlay} pointerEvents="none">
           <View style={styles.mediaPlayDot}>
             <Text style={styles.mediaPlayGlyph} allowFontScaling={false}>
@@ -406,8 +416,23 @@ function FeedMediaTile({
             </Text>
           </View>
         </View>
-      ) : null}
-    </Pressable>
+      </Pressable>
+    );
+  }
+  // 이미지 — 탭 동작 없음 (lightbox 후속). View 로 감싸 안드로이드 ripple 오인 차단.
+  return (
+    <View
+      style={styles.mediaTile}
+      accessibilityRole="image"
+      accessibilityLabel="사진"
+    >
+      <Image
+        source={{ uri: media.url }}
+        style={styles.mediaImage}
+        resizeMode="cover"
+        accessibilityIgnoresInvertColors
+      />
+    </View>
   );
 }
 
@@ -502,6 +527,10 @@ function makeStyles(theme: Theme) {
     mediaImage: {
       width: '100%',
       height: '100%',
+    },
+    mediaVideoPlaceholder: {
+      // 트랜스코드/썸네일 전까지 비디오 카드는 placeholder + ▶ 만 — 빈 검정/회색 박스 방지.
+      backgroundColor: theme.subtle,
     },
     mediaPlayOverlay: {
       ...StyleSheet.absoluteFillObject,

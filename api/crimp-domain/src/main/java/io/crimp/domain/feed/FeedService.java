@@ -6,6 +6,8 @@ import io.crimp.core.repository.feed.FeedPostRepository;
 import io.crimp.core.repository.feed.FeedQueryMode;
 import io.crimp.core.repository.feed.FeedRow;
 import io.crimp.core.repository.user.ProfileRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
@@ -17,6 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -34,8 +37,16 @@ import java.util.regex.Pattern;
 @Profile("!test")
 public class FeedService {
 
+    private static final Logger log = LoggerFactory.getLogger(FeedService.class);
+
     private static final int DEFAULT_PAGE_SIZE = 20;
     private static final int MAX_PAGE_SIZE = 50;
+
+    /**
+     * cdn-base-url 미설정 시 첫 호출에서 1회 warn 로그를 남기기 위한 가드. 요청마다 찍으면
+     * 노이즈가 크고, 운영 사고 (env 누락) 가시성은 1회면 충분.
+     */
+    private final AtomicBoolean warnedNoCdnBase = new AtomicBoolean(false);
 
     /**
      * tagsJson 에서 {@code "hold"} 키 색상 값을 추출하는 정규식.
@@ -88,7 +99,15 @@ public class FeedService {
         // N+1 회피 — 페이지당 1쿼리 추가.
         List<Long> postIds = slice.getContent().stream().map(FeedRow::feedPostId).toList();
         List<FeedMediaRow> mediaRows = feedRepository.findFeedMediaForPosts(postIds);
-        Map<Long, List<FeedMediaItem>> mediaByPost = groupMedia(mediaRows, appProperties.media().cdnBaseUrl());
+        String cdnBaseUrl = appProperties.media().cdnBaseUrl();
+        if ((cdnBaseUrl == null || cdnBaseUrl.isBlank())
+                && !mediaRows.isEmpty()
+                && warnedNoCdnBase.compareAndSet(false, true)) {
+            // env 누락으로 응답에서 mediaUrls 가 모두 빈 배열로 떨어지는 사고가 무음으로
+            // 진행되지 않도록 가시성 확보. 부팅 후 첫 호출에서 1회만 — 요청 단위 노이즈 차단.
+            log.warn("[feed] app.media.cdn-base-url not configured — mediaUrls will be empty in responses");
+        }
+        Map<Long, List<FeedMediaItem>> mediaByPost = groupMedia(mediaRows, cdnBaseUrl);
 
         List<FeedItemView> items = slice.getContent().stream()
                 .map(row -> toView(row, mediaByPost.getOrDefault(row.feedPostId(), List.of())))
