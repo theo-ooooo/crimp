@@ -1,11 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
   Image,
   Modal,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -15,6 +14,7 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native';
 import { createThumbnail } from 'react-native-create-thumbnail';
+import RNFS from 'react-native-fs';
 
 import { PrimaryButton, SecondaryButton } from '@/components/common/primitives';
 import type { CapturedMedia } from '@/lib/camera/types';
@@ -27,12 +27,17 @@ function toFileUri(path: string): string {
 }
 
 /**
- * 비디오 길이 기반 후보 시점 비율 (5%, 23%, 41%, 59%, 77%, 95%).
+ * 비디오 길이 기반 후보 시점 비율.
  *
- * <p>0 / duration 끝점은 검은 인트로/아웃트로일 가능성이 커서 양 끝을 살짝 안쪽으로 잡았고,
- * 6개는 4:5 카드를 한 화면에 한 개씩 띄울 때 carousel 페이지 수로 적당하다.
+ * <p>일반 케이스 6개 (5%, 23%, 41%, 59%, 77%, 95%) — 0/끝 검은 인트로/아웃트로 회피 + 4:5
+ * 카드 carousel 페이지 수 적당.
+ *
+ * <p>큰 영상 (60s+) 은 디코더 메모리 부담 + 모달 latency 를 줄이기 위해 3개 (15%, 50%, 85%)
+ * 만 생성. createThumbnail 의 메모리 spike 가 큰 mp4 에서 OOM 가능성 ↑.
  */
-const POSTER_RATIOS = [0.05, 0.23, 0.41, 0.59, 0.77, 0.95];
+const POSTER_RATIOS_FULL = [0.05, 0.23, 0.41, 0.59, 0.77, 0.95];
+const POSTER_RATIOS_LARGE = [0.15, 0.5, 0.85];
+const LARGE_VIDEO_THRESHOLD_MS = 60_000;
 
 /** durationMs 가 누락된 영상의 임시 추정값. createThumbnail 이 끝 프레임으로 클램프하므로 작은 손해만. */
 const FALLBACK_DURATION_MS = 10_000;
@@ -52,6 +57,22 @@ type Props = {
   /** iOS 에서 모달 dismiss 애니메이션이 끝난 시점 — 부모가 다음 모달을 시리얼라이즈로 띄울 때 사용. */
   onDismissed?: () => void;
 };
+
+/**
+ * 미선택 후보 thumbnail 파일 unlink (best-effort).
+ *
+ * <p>createThumbnail 결과는 OS temp 에 저장되며 OS 의 disk pressure 까지 잔존. 사용자가
+ * "건너뛰기" 또는 다른 시점 선택 시 미사용 5장이 누적되는 것을 방지. 실패 무시 — temp 는
+ * 어차피 OS 가 정리.
+ */
+async function unlinkCandidates(uris: string[]): Promise<void> {
+  await Promise.allSettled(
+    uris.map((uri) => {
+      const path = uri.startsWith('file://') ? uri.slice('file://'.length) : uri;
+      return RNFS.unlink(path).catch(() => undefined);
+    }),
+  );
+}
 
 /**
  * 동영상 업로드 전 대표 화면(포스터) 선택 — carousel 형태로 후보 6개를 swipe.
@@ -82,6 +103,7 @@ export function VideoPosterModal({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [generating, setGenerating] = useState(false);
   const [busy, setBusy] = useState(false);
+  const flatListRef = useRef<FlatList<PosterCandidate>>(null);
 
   // video 가 바뀌거나 모달이 닫혔다 다시 열릴 때마다 후보 재생성. 이전 모달의 candidates 유출 방지.
   useEffect(() => {
@@ -99,36 +121,64 @@ export function VideoPosterModal({
     const durMs = video.durationMs && video.durationMs > 0
       ? video.durationMs
       : FALLBACK_DURATION_MS;
+    // [PR #123 리뷰 V-F3] 60s+ 비디오는 디코더 메모리 spike 회피를 위해 후보 3개로 축소.
+    const ratios = durMs >= LARGE_VIDEO_THRESHOLD_MS
+      ? POSTER_RATIOS_LARGE
+      : POSTER_RATIOS_FULL;
 
-    Promise.all(
-      POSTER_RATIOS.map(async (ratio) => {
+    const generate = async (): Promise<PosterCandidate[]> => {
+      // [PR #123 리뷰 I2] Promise.all 6병렬 → 직렬 reduce. iOS 큰 mp4 디코더 동시 호출 시
+      // 메모리 spike + 발열. 직렬은 레이턴시 ~1.5x 증가하지만 안정성 우선.
+      // [PR #123 리뷰 I3] 단일 후보 실패가 전체 실패로 전염되지 않도록 try/catch 로 감싸서
+      // 부분 성공 허용. 한 시점이 검은 프레임이라 reject 되어도 나머지는 살림.
+      const results: PosterCandidate[] = [];
+      for (const ratio of ratios) {
+        if (!alive) return results;
         const ts = Math.max(0, Math.min(Math.floor(durMs * ratio), durMs - 50));
-        const thumb = await createThumbnail({
-          url: toFileUri(video.uri),
-          timeStamp: ts,
-          format: 'jpeg',
-          maxWidth: 720,
-          maxHeight: 720,
-        });
-        return {
-          uri: toFileUri(thumb.path),
-          byteSize: thumb.size ?? 0,
-          width: thumb.width ?? null,
-          height: thumb.height ?? null,
-          timeMs: ts,
-        };
-      }),
-    )
-      .then((results) => {
+        try {
+          const thumb = await createThumbnail({
+            url: toFileUri(video.uri),
+            timeStamp: ts,
+            format: 'jpeg',
+            maxWidth: 720,
+            maxHeight: 720,
+          });
+          if (thumb.size && thumb.size > 0) {
+            results.push({
+              uri: toFileUri(thumb.path),
+              byteSize: thumb.size,
+              width: thumb.width ?? null,
+              height: thumb.height ?? null,
+              timeMs: ts,
+            });
+          }
+        } catch (e) {
+          // [PR #123 Codex C3] 단일 후보 실패의 원인을 식별 가능하게 ts + message 명시.
+          // eslint-disable-next-line no-console
+          console.warn(
+            '[VideoPosterModal] thumbnail failed',
+            'ratio=' + ratio,
+            'ts=' + ts + 'ms',
+            e instanceof Error ? e.message : String(e),
+          );
+        }
+      }
+      return results;
+    };
+
+    generate()
+      .then((ok) => {
         if (!alive) return;
-        const ok = results.filter((c) => c.byteSize > 0);
         setCandidates(ok);
         setSelectedIndex(0);
       })
       .catch((e) => {
-        // 한 후보 실패 = 전체 실패. createThumbnail 의 부분 성공 분기는 후속에서.
+        // generate 내부에서 try/catch 로 감쌌으므로 여기로 오는 건 RNFS 등 외 예외.
         // eslint-disable-next-line no-console
-        console.warn('[VideoPosterModal] thumbnail batch failed', e);
+        console.warn(
+          '[VideoPosterModal] thumbnail batch unexpected error',
+          e instanceof Error ? e.message : String(e),
+        );
         if (alive) setCandidates([]);
       })
       .finally(() => {
@@ -150,6 +200,13 @@ export function VideoPosterModal({
     [cellWidth, candidates.length],
   );
 
+  // [PR #123 리뷰 I6] 카드 탭 시 carousel 도 같이 스크롤 — accent border 만 점프하고 화면
+  // 중앙 카드는 다른 게 보이는 시각 부조화 차단.
+  const onTilePress = useCallback((index: number) => {
+    setSelectedIndex(index);
+    flatListRef.current?.scrollToIndex({ index, animated: true });
+  }, []);
+
   const confirmPoster = useCallback(() => {
     if (!video) {
       onRequestUpload(null);
@@ -164,6 +221,9 @@ export function VideoPosterModal({
       return;
     }
     setBusy(true);
+    // [PR #123 리뷰 I4] 미선택 후보 unlink — 사용자가 선택한 thumbnail 만 남김.
+    const unused = candidates.filter((_, i) => i !== selectedIndex).map((c) => c.uri);
+    unlinkCandidates(unused).catch(() => {});
     const poster: CapturedMedia = {
       uri: picked.uri,
       mime: 'image/jpeg',
@@ -177,8 +237,12 @@ export function VideoPosterModal({
   }, [video, candidates, selectedIndex, onRequestUpload]);
 
   const skip = useCallback(() => {
+    // [PR #123 리뷰 I4] 건너뛰기/취소 시 모든 후보 unlink — 사용 안 함.
+    if (candidates.length > 0) {
+      unlinkCandidates(candidates.map((c) => c.uri)).catch(() => {});
+    }
     onRequestUpload(null);
-  }, [onRequestUpload]);
+  }, [candidates, onRequestUpload]);
 
   // RN <Modal> 의 onDismiss 는 Modal 인스턴스가 dismissed 될 때만 호출. 부모 컴포넌트가
   // 조건부 마운트 (`return null`) 로 Modal 을 unmount 시키면 콜백이 누락되어 다음 시리얼라이즈
@@ -216,6 +280,7 @@ export function VideoPosterModal({
           </View>
         ) : (
           <FlatList
+            ref={flatListRef}
             data={candidates}
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -225,9 +290,14 @@ export function VideoPosterModal({
             contentContainerStyle={{ paddingHorizontal: sidePadding }}
             ItemSeparatorComponent={() => <View style={{ width: cellGap }} />}
             onMomentumScrollEnd={onMomentumEnd}
+            getItemLayout={(_, index) => ({
+              length: cellWidth + cellGap,
+              offset: (cellWidth + cellGap) * index,
+              index,
+            })}
             renderItem={({ item, index }) => (
               <Pressable
-                onPress={() => setSelectedIndex(index)}
+                onPress={() => onTilePress(index)}
                 accessibilityRole="button"
                 accessibilityLabel={t('session.log.posterUseFrame')}
                 accessibilityState={{ selected: index === selectedIndex }}
@@ -365,7 +435,5 @@ function makeStyles(_theme: Theme) {
     cancelLabel: {
       fontSize: 15,
     },
-    // Platform.OS hint — onDismiss 가 iOS-only 라 Android 는 onRequestClose 가 정리.
-    _platformAndroid: { display: Platform.OS === 'android' ? 'flex' : 'none' },
   });
 }

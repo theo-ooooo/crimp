@@ -55,6 +55,14 @@ export function useSessionDetailScreen(accessToken: string, extId: string) {
   const pendingLogReopenAfterPosterRef = useRef<boolean>(false);
 
   const openCamera = (mode: CameraMode) => {
+    // [PR #123 리뷰 I7] 카메라 새 세션 진입 시 이전 흐름의 pending ref 를 모두 초기화한다.
+    // 사용자가 비디오 캡처 → poster 모달 도중 앱 백그라운드 → 복귀 → onCameraDismissed 미발화 →
+    // pendingPosterAfterCameraRef 가 stale 로 남는 케이스를 방어. 다음 카메라 오픈 시 stale ref
+    // 가 잘못된 시점에 flush 되는 것을 차단.
+    pendingPosterAfterCameraRef.current = null;
+    pendingLogReopenAfterPosterRef.current = false;
+    pendingVideoForPosterRef.current = null;
+    pendingLogReopenRef.current = false;
     if (Platform.OS === 'android') {
       setCameraMode(mode);
       setLogSheetOpen(false);

@@ -123,6 +123,10 @@ public class MediaService {
                 throw new MediaException("MEDIA_POSTER_ATTACH_INVALID",
                         "attachAsPosterForVideoId cannot equal the image media id");
             }
+            // [PR #123 리뷰 B1] markReady 전에 video 가드를 미리 검증해 attach 단계 실패가
+            // IMAGE 행을 UPLOADING 으로 동반 롤백시키는 회귀를 차단. 가드 통과 후 IMAGE 를
+            // markReady → attach 순서. attach 자체는 동일 Tx 안에서 가드 1번 더 (defense-in-depth).
+            validatePosterAttachTarget(attachAsPosterForVideoId, callerUserId);
         }
 
         asset.applyUploadedMeta(byteSize, width, height, durationMs);
@@ -143,7 +147,29 @@ public class MediaService {
     }
 
     /**
+     * 포스터 attach 대상 video 의 가드만 미리 검증 — markReady 전에 호출되어
+     * IMAGE 가 부적절한 video 에 attach 시도하다 동반 롤백되는 회귀를 차단.
+     */
+    private void validatePosterAttachTarget(long videoMediaId, long callerUserId) {
+        MediaAsset video = mediaAssetRepository.findById(videoMediaId)
+                .orElseThrow(() -> new MediaException("MEDIA_NOT_FOUND", "Video media not found: " + videoMediaId));
+        if (video.getOwnerUserId() != callerUserId) {
+            throw new MediaException("MEDIA_FORBIDDEN", "Caller does not own video media " + videoMediaId);
+        }
+        if (video.getKind() != MediaKind.VIDEO) {
+            throw new MediaException("MEDIA_POSTER_ATTACH_INVALID",
+                    "attachAsPosterForVideoId must reference a VIDEO media");
+        }
+        if (video.getStatus() != MediaStatus.READY) {
+            throw new MediaException("MEDIA_POSTER_ATTACH_INVALID",
+                    "Video must be READY before attaching a poster image");
+        }
+    }
+
+    /**
      * IMAGE 업로드 완료 직후 호출 — VIDEO 행에 포스터 이미지 id 를 연결한다.
+     * 가드는 {@link #validatePosterAttachTarget} 가 markReady 전에 한 번 더 검증하므로
+     * 여기는 동일 Tx 안의 defense-in-depth.
      */
     private void linkPosterImageToVideo(long videoMediaId, long posterImageMediaId, long callerUserId) {
         MediaAsset video = mediaAssetRepository.findById(videoMediaId)
