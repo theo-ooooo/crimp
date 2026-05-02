@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Alert, Platform } from 'react-native';
 
 import { useAttemptsQuery } from '@/hooks/queries/useAttempts';
@@ -7,7 +7,11 @@ import { toUserMessage } from '@/lib/api/errorMessage';
 import { ApiError } from '@/lib/api/errors';
 import type { CapturedMedia } from '@/lib/camera/types';
 import { t } from '@/lib/i18n';
-import { MediaUploadError, uploadCapturedMedia } from '@/lib/media/upload';
+import {
+  MediaUploadError,
+  uploadCapturedMedia,
+  uploadVideoWithOptionalPoster,
+} from '@/lib/media/upload';
 import type { Attempt } from '@/lib/schemas/attempt';
 import type { CameraMode } from '@/components/common/session';
 
@@ -26,6 +30,8 @@ export function useSessionDetailScreen(accessToken: string, extId: string) {
     'idle',
   );
   const [uploadedMediaId, setUploadedMediaId] = useState<number | null>(null);
+  const [videoAwaitingPoster, setVideoAwaitingPoster] = useState<CapturedMedia | null>(null);
+  const pendingVideoForPosterRef = useRef<CapturedMedia | null>(null);
 
   const session = sessionQuery.data;
   const attempts: Attempt[] = attemptsQuery.data?.items ?? [];
@@ -86,7 +92,58 @@ export function useSessionDetailScreen(accessToken: string, extId: string) {
     }
   };
 
+  const onPosterUploadRequest = useCallback(
+    (poster: CapturedMedia | null) => {
+      const v = pendingVideoForPosterRef.current;
+      pendingVideoForPosterRef.current = null;
+      setVideoAwaitingPoster(null);
+      if (!v) {
+        return;
+      }
+      setMediaPhase('compressing');
+      const run = async () => {
+        try {
+          const completed = await uploadVideoWithOptionalPoster(accessToken, v, poster, {
+            onPhase: (phase) => setMediaPhase(phase),
+          });
+          setUploadedMediaId(completed.id);
+        } catch (e) {
+          let body: string;
+          if (e instanceof ApiError) {
+            body = toUserMessage(e);
+          } else if (e instanceof MediaUploadError) {
+            body =
+              e.phase === 'local-read'
+                ? t('error.uploadLocalRead')
+                : e.phase === 'network'
+                  ? t('error.uploadNetwork')
+                  : t('error.uploadS3');
+          } else {
+            body = t('session.log.uploadFailedRetry');
+          }
+          Alert.alert(t('session.log.uploadFailed'), body);
+        } finally {
+          setMediaPhase('idle');
+          setLogSheetOpen(true);
+        }
+      };
+      run().catch(() => {});
+    },
+    [accessToken],
+  );
+
   const handleCaptured = async (captured: CapturedMedia) => {
+    if (captured.kind === 'VIDEO') {
+      if (Platform.OS === 'ios') {
+        pendingLogReopenRef.current = false;
+      }
+      setCameraOpen(false);
+      setLogSheetOpen(false);
+      pendingVideoForPosterRef.current = captured;
+      setVideoAwaitingPoster(captured);
+      return;
+    }
+
     if (Platform.OS === 'ios') {
       pendingLogReopenRef.current = true;
     }
@@ -149,5 +206,7 @@ export function useSessionDetailScreen(accessToken: string, extId: string) {
     onCameraDismissed,
     handleCaptured,
     endSessionAction,
+    videoAwaitingPoster,
+    onPosterUploadRequest,
   };
 }

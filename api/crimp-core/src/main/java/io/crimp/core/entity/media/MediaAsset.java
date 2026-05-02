@@ -53,6 +53,10 @@ public class MediaAsset {
     @Column(name = "duration_ms")
     private Integer durationMs;
 
+    /** VIDEO 전용 — 사용자 지정 대표 썸네일(IMAGE) 행 id. */
+    @Column(name = "poster_media_id")
+    private Long posterMediaId;
+
     @Column(name = "s3_key", nullable = false, length = 500)
     private String s3Key;
 
@@ -92,5 +96,10 @@ public class MediaAsset {
         if (width != null) this.width = width;
         if (height != null) this.height = height;
         if (durationMs != null) this.durationMs = durationMs;
+    }
+
+    /** 사용자 지정 포스터 이미지 행 id 연결 (VIDEO + READY 대상 행에만 서비스 레이어에서 호출). */
+    public void assignPosterMedia(Long imageMediaId) {
+        this.posterMediaId = imageMediaId;
     }
 }

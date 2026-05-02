@@ -84,6 +84,8 @@ function SessionDetailLoggedInContainer({
       onLogSheetDismissed={detail.onLogSheetDismissed}
       onCameraDismissed={detail.onCameraDismissed}
       onCaptured={detail.handleCaptured}
+      videoAwaitingPoster={detail.videoAwaitingPoster}
+      onPosterUploadRequest={detail.onPosterUploadRequest}
       mediaPhase={detail.mediaPhase}
       uploadedMediaId={detail.uploadedMediaId}
       onClearMedia={() => detail.setUploadedMediaId(null)}

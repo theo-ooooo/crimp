@@ -556,6 +556,8 @@ export function completeMedia(
     width: number | null;
     height: number | null;
     durationMs: number | null;
+    /** IMAGE 완료 시: 이 id 의 VIDEO(이미 READY)에 대표 썸네일로 연결 */
+    attachAsPosterForVideoId?: number;
   },
   signal?: AbortSignal,
 ): Promise<CompleteResponse> {

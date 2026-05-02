@@ -342,9 +342,9 @@ class FeedServiceTest {
         when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
                 .thenReturn(slice(List.of(r1, r2), false));
         when(feedRepository.findFeedMediaForPosts(any())).thenReturn(List.of(
-                new FeedMediaRow(100L, (short) 0, MediaKind.IMAGE, "media/100-0.jpg"),
-                new FeedMediaRow(100L, (short) 1, MediaKind.VIDEO, "media/100-1.mp4"),
-                new FeedMediaRow(50L, (short) 0, MediaKind.IMAGE, "media/50-0.jpg")
+                new FeedMediaRow(100L, (short) 0, MediaKind.IMAGE, "media/100-0.jpg", null),
+                new FeedMediaRow(100L, (short) 1, MediaKind.VIDEO, "media/100-1.mp4", null),
+                new FeedMediaRow(50L, (short) 0, MediaKind.IMAGE, "media/50-0.jpg", null)
         ));
 
         FeedPage page = service.listFeed(1L, FeedFilter.POPULAR, null, null);
@@ -357,12 +357,28 @@ class FeedServiceTest {
         assertThat(page.items().get(0).mediaUrls().get(0).kind()).isEqualTo(MediaKind.IMAGE);
         assertThat(page.items().get(0).mediaUrls().get(1).url())
                 .isEqualTo("https://cdn.test/media/100-1.mp4");
-        // 썸네일은 트랜스코드 도입 전까지 null.
+        // 포스터 미연결 시 썸네일 null.
         assertThat(page.items().get(0).mediaUrls().get(1).thumbnailUrl()).isNull();
         // r2 (postId 50): 단 1건
         assertThat(page.items().get(1).mediaUrls()).hasSize(1);
         assertThat(page.items().get(1).mediaUrls().get(0).url())
                 .isEqualTo("https://cdn.test/media/50-0.jpg");
+    }
+
+    @Test
+    void media_urls_video_includes_poster_thumbnail_when_present() {
+        FeedRow r1 = baseRow().withFeedPostId(100L).build();
+        when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
+                .thenReturn(slice(List.of(r1), false));
+        when(feedRepository.findFeedMediaForPosts(any())).thenReturn(List.of(
+                new FeedMediaRow(100L, (short) 0, MediaKind.VIDEO, "media/v.mp4", "media/poster.jpg")
+        ));
+
+        FeedPage page = service.listFeed(1L, FeedFilter.POPULAR, null, null);
+
+        assertThat(page.items().get(0).mediaUrls()).hasSize(1);
+        assertThat(page.items().get(0).mediaUrls().get(0).thumbnailUrl())
+                .isEqualTo("https://cdn.test/media/poster.jpg");
     }
 
     @Test
@@ -373,7 +389,7 @@ class FeedServiceTest {
         when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
                 .thenReturn(slice(List.of(row), false));
         when(feedRepository.findFeedMediaForPosts(any())).thenReturn(List.of(
-                new FeedMediaRow(100L, (short) 0, MediaKind.IMAGE, "media/100-0.jpg")
+                new FeedMediaRow(100L, (short) 0, MediaKind.IMAGE, "media/100-0.jpg", null)
         ));
 
         FeedPage page = noBase.listFeed(1L, FeedFilter.POPULAR, null, null);
@@ -389,7 +405,7 @@ class FeedServiceTest {
         when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
                 .thenReturn(slice(List.of(row), false));
         when(feedRepository.findFeedMediaForPosts(any())).thenReturn(List.of(
-                new FeedMediaRow(100L, (short) 0, MediaKind.IMAGE, "media/x.jpg")
+                new FeedMediaRow(100L, (short) 0, MediaKind.IMAGE, "media/x.jpg", null)
         ));
 
         FeedPage page = trailing.listFeed(1L, FeedFilter.POPULAR, null, null);

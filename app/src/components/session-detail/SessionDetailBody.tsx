@@ -11,6 +11,7 @@ import type { Session } from '@/lib/schemas/session';
 
 import { AttemptRow } from '@/components/session-detail/AttemptRow';
 import { SessionMetaCard } from '@/components/session-detail/SessionMetaCard';
+import { VideoPosterModal } from '@/components/session-detail/VideoPosterModal';
 import { makeSessionDetailStyles } from './sessionDetailStyles';
 import type { CapturedMedia } from '@/lib/camera/types';
 
@@ -36,6 +37,8 @@ type Props = {
   onLogSheetDismissed: () => void;
   onCameraDismissed: () => void;
   onCaptured: (captured: CapturedMedia) => Promise<void>;
+  videoAwaitingPoster: CapturedMedia | null;
+  onPosterUploadRequest: (poster: CapturedMedia | null) => void;
   mediaPhase: 'idle' | 'compressing' | 'uploading';
   uploadedMediaId: number | null;
   onClearMedia: () => void;
@@ -67,6 +70,8 @@ export function SessionDetailBody(props: Props): JSX.Element {
     onLogSheetDismissed,
     onCameraDismissed,
     onCaptured,
+    videoAwaitingPoster,
+    onPosterUploadRequest,
     mediaPhase,
     uploadedMediaId,
     onClearMedia,
@@ -148,6 +153,11 @@ export function SessionDetailBody(props: Props): JSX.Element {
             onClose={closeCamera}
             onDismissed={onCameraDismissed}
             onCaptured={onCaptured}
+          />
+          <VideoPosterModal
+            visible={videoAwaitingPoster !== null}
+            video={videoAwaitingPoster}
+            onRequestUpload={onPosterUploadRequest}
           />
           {/* (PR #115 후속) 업로드 진행 표시는 LogAttemptSheet 안의 인라인 spinner 로 통합.
               여기서 별 <Modal> 을 띄우면 LogAttemptSheet Modal 위 nested 라 iOS 가 가려

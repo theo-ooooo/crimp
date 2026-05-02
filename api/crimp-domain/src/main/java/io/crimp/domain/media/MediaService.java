@@ -24,7 +24,7 @@ import java.util.Set;
  * <ol>
  *   <li>{@link #presignUpload(long, MediaKind, String, long)} — 클라가 호출, S3 PUT URL + UPLOADING row 발급</li>
  *   <li>클라가 받은 URL 로 직접 업로드 (백엔드 경유 X)</li>
- *   <li>{@link #completeUpload(long, long, Long, Integer, Integer, Integer)} — 클라가 업로드 완료
+ *   <li>{@link #completeUpload(long, long, Long, Integer, Integer, Integer, Long)} — 클라가 업로드 완료
  *       알림 + 메타데이터 (size/dim/duration). row 가 READY 로 전환되며 응답에 cdn URL 합성.</li>
  * </ol>
  *
@@ -102,7 +102,8 @@ public class MediaService {
      */
     @Transactional
     public CompleteResult completeUpload(long mediaId, long callerUserId,
-                                         Long byteSize, Integer width, Integer height, Integer durationMs) {
+                                         Long byteSize, Integer width, Integer height, Integer durationMs,
+                                         Long attachAsPosterForVideoId) {
         MediaAsset asset = mediaAssetRepository.findById(mediaId)
                 .orElseThrow(() -> new MediaException("MEDIA_NOT_FOUND", "Media not found: " + mediaId));
         if (asset.getOwnerUserId() != callerUserId) {
@@ -113,9 +114,23 @@ public class MediaService {
             throw new MediaException("MEDIA_INVALID_STATE",
                     "Media " + mediaId + " is not in UPLOADING (was " + asset.getStatus() + ")");
         }
+        if (attachAsPosterForVideoId != null) {
+            if (asset.getKind() != MediaKind.IMAGE) {
+                throw new MediaException("MEDIA_POSTER_ATTACH_INVALID",
+                        "attachAsPosterForVideoId is only allowed when completing an IMAGE upload");
+            }
+            if (attachAsPosterForVideoId.equals(mediaId)) {
+                throw new MediaException("MEDIA_POSTER_ATTACH_INVALID",
+                        "attachAsPosterForVideoId cannot equal the image media id");
+            }
+        }
 
         asset.applyUploadedMeta(byteSize, width, height, durationMs);
         asset.markReady(null);
+
+        if (attachAsPosterForVideoId != null) {
+            linkPosterImageToVideo(attachAsPosterForVideoId, asset.getId(), callerUserId);
+        }
 
         String cdnUrl = buildCdnUrl(asset.getS3Key());
         log.info("[media] upload complete id={} extId={} owner={} byteSize={} dim={}x{} duration={}ms",
@@ -125,6 +140,27 @@ public class MediaService {
                 asset.getMime(), asset.getByteSize(),
                 asset.getWidth(), asset.getHeight(), asset.getDurationMs(),
                 asset.getS3Key(), cdnUrl, null, asset.getCreatedAt());
+    }
+
+    /**
+     * IMAGE 업로드 완료 직후 호출 — VIDEO 행에 포스터 이미지 id 를 연결한다.
+     */
+    private void linkPosterImageToVideo(long videoMediaId, long posterImageMediaId, long callerUserId) {
+        MediaAsset video = mediaAssetRepository.findById(videoMediaId)
+                .orElseThrow(() -> new MediaException("MEDIA_NOT_FOUND", "Video media not found: " + videoMediaId));
+        if (video.getOwnerUserId() != callerUserId) {
+            throw new MediaException("MEDIA_FORBIDDEN", "Caller does not own video media " + videoMediaId);
+        }
+        if (video.getKind() != MediaKind.VIDEO) {
+            throw new MediaException("MEDIA_POSTER_ATTACH_INVALID",
+                    "attachAsPosterForVideoId must reference a VIDEO media");
+        }
+        if (video.getStatus() != MediaStatus.READY) {
+            throw new MediaException("MEDIA_POSTER_ATTACH_INVALID",
+                    "Video must be READY before attaching a poster image");
+        }
+        video.assignPosterMedia(posterImageMediaId);
+        mediaAssetRepository.save(video);
     }
 
     private void validateMime(MediaKind kind, String mime) {

@@ -321,7 +321,9 @@ function FeedCardMedia({
   const onTilePress = (m: FeedItem['mediaUrls'][number]) => {
     if (m.kind === 'VIDEO') {
       // 다른 카드의 모달이 열려있는 중이면 무시 — iOS 동시 present 거절 회피.
-      if (videoModalLock) return;
+      if (videoModalLock) {
+        return;
+      }
       videoModalLock = true;
       setActiveVideo(m.url);
     }
@@ -399,16 +401,22 @@ function FeedMediaTile({
   onPress?: (media: FeedItem['mediaUrls'][number]) => void;
 }): JSX.Element {
   if (media.kind === 'VIDEO') {
-    // 카드에선 비디오 첫 프레임/썸네일을 그리지 않는다 — Phase 1.5 트랜스코드 도입 전에는
-    // thumbnailUrl 이 항상 null 이고, RN <Image> 가 mp4 url 을 디코드 못해 회색 박스가 됨.
-    // 명시적 placeholder + ▶ 오버레이로 "탭하면 재생" UX 를 분명히 한다.
+    const thumb = media.thumbnailUrl;
     return (
       <Pressable
         onPress={() => onPress?.(media)}
-        style={[styles.mediaTile, styles.mediaVideoPlaceholder]}
+        style={[styles.mediaTile, thumb ? undefined : styles.mediaVideoPlaceholder]}
         accessibilityRole="button"
         accessibilityLabel="동영상 재생"
       >
+        {thumb ? (
+          <Image
+            source={{ uri: thumb }}
+            style={styles.mediaImage}
+            resizeMode="cover"
+            accessibilityIgnoresInvertColors
+          />
+        ) : null}
         <View style={styles.mediaPlayOverlay} pointerEvents="none">
           <View style={styles.mediaPlayDot}>
             <Text style={styles.mediaPlayGlyph} allowFontScaling={false}>

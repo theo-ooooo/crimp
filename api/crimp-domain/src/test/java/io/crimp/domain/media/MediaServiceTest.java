@@ -132,7 +132,7 @@ class MediaServiceTest {
         setId(asset, 100L);
         when(repo.findById(100L)).thenReturn(Optional.of(asset));
 
-        var result = service.completeUpload(100L, 7L, 12345L, 1920, 1080, null);
+        var result = service.completeUpload(100L, 7L, 12345L, 1920, 1080, null, null);
 
         assertThat(asset.getStatus()).isEqualTo(MediaStatus.READY);
         assertThat(asset.getByteSize()).isEqualTo(12345L);
@@ -155,7 +155,7 @@ class MediaServiceTest {
         setId(asset, 100L);
         when(repo.findById(100L)).thenReturn(Optional.of(asset));
 
-        var result = noCdnService.completeUpload(100L, 7L, 12345L, 1920, 1080, null);
+        var result = noCdnService.completeUpload(100L, 7L, 12345L, 1920, 1080, null, null);
 
         assertThat(result.cdnUrl()).isNull();
         assertThat(result.s3Key()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
@@ -170,7 +170,7 @@ class MediaServiceTest {
         setId(asset, 100L);
         when(repo.findById(100L)).thenReturn(Optional.of(asset));
 
-        assertThatThrownBy(() -> service.completeUpload(100L, 999L, 100L, 1, 1, null))
+        assertThatThrownBy(() -> service.completeUpload(100L, 999L, 100L, 1, 1, null, null))
                 .isInstanceOf(MediaException.class)
                 .hasFieldOrPropertyWithValue("code", "MEDIA_FORBIDDEN");
         assertThat(asset.getStatus()).isEqualTo(MediaStatus.UPLOADING);
@@ -184,7 +184,7 @@ class MediaServiceTest {
         asset.markReady(null);
         when(repo.findById(100L)).thenReturn(Optional.of(asset));
 
-        assertThatThrownBy(() -> service.completeUpload(100L, 7L, 100L, 1, 1, null))
+        assertThatThrownBy(() -> service.completeUpload(100L, 7L, 100L, 1, 1, null, null))
                 .isInstanceOf(MediaException.class)
                 .hasFieldOrPropertyWithValue("code", "MEDIA_INVALID_STATE");
     }
@@ -193,9 +193,41 @@ class MediaServiceTest {
     void completeUpload_missing_throwsNotFound() {
         when(repo.findById(404L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.completeUpload(404L, 7L, 100L, 1, 1, null))
+        assertThatThrownBy(() -> service.completeUpload(404L, 7L, 100L, 1, 1, null, null))
                 .isInstanceOf(MediaException.class)
                 .hasFieldOrPropertyWithValue("code", "MEDIA_NOT_FOUND");
+    }
+
+    @Test
+    void completeUpload_image_with_posterLink_setsVideoPosterMediaId() {
+        MediaAsset image = MediaAsset.createUploading("01HIMG", 7L, MediaKind.IMAGE,
+                "image/jpeg", "media/users/7/image/2026/05/03/01HIMG.jpg");
+        setId(image, 200L);
+        MediaAsset video = MediaAsset.createUploading("01HVID", 7L, MediaKind.VIDEO,
+                "video/mp4", "media/users/7/video/2026/05/03/01HVID.mp4");
+        setId(video, 10L);
+        video.markReady(null);
+
+        when(repo.findById(200L)).thenReturn(Optional.of(image));
+        when(repo.findById(10L)).thenReturn(Optional.of(video));
+
+        service.completeUpload(200L, 7L, 5000L, 1280, 720, null, 10L);
+
+        assertThat(image.getStatus()).isEqualTo(MediaStatus.READY);
+        assertThat(video.getPosterMediaId()).isEqualTo(200L);
+        verify(repo).save(video);
+    }
+
+    @Test
+    void completeUpload_video_with_attachFlag_throws() {
+        MediaAsset videoUp = MediaAsset.createUploading("01HVID", 7L, MediaKind.VIDEO,
+                "video/mp4", "media/v.mp4");
+        setId(videoUp, 10L);
+        when(repo.findById(10L)).thenReturn(Optional.of(videoUp));
+
+        assertThatThrownBy(() -> service.completeUpload(10L, 7L, 1000L, null, null, 5000, 99L))
+                .isInstanceOf(MediaException.class)
+                .hasFieldOrPropertyWithValue("code", "MEDIA_POSTER_ATTACH_INVALID");
     }
 
     private static void setId(MediaAsset target, long id) {

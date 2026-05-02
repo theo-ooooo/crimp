@@ -44,18 +44,51 @@ export async function uploadCapturedMedia(
   const ready = await compressCapturedMedia(captured, signal);
 
   options?.onPhase?.('uploading');
-  // 1) presign — kind/mime/byteSize 백엔드 검증 (size 한도 등) 후 URL 발급
+  return uploadReadyMedia(accessToken, ready, signal);
+}
+
+/**
+ * 비디오 업로드 후(READY) JPEG 포스터를 올리고 `attachAsPosterForVideoId` 로 연결.
+ * 반환은 비디오 미디어 `CompleteResponse`.
+ */
+export async function uploadVideoWithOptionalPoster(
+  accessToken: string,
+  video: CapturedMedia,
+  poster: CapturedMedia | null,
+  options?: {
+    signal?: AbortSignal;
+    onPhase?: (phase: UploadPhase) => void;
+  },
+): Promise<CompleteResponse> {
+  const signal = options?.signal;
+  if (signal?.aborted) {
+    throw new DOMException('aborted before upload', 'AbortError');
+  }
+  options?.onPhase?.('compressing');
+  const videoReady = await compressCapturedMedia(video, signal);
+  options?.onPhase?.('uploading');
+  const videoComplete = await uploadReadyMedia(accessToken, videoReady, signal);
+  if (!poster) {
+    return videoComplete;
+  }
+  const posterReady = await compressCapturedMedia(poster, signal);
+  await uploadReadyMedia(accessToken, posterReady, signal, videoComplete.id);
+  return videoComplete;
+}
+
+async function uploadReadyMedia(
+  accessToken: string,
+  ready: CapturedMedia,
+  signal: AbortSignal | undefined,
+  attachAsPosterForVideoId?: number,
+): Promise<CompleteResponse> {
   const presigned = await presignMedia(
     accessToken,
     { kind: ready.kind, mime: ready.mime, byteSize: ready.byteSize },
     signal,
   );
-
-  // 2) S3 PUT — 로컬 파일을 Blob 으로 직접 업로드
   await putToS3(presigned.uploadUrl, ready.uri, ready.mime, signal);
-
-  // 3) complete — 메타 보고 + READY 전환
-  const completed = await completeMedia(
+  return completeMedia(
     accessToken,
     presigned.id,
     {
@@ -63,11 +96,10 @@ export async function uploadCapturedMedia(
       width: ready.width,
       height: ready.height,
       durationMs: ready.durationMs,
+      attachAsPosterForVideoId,
     },
     signal,
   );
-
-  return completed;
 }
 
 async function putToS3(
@@ -109,8 +141,12 @@ async function putToS3(
 }
 
 function describe(e: unknown): string {
-  if (e instanceof Error) return e.message;
-  if (typeof e === 'string') return e;
+  if (e instanceof Error) {
+    return e.message;
+  }
+  if (typeof e === 'string') {
+    return e;
+  }
   return 'unknown';
 }
 

@@ -64,7 +64,11 @@ describe('uploadCapturedMedia', () => {
       kind: 'IMAGE', mime: 'image/jpeg', byteSize: 1234,
     }, undefined);
     expect(mockedComplete).toHaveBeenCalledWith('access', 42, {
-      byteSize: 1234, width: 1920, height: 1080, durationMs: null,
+      byteSize: 1234,
+      width: 1920,
+      height: 1080,
+      durationMs: null,
+      attachAsPosterForVideoId: undefined,
     }, undefined);
     // S3 PUT 의 Content-Type 이 mime 과 일치
     expect(fetchMock).toHaveBeenCalledWith(
