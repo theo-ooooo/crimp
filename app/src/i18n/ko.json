@@ -96,7 +96,12 @@
       "submitting": "시작 중...",
       "errorTitle": "세션을 시작하지 못했습니다",
       "selectedGymLabel": "선택된 암장",
-      "clearGymCta": "해제"
+      "clearGymCta": "해제",
+      "mainGymLabel": "내 주 암장",
+      "useMainGymCta": "주 암장에서 시작",
+      "useOtherGymCta": "다른 곳",
+      "emptyGymTitle": "검색 결과가 없어요",
+      "emptyGymBody": "암장 이름을 조금 다르게 입력해 보세요."
     },
     "detail": {
       "title": "세션 상세",
