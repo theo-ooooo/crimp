@@ -50,9 +50,11 @@ export function NicknamePromptGate(): JSX.Element | null {
     return null;
   }, [trimmed]);
 
+  const onProfileEditRoute =
+    pathname != null && pathname.startsWith('/me/edit');
   const shouldShow =
     accessToken !== null &&
-    pathname !== '/me/edit' &&
+    !onProfileEditRoute &&
     meQuery.data?.nicknameConfigured === false &&
     !dismissed;
 
