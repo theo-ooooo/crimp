@@ -105,13 +105,40 @@ flyctl secrets list --app crimp-mysql-staging
 
 1. Cloudflare Dashboard → R2 → "Create bucket"
 2. 이름: `crimp-media-staging` (전역 unique).
-3. Settings → Public access → 일단 **Off** (presigned URL 만 사용).
-4. R2 → "Manage R2 API Tokens" → "Create API token"
+3. R2 → "Manage R2 API Tokens" → "Create API token"
    - Permission: **Object Read & Write**
    - Bucket: `crimp-media-staging` 만 지정
    - 생성 후 **Access Key ID / Secret Access Key / S3 endpoint URL** 복사 (한 번만 표시됨).
 
 > S3 endpoint URL 형태: `https://<account_id>.r2.cloudflarestorage.com`
+
+### 4-bis. CDN (피드 미디어 GET) 활성화 — PR-F4
+
+업로드 (PUT) 는 presigned URL 로 인증된 호출만 받지만, 피드의 이미지/비디오 **GET** 은
+공개 캐시된 URL 이 필요. 두 가지 path 중 staging 은 (A) 가 가장 간단:
+
+**Path A — R2 public bucket URL (CDN 자동 적용, 가장 간단)**
+1. 버킷 → Settings → "Public access" → **Allow Access** ON.
+2. "R2.dev subdomain" 활성화 → `https://pub-<account_hash>.r2.dev` 형태의 URL 표시.
+3. 백엔드 시크릿 (`CDN_BASE_URL`) 으로 주입 (다음 §5):
+   ```
+   CDN_BASE_URL=https://pub-<account_hash>.r2.dev
+   ```
+4. Cloudflare 가 자동으로 edge 캐시 — CDN 별도 설정 불필요.
+
+> 단점: URL 에 account hash 노출. staging 은 무방, prod 는 (B) 권장.
+
+**Path B — Cloudflare Custom Domain (브랜딩, prod 권장)**
+1. 버킷 → Settings → "Custom Domains" → "Connect Domain".
+2. 도메인: `media-staging.crimp.run` (또는 원하는 sub).
+3. Cloudflare 가 DNS CNAME 자동 생성 + cert 발급 (도메인이 Cloudflare 에 위임돼 있어야 함).
+4. 백엔드 시크릿:
+   ```
+   CDN_BASE_URL=https://media-staging.crimp.run
+   ```
+5. Cloudflare → 도메인 → Caching / Page Rules 에서 캐시 규칙 조정 가능.
+
+> 둘 중 하나 선택 후 다음 §5 의 `S3_ENDPOINT_URL`/`S3_ACCESS_KEY` 등과 함께 `CDN_BASE_URL` 도 같이 주입.
 
 ## 5. API 앱 생성 + 시크릿 주입
 
@@ -140,6 +167,7 @@ flyctl secrets set --app crimp-api-staging \
   S3_ACCESS_KEY="<R2 Access Key ID>" \
   S3_SECRET_KEY="<R2 Secret Access Key>" \
   S3_ENDPOINT_URL="https://<account_id>.r2.cloudflarestorage.com" \
+  CDN_BASE_URL="https://pub-<account_hash>.r2.dev" \
   KAKAO_CLIENT_ID="<staging Kakao app key>" \
   KAKAO_REST_API_KEY="<staging Kakao REST key>" \
   KAKAO_CLIENT_SECRET="<staging Kakao client secret>" \

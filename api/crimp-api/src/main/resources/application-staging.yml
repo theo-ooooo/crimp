@@ -80,6 +80,11 @@ app:
   media:
     # Cloudflare R2 — S3-compatible. endpoint-url + path-style 로 지정.
     # bucket / region / access-key / secret-key 는 R2 콘솔에서 발급한 값을 시크릿으로.
+    # (PR-F4) cdn-base-url — 피드 미디어 GET 시 합성되는 공개 URL 의 prefix.
+    # 두 가지 경로 (런북 §4-bis 참조):
+    #   - R2 public bucket: https://pub-<account_hash>.r2.dev
+    #   - Custom Domain:    https://media-staging.crimp.run (Cloudflare 자동 cert)
+    # 미설정이면 MediaService.buildCdnUrl 이 null 반환 — 클라가 s3Key 별도 처리.
     cdn-base-url: ${CDN_BASE_URL:}
     s3:
       bucket: ${S3_BUCKET}
