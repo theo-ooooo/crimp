@@ -56,12 +56,6 @@ public class MediaAsset {
     @Column(name = "s3_key", nullable = false, length = 500)
     private String s3Key;
 
-    @Column(name = "cdn_url", length = 500)
-    private String cdnUrl;
-
-    @Column(name = "thumbnail_cdn_url", length = 500)
-    private String thumbnailCdnUrl;
-
     @Column(name = "variants", columnDefinition = "json")
     private String variantsJson;
 
@@ -83,10 +77,8 @@ public class MediaAsset {
     }
 
     public void markProcessing() { this.status = MediaStatus.PROCESSING; }
-    public void markReady(String cdnUrl, String thumbnailCdnUrl, String variantsJson) {
+    public void markReady(String variantsJson) {
         this.status = MediaStatus.READY;
-        this.cdnUrl = cdnUrl;
-        this.thumbnailCdnUrl = thumbnailCdnUrl;
         this.variantsJson = variantsJson;
     }
     public void markFailed() { this.status = MediaStatus.FAILED; }

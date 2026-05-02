@@ -1,5 +1,6 @@
 package io.crimp.domain.feed;
 
+import io.crimp.common.config.AppProperties;
 import io.crimp.core.repository.feed.FeedMediaRow;
 import io.crimp.core.repository.feed.FeedPostRepository;
 import io.crimp.core.repository.feed.FeedQueryMode;
@@ -50,10 +51,14 @@ public class FeedService {
     // FeedPostRepository extends JpaRepository, FeedPostRepositoryCustom 이라 메서드는 모두 사용 가능.
     private final FeedPostRepository feedRepository;
     private final ProfileRepository profileRepository;
+    private final AppProperties appProperties;
 
-    public FeedService(FeedPostRepository feedRepository, ProfileRepository profileRepository) {
+    public FeedService(FeedPostRepository feedRepository,
+                       ProfileRepository profileRepository,
+                       AppProperties appProperties) {
         this.feedRepository = feedRepository;
         this.profileRepository = profileRepository;
+        this.appProperties = appProperties;
     }
 
     @Transactional(readOnly = true)
@@ -83,7 +88,7 @@ public class FeedService {
         // N+1 회피 — 페이지당 1쿼리 추가.
         List<Long> postIds = slice.getContent().stream().map(FeedRow::feedPostId).toList();
         List<FeedMediaRow> mediaRows = feedRepository.findFeedMediaForPosts(postIds);
-        Map<Long, List<FeedMediaItem>> mediaByPost = groupMedia(mediaRows);
+        Map<Long, List<FeedMediaItem>> mediaByPost = groupMedia(mediaRows, appProperties.media().cdnBaseUrl());
 
         List<FeedItemView> items = slice.getContent().stream()
                 .map(row -> toView(row, mediaByPost.getOrDefault(row.feedPostId(), List.of())))
@@ -97,19 +102,25 @@ public class FeedService {
     }
 
     /**
-     * (PR-F2) post_media 행 리스트를 postId 별로 group + cdnUrl 이 null 인 항목 제외 + seq 순서
-     * 보존 (리포지토리 쿼리가 이미 seq ASC). LinkedHashMap 으로 입력 순서 유지.
+     * post_media 행 리스트를 postId 별로 group + cdn-base-url + s3_key 합성. seq 순서는
+     * 리포지토리 쿼리가 보장 (ORDER BY post_id, seq). LinkedHashMap 으로 입력 순서 유지.
+     *
+     * <p>{@code cdnBaseUrl} 이 null/공백이면 (env 미설정) 미디어를 응답에서 모두 제외 — 클라가
+     * 깨진 이미지를 표시하지 않도록.
      */
-    private static Map<Long, List<FeedMediaItem>> groupMedia(List<FeedMediaRow> rows) {
+    static Map<Long, List<FeedMediaItem>> groupMedia(List<FeedMediaRow> rows, String cdnBaseUrl) {
         Map<Long, List<FeedMediaItem>> grouped = new LinkedHashMap<>();
+        if (cdnBaseUrl == null || cdnBaseUrl.isBlank()) {
+            return grouped;
+        }
+        String base = cdnBaseUrl.endsWith("/")
+                ? cdnBaseUrl.substring(0, cdnBaseUrl.length() - 1)
+                : cdnBaseUrl;
         for (FeedMediaRow r : rows) {
-            if (r.cdnUrl() == null || r.cdnUrl().isBlank()) {
-                // cdn-base-url 미설정 등으로 cdnUrl 이 null 이면 클라가 깨진 이미지 표시 X — 응답에서 제외.
-                continue;
-            }
+            String url = base + "/" + r.s3Key();
             grouped
                     .computeIfAbsent(r.feedPostId(), k -> new ArrayList<>())
-                    .add(new FeedMediaItem(r.kind(), r.cdnUrl(), r.thumbnailCdnUrl()));
+                    .add(new FeedMediaItem(r.kind(), url, null));
         }
         return grouped;
     }

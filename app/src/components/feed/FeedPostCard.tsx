@@ -226,8 +226,7 @@ export function FeedPostCard({
         <Text style={styles.note}>{item.note}</Text>
       ) : null}
 
-      {/* (PR-F3) 미디어 — 단일/다중 분기. 비디오 재생은 미구현(Phase 2 의 풀스크린 player)
-          이라 현재는 thumbnail + ▶ 오버레이로 표시. */}
+      {/* (PR-F3) 미디어 — 비디오는 풀스크린 모달 재생, 이미지는 정적 표시 (lightbox 후속). */}
       {item.mediaUrls.length > 0 ? (
         <FeedCardMedia mediaUrls={item.mediaUrls} styles={styles} />
       ) : null}

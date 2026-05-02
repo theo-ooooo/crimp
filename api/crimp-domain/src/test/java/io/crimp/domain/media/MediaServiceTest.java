@@ -138,16 +138,14 @@ class MediaServiceTest {
         assertThat(asset.getByteSize()).isEqualTo(12345L);
         assertThat(asset.getWidth()).isEqualTo(1920);
         assertThat(asset.getHeight()).isEqualTo(1080);
-        assertThat(asset.getCdnUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA.jpg");
-        assertThat(result.cdnUrl()).isEqualTo(asset.getCdnUrl());
-        // [PR #90 리뷰 I1] s3Key 가 응답에 노출되어 클라가 cdnUrl null 케이스에서 별도 처리 가능.
+        // cdn URL 은 응답 시점에 base + s3Key 로 합성 — DB 에 저장하지 않음.
+        assertThat(result.cdnUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA.jpg");
         assertThat(result.s3Key()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
     }
 
     @Test
     void completeUpload_cdnBaseUrlEmpty_returnsNullCdnUrl() {
-        // [PR #90 리뷰 I1] cdn-base-url 이 비어있으면 cdnUrl=null. raw s3Key 가 클라에서 fetch URL 로
-        // 잘못 사용되는 사고 방지.
+        // cdn-base-url 이 비어있으면 응답 cdnUrl=null. 클라는 s3Key 로 별도 처리.
         var noCdnProps = new AppProperties("Crimp", "test", null,
                 new AppProperties.Media("", 600));
         var noCdnService = new MediaService(repo, presigner, noCdnProps);
@@ -161,7 +159,8 @@ class MediaServiceTest {
 
         assertThat(result.cdnUrl()).isNull();
         assertThat(result.s3Key()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
-        assertThat(asset.getCdnUrl()).isNull();
+        // entity 자체는 status 만 변경 — URL 은 DB 에 보존하지 않음.
+        assertThat(asset.getStatus()).isEqualTo(MediaStatus.READY);
     }
 
     @Test
@@ -182,7 +181,7 @@ class MediaServiceTest {
         MediaAsset asset = MediaAsset.createUploading("01HMEDIA", 7L, MediaKind.IMAGE,
                 "image/jpeg", "media/2026-04-28/01HMEDIA.jpg");
         setId(asset, 100L);
-        asset.markReady("https://cdn.test/...", null, null);
+        asset.markReady(null);
         when(repo.findById(100L)).thenReturn(Optional.of(asset));
 
         assertThatThrownBy(() -> service.completeUpload(100L, 7L, 100L, 1, 1, null))

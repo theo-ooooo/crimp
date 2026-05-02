@@ -147,13 +147,10 @@ public class FeedPostRepositoryCustomImpl implements FeedPostRepositoryCustom {
                         pm.id.postId,
                         pm.seq,
                         m.kind,
-                        m.cdnUrl,
-                        m.thumbnailCdnUrl))
+                        m.s3Key))
                 .from(pm)
                 .join(m).on(pm.id.mediaId.eq(m.id))
-                // (PR #119 리뷰 I1) status=READY 필터로 명시적 invariant 화. 현재는 cdnUrl
-                // null 가드가 자연 차단하지만, markFailed() 가 cdnUrl 을 비우지 않아
-                // READY → FAILED 전환 시 leak 가능성을 차단.
+                // status=READY 만 노출. UPLOADING / PROCESSING / FAILED 모두 클라에 흘리지 않음.
                 .where(pm.id.postId.in(feedPostIds).and(m.status.eq(MediaStatus.READY)))
                 .orderBy(pm.id.postId.asc(), pm.seq.asc())
                 .fetch();
