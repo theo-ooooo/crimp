@@ -86,6 +86,11 @@ export type LogAttemptSheetProps = {
    */
   attachedMediaId?: number | null;
   /**
+   * (PR #115 후속) 업로드 진행 중 상태 — 캡처 후 presign+S3 PUT+complete 완료 전까지.
+   * 시트 안에서 인라인 spinner 표시 (별 Modal 은 nested 겹침으로 안 보였음).
+   */
+  uploading?: boolean;
+  /**
    * 첨부 표시·영구 연결 상태에서 사용자가 "다시 촬영" 같은 액션으로 미디어를 해제할 때
    * 부모 상태 (uploaded media) 를 비우도록 알림. 본 PR 에선 호출 진입점만 마련, 실제
    * UI 토글은 후속에서 보강.
@@ -100,6 +105,7 @@ export function LogAttemptSheet({
   onClose,
   onCamera,
   attachedMediaId = null,
+  uploading = false,
   onClearMedia,
 }: LogAttemptSheetProps): JSX.Element {
   const theme = useTokens();
@@ -298,7 +304,19 @@ export function LogAttemptSheet({
             {/* Camera CTA */}
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>{t('session.log.mediaLabel')}</Text>
-              {attachedMediaId !== null ? (
+              {uploading ? (
+                // (PR #115 후속) 업로드 진행 중 — 카메라 CTA 자리를 spinner + 라벨로 대체.
+                // 사용자가 캡처 직후 '아무 반응 없음' 을 느꼈던 회귀 차단. 별 Modal 오버레이는
+                // LogAttemptSheet Modal 위에 nested 라 iOS 가 가려서 의미 없었음.
+                <View style={styles.attachedRow}>
+                  <View style={styles.attachedBadge}>
+                    <ActivityIndicator color={theme.accent.base} />
+                    <Text style={styles.attachedLabel}>
+                      {t('session.log.uploading')}
+                    </Text>
+                  </View>
+                </View>
+              ) : attachedMediaId !== null ? (
                 // [PR #92, F5 PR-3] 미디어 첨부 완료 — 두 셀 대신 첨부 표시 + 다시 촬영 버튼.
                 <View style={styles.attachedRow}>
                   <View style={styles.attachedBadge}>

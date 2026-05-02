@@ -49,6 +49,9 @@ importers:
       react-native-bootsplash:
         specifier: ^6.3.12
         version: 6.3.12(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1)
+      react-native-config:
+        specifier: ^1.6.1
+        version: 1.6.1(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1)
       react-native-get-random-values:
         specifier: ^1.11.0
         version: 1.11.0(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))
@@ -3519,6 +3522,16 @@ packages:
       react: '*'
       react-native: '*'
 
+  react-native-config@1.6.1:
+    resolution: {integrity: sha512-HvKtxr6/Tq3iMdFx5REYZsjCtPi0RxQOMCs15+DqrUPTNFtWHuEuh+zw7fJp+dmuO79YMfdtlsPWIGTHtaXwjg==}
+    peerDependencies:
+      react: '*'
+      react-native: '*'
+      react-native-windows: '>=0.61'
+    peerDependenciesMeta:
+      react-native-windows:
+        optional: true
+
   react-native-get-random-values@1.11.0:
     resolution: {integrity: sha512-4BTbDbRmS7iPdhYLRcz3PGFIpFJBwNZg9g42iwa2P6FOv9vZj/xJc678RZXnLNZzd0qd7Q3CCF6Yd+CU2eoXKQ==}
     peerDependencies:
@@ -5881,9 +5894,7 @@ snapshots:
     transitivePeerDependencies:
       - '@babel/core'
       - '@babel/preset-env'
-      - bufferutil
       - supports-color
-      - utf-8-validate
 
   '@react-native/normalize-colors@0.75.4': {}
 
@@ -8804,6 +8815,11 @@ snapshots:
       - bare-buffer
       - react-native-b4a
       - supports-color
+
+  react-native-config@1.6.1(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1):
+    dependencies:
+      react: 18.3.1
+      react-native: 0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3)
 
   react-native-get-random-values@1.11.0(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3)):
     dependencies:

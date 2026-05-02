@@ -56,6 +56,7 @@ const iconDefs = {
   filter: { glyph: '\u2263', scale: 0.85 },
   trend: { glyph: '\u2197', scale: 0.9 },
   dots: { glyph: '\u22EF', scale: 0.95 },
+  flip: { glyph: '\u21BB', scale: 0.95 }, // 카메라 flip
   target: { glyph: '\u25CE', scale: 0.9 },
   heart: { glyph: '\u2661', fillGlyph: '\u2665', scale: 0.95 }, // ♡ → ♥ (fill)
   chat: { glyph: '\u2750', scale: 0.85 }, // ❐ 말풍선 근사 (모노크롬 박스)
@@ -138,6 +139,7 @@ export const CrimpIcon: Record<IconName, (props: IconProps) => JSX.Element> = {
   filter: createIcon('filter'),
   trend: createIcon('trend'),
   dots: createIcon('dots'),
+  flip: createIcon('flip'),
   target: createIcon('target'),
   heart: createIcon('heart'),
   chat: createIcon('chat'),

@@ -24,9 +24,13 @@ primary_region = "nrt"  # Tokyo — 한국 사용자 latency 최적
 [http_service]
   internal_port       = 8080
   force_https         = true
-  auto_stop_machines  = "stop"  # idle 시 자동 정지 (staging 비용 절감)
-  auto_start_machines = true
-  min_machines_running = 0
+  # (PR #115 후속) auto_stop=false + min_machines_running=1 로 cold-start 제거.
+  # 사유: shared-cpu-1x 환경에서 JVM 부팅이 ~4.5분 → auto-stop 후 새 요청이 PR03
+  # ('no healthy instances') 으로 떨어짐. staging 은 항상 켜두는 게 비용 < 디버깅
+  # 가치. 운영(prod)도 cold-start 회피 위해 동일 패턴 권장 (HA 위해 ≥2 권장).
+  auto_stop_machines   = false
+  auto_start_machines  = true
+  min_machines_running = 1
 
   [http_service.concurrency]
     type       = "requests"
@@ -34,20 +38,24 @@ primary_region = "nrt"  # Tokyo — 한국 사용자 latency 최적
     hard_limit = 250
 
 # 헬스체크 — Spring Actuator /actuator/health.
+# grace_period 5분: JVM 첫 부팅이 ~4.5분 걸려 (shared-cpu-1x), 이전 60s 로는 부팅 중에
+# unhealthy 마킹돼 proxy 가 못 잡음. 한 번 부팅된 후엔 이 grace 무관.
 [[http_service.checks]]
   protocol      = "http"
   method        = "GET"
   path          = "/actuator/health"
   interval      = "30s"
   timeout       = "5s"
-  grace_period  = "60s"
+  grace_period  = "5m"
 
-# 머신 사양 — staging 은 1 vCPU / 1GB. JVM 최소 권장치.
+# 머신 사양 — staging 은 shared-cpu-2x / 1GB. shared-cpu-1x 의 throttled 베이스라인이
+# JVM JIT compilation 을 너무 늦춰 (>4분) cold-start 가 비현실적이라 한 단계 ↑.
+# 메모리는 1GB 유지 (JVM MaxRAMPercentage=75 → ~768MB heap, 스타트업·평상시 충분).
 [[vm]]
-  size        = "shared-cpu-1x"
+  size        = "shared-cpu-2x"
   memory      = "1gb"
   cpu_kind    = "shared"
-  cpus        = 1
+  cpus        = 2
 
 # 배포 전략 — rolling 으로 다운타임 최소화. staging 은 1 머신이라 immediate 도 무방.
 [deploy]

@@ -81,9 +81,67 @@ export function CameraSheet({
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
   const cameraRef = useRef<Camera>(null);
-  const device = useCameraDevice('back');
+  // (PR #115 후속) 카메라 flip — back/front 토글. 사용자 피드백으로 우상단 메뉴를 정적
+  // dots 에서 동작하는 flip 버튼으로 교체.
+  const [cameraPosition, setCameraPosition] = useState<'back' | 'front'>('back');
+  // (PR #115 후속) physicalDevices 명시 — vision-camera 의 useCameraDevice('back') 기본값은
+  // 'best' 단일 wide-angle 디바이스를 고를 수 있어 minZoom=1 로 떨어지고 0.5× 가 적용되지
+  // 않는다. ultrawide + wide + telephoto 3종을 모두 묶은 multi-cam **virtual device** 를
+  // 명시적으로 요청해야 minZoom=0.5 가 노출되어 0.5× → ultrawide 렌즈 자동 스위치 동작.
+  // front 는 일반적으로 단일 wide 라 hint 무영향 (있어도 안전).
+  const device = useCameraDevice(cameraPosition, {
+    physicalDevices: [
+      'ultra-wide-angle-camera',
+      'wide-angle-camera',
+      'telephoto-camera',
+    ],
+  });
   const cameraPerm = useCameraPermission();
   const micPerm = useMicrophonePermission();
+
+  // (PR #115 후속) 줌 컨트롤 — vision-camera 의 controlled `zoom` prop 사용.
+  //
+  // ⚠️ 좌표계 주의 — multi-cam virtual device 의 vision-camera `zoom` 값은 **가장 넓은
+  // 렌즈(ultrawide) 의 native FOV 가 1.0** 이고, neutral(=wide) 은 보통 2.0, 사용자가
+  // 부르는 "2×" 는 약 4.0 이다 (== neutralZoom × userMultiplier).
+  // iPhone Camera 앱 UI 와 동일한 사용자 친화 레이블 (0.5×/1×/2×/3×) 을 그대로 보여주려면
+  // user-zoom × neutralZoom = device-zoom 변환이 필요. 사용자 피드백:
+  // "최초 1배가아니라 2배로 잡히고 0.5는 클릭도안됨, 1배가 0.5배줌인듯" — 좌표계 미변환
+  // 회귀.
+  const [zoom, setZoom] = useState<number>(1);
+  // 디바이스 변경 (시트 재진입 등) 시 사용자 기준 1× = neutralZoom 으로 리셋.
+  useEffect(() => {
+    if (device) {
+      setZoom(device.neutralZoom ?? 1);
+    }
+  }, [device]);
+  const zoomLevels = useMemo(() => {
+    if (!device) return [1] as readonly number[];
+    const neutral = device.neutralZoom ?? 1;
+    const max = device.maxZoom ?? 1;
+    // 사용자 기준 [0.5, 1, 2, 3] 중 디바이스가 처리 가능한 (user × neutral ≤ max) 것만 노출.
+    return [0.5, 1, 2, 3].filter((u) => u * neutral <= max);
+  }, [device]);
+
+  // 사용자 기준 zoom (예: 0.5/1/2/3) → 디바이스 zoom 좌표로 변환 + min/max 클램프.
+  const applyZoom = useCallback(
+    (userZoom: number) => {
+      if (!device) return;
+      const neutral = device.neutralZoom ?? 1;
+      const min = device.minZoom ?? 1;
+      const max = device.maxZoom ?? 1;
+      const target = Math.max(min, Math.min(max, userZoom * neutral));
+      setZoom(target);
+    },
+    [device],
+  );
+
+  // 칩 active 비교를 위해 현재 zoom 을 사용자 좌표로 환산.
+  const currentUserZoom = useMemo(() => {
+    if (!device) return 1;
+    const neutral = device.neutralZoom ?? 1;
+    return zoom / neutral;
+  }, [zoom, device]);
 
   // [PR #100, F5 PR-B] 카메라/마이크/위치 묶음 권한 체크 + 인트로 모달.
   // visible 일 때만 active — 시트 닫혀있을 때 불필요한 OS 호출 방지.
@@ -117,6 +175,8 @@ export function CameraSheet({
   // 사후 발동해도 onCaptured 를 호출하지 않도록 표시. 사용자가 "취소했는데 캡처 Alert"
   // 가 뜨는 회귀를 차단.
   const cancelRequestedRef = useRef(false);
+  // (PR #115 후속) 10분 자동 컷오프 타이머 핸들 — start 시 set, stop/finish/error/unmount 시 clear.
+  const maxDurationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // 영상 모드인데 mic 권한이 없으면 사운드 없이 녹화 — 권한 요청은 시트 진입 시 한 번 시도.
   const audioEnabled = mode === 'video' && micPerm.hasPermission;
 
@@ -154,11 +214,26 @@ export function CameraSheet({
       cancelRequestedRef.current = true;
       cameraRef.current?.stopRecording().catch(() => undefined);
       setRecording(false);
+      // (PR #115 후속) 시트 닫힘 → max-duration 타이머도 함께 정리.
+      if (maxDurationTimerRef.current) {
+        clearTimeout(maxDurationTimerRef.current);
+        maxDurationTimerRef.current = null;
+      }
     }
     if (!visible && pending) {
       setPending(null);
     }
   }, [visible, recording, pending]);
+
+  // unmount 시 잔류 타이머 정리.
+  useEffect(() => {
+    return () => {
+      if (maxDurationTimerRef.current) {
+        clearTimeout(maxDurationTimerRef.current);
+        maxDurationTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const handlePhoto = useCallback(async () => {
     if (busy || !cameraRef.current) return;
@@ -198,6 +273,11 @@ export function CameraSheet({
     setBusy(true);
     setRecording(true);
     cancelRequestedRef.current = false;
+    // (PR #115 후속) 10분 자동 컷오프 — vision-camera 의 maxDuration 옵션 사용.
+    // Apple Photo 의 ProRes / 일반 사용자 영상 기준 10분이 합리적 상한 (S3/CloudFront 비용 +
+    // FeedPost video duration 상한 동시 충족). 한도 도달 시 vision-camera 가 자동으로
+    // onRecordingFinished 호출.
+    const MAX_RECORDING_SECONDS = 600;
     cameraRef.current.startRecording({
       onRecordingFinished: async (video) => {
         try {
@@ -229,15 +309,30 @@ export function CameraSheet({
           setBusy(false);
           setRecording(false);
           cancelRequestedRef.current = false;
+          if (maxDurationTimerRef.current) {
+            clearTimeout(maxDurationTimerRef.current);
+            maxDurationTimerRef.current = null;
+          }
         }
       },
       onRecordingError: (err: CameraCaptureError) => {
         setBusy(false);
         setRecording(false);
         cancelRequestedRef.current = false;
+        if (maxDurationTimerRef.current) {
+          clearTimeout(maxDurationTimerRef.current);
+          maxDurationTimerRef.current = null;
+        }
         Alert.alert(t('session.log.cameraError'), err.message);
       },
     });
+    // vision-camera 4.x 의 RecordVideoOptions 에 maxDuration 미지원 → JS 측 setTimeout
+    // 으로 자동 stopRecording 트리거. 10분 도달 시 onRecordingFinished 가 호출되어
+    // 정상 캡처 흐름으로 흡수됨 (잘리지 않은 만큼 저장).
+    maxDurationTimerRef.current = setTimeout(() => {
+      maxDurationTimerRef.current = null;
+      cameraRef.current?.stopRecording().catch(() => undefined);
+    }, MAX_RECORDING_SECONDS * 1000);
   }, [busy]);
 
   const handleStopRecording = useCallback(async () => {
@@ -337,10 +432,18 @@ export function CameraSheet({
             <View style={styles.recSpacer} />
           )}
 
-          <View style={styles.iconBtn}>
-            {/* 추후 flip 카메라용 — 현재는 정적 아이콘 */}
-            <CrimpIcon.dots size={20} color={CAMERA_FG} />
-          </View>
+          <Pressable
+            onPress={() =>
+              setCameraPosition((prev) => (prev === 'back' ? 'front' : 'back'))
+            }
+            style={styles.iconBtn}
+            accessibilityRole="button"
+            accessibilityLabel={t('session.log.cameraFlip')}
+            hitSlop={8}
+            disabled={recording}
+          >
+            <CrimpIcon.flip size={20} color={CAMERA_FG} />
+          </Pressable>
         </View>
 
         {pending ? (
@@ -376,6 +479,7 @@ export function CameraSheet({
                     photo={mode === 'photo'}
                     video={mode === 'video'}
                     audio={audioEnabled}
+                    zoom={zoom}
                   />
                   {/* focus reticle */}
                   <View style={styles.reticle} pointerEvents="none" />
@@ -387,6 +491,31 @@ export function CameraSheet({
                         : t('session.log.cameraPhotoTitle')}
                     </Text>
                   </View>
+                  {/* (PR #115 후속) 줌 셀렉터 — viewfinder 위, shutter 바로 위쪽. */}
+                  {zoomLevels.length > 1 ? (
+                    <View style={styles.zoomBar} pointerEvents="auto">
+                      {zoomLevels.map((z) => {
+                        // active 비교는 사용자 좌표 기준 (currentUserZoom). vision-camera
+                        // 의 raw zoom 은 multi-cam 가상 디바이스에서 neutral 배수라 직접 비교 X.
+                        const active = Math.abs(currentUserZoom - z) < 0.05;
+                        return (
+                          <Pressable
+                            key={z}
+                            onPress={() => applyZoom(z)}
+                            style={[styles.zoomChip, active && styles.zoomChipActive]}
+                            accessibilityRole="button"
+                            accessibilityLabel={`${z}x zoom`}
+                            accessibilityState={{ selected: active }}
+                            hitSlop={6}
+                          >
+                            <Text style={[styles.zoomChipLabel, active && styles.zoomChipLabelActive]}>
+                              {z}×
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  ) : null}
                 </>
               )}
             </View>
@@ -686,6 +815,38 @@ function makeStyles(theme: Theme) {
       fontSize: 12,
       fontWeight: fontWeight.bold,
       color: CAMERA_FG,
+    },
+    // (PR #115 후속) 줌 셀렉터 — viewfinder 하단 중앙, shutter 위쪽.
+    zoomBar: {
+      position: 'absolute',
+      bottom: space[4],
+      alignSelf: 'center',
+      flexDirection: 'row',
+      gap: space[2],
+      paddingHorizontal: space[3],
+      paddingVertical: space[2],
+      backgroundColor: overlayBg,
+      borderRadius: radius.full,
+    },
+    zoomChip: {
+      minWidth: 36,
+      paddingHorizontal: space[3],
+      paddingVertical: space[1],
+      borderRadius: radius.full,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    zoomChipActive: {
+      backgroundColor: theme.accent.base,
+    },
+    zoomChipLabel: {
+      fontFamily,
+      fontSize: 13,
+      fontWeight: fontWeight.semibold,
+      color: CAMERA_FG,
+    },
+    zoomChipLabelActive: {
+      color: theme.accent.on,
     },
     bottomBar: {
       paddingHorizontal: space[6],

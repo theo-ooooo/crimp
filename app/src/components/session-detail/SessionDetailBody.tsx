@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Modal, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 
 import { PrimaryButton, SecondaryButton, Skeleton } from '@/components/common/primitives';
 import { CameraSheet, LogAttemptSheet, type CameraMode } from '@/components/common/session';
@@ -134,15 +134,13 @@ export function SessionDetailBody(props: Props): JSX.Element {
             onClose={() => setLogSheetOpen(false)}
             onCamera={(mode) => onCameraMode(mode)}
             attachedMediaId={uploadedMediaId}
+            uploading={uploading}
             onClearMedia={onClearMedia}
           />
           <CameraSheet visible={cameraOpen} mode={cameraMode} onClose={closeCamera} onCaptured={onCaptured} />
-          <Modal visible={uploading} transparent animationType="fade" statusBarTranslucent>
-            <View style={styles.uploadingOverlay} pointerEvents="auto">
-              <ActivityIndicator size="large" color={textColor} />
-              <Text style={styles.uploadingLabel}>{t('session.log.uploading')}</Text>
-            </View>
-          </Modal>
+          {/* (PR #115 후속) 업로드 진행 표시는 LogAttemptSheet 안의 인라인 spinner 로 통합.
+              여기서 별 <Modal> 을 띄우면 LogAttemptSheet Modal 위 nested 라 iOS 가 가려
+              사용자가 '아무 반응 없음' 으로 인지하던 회귀 차단. */}
         </>
       ) : null}
     </ScrollView>
