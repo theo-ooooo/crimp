@@ -278,6 +278,47 @@ class AttemptServiceTest {
     }
 
     @Test
+    void update_falls_back_to_session_gym_when_attempt_and_command_gymId_are_null() {
+        SessionAttempt a = attempt(1L, "01HATT", 100L, AttemptResult.TRY);
+        ClimbingSession s = session(100L, "01HSESS", 42L, false);
+        setField(s, "gymId", 77L);
+        when(attemptRepo.findByExtId("01HATT")).thenReturn(Optional.of(a));
+        when(sessionRepo.findById(100L)).thenReturn(Optional.of(s));
+        when(feedPostRepo.findByAttemptId(1L)).thenReturn(Optional.empty());
+
+        var cmd = new UpdateAttemptCommand(
+                null, null, null, null,
+                AttemptResult.SEND, null, null, null, null, null);
+        var view = service.update(42L, "01HATT", cmd);
+
+        assertThat(view.gymId()).isEqualTo(77L);
+        ArgumentCaptor<FeedPost> postCap = ArgumentCaptor.forClass(FeedPost.class);
+        verify(feedPostRepo).save(postCap.capture());
+        assertThat(postCap.getValue().getGymId()).isEqualTo(77L);
+    }
+
+    @Test
+    void update_preserves_existing_attempt_gym_when_command_gymId_is_null() {
+        SessionAttempt a = attempt(1L, "01HATT", 100L, AttemptResult.TRY);
+        a.updateGymId(66L);
+        ClimbingSession s = session(100L, "01HSESS", 42L, false);
+        setField(s, "gymId", 77L);
+        when(attemptRepo.findByExtId("01HATT")).thenReturn(Optional.of(a));
+        when(sessionRepo.findById(100L)).thenReturn(Optional.of(s));
+        when(feedPostRepo.findByAttemptId(1L)).thenReturn(Optional.empty());
+
+        var cmd = new UpdateAttemptCommand(
+                null, null, null, null,
+                AttemptResult.SEND, null, null, null, null, null);
+        var view = service.update(42L, "01HATT", cmd);
+
+        assertThat(view.gymId()).isEqualTo(66L);
+        ArgumentCaptor<FeedPost> postCap = ArgumentCaptor.forClass(FeedPost.class);
+        verify(feedPostRepo).save(postCap.capture());
+        assertThat(postCap.getValue().getGymId()).isEqualTo(66L);
+    }
+
+    @Test
     void log_null_holdColor_keeps_entity_holdColor_null() {
         // [PR #93 리뷰 S2] holdColor 안 보낸 경우 entity 의 holdColor 가 null 로 유지.
         ClimbingSession s = session(100L, "01HSESS", 42L, false);

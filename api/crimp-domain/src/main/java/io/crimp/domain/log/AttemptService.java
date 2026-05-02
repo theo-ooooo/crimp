@@ -150,8 +150,11 @@ public class AttemptService {
                     "attempts must be between 1 and " + SessionAttempt.MAX_ATTEMPTS);
         }
         if (cmd.routeId() != null) attempt.updateRoute(cmd.routeId());
-        Long gymId = cmd.gymId() != null ? cmd.gymId() : session.getGymId();
-        if (gymId != null) attempt.updateGymId(gymId);
+        if (cmd.gymId() != null) {
+            attempt.updateGymId(cmd.gymId());
+        } else if (attempt.getGymId() == null && session.getGymId() != null) {
+            attempt.updateGymId(session.getGymId());
+        }
         if (cmd.gradeValue() != null) attempt.updateGradeValue(cmd.gradeValue());
         if (cmd.gradeNumeric() != null) attempt.updateGradeNumeric(cmd.gradeNumeric());
         if (cmd.result() != null) attempt.updateResult(cmd.result());
