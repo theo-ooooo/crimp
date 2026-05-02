@@ -180,18 +180,19 @@ export function VideoPosterModal({
     onRequestUpload(null);
   }, [onRequestUpload]);
 
-  if (!visible || !video) {
-    return null;
-  }
-
+  // RN <Modal> 의 onDismiss 는 Modal 인스턴스가 dismissed 될 때만 호출. 부모 컴포넌트가
+  // 조건부 마운트 (`return null`) 로 Modal 을 unmount 시키면 콜백이 누락되어 다음 시리얼라이즈
+  // 흐름 (LogAttemptSheet 재오픈) 이 끊긴다. 따라서 Modal 자체는 항상 마운트한 채
+  // visible prop 으로 표시 여부만 토글.
   return (
     <Modal
-      visible={visible}
+      visible={visible && video != null}
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={skip}
       onDismiss={onDismissed}
     >
+      {video == null ? null : (
       <View style={[styles.root, { backgroundColor: theme.bg }]}>
         <Text style={[styles.title, { color: theme.text }]} accessibilityRole="header">
           {t('session.log.posterTitle')}
@@ -296,6 +297,7 @@ export function VideoPosterModal({
           </Text>
         </Pressable>
       </View>
+      )}
     </Modal>
   );
 }
