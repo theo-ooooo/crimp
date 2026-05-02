@@ -1,5 +1,6 @@
 import { completeMedia, presignMedia } from '@/lib/api/endpoints';
 import type { CapturedMedia } from '@/lib/camera/types';
+import { compressCapturedMedia } from '@/lib/media/compress';
 import type { CompleteResponse } from '@/lib/schemas/media';
 
 /**
@@ -23,25 +24,29 @@ export async function uploadCapturedMedia(
   captured: CapturedMedia,
   signal?: AbortSignal,
 ): Promise<CompleteResponse> {
+  // 0) (PR-F1) 압축 — 이미지 1920px JPEG q80 / 비디오 ~720p 2Mbps. 실패·확장 시 원본 유지.
+  // mime/byteSize 가 바뀔 수 있어 presign 에 전달할 값은 압축 결과 기준.
+  const ready = await compressCapturedMedia(captured);
+
   // 1) presign — kind/mime/byteSize 백엔드 검증 (size 한도 등) 후 URL 발급
   const presigned = await presignMedia(
     accessToken,
-    { kind: captured.kind, mime: captured.mime, byteSize: captured.byteSize },
+    { kind: ready.kind, mime: ready.mime, byteSize: ready.byteSize },
     signal,
   );
 
   // 2) S3 PUT — 로컬 파일을 Blob 으로 직접 업로드
-  await putToS3(presigned.uploadUrl, captured.uri, captured.mime, signal);
+  await putToS3(presigned.uploadUrl, ready.uri, ready.mime, signal);
 
   // 3) complete — 메타 보고 + READY 전환
   const completed = await completeMedia(
     accessToken,
     presigned.id,
     {
-      byteSize: captured.byteSize,
-      width: captured.width,
-      height: captured.height,
-      durationMs: captured.durationMs,
+      byteSize: ready.byteSize,
+      width: ready.width,
+      height: ready.height,
+      durationMs: ready.durationMs,
     },
     signal,
   );
