@@ -96,7 +96,12 @@
       "submitting": "Starting...",
       "errorTitle": "Failed to start session",
       "selectedGymLabel": "Selected gym",
-      "clearGymCta": "Clear"
+      "clearGymCta": "Clear",
+      "mainGymLabel": "Main gym",
+      "useMainGymCta": "Start at main gym",
+      "useOtherGymCta": "Other gym",
+      "emptyGymTitle": "No gyms found",
+      "emptyGymBody": "Try a different gym name."
     },
     "detail": {
       "title": "Session detail",

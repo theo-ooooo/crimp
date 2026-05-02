@@ -1,8 +1,5 @@
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import React, { useMemo } from 'react';
-import {
-  Text,
-} from 'react-native';
 
 import { AuthHydrationGate } from '@/components/common/screen/AuthHydrationGate';
 import { StartSessionBody } from '@/components/start-session/StartSessionBody';
@@ -29,11 +26,22 @@ export default function StartSessionScreen(): JSX.Element {
   const styles = useMemo(() => makeStartSessionStyles(theme), [theme]);
   const {
     mutation,
+    mainGym,
+    activeGym,
     selectedGymName,
     hasSelectedGym,
-    gymName,
-    setGymName,
+    searchMode,
+    searchText,
+    setSearchText,
+    gyms,
+    gymQuery,
+    canSubmit,
     clearSelectedGym,
+    useOtherGym,
+    useMainGym,
+    selectGym,
+    onEndReached,
+    refreshGyms,
     onSubmit,
   } = useStartSessionScreen(accessToken, route, navigation);
 
@@ -47,11 +55,26 @@ export default function StartSessionScreen(): JSX.Element {
       {() => (
         <StartSessionBody
           styles={styles}
-          gymName={gymName}
-          setGymName={setGymName}
+          mainGym={mainGym}
+          activeGym={activeGym}
           selectedGymName={selectedGymName}
           hasSelectedGym={hasSelectedGym}
+          searchMode={searchMode}
+          searchText={searchText}
+          setSearchText={setSearchText}
+          gyms={gyms}
+          gymSearchLoading={gymQuery.isLoading}
+          gymSearchFetchingNext={gymQuery.isFetchingNextPage}
+          gymSearchRefreshing={gymQuery.isRefetching}
+          gymSearchHasMore={Boolean(gymQuery.hasNextPage)}
+          gymSearchError={gymQuery.error ?? null}
+          canSubmit={canSubmit}
           clearSelectedGym={clearSelectedGym}
+          useOtherGym={useOtherGym}
+          useMainGym={useMainGym}
+          onSelectGym={selectGym}
+          onEndReached={onEndReached}
+          refreshGyms={refreshGyms}
           onSubmit={onSubmit}
           isPending={mutation.isPending}
           error={mutation.error ?? null}
@@ -73,4 +96,3 @@ function formatNow(): string {
     return '';
   }
 }
-
