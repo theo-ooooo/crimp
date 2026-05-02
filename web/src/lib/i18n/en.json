@@ -111,6 +111,16 @@
     "statsErrorTitle": "Failed to load stats",
     "empty": "-",
     "errorTitle": "Failed to load your profile",
+    "edit": {
+      "title": "Edit profile",
+      "cta": "Edit profile",
+      "nicknameHelp": "Nickname must be 2-30 characters.",
+      "bioPlaceholder": "Add your climbing style or current goal",
+      "bioHelp": "Bio can be up to 300 characters.",
+      "levelHelp": "Pick a grade from V0 to V12.",
+      "saving": "Saving...",
+      "errorTitle": "Failed to save profile"
+    },
     "mainGym": {
       "title": "My gym",
       "unset": "Not set",

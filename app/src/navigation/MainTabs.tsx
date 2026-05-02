@@ -18,6 +18,7 @@ import { useTokens } from '@/lib/useTokens';
 import FeedScreen from '@/screens/FeedScreen';
 import GymDetailScreen from '@/screens/GymDetailScreen';
 import GymSearchScreen from '@/screens/GymSearchScreen';
+import ProfileEditScreen from '@/screens/ProfileEditScreen';
 import HomeScreen from '@/screens/HomeScreen';
 import ProfileScreen from '@/screens/ProfileScreen';
 import SessionDetailScreen from '@/screens/SessionDetailScreen';
@@ -139,6 +140,11 @@ function ProfileTabStack(): JSX.Element {
         name="Profile"
         component={ProfileScreen}
         options={{ title: t('profile.title') }}
+      />
+      <ProfileStack.Screen
+        name="ProfileEdit"
+        component={ProfileEditScreen}
+        options={{ title: t('profile.edit.title') }}
       />
     </ProfileStack.Navigator>
   );
