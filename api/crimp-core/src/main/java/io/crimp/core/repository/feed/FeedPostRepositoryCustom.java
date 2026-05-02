@@ -3,6 +3,9 @@ package io.crimp.core.repository.feed;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 
+import java.util.Collection;
+import java.util.List;
+
 /**
  * 피드(FeedPost 기반 projection) 커서 페이지네이션 쿼리.
  *
@@ -35,4 +38,13 @@ public interface FeedPostRepositoryCustom {
             Long cursor,
             Long gymIdFilter,
             Pageable pageable);
+
+    /**
+     * (PR-F2) 주어진 feed_post id 들에 대해 post_media 를 seq 순서로 + media_assets join 으로
+     * 한 번에 가져오는 batch fetch. 도메인 단계에서 postId 별로 그룹핑.
+     *
+     * @param feedPostIds 대상 feed_post id 집합 (비어있으면 빈 리스트 반환)
+     * @return seq 오름차순으로 정렬된 미디어 행. 동일 post 의 미디어가 연속으로 나옴.
+     */
+    List<FeedMediaRow> findFeedMediaForPosts(Collection<Long> feedPostIds);
 }

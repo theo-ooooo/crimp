@@ -4,6 +4,7 @@ import io.crimp.core.entity.enums.AttemptResult;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 
 /**
  * 피드 한 카드의 도메인 뷰.
@@ -27,6 +28,7 @@ import java.time.Instant;
  * @param comments      댓글 수 (FeedPost.comment_count 디노멀 카운터)
  * @param liked         요청자가 좋아요 눌렀는지 여부
  * @param loggedAt      시도 기록 시각 또는 게시 시각 (시도 비종속이면 createdAt fallback)
+ * @param mediaUrls     post_media 의 seq 순서로 정렬된 미디어 (PR-F2). 없으면 빈 리스트 — null 미사용.
  */
 public record FeedItemView(
         String extId,
@@ -42,5 +44,6 @@ public record FeedItemView(
         long likes,
         long comments,
         boolean liked,
-        Instant loggedAt
+        Instant loggedAt,
+        List<FeedMediaItem> mediaUrls
 ) {}

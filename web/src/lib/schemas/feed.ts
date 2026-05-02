@@ -51,6 +51,23 @@ export const FeedItemSchema = z.object({
   /** 호출자(현재 사용자)가 이 포스트를 좋아요했는지. v2 (PR #56) 부터 추가. */
   liked: z.boolean(),
   loggedAt: z.string(),
+  /**
+   * (PR-F2) 피드 카드에 표시할 미디어. seq 순서로 정렬됨. CDN URL 이 없는 항목은
+   * 백엔드 단계에서 제외되므로 응답에는 항상 사용 가능한 URL 만 포함.
+   * 빈 배열 = 미디어 없음.
+   */
+  // (PR-F2 / 리뷰 B1) 백엔드는 항상 배열 (없으면 빈 배열). zod 의 .default/.optional/
+  // .catch/.preprocess 모두 z.infer 의 출력 타입에 부작용을 주거나 unknown 으로 떨어져,
+  // 소비측이 unconditional 로 접근 가능한 비-옵셔널 배열을 보장하지 못함. 결과적으로
+  // required 가 가장 깨끗 — 배포 순서를 백엔드 → 클라 (PR 머지 = 백엔드+클라 동시) 로
+  // 강제. PR 본문에도 "백엔드(이 PR) 배포 후 클라 머지/배포" 명시.
+  mediaUrls: z.array(
+    z.object({
+      kind: z.enum(['IMAGE', 'VIDEO']),
+      url: z.string().url(),
+      thumbnailUrl: z.string().url().nullable(),
+    }),
+  ),
 });
 
 export type FeedItem = z.infer<typeof FeedItemSchema>;

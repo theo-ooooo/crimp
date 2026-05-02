@@ -58,6 +58,18 @@ export const FeedItemSchema = z.object({
   liked: z.boolean(),
   // Instant ISO-8601 문자열로 수신.
   loggedAt: z.string(),
+  // (PR-F2) 미디어 — seq 순서. cdnUrl 이 null 인 항목은 백엔드가 제외하므로 안전한 url 만.
+  // (PR-F2 / 리뷰 B1) 백엔드는 항상 배열 (없으면 빈 배열). zod 의 .default/.optional/
+  // .catch/.preprocess 모두 출력 타입에 unknown 또는 optional 영향 → 소비측 비-옵셔널
+  // 보장 어려움. required 가 가장 깨끗하므로 배포 순서를 백엔드 → 클라 (이 PR 의 머지 =
+  // 백엔드와 클라가 동시에 develop 으로 들어감) 로 보장.
+  mediaUrls: z.array(
+    z.object({
+      kind: z.enum(['IMAGE', 'VIDEO']),
+      url: z.string().url(),
+      thumbnailUrl: z.string().url().nullable().optional(),
+    }),
+  ),
 });
 
 export type FeedItem = z.infer<typeof FeedItemSchema>;

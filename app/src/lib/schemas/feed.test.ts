@@ -57,6 +57,7 @@ describe('FeedItemSchema', () => {
     comments: 6,
     liked: false,
     loggedAt: '2026-04-25T07:00:00Z',
+    mediaUrls: [],
   };
 
   it('parses a full item', () => {
@@ -86,6 +87,7 @@ describe('FeedItemSchema', () => {
       comments: 0,
       liked: false,
       loggedAt: fullItem.loggedAt,
+      mediaUrls: [],
     };
     const parsed = FeedItemSchema.parse(partial);
     expect(parsed.gymName).toBeUndefined();
@@ -163,6 +165,7 @@ describe('FeedListSchema', () => {
           comments: 0,
           liked: false,
           loggedAt: '2026-04-25T00:00:00Z',
+          mediaUrls: [],
         },
       ],
       page: { nextCursor: 12345, size: 20 },
