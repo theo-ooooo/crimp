@@ -107,6 +107,15 @@ export const FeedPostCard: FC<FeedPostCardProps> = ({
         </p>
       ) : null}
 
+      {/* (PR-F3) 미디어 — 백엔드가 cdnUrl 보장한 항목만 도착, 빈 배열이면 미렌더. */}
+      {item.mediaUrls.length > 0 ? (
+        <FeedCardMedia
+          mediaUrls={item.mediaUrls}
+          note={item.note}
+          authorNickname={item.userNickname}
+        />
+      ) : null}
+
       {/* 푸터 (좋아요 · 댓글) */}
       <div className="mt-3 flex gap-[18px] border-t border-hairline pt-3">
         <button
@@ -143,6 +152,91 @@ export const FeedPostCard: FC<FeedPostCardProps> = ({
 // ─────────────────────────────────────────────────────────────
 // 내부 helpers
 // ─────────────────────────────────────────────────────────────
+
+/**
+ * (PR-F3) 피드 카드 미디어 렌더러.
+ *
+ * - 단일 항목: 전체 폭 4:5 (인스타-스타일) 표시.
+ * - 다중 항목: 가로 스크롤 (snap), 첫 항목은 항상 보이고 사용자가 좌우 스와이프.
+ * - 이미지: `<img loading="lazy">` 로 viewport 진입 시 로드.
+ * - 비디오: `<video controls poster preload="metadata">` — 첫 프레임 또는 thumbnailUrl 노출,
+ *   사용자가 재생 누르면 그때 stream. autoplay 금지 (모바일 데이터/배터리 보호).
+ */
+function FeedCardMedia({
+  mediaUrls,
+  note,
+  authorNickname,
+}: {
+  mediaUrls: FeedItem['mediaUrls'];
+  note: FeedItem['note'];
+  authorNickname: string;
+}): JSX.Element {
+  const single = mediaUrls.length === 1;
+  return (
+    <div
+      className={
+        single
+          ? 'overflow-hidden rounded-xl'
+          : 'flex snap-x snap-mandatory gap-2 overflow-x-auto rounded-xl'
+      }
+      role="group"
+      aria-label={`첨부 미디어 ${mediaUrls.length}개`}
+    >
+      {mediaUrls.map((m, i) => {
+        // 본문(note) 가 있으면 첫 80자를 alt 로, 없으면 작성자 + 인덱스 fallback. 빈 alt 는
+        // 데코레이션 의미라 본문 미디어엔 부적절 — 스크린 리더 컨텍스트 보장.
+        const trimmedNote = note?.trim().slice(0, 80);
+        const imageAlt = trimmedNote && trimmedNote.length > 0
+          ? trimmedNote
+          : `${authorNickname}의 사진 ${i + 1}`;
+        return (
+          <div
+            key={`${m.url}-${i}`}
+            className={
+              single
+                ? 'aspect-[4/5] w-full'
+                : 'aspect-[4/5] w-[80%] flex-none snap-center first:ml-0'
+            }
+          >
+            {m.kind === 'IMAGE' ? (
+              <img
+                src={m.url}
+                alt={imageAlt}
+                loading="lazy"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              // poster 가 비어있을 때 첫 프레임을 그리지 못하는 브라우저 (iOS Safari 등) 대비
+              // 컨테이너에 명시적 placeholder bg + 중앙 ▶ 오버레이. 사용자가 클릭하면 controls
+              // 가 활성화되어 재생 시작.
+              <div className="relative h-full w-full bg-neutral-200 dark:bg-neutral-800">
+                <video
+                  src={m.url}
+                  poster={m.thumbnailUrl ?? undefined}
+                  controls
+                  preload="metadata"
+                  playsInline
+                  className="h-full w-full object-cover"
+                  aria-label="동영상"
+                />
+                {!m.thumbnailUrl ? (
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 flex items-center justify-center"
+                  >
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-black/55 text-white">
+                      <span className="ml-0.5 text-xl leading-none">▶</span>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 /**
  * mock 의 stroke 하트 아이콘.

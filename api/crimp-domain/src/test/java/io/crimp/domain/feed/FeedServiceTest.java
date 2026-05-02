@@ -1,5 +1,6 @@
 package io.crimp.domain.feed;
 
+import io.crimp.common.config.AppProperties;
 import io.crimp.core.entity.enums.AttemptResult;
 import io.crimp.core.entity.enums.MediaKind;
 import io.crimp.core.entity.user.Profile;
@@ -32,6 +33,8 @@ import static org.mockito.Mockito.when;
 
 class FeedServiceTest {
 
+    private static final String TEST_CDN_BASE = "https://cdn.test";
+
     private FeedPostRepository feedRepository;
     private ProfileRepository profileRepository;
     private FeedService service;
@@ -40,7 +43,15 @@ class FeedServiceTest {
     void setUp() {
         feedRepository = mock(FeedPostRepository.class);
         profileRepository = mock(ProfileRepository.class);
-        service = new FeedService(feedRepository, profileRepository);
+        service = new FeedService(feedRepository, profileRepository, appPropsWithCdn(TEST_CDN_BASE));
+    }
+
+    private static AppProperties appPropsWithCdn(String cdnBaseUrl) {
+        return new AppProperties(
+                "crimp",
+                "test",
+                new AppProperties.Auth(900L, 1209600L, "crimp"),
+                new AppProperties.Media(cdnBaseUrl, 600L));
     }
 
     // --- size 정규화 ---
@@ -321,7 +332,7 @@ class FeedServiceTest {
         verify(feedRepository).findFeed(eq(7L), eq(FeedQueryMode.POPULAR), eq(null), eq(null), any());
     }
 
-    // --- mediaUrls 그룹핑 (PR #119 리뷰 I2) ---
+    // --- mediaUrls 그룹핑 + cdn-base-url 합성 ---
 
     @Test
     void media_urls_grouped_by_post_in_seq_order() {
@@ -331,41 +342,60 @@ class FeedServiceTest {
         when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
                 .thenReturn(slice(List.of(r1, r2), false));
         when(feedRepository.findFeedMediaForPosts(any())).thenReturn(List.of(
-                new FeedMediaRow(100L, (short) 0, MediaKind.IMAGE, "https://cdn/100-0.jpg", null),
-                new FeedMediaRow(100L, (short) 1, MediaKind.VIDEO, "https://cdn/100-1.mp4", "https://cdn/100-1-thumb.jpg"),
-                new FeedMediaRow(50L, (short) 0, MediaKind.IMAGE, "https://cdn/50-0.jpg", null)
+                new FeedMediaRow(100L, (short) 0, MediaKind.IMAGE, "media/100-0.jpg"),
+                new FeedMediaRow(100L, (short) 1, MediaKind.VIDEO, "media/100-1.mp4"),
+                new FeedMediaRow(50L, (short) 0, MediaKind.IMAGE, "media/50-0.jpg")
         ));
 
         FeedPage page = service.listFeed(1L, FeedFilter.POPULAR, null, null);
 
         assertThat(page.items()).hasSize(2);
-        // r1 (postId 100): seq 0 → 1 순
+        // r1 (postId 100): seq 0 → 1 순. URL = cdn-base + "/" + s3Key
         assertThat(page.items().get(0).mediaUrls()).hasSize(2);
-        assertThat(page.items().get(0).mediaUrls().get(0).url()).isEqualTo("https://cdn/100-0.jpg");
+        assertThat(page.items().get(0).mediaUrls().get(0).url())
+                .isEqualTo("https://cdn.test/media/100-0.jpg");
         assertThat(page.items().get(0).mediaUrls().get(0).kind()).isEqualTo(MediaKind.IMAGE);
-        assertThat(page.items().get(0).mediaUrls().get(1).url()).isEqualTo("https://cdn/100-1.mp4");
-        assertThat(page.items().get(0).mediaUrls().get(1).thumbnailUrl()).isEqualTo("https://cdn/100-1-thumb.jpg");
+        assertThat(page.items().get(0).mediaUrls().get(1).url())
+                .isEqualTo("https://cdn.test/media/100-1.mp4");
+        // 썸네일은 트랜스코드 도입 전까지 null.
+        assertThat(page.items().get(0).mediaUrls().get(1).thumbnailUrl()).isNull();
         // r2 (postId 50): 단 1건
         assertThat(page.items().get(1).mediaUrls()).hasSize(1);
-        assertThat(page.items().get(1).mediaUrls().get(0).url()).isEqualTo("https://cdn/50-0.jpg");
+        assertThat(page.items().get(1).mediaUrls().get(0).url())
+                .isEqualTo("https://cdn.test/media/50-0.jpg");
     }
 
     @Test
-    void media_urls_with_null_or_blank_cdn_are_excluded() {
-        // cdnUrl=null 인 row 는 응답에서 제외 (CDN 미설정 / 미완료 미디어 → 깨진 이미지 방지).
+    void media_urls_excluded_when_cdn_base_missing() {
+        // cdn-base-url 미설정 시 응답에서 모두 제외 — 클라가 깨진 이미지 표시하지 않도록.
+        FeedService noBase = new FeedService(feedRepository, profileRepository, appPropsWithCdn(null));
         FeedRow row = baseRow().withFeedPostId(100L).build();
         when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
                 .thenReturn(slice(List.of(row), false));
         when(feedRepository.findFeedMediaForPosts(any())).thenReturn(List.of(
-                new FeedMediaRow(100L, (short) 0, MediaKind.IMAGE, null, null),
-                new FeedMediaRow(100L, (short) 1, MediaKind.IMAGE, "  ", null),
-                new FeedMediaRow(100L, (short) 2, MediaKind.VIDEO, "https://cdn/ok.mp4", null)
+                new FeedMediaRow(100L, (short) 0, MediaKind.IMAGE, "media/100-0.jpg")
         ));
 
-        FeedPage page = service.listFeed(1L, FeedFilter.POPULAR, null, null);
+        FeedPage page = noBase.listFeed(1L, FeedFilter.POPULAR, null, null);
 
-        assertThat(page.items().get(0).mediaUrls()).hasSize(1);
-        assertThat(page.items().get(0).mediaUrls().get(0).url()).isEqualTo("https://cdn/ok.mp4");
+        assertThat(page.items().get(0).mediaUrls()).isEmpty();
+    }
+
+    @Test
+    void media_urls_with_trailing_slash_in_cdn_base_does_not_double_slash() {
+        // cdn-base-url 끝에 슬래시가 있어도 정확히 한 개 슬래시로 합성.
+        FeedService trailing = new FeedService(feedRepository, profileRepository, appPropsWithCdn("https://cdn.test/"));
+        FeedRow row = baseRow().withFeedPostId(100L).build();
+        when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
+                .thenReturn(slice(List.of(row), false));
+        when(feedRepository.findFeedMediaForPosts(any())).thenReturn(List.of(
+                new FeedMediaRow(100L, (short) 0, MediaKind.IMAGE, "media/x.jpg")
+        ));
+
+        FeedPage page = trailing.listFeed(1L, FeedFilter.POPULAR, null, null);
+
+        assertThat(page.items().get(0).mediaUrls().get(0).url())
+                .isEqualTo("https://cdn.test/media/x.jpg");
     }
 
     @Test

@@ -25,8 +25,11 @@ import java.util.Set;
  *   <li>{@link #presignUpload(long, MediaKind, String, long)} — 클라가 호출, S3 PUT URL + UPLOADING row 발급</li>
  *   <li>클라가 받은 URL 로 직접 업로드 (백엔드 경유 X)</li>
  *   <li>{@link #completeUpload(long, long, Long, Integer, Integer, Integer)} — 클라가 업로드 완료
- *       알림 + 메타데이터 (size/dim/duration). row 가 READY 로 전환되며 {@code cdn_url} 채워짐.</li>
+ *       알림 + 메타데이터 (size/dim/duration). row 가 READY 로 전환되며 응답에 cdn URL 합성.</li>
  * </ol>
+ *
+ * <p>URL 정책: DB 에는 {@code s3_key} 만 저장하고, 응답 시점마다 {@code app.media.cdn-base-url}
+ * 과 합성해 절대 URL 을 구성한다. CDN 도메인이 바뀌어도 backfill 불필요.
  *
  * <p>Phase 1 단순화: 영상도 PROCESSING 단계 없이 UPLOADING → READY 직행. 트랜스코드(MediaConvert)
  * 는 별도 PR 에서 추가 (Phase 1.5).
@@ -92,7 +95,8 @@ public class MediaService {
     }
 
     /**
-     * 업로드 완료 — 클라가 S3 PUT 성공 후 호출. 메타 업데이트 + READY 전환 + cdnUrl 계산.
+     * 업로드 완료 — 클라가 S3 PUT 성공 후 호출. 메타 업데이트 + READY 전환.
+     * 응답의 cdnUrl 은 {@code cdn-base-url} 과 {@code s3_key} 합성.
      *
      * @throws MediaException {@code MEDIA_NOT_FOUND}/{@code MEDIA_FORBIDDEN}/{@code MEDIA_INVALID_STATE}
      */
@@ -111,17 +115,16 @@ public class MediaService {
         }
 
         asset.applyUploadedMeta(byteSize, width, height, durationMs);
+        asset.markReady(null);
 
         String cdnUrl = buildCdnUrl(asset.getS3Key());
-        asset.markReady(cdnUrl, null, null);
-
         log.info("[media] upload complete id={} extId={} owner={} byteSize={} dim={}x{} duration={}ms",
                 asset.getId(), asset.getExtId(), callerUserId, byteSize, width, height, durationMs);
         return new CompleteResult(
                 asset.getId(), asset.getExtId(), asset.getKind(), asset.getStatus(),
                 asset.getMime(), asset.getByteSize(),
                 asset.getWidth(), asset.getHeight(), asset.getDurationMs(),
-                asset.getS3Key(), cdnUrl, asset.getThumbnailCdnUrl(), asset.getCreatedAt());
+                asset.getS3Key(), cdnUrl, null, asset.getCreatedAt());
     }
 
     private void validateMime(MediaKind kind, String mime) {
@@ -189,9 +192,8 @@ public class MediaService {
     }
 
     /**
-     * [PR #90 리뷰 I1] cdn-base-url 미설정 시 null 반환 — 클라가 raw s3Key 를 fetch URL 로
-     * 잘못 사용하는 사고 방지. 응답은 cdnUrl/s3Key 둘 다 노출하므로 클라는 cdnUrl 이 null 이면
-     * 별도 처리 (예: 자체 사이닝 GET URL 발급, 로컬은 직접 합성 등) 한다.
+     * cdn-base-url 미설정 시 null 반환 — 클라가 raw s3Key 를 fetch URL 로 잘못 사용하는 사고 방지.
+     * 응답은 cdnUrl/s3Key 둘 다 노출하므로 클라는 cdnUrl 이 null 이면 별도 처리한다.
      */
     private String buildCdnUrl(String s3Key) {
         String base = appProperties.media().cdnBaseUrl();

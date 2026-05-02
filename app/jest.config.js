@@ -8,6 +8,7 @@ module.exports = {
     '^@bam.tech/react-native-image-resizer$':
       '<rootDir>/jest.mocks/react-native-image-resizer.ts',
     '^react-native-compressor$': '<rootDir>/jest.mocks/react-native-compressor.ts',
+    '^react-native-video$': '<rootDir>/jest.mocks/react-native-video.ts',
     // (PR-F1) compress.ts 자체를 no-op 으로 매핑 — measureFileBytes 가 fetch 를 호출해
     // 기존 upload.test 의 'fetch 호출 안 함' 단정과 충돌.
     // babel-plugin-module-resolver 가 import 를 상대경로로 바꿀 수 있어 두 패턴 모두 매핑.
