@@ -19,7 +19,12 @@ export function useSessionDetailScreen(accessToken: string, extId: string) {
   const [logSheetOpen, setLogSheetOpen] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraMode, setCameraMode] = useState<CameraMode>('video');
-  const [uploading, setUploading] = useState(false);
+  // (PR #116 리뷰 I2) 압축 단계와 업로드 단계를 분리해 spinner 라벨 분기.
+  // 'compressing' 은 비디오 10분 짜리 압축이 30s+ 걸리는 동안 사용자가 '시트가 멈췄나'
+  // 오인하는 회귀 차단. CapturedMedia 가 도착하면 압축 → 업로드 순서로 phase 가 바뀜.
+  const [mediaPhase, setMediaPhase] = useState<'idle' | 'compressing' | 'uploading'>(
+    'idle',
+  );
   const [uploadedMediaId, setUploadedMediaId] = useState<number | null>(null);
 
   const session = sessionQuery.data;
@@ -51,11 +56,13 @@ export function useSessionDetailScreen(accessToken: string, extId: string) {
 
   const handleCaptured = async (captured: CapturedMedia) => {
     setCameraOpen(false);
-    // 캡처 성공 — log sheet 으로 복귀. 업로드는 백그라운드 진행.
+    // 캡처 성공 — log sheet 으로 복귀. 압축·업로드는 백그라운드 진행, mediaPhase 로 표시.
     setTimeout(() => setLogSheetOpen(true), SHEET_TRANSITION_MS);
-    setUploading(true);
+    setMediaPhase('compressing');
     try {
-      const completed = await uploadCapturedMedia(accessToken, captured);
+      const completed = await uploadCapturedMedia(accessToken, captured, {
+        onPhase: (phase) => setMediaPhase(phase),
+      });
       setUploadedMediaId(completed.id);
     } catch (e) {
       let body: string;
@@ -73,7 +80,7 @@ export function useSessionDetailScreen(accessToken: string, extId: string) {
       }
       Alert.alert(t('session.log.uploadFailed'), body);
     } finally {
-      setUploading(false);
+      setMediaPhase('idle');
     }
   };
 
@@ -97,7 +104,7 @@ export function useSessionDetailScreen(accessToken: string, extId: string) {
     setCameraOpen,
     cameraMode,
     setCameraMode,
-    uploading,
+    mediaPhase,
     uploadedMediaId,
     setUploadedMediaId,
     openCamera,

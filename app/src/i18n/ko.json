@@ -141,6 +141,7 @@
       "cameraPermissionRetry": "권한 다시 요청",
       "cameraPermissionSettings": "설정에서 권한 변경",
       "uploading": "업로드 중...",
+      "compressing": "압축 중...",
       "uploadFailed": "업로드 실패",
       "uploadFailedRetry": "다시 시도해주세요. 네트워크나 사이즈 한도(이미지 20MB / 영상 200MB) 를 확인해보세요.",
       "mediaAttached": "미디어 첨부됨",

@@ -34,7 +34,7 @@ type Props = {
   onCameraMode: (mode: CameraMode) => void;
   closeCamera: () => void;
   onCaptured: (captured: CapturedMedia) => Promise<void>;
-  uploading: boolean;
+  mediaPhase: 'idle' | 'compressing' | 'uploading';
   uploadedMediaId: number | null;
   onClearMedia: () => void;
   onEndSession: () => void;
@@ -63,7 +63,7 @@ export function SessionDetailBody(props: Props): JSX.Element {
     onCameraMode,
     closeCamera,
     onCaptured,
-    uploading,
+    mediaPhase,
     uploadedMediaId,
     onClearMedia,
     onEndSession,
@@ -134,7 +134,7 @@ export function SessionDetailBody(props: Props): JSX.Element {
             onClose={() => setLogSheetOpen(false)}
             onCamera={(mode) => onCameraMode(mode)}
             attachedMediaId={uploadedMediaId}
-            uploading={uploading}
+            mediaPhase={mediaPhase}
             onClearMedia={onClearMedia}
           />
           <CameraSheet visible={cameraOpen} mode={cameraMode} onClose={closeCamera} onCaptured={onCaptured} />

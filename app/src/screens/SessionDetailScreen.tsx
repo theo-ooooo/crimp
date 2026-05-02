@@ -85,7 +85,7 @@ function SessionDetailLoggedInContainer({
       }}
       closeCamera={detail.closeCamera}
       onCaptured={detail.handleCaptured}
-      uploading={detail.uploading}
+      mediaPhase={detail.mediaPhase}
       uploadedMediaId={detail.uploadedMediaId}
       onClearMedia={() => detail.setUploadedMediaId(null)}
       onEndSession={detail.endSessionAction}

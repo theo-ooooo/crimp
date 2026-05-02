@@ -13,7 +13,6 @@
  * 본 모듈을 호출하는 경로는 RN 컴포넌트/hook 안에서만 (jest 가 transform 안 함).
  */
 
-import { Platform } from 'react-native';
 import ImageResizer from '@bam.tech/react-native-image-resizer';
 import { Video, getFileSize } from 'react-native-compressor';
 
@@ -47,8 +46,12 @@ async function compressImage(captured: CapturedMedia): Promise<CapturedMedia> {
       { mode: 'contain', onlyScaleDown: true },
     );
     const newUri = result.uri.startsWith('file://') ? result.uri : `file://${result.uri}`;
-    // ImageResizer 가 직접 size 반환 — measureFileBytes(=fetch) 우회 가능.
-    if (result.size != null && result.size >= captured.byteSize) {
+    // (PR #116 리뷰 B2) iOS ImageResizer 가 NSFileSize 조회 실패 시 size=0 을 반환할 수
+    // 있어 0 도 falsy 처리해야 한다. ?? 는 0 을 통과시켜 byteSize=0 → presign 의
+    // Content-Length 와 실제 PUT 바이트 수가 어긋나 S3 가 SignatureMismatch 로 거부.
+    const reportedSize =
+      typeof result.size === 'number' && result.size > 0 ? result.size : null;
+    if (reportedSize !== null && reportedSize >= captured.byteSize) {
       // 압축이 오히려 키우면 (이미 작은 파일) 원본 유지.
       return captured;
     }
@@ -56,7 +59,7 @@ async function compressImage(captured: CapturedMedia): Promise<CapturedMedia> {
       ...captured,
       uri: newUri,
       mime: 'image/jpeg',
-      byteSize: result.size ?? captured.byteSize,
+      byteSize: reportedSize ?? captured.byteSize,
       width: result.width ?? captured.width,
       height: result.height ?? captured.height,
     };
@@ -81,28 +84,29 @@ async function compressVideo(captured: CapturedMedia): Promise<CapturedMedia> {
     const newUri = compressedPath.startsWith('file://')
       ? compressedPath
       : `file://${compressedPath}`;
-    // react-native-compressor 의 getFileSize 로 native 측 파일 크기 조회 — measureFileBytes
-    // (fetch 기반) 우회. 실패 시 원본 byteSize 폴백.
-    let newSize = captured.byteSize;
+    // (PR #116 리뷰 B1) react-native-compressor 의 getFileSize 는 Promise<string>
+    // — 이전엔 typeof === 'number' 가드라 항상 폴백을 타 비디오 압축이 무력화됐음.
+    // Number(reported) 로 명시 변환 + isFinite + >0 검증.
+    let newSize: number | null = null;
     try {
       const reported = await getFileSize(newUri);
-      if (typeof reported === 'number' && reported > 0) {
-        newSize = reported;
+      const parsed = typeof reported === 'number' ? reported : Number(reported);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        newSize = parsed;
       }
     } catch {
       // 측정 실패 — fallback. presign 시 byteSize 가 실제와 어긋나면 S3 가 거부할 수
       // 있어 차라리 원본 유지가 안전.
       return captured;
     }
-    if (newSize >= captured.byteSize) {
+    if (newSize === null || newSize >= captured.byteSize) {
       return captured;
     }
-    // mime 은 H.264/H.265 일 가능성. iOS 결과는 일반적으로 mp4. compressor 가 quicktime
-    // 형태를 그대로 두는 경우가 있어 platform 별 mime 추정.
-    const mime: CapturedMedia['mime'] =
-      Platform.OS === 'ios' && newUri.toLowerCase().endsWith('.mov')
-        ? 'video/quicktime'
-        : 'video/mp4';
+    // (PR #116 리뷰 I1) react-native-compressor 4.x 는 iOS/Android 모두 사실상
+    // .mp4 를 출력 — compressionMethod='auto' 도 H.264 / mp4 컨테이너. 항상 mp4 로 단정.
+    // 백엔드 ALLOWED_VIDEO_MIME 은 mp4/quicktime 둘 다 허용이라 차후 라이브러리 동작
+    // 변동 시도 안전.
+    const mime: CapturedMedia['mime'] = 'video/mp4';
     return {
       ...captured,
       uri: newUri,

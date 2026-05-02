@@ -19,15 +19,27 @@ import type { CompleteResponse } from '@/lib/schemas/media';
  *
  * 본 함수는 retry/재시도 로직 없음 — 호출자가 사용자에게 알린 후 재시도 결정.
  */
+/**
+ * (PR #116 리뷰 I2) 외부 (hook) 가 spinner 라벨을 분기할 수 있도록 phase 콜백 노출.
+ * 'compressing' 은 압축 단계, 'uploading' 은 presign+S3 PUT+complete 단계.
+ */
+export type UploadPhase = 'compressing' | 'uploading';
+
 export async function uploadCapturedMedia(
   accessToken: string,
   captured: CapturedMedia,
-  signal?: AbortSignal,
+  options?: {
+    signal?: AbortSignal;
+    onPhase?: (phase: UploadPhase) => void;
+  },
 ): Promise<CompleteResponse> {
+  const signal = options?.signal;
   // 0) (PR-F1) 압축 — 이미지 1920px JPEG q80 / 비디오 ~720p 2Mbps. 실패·확장 시 원본 유지.
   // mime/byteSize 가 바뀔 수 있어 presign 에 전달할 값은 압축 결과 기준.
+  options?.onPhase?.('compressing');
   const ready = await compressCapturedMedia(captured);
 
+  options?.onPhase?.('uploading');
   // 1) presign — kind/mime/byteSize 백엔드 검증 (size 한도 등) 후 URL 발급
   const presigned = await presignMedia(
     accessToken,

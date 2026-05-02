@@ -141,6 +141,7 @@
       "cameraPermissionRetry": "Request again",
       "cameraPermissionSettings": "Open settings",
       "uploading": "Uploading...",
+      "compressing": "Compressing...",
       "uploadFailed": "Upload failed",
       "uploadFailedRetry": "Please retry. Check network or size limit (image 20MB / video 200MB).",
       "mediaAttached": "Media attached",
