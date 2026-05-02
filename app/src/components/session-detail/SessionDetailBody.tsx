@@ -33,8 +33,10 @@ type Props = {
   cameraMode: CameraMode;
   onCameraMode: (mode: CameraMode) => void;
   closeCamera: () => void;
+  onLogSheetDismissed: () => void;
+  onCameraDismissed: () => void;
   onCaptured: (captured: CapturedMedia) => Promise<void>;
-  uploading: boolean;
+  mediaPhase: 'idle' | 'compressing' | 'uploading';
   uploadedMediaId: number | null;
   onClearMedia: () => void;
   onEndSession: () => void;
@@ -62,8 +64,10 @@ export function SessionDetailBody(props: Props): JSX.Element {
     cameraMode,
     onCameraMode,
     closeCamera,
+    onLogSheetDismissed,
+    onCameraDismissed,
     onCaptured,
-    uploading,
+    mediaPhase,
     uploadedMediaId,
     onClearMedia,
     onEndSession,
@@ -132,12 +136,19 @@ export function SessionDetailBody(props: Props): JSX.Element {
             accessToken={accessToken}
             sessionExtId={extId}
             onClose={() => setLogSheetOpen(false)}
+            onDismissed={onLogSheetDismissed}
             onCamera={(mode) => onCameraMode(mode)}
             attachedMediaId={uploadedMediaId}
-            uploading={uploading}
+            mediaPhase={mediaPhase}
             onClearMedia={onClearMedia}
           />
-          <CameraSheet visible={cameraOpen} mode={cameraMode} onClose={closeCamera} onCaptured={onCaptured} />
+          <CameraSheet
+            visible={cameraOpen}
+            mode={cameraMode}
+            onClose={closeCamera}
+            onDismissed={onCameraDismissed}
+            onCaptured={onCaptured}
+          />
           {/* (PR #115 후속) 업로드 진행 표시는 LogAttemptSheet 안의 인라인 spinner 로 통합.
               여기서 별 <Modal> 을 띄우면 LogAttemptSheet Modal 위 nested 라 iOS 가 가려
               사용자가 '아무 반응 없음' 으로 인지하던 회귀 차단. */}

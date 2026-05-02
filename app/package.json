@@ -11,6 +11,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@bam.tech/react-native-image-resizer": "^3.0.11",
     "@invertase/react-native-apple-authentication": "^2.5.1",
     "@react-native-seoul/kakao-login": "5.4.2",
     "@react-navigation/bottom-tabs": "^6.6.1",
@@ -23,6 +24,7 @@
     "react-i18next": "15.1.0",
     "react-native": "0.75.4",
     "react-native-bootsplash": "^6.3.12",
+    "react-native-compressor": "^1.18.1",
     "react-native-config": "^1.6.1",
     "react-native-get-random-values": "^1.11.0",
     "react-native-permissions": "^5.5.1",
