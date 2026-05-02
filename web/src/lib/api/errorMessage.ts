@@ -18,6 +18,7 @@ const CODE_TO_KEY: Record<string, MessageKey> = {
   FORBIDDEN: 'error.forbidden',
   FORBIDDEN_RESOURCE: 'error.forbidden',
   NOT_FOUND: 'error.notFound',
+  NICKNAME_TAKEN: 'error.nicknameTaken',
   SESSION_NOT_FOUND: 'error.sessionNotFound',
   SESSION_INVALID: 'error.sessionInvalid',
   ATTEMPT_NOT_FOUND: 'error.attemptNotFound',

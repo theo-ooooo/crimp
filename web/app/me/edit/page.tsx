@@ -94,12 +94,28 @@ function ProfileEditForm({
   const [nickname, setNickname] = useState(me.nickname ?? '');
   const [bio, setBio] = useState(me.bio ?? '');
   const [levelSelf, setLevelSelf] = useState(clampLevel(me.levelSelf ?? 0));
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setNickname(me.nickname ?? '');
     setBio(me.bio ?? '');
     setLevelSelf(clampLevel(me.levelSelf ?? 0));
   }, [me.bio, me.levelSelf, me.nickname]);
+
+  useEffect(() => {
+    if (!error) {
+      return;
+    }
+    setToastMessage(toUserMessage(error));
+  }, [error]);
+
+  useEffect(() => {
+    if (!toastMessage) {
+      return;
+    }
+    const timer = window.setTimeout(() => setToastMessage(null), 3500);
+    return () => window.clearTimeout(timer);
+  }, [toastMessage]);
 
   const originalNickname = me.nickname ?? '';
   const originalBio = me.bio ?? '';
@@ -192,13 +208,6 @@ function ProfileEditForm({
           </p>
         ) : null}
 
-        {error ? (
-          <ErrorCard
-            title={t('me.edit.errorTitle')}
-            message={toUserMessage(error)}
-          />
-        ) : null}
-
         <div className="mt-2 flex gap-2">
           <Link
             href="/me"
@@ -215,6 +224,7 @@ function ProfileEditForm({
           </PrimaryButton>
         </div>
       </form>
+      {toastMessage ? <Toast message={toastMessage} /> : null}
     </PageShell>
   );
 }
@@ -324,6 +334,19 @@ function LevelSlider({
 
 function clampLevel(value: number): number {
   return Math.max(LEVEL_MIN, Math.min(LEVEL_MAX, Math.round(value)));
+}
+
+function Toast({ message }: { message: string }): JSX.Element {
+  return (
+    <div className="fixed inset-x-4 bottom-6 z-[50] mx-auto flex max-w-xl justify-center">
+      <div
+        role="alert"
+        className="rounded-2xl bg-text px-4 py-3 text-body font-semibold text-bg shadow-lg"
+      >
+        {message}
+      </div>
+    </div>
+  );
 }
 
 function EditProfileSkeleton(): JSX.Element {

@@ -364,6 +364,7 @@
     "authUserMissing": "User account could not be found.",
     "forbidden": "You don't have permission for this action.",
     "notFound": "The requested item was not found.",
+    "nicknameTaken": "That nickname is already taken, so we couldn't save your profile.",
     "sessionNotFound": "Session not found.",
     "sessionInvalid": "Session data is invalid.",
     "attemptNotFound": "Attempt not found.",
