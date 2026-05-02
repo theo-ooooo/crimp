@@ -66,6 +66,13 @@ const SPECS: Record<string, IconSpec> = {
     vb: 24, d: 24, sw: '1.8', slc: 'round', f: 'none',
     children: <path d="M6 6l12 12M18 6L6 18" />,
   },
+  edit: {
+    vb: 24, d: 24, sw: '1.8', slc: 'round', slj: 'round', f: 'none',
+    children: (<>
+      <path d="M12 20h9" />
+      <path d="m16.5 3.5 4 4L8 20H4v-4L16.5 3.5z" />
+    </>),
+  },
   home: {
     vb: 24, d: 24, sw: '1.8', slj: 'round', fillable: true,
     children: <path d="M4 10 12 3l8 7v10a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1z" />,
@@ -170,6 +177,7 @@ export const CrimpIcon = {
   chevR: createIcon(SPECS.chevR!),
   chevL: createIcon(SPECS.chevL!),
   close: createIcon(SPECS.close!),
+  edit: createIcon(SPECS.edit!),
   home: createIcon(SPECS.home!),
   map: createIcon(SPECS.map!),
   feed: createIcon(SPECS.feed!),
