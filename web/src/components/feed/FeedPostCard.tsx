@@ -107,6 +107,9 @@ export const FeedPostCard: FC<FeedPostCardProps> = ({
         </p>
       ) : null}
 
+      {/* (PR-F3) 미디어 — 백엔드가 cdnUrl 보장한 항목만 도착, 빈 배열이면 미렌더. */}
+      {item.mediaUrls.length > 0 ? <FeedCardMedia mediaUrls={item.mediaUrls} /> : null}
+
       {/* 푸터 (좋아요 · 댓글) */}
       <div className="mt-3 flex gap-[18px] border-t border-hairline pt-3">
         <button
@@ -143,6 +146,63 @@ export const FeedPostCard: FC<FeedPostCardProps> = ({
 // ─────────────────────────────────────────────────────────────
 // 내부 helpers
 // ─────────────────────────────────────────────────────────────
+
+/**
+ * (PR-F3) 피드 카드 미디어 렌더러.
+ *
+ * - 단일 항목: 전체 폭 4:5 (인스타-스타일) 표시.
+ * - 다중 항목: 가로 스크롤 (snap), 첫 항목은 항상 보이고 사용자가 좌우 스와이프.
+ * - 이미지: `<img loading="lazy">` 로 viewport 진입 시 로드.
+ * - 비디오: `<video controls poster preload="metadata">` — 첫 프레임 또는 thumbnailUrl 노출,
+ *   사용자가 재생 누르면 그때 stream. autoplay 금지 (모바일 데이터/배터리 보호).
+ */
+function FeedCardMedia({
+  mediaUrls,
+}: {
+  mediaUrls: FeedItem['mediaUrls'];
+}): JSX.Element {
+  const single = mediaUrls.length === 1;
+  return (
+    <div
+      className={
+        single
+          ? 'overflow-hidden rounded-xl'
+          : 'flex snap-x snap-mandatory gap-2 overflow-x-auto rounded-xl'
+      }
+      role="group"
+      aria-label={`첨부 미디어 ${mediaUrls.length}개`}
+    >
+      {mediaUrls.map((m, i) => (
+        <div
+          key={`${m.url}-${i}`}
+          className={
+            single
+              ? 'aspect-[4/5] w-full'
+              : 'aspect-[4/5] w-[80%] flex-none snap-center first:ml-0'
+          }
+        >
+          {m.kind === 'IMAGE' ? (
+            <img
+              src={m.url}
+              alt=""
+              loading="lazy"
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <video
+              src={m.url}
+              poster={m.thumbnailUrl ?? undefined}
+              controls
+              preload="metadata"
+              playsInline
+              className="h-full w-full bg-black object-cover"
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /**
  * mock 의 stroke 하트 아이콘.

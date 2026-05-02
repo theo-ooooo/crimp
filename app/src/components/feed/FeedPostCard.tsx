@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
 import {
   Alert,
+  FlatList,
+  Image,
   Platform,
   Pressable,
   StyleSheet,
@@ -222,6 +224,12 @@ export function FeedPostCard({
         <Text style={styles.note}>{item.note}</Text>
       ) : null}
 
+      {/* (PR-F3) 미디어 — 단일/다중 분기. 비디오 재생은 미구현(Phase 2 의 풀스크린 player)
+          이라 현재는 thumbnail + ▶ 오버레이로 표시. */}
+      {item.mediaUrls.length > 0 ? (
+        <FeedCardMedia mediaUrls={item.mediaUrls} styles={styles} />
+      ) : null}
+
       {/* 푸터: 좋아요 / 댓글 */}
       <View style={styles.footer}>
         <Pressable
@@ -279,6 +287,79 @@ function pressableFooterStyle({
   pressed,
 }: PressableStateCallbackType): ViewStyle {
   return pressed ? { opacity: 0.6 } : {};
+}
+
+/**
+ * (PR-F3) 피드 카드 미디어 — RN 측.
+ *
+ * - 단일: 카드 가득찬 4:5 이미지/비디오썸네일.
+ * - 다중: 가로 FlatList (snap pagingEnabled). 카드 폭 80% 씩.
+ * - 비디오 재생은 Phase 2 (풀스크린 player) — 현 단계는 thumbnail + ▶ 오버레이 정적 표시.
+ */
+function FeedCardMedia({
+  mediaUrls,
+  styles,
+}: {
+  mediaUrls: FeedItem['mediaUrls'];
+  styles: ReturnType<typeof makeStyles>;
+}): JSX.Element {
+  const single = mediaUrls.length === 1;
+  if (single) {
+    const m = mediaUrls[0];
+    if (!m) {
+      return <View />;
+    }
+    return (
+      <View style={styles.mediaSingle}>
+        <FeedMediaTile media={m} styles={styles} />
+      </View>
+    );
+  }
+  return (
+    <FlatList
+      data={mediaUrls}
+      keyExtractor={(m, i) => `${m.url}-${i}`}
+      horizontal
+      pagingEnabled
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.mediaListContent}
+      renderItem={({ item: m }) => (
+        <View style={styles.mediaMultiCell}>
+          <FeedMediaTile media={m} styles={styles} />
+        </View>
+      )}
+    />
+  );
+}
+
+function FeedMediaTile({
+  media,
+  styles,
+}: {
+  media: FeedItem['mediaUrls'][number];
+  styles: ReturnType<typeof makeStyles>;
+}): JSX.Element {
+  const uri = media.kind === 'VIDEO' && media.thumbnailUrl ? media.thumbnailUrl : media.url;
+  return (
+    <View style={styles.mediaTile}>
+      <Image
+        source={{ uri }}
+        style={styles.mediaImage}
+        resizeMode="cover"
+        accessibilityIgnoresInvertColors
+        accessibilityLabel={media.kind === 'VIDEO' ? '동영상 썸네일' : '사진'}
+      />
+      {media.kind === 'VIDEO' ? (
+        <View style={styles.mediaPlayOverlay} pointerEvents="none">
+          <View style={styles.mediaPlayDot}>
+            <Text style={styles.mediaPlayGlyph} allowFontScaling={false}>
+              ▶
+            </Text>
+          </View>
+        </View>
+      ) : null}
+    </View>
+  );
 }
 
 function makeStyles(theme: Theme) {
@@ -349,6 +430,50 @@ function makeStyles(theme: Theme) {
       color: theme.text,
       lineHeight: 21, // 14 * 1.5
       letterSpacing: -0.14,
+    },
+    mediaSingle: {
+      borderRadius: radius.lg,
+      overflow: 'hidden',
+      backgroundColor: theme.subtle,
+    },
+    mediaListContent: {
+      gap: space[2],
+    },
+    mediaMultiCell: {
+      width: 280,
+      borderRadius: radius.lg,
+      overflow: 'hidden',
+      backgroundColor: theme.subtle,
+    },
+    mediaTile: {
+      aspectRatio: 4 / 5,
+      width: '100%',
+      position: 'relative',
+    },
+    mediaImage: {
+      width: '100%',
+      height: '100%',
+    },
+    mediaPlayOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    mediaPlayDot: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: 'rgba(0,0,0,0.55)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    mediaPlayGlyph: {
+      fontFamily,
+      fontSize: 22,
+      color: '#FFFFFF',
+      includeFontPadding: false,
+      // ▶ 글리프가 좌측 정렬돼 보이는 시각 효과 보정.
+      marginLeft: 3,
     },
     footer: {
       flexDirection: 'row',
