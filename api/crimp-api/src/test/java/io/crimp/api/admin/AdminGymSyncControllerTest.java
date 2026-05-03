@@ -12,6 +12,8 @@ import io.crimp.domain.gym.sync.DryRunResult;
 import io.crimp.domain.gym.sync.GymSyncDiff;
 import io.crimp.domain.gym.sync.GymSyncGridPreset;
 import io.crimp.domain.gym.sync.GymSyncService;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -47,11 +49,13 @@ class AdminGymSyncControllerTest {
 
     private GymSyncService syncService;
     private AdminGymSyncController controller;
+    private Validator validator;
 
     @BeforeEach
     void setUp() {
         syncService = mock(GymSyncService.class);
         controller = new AdminGymSyncController(syncService);
+        validator = Validation.buildDefaultValidatorFactory().getValidator();
     }
 
     @Test
@@ -69,6 +73,21 @@ class AdminGymSyncControllerTest {
         // 응답 타입이 DryRunResponse 여야 — apply 결과 필드(inserted/updated/updateSkipped) 가 노출되지 않음.
         assertThat(res.getBody().data()).isInstanceOf(DryRunResponse.class);
         verify(syncService, never()).apply(any());
+    }
+
+    @Test
+    void syncRequest_rejectsOutOfKoreaCoordinate() {
+        var request = new SyncRequest(
+                new BigDecimal("90"),
+                new BigDecimal("180"),
+                20000,
+                SyncMode.DRY_RUN);
+
+        var violations = validator.validate(request);
+
+        assertThat(violations)
+                .extracting(v -> v.getPropertyPath().toString())
+                .contains("lat", "lng");
     }
 
     @Test
