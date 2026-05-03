@@ -9,11 +9,14 @@ import io.crimp.infra.gym.KakaoLocalGymClient.Meta;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -125,6 +128,25 @@ class KakaoLocalGymClientTest {
         // page 2 실패 → page 1 의 1건만 반환 (전체 호출 실패 아님).
         assertThat(result).hasSize(1);
         assertThat(result.get(0).name()).isEqualTo("X 1점");
+    }
+
+    @Test
+    void fetch_clientError_throwsInsteadOfReturningEmptyResult() {
+        RestTemplate rt = mock(RestTemplate.class);
+        when(rt.exchange(any(String.class), eq(HttpMethod.GET), any(HttpEntity.class), eq(KeywordResponse.class)))
+                .thenThrow(new HttpClientErrorException(
+                        HttpStatus.UNAUTHORIZED,
+                        "Unauthorized",
+                        "{\"error\":\"invalid app key\"}".getBytes(StandardCharsets.UTF_8),
+                        StandardCharsets.UTF_8));
+
+        var client = new KakaoLocalGymClient(rt, auth("BAD-REST-KEY"), props());
+
+        assertThatThrownBy(() -> client.fetchByRadius(LAT, LNG, 5000))
+                .isInstanceOf(KakaoLocalException.class)
+                .hasMessageContaining("Kakao Local API 요청 실패")
+                .hasMessageContaining("401")
+                .hasMessageContaining("invalid app key");
     }
 
     @Test
