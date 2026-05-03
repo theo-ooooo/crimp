@@ -17,13 +17,13 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -74,7 +74,7 @@ class KakaoLocalGymClientTest {
                 ),
                 new Meta(true, 2, 2)
         );
-        when(rt.exchange(any(String.class), eq(HttpMethod.GET), any(HttpEntity.class), eq(KeywordResponse.class)))
+        when(rt.exchange(any(URI.class), eq(HttpMethod.GET), any(HttpEntity.class), eq(KeywordResponse.class)))
                 .thenReturn(ResponseEntity.ok(stub));
 
         var client = new KakaoLocalGymClient(rt, auth("REST-KEY"), props());
@@ -95,16 +95,16 @@ class KakaoLocalGymClientTest {
     void fetch_requestUsesDistanceSortAndGymKeywordVariants() {
         RestTemplate rt = mock(RestTemplate.class);
         KeywordResponse empty = new KeywordResponse(List.of(), new Meta(true, 0, 0));
-        when(rt.exchange(any(String.class), eq(HttpMethod.GET), any(HttpEntity.class), eq(KeywordResponse.class)))
+        when(rt.exchange(any(URI.class), eq(HttpMethod.GET), any(HttpEntity.class), eq(KeywordResponse.class)))
                 .thenReturn(ResponseEntity.ok(empty));
 
         var client = new KakaoLocalGymClient(rt, auth("REST-KEY"), props());
         client.fetchByRadius(LAT, LNG, 5000);
 
-        ArgumentCaptor<String> uriCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<URI> uriCaptor = ArgumentCaptor.forClass(URI.class);
         verify(rt, org.mockito.Mockito.times(15))
                 .exchange(uriCaptor.capture(), eq(HttpMethod.GET), any(HttpEntity.class), eq(KeywordResponse.class));
-        assertThat(uriCaptor.getAllValues())
+        assertThat(uriCaptor.getAllValues().stream().map(URI::toString).toList())
                 .allSatisfy(uri -> assertThat(uri).contains("sort=distance"))
                 .anySatisfy(uri -> assertThat(uri).contains("query=%EB%8D%94%ED%81%B4%EB%9D%BC%EC%9E%84"))
                 .anySatisfy(uri -> assertThat(uri).contains("query=%ED%81%B4%EB%9D%BC%EC%9D%B4%EB%B0%8D%ED%8C%8C%ED%81%AC"))
@@ -126,9 +126,13 @@ class KakaoLocalGymClientTest {
                 List.of(doc("b", "Y 2점", "주소2", null, "127", "37", null)),
                 new Meta(true, 2, 2));
         // 첫 호출은 page1, 두 번째는 page2 반환.
-        when(rt.exchange(contains("page=1"), eq(HttpMethod.GET), any(HttpEntity.class), eq(KeywordResponse.class)))
+        when(rt.exchange(org.mockito.ArgumentMatchers.<URI>argThat(uri ->
+                        uri != null && uri.toString().contains("page=1")),
+                eq(HttpMethod.GET), any(HttpEntity.class), eq(KeywordResponse.class)))
                 .thenReturn(ResponseEntity.ok(page1));
-        when(rt.exchange(contains("page=2"), eq(HttpMethod.GET), any(HttpEntity.class), eq(KeywordResponse.class)))
+        when(rt.exchange(org.mockito.ArgumentMatchers.<URI>argThat(uri ->
+                        uri != null && uri.toString().contains("page=2")),
+                eq(HttpMethod.GET), any(HttpEntity.class), eq(KeywordResponse.class)))
                 .thenReturn(ResponseEntity.ok(page2));
 
         var client = new KakaoLocalGymClient(rt, auth("REST-KEY"), props());
@@ -144,9 +148,13 @@ class KakaoLocalGymClientTest {
         KeywordResponse page1 = new KeywordResponse(
                 List.of(doc("a", "X 1점", "주소1", null, "127", "37", null)),
                 new Meta(false, 1, 1));
-        when(rt.exchange(contains("page=1"), eq(HttpMethod.GET), any(HttpEntity.class), eq(KeywordResponse.class)))
+        when(rt.exchange(org.mockito.ArgumentMatchers.<URI>argThat(uri ->
+                        uri != null && uri.toString().contains("page=1")),
+                eq(HttpMethod.GET), any(HttpEntity.class), eq(KeywordResponse.class)))
                 .thenReturn(ResponseEntity.ok(page1));
-        when(rt.exchange(contains("page=2"), eq(HttpMethod.GET), any(HttpEntity.class), eq(KeywordResponse.class)))
+        when(rt.exchange(org.mockito.ArgumentMatchers.<URI>argThat(uri ->
+                        uri != null && uri.toString().contains("page=2")),
+                eq(HttpMethod.GET), any(HttpEntity.class), eq(KeywordResponse.class)))
                 .thenThrow(new RestClientException("network failure"));
 
         var client = new KakaoLocalGymClient(rt, auth("REST-KEY"), props());
@@ -160,7 +168,7 @@ class KakaoLocalGymClientTest {
     @Test
     void fetch_clientError_throwsInsteadOfReturningEmptyResult() {
         RestTemplate rt = mock(RestTemplate.class);
-        when(rt.exchange(any(String.class), eq(HttpMethod.GET), any(HttpEntity.class), eq(KeywordResponse.class)))
+        when(rt.exchange(any(URI.class), eq(HttpMethod.GET), any(HttpEntity.class), eq(KeywordResponse.class)))
                 .thenThrow(new HttpClientErrorException(
                         HttpStatus.UNAUTHORIZED,
                         "Unauthorized",
@@ -183,7 +191,7 @@ class KakaoLocalGymClientTest {
         KeywordResponse stub = new KeywordResponse(
                 List.of(doc("1", "더클라임 신논현점", "주소", null, "127", "37", null)),
                 new Meta(true, 1, 1));
-        when(rt.exchange(any(String.class), eq(HttpMethod.GET), any(HttpEntity.class), eq(KeywordResponse.class)))
+        when(rt.exchange(any(URI.class), eq(HttpMethod.GET), any(HttpEntity.class), eq(KeywordResponse.class)))
                 .thenReturn(ResponseEntity.ok(stub));
 
         var client = new KakaoLocalGymClient(rt, auth("REST-KEY"), props());

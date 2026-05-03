@@ -20,6 +20,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.math.BigDecimal;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -93,7 +94,7 @@ public class KakaoLocalGymClient implements GymSyncSource {
         int maxPages = props.resolvedMaxPages();
         int beforeCount = byExternalKey.size();
         for (int page = 1; page <= maxPages; page++) {
-            String uri = UriComponentsBuilder
+            URI uri = UriComponentsBuilder
                     .fromHttpUrl(props.resolvedBaseUrl())
                     .path(props.resolvedKeywordSearchPath())
                     .queryParam("query", keyword)
@@ -103,8 +104,9 @@ public class KakaoLocalGymClient implements GymSyncSource {
                     .queryParam("size", props.resolvedPageSize())
                     .queryParam("page", page)
                     .queryParam("sort", "distance")
+                    .build()
                     .encode()
-                    .toUriString();
+                    .toUri();
 
             try {
                 ResponseEntity<KeywordResponse> resp = restTemplate.exchange(
