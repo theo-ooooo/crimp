@@ -218,9 +218,10 @@
 ### 미디어 (`/api/v1/media`)
 | Method | Path | 설명 |
 | --- | --- | --- |
-| POST | `/api/v1/media:prepareUpload` | S3 presigned PUT URL 발급 |
-| POST | `/api/v1/media:confirmUpload` | 업로드 완료 통지 (클라→서버) |
-| GET | `/api/v1/media/{extId}` | 미디어 상태 조회 |
+| POST | `/api/v1/media/presign` | UPLOADING 행 생성 + S3 presigned PUT URL. Body: `{ kind, mime, byteSize }` |
+| POST | `/api/v1/media/{id}/complete` | S3 PUT 성공 후 호출 → READY. Body: `{ byteSize, width, height, durationMs, attachAsPosterForVideoId? }`. `attachAsPosterForVideoId` 는 **IMAGE** 완료 시에만 의미 있음: 해당 id 의 **VIDEO** 미디어(이미 READY, 동일 소유자)에 본 이미지를 대표 썸네일(`poster_media_id`)로 연결. 생략·null 시 기존과 동일. |
+
+클라이언트 흐름: `presign` → `PUT` presigned URL → `complete`. 동영상 사용자 지정 포스터는 **비디오 `complete` 후** 포스터 이미지를 presign→PUT→`complete` 하며 `attachAsPosterForVideoId` 에 비디오 미디어 numeric `id` 를 넣는다.
 
 ## 12. 오픈 이슈
 

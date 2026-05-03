@@ -4,6 +4,9 @@
 spring:
   flyway:
     locations: classpath:db/migration,classpath:db/seed-dev
+    # 로컬 DB 에 상위 버전만 먼저 적용된 뒤 하위 마이그레이션 파일이 생긴 경우(브랜치 전환 등) pending 적용 허용.
+    # 스테이징/운영은 기본(false) — 마이그레이션은 항상 시간순으로 배포한다.
+    out-of-order: true
 
 # 로컬 개발 편의 — 모든 오리진 허용 (ngrok / cloudflared 같은 임시 도메인 + iOS sim
 # 의 file:// 등). allowedOrigins=[] 로 비우고 allowedOriginPatterns=['*'] 사용 —
