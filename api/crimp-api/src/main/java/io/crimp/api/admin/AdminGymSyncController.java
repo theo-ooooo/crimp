@@ -9,6 +9,7 @@ import io.crimp.domain.gym.sync.GymSyncRegion;
 import io.crimp.domain.gym.sync.GymSyncService;
 import io.crimp.domain.gym.sync.RemoteGym;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
@@ -137,25 +138,32 @@ public class AdminGymSyncController {
     /**
      * 동기화 요청.
      *
-     * @param lat 대상 영역 중심 위도 (-90~90)
-     * @param lng 대상 영역 중심 경도 (-180~180)
+     * @param lat 대상 영역 중심 위도 (대한민국 영역)
+     * @param lng 대상 영역 중심 경도 (대한민국 영역)
      * @param radiusMeters 반경 — Kakao Local 상한 20000(20km) 이하
      * @param mode {@link SyncMode#DRY_RUN} 또는 {@link SyncMode#APPLY}
      */
     public record SyncRequest(
             @NotNull
-            @DecimalMin(value = "-90", inclusive = true)
-            @DecimalMax(value = "90", inclusive = true)
+            @DecimalMin(value = "33.0", inclusive = true)
+            @DecimalMax(value = "39.0", inclusive = true)
+            @Schema(description = "검색 중심 위도. Kakao Local 동기화는 대한민국 좌표만 허용한다.",
+                    example = "37.5172", minimum = "33.0", maximum = "39.0")
             BigDecimal lat,
             @NotNull
-            @DecimalMin(value = "-180", inclusive = true)
-            @DecimalMax(value = "180", inclusive = true)
+            @DecimalMin(value = "124.0", inclusive = true)
+            @DecimalMax(value = "132.0", inclusive = true)
+            @Schema(description = "검색 중심 경도. Kakao Local 동기화는 대한민국 좌표만 허용한다.",
+                    example = "127.0473", minimum = "124.0", maximum = "132.0")
             BigDecimal lng,
             @NotNull
             @Min(100)
             @Max(20000)
+            @Schema(description = "검색 반경(미터). Kakao Local 상한은 20km.",
+                    example = "5000", minimum = "100", maximum = "20000")
             Integer radiusMeters,
             @NotNull
+            @Schema(example = "DRY_RUN")
             SyncMode mode
     ) {}
 
