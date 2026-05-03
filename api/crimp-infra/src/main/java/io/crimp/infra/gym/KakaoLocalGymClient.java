@@ -14,6 +14,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -35,9 +36,9 @@ import java.util.Map;
  * <p>{@code crimp-infra/auth/KakaoProperties} 의 {@code restApiKey} 를 그대로 재사용한다
  * — OAuth 흐름과 동일 앱·동일 키.
  *
- * <p>외부 호출 실패는 {@link KakaoLocalException} 으로 wrap. 어댑터가 일부 페이지 실패
- * 시에는 그 페이지만 스킵하고 누적 결과를 반환 — 단일 페이지 오류로 전체 동기화가
- * 막히는 사고를 방지.
+ * <p>인증/요청 오류 같은 4xx 는 {@link KakaoLocalException} 으로 즉시 실패시킨다.
+ * 네트워크 오류나 일시적인 서버 오류로 일부 페이지가 실패한 경우에는 그 페이지만
+ * 스킵하고 누적 결과를 반환 — 단일 페이지 오류로 전체 동기화가 막히는 사고를 방지.
  */
 @Component
 @Profile("!test")
@@ -125,6 +126,15 @@ public class KakaoLocalGymClient implements GymSyncSource {
                     byExternalKey.putIfAbsent(d.id(), toRemoteGym(d));
                 }
                 if (body.meta() != null && Boolean.TRUE.equals(body.meta().isEnd())) break;
+            } catch (HttpStatusCodeException e) {
+                if (e.getStatusCode().is4xxClientError()) {
+                    throw new KakaoLocalException("Kakao Local API 요청 실패: status="
+                            + e.getStatusCode().value() + " body=" + summarize(e.getResponseBodyAsString()));
+                }
+                log.warn("[gym-sync/kakao] keyword='{}' page {} failed for ({},{}): status={} body={}",
+                        keyword, page, lat, lng, e.getStatusCode().value(), summarize(e.getResponseBodyAsString()));
+                // 5xx 는 일시 오류일 수 있으므로 기존 partial-result 정책 유지.
+                break;
             } catch (RestClientException e) {
                 log.warn("[gym-sync/kakao] keyword='{}' page {} failed for ({},{}): {}",
                         keyword, page, lat, lng, e.getMessage());
@@ -170,6 +180,13 @@ public class KakaoLocalGymClient implements GymSyncSource {
             }
         }
         return placeName;
+    }
+
+    private static String summarize(String body) {
+        if (body == null || body.isBlank()) return "";
+        String compact = body.replaceAll("\\s+", " ").trim();
+        if (compact.length() <= 200) return compact;
+        return compact.substring(0, 200) + "...";
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
