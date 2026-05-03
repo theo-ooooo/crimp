@@ -161,9 +161,18 @@ app:
       default-radius-meters: 5000
       # 매장 검색 키워드 (단일 — PR #110 까지의 호환성). PR #111 부터는 query-keywords 우선.
       query-keyword: 클라이밍
-      # (PR #111) 다중 키워드 — Kakao 가 같은 매장을 다른 표기 (클라이밍/볼더링/암벽) 로 등록하는
-      # 케이스를 포괄. 각 키워드별로 호출 후 Kakao place id 기준 union dedup.
+      # (PR #111) 다중 키워드 — Kakao Local 은 "클라이밍" 같은 일반 분류어보다
+      # 실제 브랜드/상호명 검색의 재현율이 높다. 각 키워드별로 호출 후 Kakao place id 기준 union dedup.
       query-keywords:
+        - 더클라임
+        - 클라이밍파크
+        - 볼더프렌즈
+        - 손상원클라이밍
+        - 손상원
+        - 비블럭
+        - 오프더월
+        - off the wall
+        - offthewall
         - 클라이밍
         - 볼더링
         - 암벽등반
