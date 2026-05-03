@@ -102,10 +102,15 @@ class KakaoLocalGymClientTest {
         client.fetchByRadius(LAT, LNG, 5000);
 
         ArgumentCaptor<String> uriCaptor = ArgumentCaptor.forClass(String.class);
-        verify(rt, org.mockito.Mockito.times(6))
+        verify(rt, org.mockito.Mockito.times(15))
                 .exchange(uriCaptor.capture(), eq(HttpMethod.GET), any(HttpEntity.class), eq(KeywordResponse.class));
         assertThat(uriCaptor.getAllValues())
                 .allSatisfy(uri -> assertThat(uri).contains("sort=distance"))
+                .anySatisfy(uri -> assertThat(uri).contains("query=%EB%8D%94%ED%81%B4%EB%9D%BC%EC%9E%84"))
+                .anySatisfy(uri -> assertThat(uri).contains("query=%ED%81%B4%EB%9D%BC%EC%9D%B4%EB%B0%8D%ED%8C%8C%ED%81%AC"))
+                .anySatisfy(uri -> assertThat(uri).contains("query=%EB%B3%BC%EB%8D%94%ED%94%84%EB%A0%8C%EC%A6%88"))
+                .anySatisfy(uri -> assertThat(uri).contains("query=%EC%98%A4%ED%94%84%EB%8D%94%EC%9B%94"))
+                .anySatisfy(uri -> assertThat(uri).contains("query=off%20the%20wall"))
                 .anySatisfy(uri -> assertThat(uri).contains("query=%EC%95%94%EB%B2%BD%EB%93%B1%EB%B0%98"))
                 .anySatisfy(uri -> assertThat(uri).contains("query=%ED%81%B4%EB%9D%BC%EC%9D%B4%EB%B0%8D%EC%9E%A5"))
                 .anySatisfy(uri -> assertThat(uri).contains("query=%ED%81%B4%EB%9D%BC%EC%9D%B4%EB%B0%8D%EC%84%BC%ED%84%B0"));
