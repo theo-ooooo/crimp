@@ -7,6 +7,7 @@ import io.crimp.infra.gym.KakaoLocalGymClient.KakaoLocalException;
 import io.crimp.infra.gym.KakaoLocalGymClient.KeywordResponse;
 import io.crimp.infra.gym.KakaoLocalGymClient.Meta;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -25,6 +26,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -70,7 +72,7 @@ class KakaoLocalGymClientTest {
                         doc("2", "볼더프렌즈 홍대점", "서울 마포구 서교동 356-1",
                                 null, "126.9237", "37.5567", "02-222")
                 ),
-                new Meta(true)
+                new Meta(true, 2, 2)
         );
         when(rt.exchange(any(String.class), eq(HttpMethod.GET), any(HttpEntity.class), eq(KeywordResponse.class)))
                 .thenReturn(ResponseEntity.ok(stub));
@@ -90,14 +92,34 @@ class KakaoLocalGymClientTest {
     }
 
     @Test
+    void fetch_requestUsesDistanceSortAndGymKeywordVariants() {
+        RestTemplate rt = mock(RestTemplate.class);
+        KeywordResponse empty = new KeywordResponse(List.of(), new Meta(true, 0, 0));
+        when(rt.exchange(any(String.class), eq(HttpMethod.GET), any(HttpEntity.class), eq(KeywordResponse.class)))
+                .thenReturn(ResponseEntity.ok(empty));
+
+        var client = new KakaoLocalGymClient(rt, auth("REST-KEY"), props());
+        client.fetchByRadius(LAT, LNG, 5000);
+
+        ArgumentCaptor<String> uriCaptor = ArgumentCaptor.forClass(String.class);
+        verify(rt, org.mockito.Mockito.times(6))
+                .exchange(uriCaptor.capture(), eq(HttpMethod.GET), any(HttpEntity.class), eq(KeywordResponse.class));
+        assertThat(uriCaptor.getAllValues())
+                .allSatisfy(uri -> assertThat(uri).contains("sort=distance"))
+                .anySatisfy(uri -> assertThat(uri).contains("query=%EC%95%94%EB%B2%BD%EB%93%B1%EB%B0%98"))
+                .anySatisfy(uri -> assertThat(uri).contains("query=%ED%81%B4%EB%9D%BC%EC%9D%B4%EB%B0%8D%EC%9E%A5"))
+                .anySatisfy(uri -> assertThat(uri).contains("query=%ED%81%B4%EB%9D%BC%EC%9D%B4%EB%B0%8D%EC%84%BC%ED%84%B0"));
+    }
+
+    @Test
     void fetch_paginates_untilIsEnd() {
         RestTemplate rt = mock(RestTemplate.class);
         KeywordResponse page1 = new KeywordResponse(
                 List.of(doc("a", "X 1점", "주소1", null, "127", "37", null)),
-                new Meta(false));
+                new Meta(false, 2, 2));
         KeywordResponse page2 = new KeywordResponse(
                 List.of(doc("b", "Y 2점", "주소2", null, "127", "37", null)),
-                new Meta(true));
+                new Meta(true, 2, 2));
         // 첫 호출은 page1, 두 번째는 page2 반환.
         when(rt.exchange(contains("page=1"), eq(HttpMethod.GET), any(HttpEntity.class), eq(KeywordResponse.class)))
                 .thenReturn(ResponseEntity.ok(page1));
@@ -116,7 +138,7 @@ class KakaoLocalGymClientTest {
         RestTemplate rt = mock(RestTemplate.class);
         KeywordResponse page1 = new KeywordResponse(
                 List.of(doc("a", "X 1점", "주소1", null, "127", "37", null)),
-                new Meta(false));
+                new Meta(false, 1, 1));
         when(rt.exchange(contains("page=1"), eq(HttpMethod.GET), any(HttpEntity.class), eq(KeywordResponse.class)))
                 .thenReturn(ResponseEntity.ok(page1));
         when(rt.exchange(contains("page=2"), eq(HttpMethod.GET), any(HttpEntity.class), eq(KeywordResponse.class)))
@@ -155,7 +177,7 @@ class KakaoLocalGymClientTest {
         RestTemplate rt = mock(RestTemplate.class);
         KeywordResponse stub = new KeywordResponse(
                 List.of(doc("1", "더클라임 신논현점", "주소", null, "127", "37", null)),
-                new Meta(true));
+                new Meta(true, 1, 1));
         when(rt.exchange(any(String.class), eq(HttpMethod.GET), any(HttpEntity.class), eq(KeywordResponse.class)))
                 .thenReturn(ResponseEntity.ok(stub));
 

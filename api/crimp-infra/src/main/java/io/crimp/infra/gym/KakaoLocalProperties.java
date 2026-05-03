@@ -17,7 +17,7 @@ import java.util.List;
  *                     케이스는 {@link #queryKeywords} 사용 권장.
  * @param queryKeywords (다중) 매장 검색 키워드 목록 (PR #111). 비어있으면 {@link #queryKeyword}
  *                      한 개로 fallback. Kakao 가 같은 매장을 여러 표기로 등록하는 케이스를
- *                      포괄하기 위해 ["클라이밍", "볼더링", "암벽"] 등 다중 호출 후 union dedup.
+ *                      포괄하기 위해 ["클라이밍", "볼더링", "암벽등반"] 등 다중 호출 후 union dedup.
  * @param pageSize 1 호출당 결과 수. Kakao 최대 15.
  * @param maxPages 한 좌표·키워드 호출에서 최대 몇 페이지까지 가져올지 (페이지네이션).
  *                 PR #111 기본값 3 → 5 상향 (밀집 지역 누락 회피).
@@ -34,7 +34,7 @@ public record KakaoLocalProperties(
 ) {
 
     private static final List<String> DEFAULT_KEYWORDS = List.of(
-            "클라이밍", "볼더링", "암벽", "클라이밍짐"
+            "클라이밍", "볼더링", "암벽등반", "클라이밍짐", "클라이밍장", "클라이밍센터"
     );
 
     public String resolvedBaseUrl() {

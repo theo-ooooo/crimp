@@ -102,6 +102,7 @@ public class KakaoLocalGymClient implements GymSyncSource {
                     .queryParam("radius", radiusMeters)
                     .queryParam("size", props.resolvedPageSize())
                     .queryParam("page", page)
+                    .queryParam("sort", "distance")
                     .encode()
                     .toUriString();
 
@@ -110,6 +111,9 @@ public class KakaoLocalGymClient implements GymSyncSource {
                         uri, HttpMethod.GET, request, KeywordResponse.class);
                 KeywordResponse body = resp.getBody();
                 if (body == null || body.documents() == null) break;
+                log.debug("[gym-sync/kakao] keyword='{}' page={} docs={} total={} pageable={} isEnd={} uri={}",
+                        keyword, page, body.documents().size(), body.metaTotalCount(),
+                        body.metaPageableCount(), body.metaIsEnd(), uri);
                 for (Document d : body.documents()) {
                     // [reviewer I1] x/y 가 비어있으면 (0,0) 좌표가 DB 에 들어가는 회귀를 막기 위해
                     // 해당 document 스킵. Kakao 응답에 좌표가 없으면 매장 위치 자체를 신뢰할 수 없음.
@@ -125,7 +129,7 @@ public class KakaoLocalGymClient implements GymSyncSource {
                     // putIfAbsent — 이미 다른 키워드 호출에서 들어왔으면 첫 매칭 유지.
                     byExternalKey.putIfAbsent(d.id(), toRemoteGym(d));
                 }
-                if (body.meta() != null && Boolean.TRUE.equals(body.meta().isEnd())) break;
+                if (Boolean.TRUE.equals(body.metaIsEnd())) break;
             } catch (HttpStatusCodeException e) {
                 if (e.getStatusCode().is4xxClientError()) {
                     throw new KakaoLocalException("Kakao Local API 요청 실패: status="
@@ -194,6 +198,17 @@ public class KakaoLocalGymClient implements GymSyncSource {
             List<Document> documents,
             Meta meta
     ) {
+        Integer metaTotalCount() {
+            return meta != null ? meta.totalCount() : null;
+        }
+
+        Integer metaPageableCount() {
+            return meta != null ? meta.pageableCount() : null;
+        }
+
+        Boolean metaIsEnd() {
+            return meta != null ? meta.isEnd() : null;
+        }
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -210,7 +225,9 @@ public class KakaoLocalGymClient implements GymSyncSource {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Meta(
-            @JsonProperty("is_end") Boolean isEnd
+            @JsonProperty("is_end") Boolean isEnd,
+            @JsonProperty("total_count") Integer totalCount,
+            @JsonProperty("pageable_count") Integer pageableCount
     ) {
     }
 
