@@ -36,7 +36,7 @@ public record KakaoLocalProperties(
 
     private static final List<String> DEFAULT_KEYWORDS = List.of(
             "더클라임", "클라이밍파크", "볼더프렌즈", "손상원클라이밍", "서울숲클라이밍",
-            "손상원", "비블럭", "오프더월", "캐치스톤", "웨이브락"
+            "손상원", "비블럭", "오프더월", "캐치스톤", "웨이브락", "오프더월클라이밍"
     );
 
     public String resolvedBaseUrl() {
