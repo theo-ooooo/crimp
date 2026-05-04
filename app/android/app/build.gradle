@@ -121,6 +121,7 @@ android {
 
         // `@react-native-seoul/kakao-login` 의 kakao_strings.xml 데모 키를 의도적으로 override.
         // 우리 앱의 resValue 가 라이브러리 리소스를 manifest merger 우선순위로 덮어쓴다.
+        buildConfigField "String", "KAKAO_APP_KEY", "\"${kakaoAppKey}\""
         resValue "string", "kakao_app_key", kakaoAppKey
         manifestPlaceholders = [kakaoAppKey: kakaoAppKey]
     }

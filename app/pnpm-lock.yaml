@@ -88,6 +88,9 @@ importers:
       react-native-vision-camera:
         specifier: ^4
         version: 4.7.3(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1)
+      react-native-webview:
+        specifier: ^13.16.1
+        version: 13.16.1(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1)
       zod:
         specifier: 3.23.8
         version: 3.23.8
@@ -3643,6 +3646,12 @@ packages:
       react-native-worklets-core:
         optional: true
 
+  react-native-webview@13.16.1:
+    resolution: {integrity: sha512-If0eHhoEdOYDcHsX+xBFwHMbWBGK1BvGDQDQdVkwtSIXiq1uiqjkpWVP2uQ1as94J0CzvFE9PUNDuhiX0Z6ubw==}
+    peerDependencies:
+      react: '*'
+      react-native: '*'
+
   react-native@0.75.4:
     resolution: {integrity: sha512-Jehg4AMNIAXu9cn0/1jbTCoNg3tc+t6EekwucCalN8YoRmxGd/PY6osQTI/5fSAM40JQ4O8uv8Qg09Ycpb5sxQ==}
     engines: {node: '>=18'}
@@ -5960,9 +5969,7 @@ snapshots:
     transitivePeerDependencies:
       - '@babel/core'
       - '@babel/preset-env'
-      - bufferutil
       - supports-color
-      - utf-8-validate
 
   '@react-native/normalize-colors@0.75.4': {}
 
@@ -8946,6 +8953,13 @@ snapshots:
 
   react-native-vision-camera@4.7.3(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1):
     dependencies:
+      react: 18.3.1
+      react-native: 0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3)
+
+  react-native-webview@13.16.1(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1):
+    dependencies:
+      escape-string-regexp: 4.0.0
+      invariant: 2.2.4
       react: 18.3.1
       react-native: 0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3)
 
