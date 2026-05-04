@@ -536,11 +536,42 @@ function formatRating(rating: number | null): string {
   return `${rating.toFixed(1)}`;
 }
 
-function openingStatusLabel(openingHoursJson: string | null): string {
-  if (!openingHoursJson || openingHoursJson.trim().length === 0) {
+export function openingStatusLabel(openingHoursJson: string | null, now: Date = new Date()): string {
+  const schedule = parseOpeningHoursSchedule(openingHoursJson);
+  if (schedule.length === 0) {
     return '영업 정보 없음';
   }
-  return '영업중';
+
+  const today = now.getDay();
+  const todayEntries = schedule.filter((entry) => entry.days.includes(today));
+  if (todayEntries.length === 0) {
+    return '오늘 휴무';
+  }
+
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  let nextOpen: string | null = null;
+
+  for (const entry of todayEntries) {
+    if (entry.closed) {
+      continue;
+    }
+    if (entry.open24h) {
+      return '영업중 · 24시간';
+    }
+    for (const window of entry.windows) {
+      if (isWindowOpen(window, nowMinutes)) {
+        return `영업중 · ${formatMinutes(window.end)} 마감`;
+      }
+      if (window.start > nowMinutes) {
+        const candidate = `오늘 ${formatMinutes(window.start)} 오픈`;
+        if (!nextOpen) {
+          nextOpen = candidate;
+        }
+      }
+    }
+  }
+
+  return nextOpen ?? '오늘 휴무';
 }
 
 function formatRelativeTime(iso: string): string {
@@ -663,6 +694,180 @@ function formatFeatures(raw: string | null): string[] {
       .map((part) => part.trim())
       .filter((part) => part.length > 0);
   }
+}
+
+type OpeningWindow = {
+  start: number;
+  end: number;
+};
+
+type OpeningScheduleEntry = {
+  days: number[];
+  windows: OpeningWindow[];
+  closed: boolean;
+  open24h: boolean;
+};
+
+const WEEKDAY_ORDERING: ReadonlyArray<{
+  index: number;
+  labels: string[];
+}> = [
+  { index: 1, labels: ['mon', '월'] },
+  { index: 2, labels: ['tue', '화'] },
+  { index: 3, labels: ['wed', '수'] },
+  { index: 4, labels: ['thu', '목'] },
+  { index: 5, labels: ['fri', '금'] },
+  { index: 6, labels: ['sat', '토'] },
+  { index: 0, labels: ['sun', '일'] },
+];
+
+function parseOpeningHoursSchedule(openingHoursJson: string | null): OpeningScheduleEntry[] {
+  if (!openingHoursJson || openingHoursJson.trim().length === 0) {
+    return [];
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(openingHoursJson);
+  } catch {
+    return [];
+  }
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return [];
+  }
+
+  const schedule: OpeningScheduleEntry[] = [];
+  for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+    const days = parseWeekdayKey(key);
+    if (days.length === 0) {
+      continue;
+    }
+
+    const values = flattenOpeningValues(value);
+    for (const raw of values) {
+      const normalized = raw.toLowerCase();
+      if (!normalized || /휴무|closed|off/.test(normalized)) {
+        schedule.push({ days, windows: [], closed: true, open24h: false });
+        continue;
+      }
+      if (/24\s*시간|24h|24\/7/.test(normalized)) {
+        schedule.push({ days, windows: [{ start: 0, end: 24 * 60 }], closed: false, open24h: true });
+        continue;
+      }
+
+      const windows = parseTimeWindows(raw);
+      if (windows.length > 0) {
+        schedule.push({ days, windows, closed: false, open24h: false });
+      }
+    }
+  }
+
+  return schedule;
+}
+
+function flattenOpeningValues(value: unknown): string[] {
+  if (typeof value === 'string') {
+    return [value.trim()].filter((item) => item.length > 0);
+  }
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => flattenOpeningValues(item));
+  }
+  return [];
+}
+
+function parseWeekdayKey(raw: string): number[] {
+  const tokens = raw
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .match(/mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday)?|thu(?:r(?:s(?:day)?)?)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?|월(?:요일)?|화(?:요일)?|수(?:요일)?|목(?:요일)?|금(?:요일)?|토(?:요일)?|일(?:요일)?/g);
+  if (!tokens || tokens.length === 0) {
+    return [];
+  }
+
+  if (tokens.length === 1) {
+    const single = weekdayTokenToIndex(tokens[0]!);
+    return single === null ? [] : [single];
+  }
+
+  const start = weekdayTokenToIndex(tokens[0]!);
+  const end = weekdayTokenToIndex(tokens[tokens.length - 1]!);
+  if (start === null || end === null) {
+    return Array.from(
+      new Set(tokens.map(weekdayTokenToIndex).filter((day): day is number => day !== null)),
+    );
+  }
+
+  const days: number[] = [];
+  let current = start;
+  for (let guard = 0; guard < 7; guard += 1) {
+    days.push(current);
+    if (current === end) {
+      break;
+    }
+    current = (current + 1) % 7;
+  }
+  return Array.from(new Set(days));
+}
+
+function weekdayTokenToIndex(raw: string): number | null {
+  const normalized = raw.toLowerCase();
+  const match = WEEKDAY_ORDERING.find((entry) =>
+    entry.labels.some((label) => normalized.startsWith(label)),
+  );
+  return match?.index ?? null;
+}
+
+function parseTimeWindows(raw: string): OpeningWindow[] {
+  return raw
+    .split(/[,\u00b7/|]+/)
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0)
+    .flatMap((part) => {
+      const match = part.match(
+        /(\d{1,2})(?::(\d{2}))?\s*[-~]\s*(\d{1,2})(?::(\d{2}))?/,
+      );
+      if (!match) {
+        return [];
+      }
+      const start = toMinutes(match[1]!, match[2]);
+      const end = toMinutes(match[3]!, match[4]);
+      if (start === null || end === null) {
+        return [];
+      }
+      return [{ start, end }];
+    });
+}
+
+function toMinutes(hourRaw: string, minuteRaw?: string): number | null {
+  const hour = Number(hourRaw);
+  const minute = minuteRaw ? Number(minuteRaw) : 0;
+  if (Number.isNaN(hour) || Number.isNaN(minute)) {
+    return null;
+  }
+  if (hour < 0 || hour > 24 || minute < 0 || minute > 59) {
+    return null;
+  }
+  if (hour === 24 && minute !== 0) {
+    return null;
+  }
+  return hour * 60 + minute;
+}
+
+function isWindowOpen(window: OpeningWindow, nowMinutes: number): boolean {
+  if (window.end >= window.start) {
+    return nowMinutes >= window.start && nowMinutes < window.end;
+  }
+  return nowMinutes >= window.start || nowMinutes < window.end;
+}
+
+function formatMinutes(totalMinutes: number): string {
+  const normalized = ((totalMinutes % (24 * 60)) + 24 * 60) % (24 * 60);
+  const hours = Math.floor(normalized / 60)
+    .toString()
+    .padStart(2, '0');
+  const minutes = (normalized % 60).toString().padStart(2, '0');
+  return `${hours}:${minutes}`;
 }
 
 function normalizeStructuredValue(value: unknown): string {

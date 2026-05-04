@@ -47,8 +47,8 @@ export function gymRoutesQueryKey(extId: string) {
   return ['gym', extId, 'routes'] as const;
 }
 
-export function gymRecentActivityQueryKey(extId: string) {
-  return ['gym', extId, 'recent-activity'] as const;
+export function gymRecentActivityQueryKey(extId: string, size?: number) {
+  return ['gym', extId, 'recent-activity', size ?? null] as const;
 }
 
 export function gymActiveSessionsQueryKey(extId: string) {
@@ -123,8 +123,8 @@ export function useGymRecentActivityQuery(
 ) {
   return useQuery<GymRecentActivity>({
     queryKey: gymExtId
-      ? gymRecentActivityQueryKey(gymExtId)
-      : ['gym', '__none__', 'recent-activity'],
+      ? gymRecentActivityQueryKey(gymExtId, size)
+      : ['gym', '__none__', 'recent-activity', size ?? null],
     queryFn: ({ signal }) => {
       if (!gymExtId) {
         return Promise.reject(new Error('gym extId is required'));
