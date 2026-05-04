@@ -78,7 +78,7 @@ function RoutesBody({
   if (state === 'empty') return <EmptyRoutes />;
   return (
     <ul className="flex flex-col gap-2.5">
-      {routes.slice(0, 8).map((r) => (
+      {routes.map((r) => (
         <li key={r.extId}>
           <RouteCard route={r} />
         </li>
