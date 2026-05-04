@@ -26,10 +26,14 @@ import {
 } from '@/lib/schemas/feed';
 import {
   GymDetailSchema,
+  GymActiveSessionsSchema,
   GymListSchema,
+  GymRecentActivitySchema,
   RouteListSchema,
   type GymDetail,
+  type GymActiveSessions,
   type GymList,
+  type GymRecentActivity,
   type RouteList,
 } from '@/lib/schemas/gym';
 import {
@@ -430,6 +434,36 @@ export function fetchGymRoutes(
     path: `/api/v1/gyms/${encodeURIComponent(gymExtId)}/routes${qs ? `?${qs}` : ''}`,
     accessToken,
     schema: RouteListSchema,
+    signal,
+  });
+}
+
+/** `GET /api/v1/gyms/{gymExtId}/recent-activity?size=` — 최근 활동 N건. */
+export function fetchGymRecentActivity(
+  gymExtId: string,
+  size?: number,
+  signal?: AbortSignal,
+): Promise<GymRecentActivity> {
+  const qs = buildQueryString([
+    ['size', size],
+  ]);
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/gyms/${encodeURIComponent(gymExtId)}/recent-activity${qs ? `?${qs}` : ''}`,
+    schema: GymRecentActivitySchema,
+    signal,
+  });
+}
+
+/** `GET /api/v1/gyms/{gymExtId}/active-sessions` — 현재 운동중 현황. */
+export function fetchGymActiveSessions(
+  gymExtId: string,
+  signal?: AbortSignal,
+): Promise<GymActiveSessions> {
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/gyms/${encodeURIComponent(gymExtId)}/active-sessions`,
+    schema: GymActiveSessionsSchema,
     signal,
   });
 }

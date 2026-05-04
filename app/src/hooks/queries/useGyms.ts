@@ -4,8 +4,20 @@ import {
   type InfiniteData,
 } from '@tanstack/react-query';
 
-import { fetchGym, fetchGymRoutes, fetchGyms } from '@/lib/api';
-import type { GymDetail, GymList, RouteList } from '@/lib/schemas/gym';
+import {
+  fetchGym,
+  fetchGymActiveSessions,
+  fetchGymRecentActivity,
+  fetchGymRoutes,
+  fetchGyms,
+} from '@/lib/api';
+import type {
+  GymActiveSessions,
+  GymDetail,
+  GymList,
+  GymRecentActivity,
+  RouteList,
+} from '@/lib/schemas/gym';
 
 /**
  * Gym 관련 React Query 훅 (앱).
@@ -33,6 +45,14 @@ export function gymQueryKey(extId: string) {
 
 export function gymRoutesQueryKey(extId: string) {
   return ['gym', extId, 'routes'] as const;
+}
+
+export function gymRecentActivityQueryKey(extId: string) {
+  return ['gym', extId, 'recent-activity'] as const;
+}
+
+export function gymActiveSessionsQueryKey(extId: string) {
+  return ['gym', extId, 'active-sessions'] as const;
 }
 
 export function useGymsQuery(filters: GymsQueryFilters, pageSize?: number) {
@@ -93,6 +113,43 @@ export function useGymRoutesQuery(
     },
     getNextPageParam: (last) => last.page.nextCursor,
     enabled: Boolean(accessToken && gymExtId),
+    retry: 0,
+  });
+}
+
+export function useGymRecentActivityQuery(
+  gymExtId: string | null | undefined,
+  size?: number,
+) {
+  return useQuery<GymRecentActivity>({
+    queryKey: gymExtId
+      ? gymRecentActivityQueryKey(gymExtId)
+      : ['gym', '__none__', 'recent-activity'],
+    queryFn: ({ signal }) => {
+      if (!gymExtId) {
+        return Promise.reject(new Error('gym extId is required'));
+      }
+      return fetchGymRecentActivity(gymExtId, size, signal);
+    },
+    enabled: Boolean(gymExtId),
+    retry: 0,
+  });
+}
+
+export function useGymActiveSessionsQuery(
+  gymExtId: string | null | undefined,
+) {
+  return useQuery<GymActiveSessions>({
+    queryKey: gymExtId
+      ? gymActiveSessionsQueryKey(gymExtId)
+      : ['gym', '__none__', 'active-sessions'],
+    queryFn: ({ signal }) => {
+      if (!gymExtId) {
+        return Promise.reject(new Error('gym extId is required'));
+      }
+      return fetchGymActiveSessions(gymExtId, signal);
+    },
+    enabled: Boolean(gymExtId),
     retry: 0,
   });
 }
