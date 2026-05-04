@@ -62,13 +62,9 @@ export default function GymMapScreen(): JSX.Element {
       const message = JSON.parse(data) as { type?: string; key?: string; payload?: unknown };
       if (message.type === 'marker-press' && message.key) {
         setSelectedExtId(message.key);
-      } else if (__DEV__ && message.type && message.type !== 'tilesloaded') {
-        console.warn('[gym-map/full]', data);
       }
     } catch {
-      if (__DEV__) {
-        console.warn('[gym-map/full] invalid message', data);
-      }
+      // Ignore non-JSON WebView messages.
     }
   };
   const postMapCommand = (type: 'zoom-in' | 'zoom-out') => {
@@ -252,7 +248,6 @@ function buildKakaoMapHtml({
           return;
         }
         if (attempt > 30) {
-          post({ type: 'constructors-timeout' });
           return;
         }
         setTimeout(function () { waitForConstructors(attempt + 1); }, 100);
@@ -287,9 +282,6 @@ function buildKakaoMapHtml({
           });
           map.setBounds(bounds, 40, 40, 120, 40);
         }
-        kakao.maps.event.addListener(map, 'tilesloaded', function () {
-          post({ type: 'tilesloaded' });
-        });
         document.addEventListener('message', handleNativeMessage);
         window.addEventListener('message', handleNativeMessage);
         function handleNativeMessage(event) {
@@ -301,7 +293,7 @@ function buildKakaoMapHtml({
               map.setLevel(Math.min(14, map.getLevel() + 1));
             }
           } catch (error) {
-            post({ type: 'native-message-error' });
+            // Ignore malformed native messages.
           }
         }
       }
