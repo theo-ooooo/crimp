@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Config from 'react-native-config';
 import Svg, { Circle, Defs, LinearGradient, Rect, Stop, Line, Path, Text as SvgText } from 'react-native-svg';
@@ -127,20 +127,6 @@ export function GymMapPreview({
   const kakaoMapBaseUrl = normalizeKakaoMapBaseUrl(Config.KAKAO_MAP_BASE_URL);
   const shouldRenderKakaoMap = kakaoMapKey.length > 0 && (variant === 'search' || mapPoints.length > 0);
 
-  useEffect(() => {
-    if (!__DEV__) {
-      return;
-    }
-    console.warn('[gym-map/kakao] render gate', {
-      platform: Platform.OS,
-      variant,
-      gyms: gyms.length,
-      points: mapPoints.length,
-      hasKey: kakaoMapKey.length > 0,
-      baseUrl: kakaoMapBaseUrl,
-    });
-  }, [gyms.length, kakaoMapBaseUrl, kakaoMapKey.length, mapPoints.length, variant]);
-
   const kakaoMapContent =
     shouldRenderKakaoMap ? (
       <View style={[styles.frame, variant === 'detail' ? styles.detailFrame : styles.searchFrame]}>
@@ -164,21 +150,6 @@ export function GymMapPreview({
           scrollEnabled={false}
           showsHorizontalScrollIndicator={false}
           showsVerticalScrollIndicator={false}
-          onError={(event) => {
-            if (__DEV__) {
-              console.warn('[gym-map/kakao] webview error', event.nativeEvent);
-            }
-          }}
-          onHttpError={(event) => {
-            if (__DEV__) {
-              console.warn('[gym-map/kakao] webview http error', event.nativeEvent);
-            }
-          }}
-          onMessage={(event) => {
-            if (__DEV__) {
-              console.warn('[gym-map/kakao] webview message', event.nativeEvent.data);
-            }
-          }}
         />
         {mapPoints.length > 0 ? (
           <View pointerEvents="none" style={StyleSheet.absoluteFill}>

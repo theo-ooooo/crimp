@@ -1,4 +1,10 @@
-import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import {
+  useNavigation,
+  useRoute,
+  type NavigationProp,
+  type ParamListBase,
+  type RouteProp,
+} from '@react-navigation/native';
 import React, { useCallback, useMemo } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -30,7 +36,11 @@ export default function GymDetailScreen(): JSX.Element {
   const detail = useGymDetailScreen(extId, accessToken);
   const handleStartSession = useCallback(
     (gym: NonNullable<typeof detail.gym>) => {
-      navigation.push('StartSession', { gymExtId: gym.extId, gymName: gym.name });
+      const parent = navigation.getParent<NavigationProp<ParamListBase>>();
+      parent?.navigate('HomeTab', {
+        screen: 'StartSession',
+        params: { gymExtId: gym.extId, gymName: gym.name },
+      });
     },
     [navigation],
   );

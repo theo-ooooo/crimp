@@ -15,7 +15,11 @@ import {
 import type { Attempt } from '@/lib/schemas/attempt';
 import type { CameraMode } from '@/components/common/session';
 
-export function useSessionDetailScreen(accessToken: string, extId: string) {
+export function useSessionDetailScreen(
+  accessToken: string,
+  extId: string,
+  onSessionEnded?: () => void,
+) {
   const sessionQuery = useSessionQuery(accessToken, extId);
   const attemptsQuery = useAttemptsQuery(accessToken, extId);
   const endSession = useEndSession(accessToken);
@@ -226,7 +230,12 @@ export function useSessionDetailScreen(accessToken: string, extId: string) {
     if (!session) {
       return;
     }
-    endSession.endSession(session.extId).catch(() => {});
+    endSession
+      .endSession(session.extId)
+      .then(() => {
+        onSessionEnded?.();
+      })
+      .catch(() => {});
   };
 
   return {
