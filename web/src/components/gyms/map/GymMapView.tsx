@@ -122,7 +122,7 @@ function SelectedGymCard({ gym }: { gym: GymItem }): JSX.Element {
   return (
     <Link
       href={`/gyms/${encodeURIComponent(gym.extId)}`}
-      className="sticky top-0 z-10 flex flex-col gap-3 rounded-xl bg-accent p-4 text-accent-on shadow-sm"
+      className="sticky top-0 z-10 flex flex-col gap-3 rounded-xl bg-accent p-4 text-accent-on shadow-sm transition-colors duration-fast ease-standard hover:bg-accent-flash hover:text-accent-on"
     >
       <div className="flex items-center gap-3">
         <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-text text-h2 font-extrabold text-bg">
@@ -160,7 +160,7 @@ function MapGymRow({
       className={`flex items-center gap-3 rounded-xl border p-3 transition-transform duration-fast ease-standard active:scale-[0.99] ${
         selected
           ? 'border-accent bg-accent-soft text-text shadow-xs'
-          : 'border-transparent bg-subtle text-text'
+          : 'border-transparent bg-subtle text-text hover:border-accent hover:bg-accent-soft hover:text-text'
       }`}
     >
       <div
