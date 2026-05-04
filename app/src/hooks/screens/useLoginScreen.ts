@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 
 import { useExchangeOauth } from '@/hooks/queries/useAuth';
 import { toUserMessage } from '@/lib/api/errorMessage';
+import { ApiError, ApiSchemaError, ApiTransportError } from '@/lib/api/errors';
 import { t } from '@/lib/i18n';
 import type { OauthProvider } from '@/lib/schemas/auth';
 
@@ -71,6 +72,41 @@ function generateOauthNonce(): string {
   return s;
 }
 
+function logOauthError(provider: OauthProvider, phase: string, err: unknown) {
+  if (typeof console === 'undefined') {
+    return;
+  }
+
+  if (err instanceof ApiError) {
+    console.error(`[oauth/${provider}] ${phase} api error`, {
+      status: err.status,
+      code: err.code,
+      message: err.message,
+      details: err.details,
+    });
+    return;
+  }
+
+  if (err instanceof ApiTransportError) {
+    console.error(`[oauth/${provider}] ${phase} transport error`, {
+      status: err.status,
+      message: err.message,
+      rawBody: err.rawBody,
+    });
+    return;
+  }
+
+  if (err instanceof ApiSchemaError) {
+    console.error(`[oauth/${provider}] ${phase} schema error`, {
+      message: err.message,
+      issues: err.issues,
+    });
+    return;
+  }
+
+  console.error(`[oauth/${provider}] ${phase} unexpected error`, err);
+}
+
 export function useLoginScreen(onLoggedIn: () => void) {
   const exchange = useExchangeOauth();
   const [devOpen, setDevOpen] = useState(false);
@@ -89,6 +125,7 @@ export function useLoginScreen(onLoggedIn: () => void) {
       setDevOpen(false);
       onLoggedIn();
     } catch (err) {
+      logOauthError(provider, 'exchange', err);
       setErrorMessage(toUserMessage(err));
     }
   };
@@ -105,6 +142,12 @@ export function useLoginScreen(onLoggedIn: () => void) {
       // (2) 백엔드에 함께 보내 서버가 평문 비교로 replay 방어하도록 한다.
       const nonce = generateOauthNonce();
       const result = await kakaoLogin(nonce);
+      if (typeof console !== 'undefined') {
+        console.info('[oauth/kakao] native login result', {
+          hasIdToken: Boolean(result?.idToken),
+          hasAccessToken: Boolean(result?.accessToken),
+        });
+      }
       const idToken = result?.idToken;
       if (!idToken) {
         setErrorMessage(t('auth.login.kakaoNoIdToken'));
@@ -112,6 +155,7 @@ export function useLoginScreen(onLoggedIn: () => void) {
       }
       await submitIdToken('kakao', idToken, nonce);
     } catch (err) {
+      logOauthError('kakao', 'native login', err);
       setErrorMessage(toUserMessage(err));
     }
   };

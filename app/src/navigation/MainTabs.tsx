@@ -17,6 +17,7 @@ import { useReducedMotion } from '@/lib/useReducedMotion';
 import { useTokens } from '@/lib/useTokens';
 import FeedScreen from '@/screens/FeedScreen';
 import GymDetailScreen from '@/screens/GymDetailScreen';
+import GymMapScreen from '@/screens/GymMapScreen';
 import GymSearchScreen from '@/screens/GymSearchScreen';
 import ProfileEditScreen from '@/screens/ProfileEditScreen';
 import HomeScreen from '@/screens/HomeScreen';
@@ -123,6 +124,11 @@ function GymsTabStack(): JSX.Element {
         name="GymDetail"
         component={GymDetailScreen}
         options={{ headerShown: false, title: t('gym.detail.title') }}
+      />
+      <GymsStack.Screen
+        name="GymMap"
+        component={GymMapScreen}
+        options={{ headerShown: false, title: '지도' }}
       />
       <GymsStack.Screen
         name="StartSession"

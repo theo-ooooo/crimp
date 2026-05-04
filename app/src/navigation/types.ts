@@ -46,6 +46,19 @@ export type RootStackParamList = {
    */
   GymSearch: undefined;
   /**
+   * 암장 지도 전체화면. 검색 화면의 현재 목록을 지도 마커로 표시한다.
+   */
+  GymMap: {
+    gyms: Array<{
+      extId: string;
+      name: string;
+      address: string | null;
+      lat: number | null;
+      lng: number | null;
+      distanceMeters: number | null;
+    }>;
+  };
+  /**
    * 암장 상세. 활성 루트 목록은 인증 필요 (화면 내부에서 gate 처리).
    */
   GymDetail: { extId: string };

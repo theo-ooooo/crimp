@@ -26,6 +26,16 @@ import Config from 'react-native-config';
 const DEFAULT_API_URL =
   Platform.OS === 'android' ? 'http://10.0.2.2:8080' : 'http://localhost:8080';
 
-export const API_BASE_URL: string = (
-  Config.CRIMP_API_URL ?? DEFAULT_API_URL
-).replace(/\/+$/, '');
+function normalizeApiUrl(url: string): string {
+  const trimmed = url.replace(/\/+$/, '');
+  if (Platform.OS !== 'android') {
+    return trimmed;
+  }
+  return trimmed
+    .replace('://localhost', '://10.0.2.2')
+    .replace('://127.0.0.1', '://10.0.2.2');
+}
+
+export const API_BASE_URL: string = normalizeApiUrl(
+  Config.CRIMP_API_URL ?? DEFAULT_API_URL,
+);

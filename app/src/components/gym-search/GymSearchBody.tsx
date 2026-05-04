@@ -154,6 +154,7 @@ export function GymSearchBody({
             variant="search"
             gyms={listForMap}
             actionLabel="지도 보기"
+            onPress={() => navigation.navigate('GymMap', { gyms })}
           />
         </View>
 
@@ -173,6 +174,7 @@ export function GymSearchBody({
     error,
     gyms,
     isLoading,
+    navigation,
     searchText,
     setBrand,
     setSearchText,

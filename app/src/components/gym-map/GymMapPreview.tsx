@@ -1,6 +1,8 @@
-import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo } from 'react';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import Config from 'react-native-config';
 import Svg, { Circle, Defs, LinearGradient, Rect, Stop, Line, Path, Text as SvgText } from 'react-native-svg';
+import WebView from 'react-native-webview';
 
 import { CrimpIcon } from '@/components/common/primitives';
 import { radius, space, withAlpha, type Theme } from '@/lib/tokens';
@@ -17,6 +19,14 @@ type Marker = {
   point: Point;
   active?: boolean;
   color?: string;
+};
+
+type MapPoint = {
+  key: string;
+  label: string;
+  lat: number;
+  lng: number;
+  active?: boolean;
 };
 
 type Props = {
@@ -88,9 +98,117 @@ export function GymMapPreview({
       };
     });
   }, [detailGym, gyms, theme.accent.base, theme.text, variant]);
+  const mapPoints = useMemo<MapPoint[]>(() => {
+    if (variant === 'detail') {
+      if (!detailGym || detailGym.lat === null || detailGym.lng === null) {
+        return [];
+      }
+      return [{
+        key: detailGym.extId,
+        label: detailGym.name.slice(0, 1) || 'G',
+        lat: detailGym.lat,
+        lng: detailGym.lng,
+        active: true,
+      }];
+    }
+
+    return gyms
+      .filter((gym) => gym.lat !== null && gym.lng !== null)
+      .slice(0, 5)
+      .map((gym, index) => ({
+        key: gym.extId,
+        label: gym.name.slice(0, 1),
+        lat: gym.lat as number,
+        lng: gym.lng as number,
+        active: index === 0,
+      }));
+  }, [detailGym, gyms, variant]);
+  const kakaoMapKey = Config.KAKAO_MAP_JS_KEY ?? '';
+  const kakaoMapBaseUrl = normalizeKakaoMapBaseUrl(Config.KAKAO_MAP_BASE_URL);
+  const shouldRenderKakaoMap = kakaoMapKey.length > 0 && (variant === 'search' || mapPoints.length > 0);
+
+  useEffect(() => {
+    if (!__DEV__) {
+      return;
+    }
+    console.warn('[gym-map/kakao] render gate', {
+      platform: Platform.OS,
+      variant,
+      gyms: gyms.length,
+      points: mapPoints.length,
+      hasKey: kakaoMapKey.length > 0,
+      baseUrl: kakaoMapBaseUrl,
+    });
+  }, [gyms.length, kakaoMapBaseUrl, kakaoMapKey.length, mapPoints.length, variant]);
+
+  const kakaoMapContent =
+    shouldRenderKakaoMap ? (
+      <View style={[styles.frame, variant === 'detail' ? styles.detailFrame : styles.searchFrame]}>
+        <WebView
+          style={StyleSheet.absoluteFill}
+          source={{
+            html: buildKakaoMapHtml({
+              appKey: kakaoMapKey,
+              points: mapPoints,
+              centerLat: averageCoordinate(mapPoints, 'lat'),
+              centerLng: averageCoordinate(mapPoints, 'lng'),
+              level: variant === 'detail' ? 4 : 6,
+              accentColor: theme.accent.base,
+              textColor: theme.text,
+            }),
+            baseUrl: kakaoMapBaseUrl,
+          }}
+          javaScriptEnabled
+          domStorageEnabled
+          originWhitelist={['*']}
+          scrollEnabled={false}
+          showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
+          mixedContentMode="always"
+          onError={(event) => {
+            console.warn('[gym-map/kakao] webview error', event.nativeEvent);
+          }}
+          onHttpError={(event) => {
+            console.warn('[gym-map/kakao] webview http error', event.nativeEvent);
+          }}
+          onMessage={(event) => {
+            console.warn('[gym-map/kakao] webview message', event.nativeEvent.data);
+          }}
+        />
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          {markers.map((marker) => (
+            <View
+              key={marker.key}
+              style={[
+                styles.nativeMarker,
+                {
+                  left: `${marker.point.x}%`,
+                  top: `${marker.point.y}%`,
+                  backgroundColor: marker.color ?? theme.accent.base,
+                  borderColor: marker.active ? theme.bg : withAlpha(theme.bg, 0.82),
+                  transform: [{ translateX: -13 }, { translateY: -13 }],
+                },
+              ]}
+            >
+              <Text style={[styles.nativeMarkerText, { color: marker.active ? theme.text : theme.bg }]}>
+                {marker.label}
+              </Text>
+            </View>
+          ))}
+        </View>
+        {variant === 'search' ? (
+          <View style={styles.searchFooter}>
+            <View style={styles.actionButton}>
+              <Text style={styles.actionButtonText}>{actionLabel}</Text>
+              <CrimpIcon.chevR size={16} color={theme.text} />
+            </View>
+          </View>
+        ) : null}
+      </View>
+    ) : null;
 
   const content = (
-    <View style={[styles.frame, variant === 'detail' ? styles.detailFrame : styles.searchFrame]}>
+    kakaoMapContent ?? <View style={[styles.frame, variant === 'detail' ? styles.detailFrame : styles.searchFrame]}>
       <Svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
         {variant === 'detail' ? <DetailBackground theme={theme} /> : <SearchBackground theme={theme} />}
         {markers.map((marker) => (
@@ -105,6 +223,11 @@ export function GymMapPreview({
             <Text style={styles.actionButtonText}>{actionLabel}</Text>
             <CrimpIcon.chevR size={16} color={theme.text} />
           </View>
+        </View>
+      ) : null}
+      {__DEV__ && variant === 'search' && !kakaoMapKey ? (
+        <View pointerEvents="none" style={styles.debugBadge}>
+          <Text style={styles.debugBadgeText}>KAKAO_MAP_JS_KEY missing on {Platform.OS}</Text>
         </View>
       ) : null}
     </View>
@@ -215,6 +338,243 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
+function averageCoordinate(points: MapPoint[], key: 'lat' | 'lng'): number {
+  if (points.length === 0) {
+    return key === 'lat' ? 37.5665 : 126.978;
+  }
+  return points.reduce((sum, point) => sum + point[key], 0) / points.length;
+}
+
+function normalizeKakaoMapBaseUrl(value?: string): string {
+  const baseUrl = value && value.length > 0 ? value : 'http://localhost:8081';
+  if (Platform.OS !== 'ios') {
+    return baseUrl;
+  }
+  return baseUrl.replace(/^http:\/\//, 'https://');
+}
+
+function buildKakaoMapHtml({
+  appKey,
+  points,
+  centerLat,
+  centerLng,
+  level,
+  accentColor,
+  textColor,
+}: {
+  appKey: string;
+  points: MapPoint[];
+  centerLat: number;
+  centerLng: number;
+  level: number;
+  accentColor: string;
+  textColor: string;
+}): string {
+  const safePointsJson = JSON.stringify(points).replace(/</g, '\\u003c');
+  const safeAppKey = encodeURIComponent(appKey);
+  const safeBaseUrl = JSON.stringify(Config.KAKAO_MAP_BASE_URL ?? 'http://localhost:8081');
+  return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <base href=${safeBaseUrl} />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <style>
+      html, body, #map {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: #edf2f4;
+      }
+      .marker {
+        width: 24px;
+        height: 24px;
+        border-radius: 999px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 3px solid #fff;
+        background: ${accentColor};
+        color: ${textColor};
+        font-size: 11px;
+        font-weight: 800;
+        line-height: 1;
+        box-shadow: 0 6px 16px rgba(0,0,0,.24);
+        transform: translate(-50%, -50%);
+      }
+      .marker.secondary {
+        background: rgba(15,20,25,.82);
+        color: #fff;
+      }
+      #status {
+        position: absolute;
+        left: 8px;
+        right: 8px;
+        bottom: 8px;
+        z-index: 10;
+        padding: 4px 6px;
+        border-radius: 6px;
+        background: rgba(255,255,255,.88);
+        color: #1f2937;
+        font: 10px -apple-system, BlinkMacSystemFont, sans-serif;
+        pointer-events: none;
+      }
+    </style>
+    <script>
+      function post(type, payload) {
+        var message = JSON.stringify({ type: type, payload: payload || null });
+        var status = document.getElementById('status');
+        if (status) {
+          status.textContent = type + (payload ? ' ' + JSON.stringify(payload) : '');
+        }
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage(message);
+        }
+      }
+
+      ['log', 'warn', 'error'].forEach(function (level) {
+        var original = console[level];
+        console[level] = function () {
+          post('console-' + level, Array.prototype.slice.call(arguments).map(String));
+          if (original) {
+            original.apply(console, arguments);
+          }
+        };
+      });
+
+      window.addEventListener('error', function (event) {
+        post('error', {
+          message: event.message,
+          filename: event.filename,
+          lineno: event.lineno,
+          colno: event.colno
+        });
+      });
+    </script>
+    <script
+      src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=${safeAppKey}&libraries=services"
+      onload="window.__kakaoScriptLoaded = true; post('script-load', { href: window.location.href, origin: window.location.origin, hasKakao: !!window.kakao, hasMaps: !!(window.kakao && window.kakao.maps), hasMapCtor: !!(window.kakao && window.kakao.maps && window.kakao.maps.Map), hasLatLngCtor: !!(window.kakao && window.kakao.maps && window.kakao.maps.LatLng) })"
+      onerror="post('script-error', { href: window.location.href, origin: window.location.origin })"
+    ></script>
+  </head>
+  <body>
+    <div id="map"></div>
+    <div id="status">Kakao map loading...</div>
+    <script>
+      const points = ${safePointsJson};
+      let didCreateMap = false;
+
+      function initMap() {
+        if (!window.kakao || !window.kakao.maps) {
+          post('sdk-missing-after-load', {
+            href: window.location.href,
+            origin: window.location.origin
+          });
+          return;
+        }
+
+        waitForConstructors(0);
+      }
+
+      function waitForConstructors(attempt) {
+        if (typeof window.kakao.maps.Map === 'function' && typeof window.kakao.maps.LatLng === 'function') {
+          createMap();
+          return;
+        }
+        if (attempt >= 20) {
+          post('constructors-timeout', {
+            hasMapCtor: typeof window.kakao.maps.Map,
+            hasLatLngCtor: typeof window.kakao.maps.LatLng
+          });
+          return;
+        }
+        setTimeout(function () {
+          waitForConstructors(attempt + 1);
+        }, 100);
+      }
+
+      function createMap() {
+        if (didCreateMap) {
+          return;
+        }
+        didCreateMap = true;
+
+        try {
+          post('sdk-ready', { width: window.innerWidth, height: window.innerHeight });
+          const center = new kakao.maps.LatLng(${centerLat}, ${centerLng});
+          const map = new kakao.maps.Map(document.getElementById('map'), {
+            center: center,
+            level: ${level},
+            draggable: false,
+            scrollwheel: false,
+            disableDoubleClick: true,
+            disableDoubleClickZoom: true
+          });
+
+          points.forEach(function (point, index) {
+            const el = document.createElement('div');
+            el.className = 'marker' + (point.active || index === 0 ? '' : ' secondary');
+            el.textContent = point.label || 'G';
+            new kakao.maps.CustomOverlay({
+              map,
+              position: new kakao.maps.LatLng(point.lat, point.lng),
+              content: el,
+              yAnchor: 0.5,
+              xAnchor: 0.5
+            });
+          });
+
+          function relayout() {
+            map.relayout();
+            map.setCenter(center);
+          }
+
+          kakao.maps.event.addListener(map, 'tilesloaded', function () {
+            post('tilesloaded', { width: window.innerWidth, height: window.innerHeight });
+          });
+
+          window.addEventListener('resize', relayout);
+          requestAnimationFrame(relayout);
+          setTimeout(relayout, 80);
+          setTimeout(relayout, 300);
+          setTimeout(relayout, 1000);
+        } catch (error) {
+          didCreateMap = false;
+          post('create-map-error', {
+            message: error && error.message ? error.message : String(error),
+            stack: error && error.stack ? error.stack : null
+          });
+        }
+      }
+
+      post('html-start', {
+        href: window.location.href,
+        origin: window.location.origin,
+        points: points.length,
+        scriptLoaded: !!window.__kakaoScriptLoaded,
+        hasKakao: !!window.kakao,
+        hasMaps: !!(window.kakao && window.kakao.maps),
+        hasMapCtor: !!(window.kakao && window.kakao.maps && window.kakao.maps.Map),
+        hasLatLngCtor: !!(window.kakao && window.kakao.maps && window.kakao.maps.LatLng)
+      });
+      initMap();
+      setTimeout(function () {
+        if (!window.kakao || !window.kakao.maps) {
+          post('script-timeout', {
+            href: window.location.href,
+            origin: window.location.origin,
+            hasKakao: !!window.kakao,
+            hasMaps: !!(window.kakao && window.kakao.maps)
+          });
+        }
+      }, 2500);
+    </script>
+  </body>
+</html>`;
+}
+
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     pressable: {
@@ -249,6 +609,39 @@ function makeStyles(theme: Theme) {
     actionButtonText: {
       color: theme.text,
       fontSize: 13,
+      fontWeight: '700',
+    },
+    nativeMarker: {
+      position: 'absolute',
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      borderWidth: 3,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#000000',
+      shadowOpacity: 0.18,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 3,
+    },
+    nativeMarkerText: {
+      fontSize: 10,
+      fontWeight: '800',
+    },
+    debugBadge: {
+      position: 'absolute',
+      left: space[3],
+      right: space[3],
+      bottom: space[3],
+      paddingHorizontal: space[2],
+      paddingVertical: space[1],
+      borderRadius: radius.sm,
+      backgroundColor: withAlpha('#E53935', 0.9),
+    },
+    debugBadgeText: {
+      color: '#FFFFFF',
+      fontSize: 10,
       fontWeight: '700',
     },
   });

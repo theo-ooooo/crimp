@@ -13,6 +13,7 @@
 		13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB01A68108700A75B9A /* AppDelegate.mm */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		13B07FC11A68108700A75B9A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
+		4B1F8C7D2C3A4E6FA9B0D121 /* CrimpSwiftSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B1F8C7C2C3A4E6FA9B0D121 /* CrimpSwiftSupport.swift */; };
 		7699B88040F8A987B510C191 /* libPods-Crimp-CrimpTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 19F6CBCC0A4E27FBF8BF4A61 /* libPods-Crimp-CrimpTests.a */; };
 		A9C9CCB0326145FF93DC6A1D /* BootSplash.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 1D51ADB61F4E4DEBA8737379 /* BootSplash.storyboard */; };
 		AEF3466C57B44D989F649EA2 /* Colors.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B8930DB45D1145C29ABCD980 /* Colors.xcassets */; };
@@ -43,6 +44,7 @@
 		1D51ADB61F4E4DEBA8737379 /* BootSplash.storyboard */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = BootSplash.storyboard; path = Crimp/BootSplash.storyboard; sourceTree = "<group>"; };
 		3B4392A12AC88292D35C810B /* Pods-Crimp.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Crimp.debug.xcconfig"; path = "Target Support Files/Pods-Crimp/Pods-Crimp.debug.xcconfig"; sourceTree = "<group>"; };
 		3C2B99262FA30E6E009E01DB /* Crimp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = Crimp.entitlements; path = Crimp/Crimp.entitlements; sourceTree = "<group>"; };
+		4B1F8C7C2C3A4E6FA9B0D121 /* CrimpSwiftSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CrimpSwiftSupport.swift; path = Crimp/CrimpSwiftSupport.swift; sourceTree = "<group>"; };
 		5709B34CF0A7D63546082F79 /* Pods-Crimp.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Crimp.release.xcconfig"; path = "Target Support Files/Pods-Crimp/Pods-Crimp.release.xcconfig"; sourceTree = "<group>"; };
 		5B7EB9410499542E8C5724F5 /* Pods-Crimp-CrimpTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Crimp-CrimpTests.debug.xcconfig"; path = "Target Support Files/Pods-Crimp-CrimpTests/Pods-Crimp-CrimpTests.debug.xcconfig"; sourceTree = "<group>"; };
 		5DCACB8F33CDC322A6C60F78 /* libPods-Crimp.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Crimp.a"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -95,6 +97,7 @@
 				3C2B99262FA30E6E009E01DB /* Crimp.entitlements */,
 				13B07FAF1A68108700A75B9A /* AppDelegate.h */,
 				13B07FB01A68108700A75B9A /* AppDelegate.mm */,
+				4B1F8C7C2C3A4E6FA9B0D121 /* CrimpSwiftSupport.swift */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				13B07FB71A68108700A75B9A /* main.m */,
@@ -405,6 +408,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */,
+				4B1F8C7D2C3A4E6FA9B0D121 /* CrimpSwiftSupport.swift in Sources */,
 				13B07FC11A68108700A75B9A /* main.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
