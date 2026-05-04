@@ -13,11 +13,13 @@ import org.springframework.data.domain.SliceImpl;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -25,12 +27,15 @@ import static org.mockito.Mockito.when;
 class GymServiceTest {
 
     private GymRepository gymRepo;
+    private GymStatsService gymStatsService;
     private GymService service;
 
     @BeforeEach
     void setUp() {
         gymRepo = mock(GymRepository.class);
-        service = new GymService(gymRepo, new BrandNormalizer());
+        gymStatsService = mock(GymStatsService.class);
+        when(gymStatsService.loadByGymIds(anyCollection())).thenReturn(Map.of());
+        service = new GymService(gymRepo, new BrandNormalizer(), gymStatsService);
     }
 
     @Test
@@ -98,6 +103,22 @@ class GymServiceTest {
         GymView view = service.getByExtId("01HGYMX");
         assertThat(view.extId()).isEqualTo("01HGYMX");
         assertThat(view.name()).isEqualTo("xpoint");
+        assertThat(view.rating()).isNull();
+        assertThat(view.sendCount()).isZero();
+        assertThat(view.monthlyUserCount()).isZero();
+    }
+
+    @Test
+    void getByExtId_includes_stats_when_present() {
+        Gym g = gym(1L, "01HGYMX", "xpoint", "스탯");
+        when(gymRepo.findByExtIdAndStatus("01HGYMX", GymStatus.ACTIVE)).thenReturn(Optional.of(g));
+        when(gymStatsService.loadByGymIds(anyCollection())).thenReturn(Map.of(
+                1L, new GymStatsSnapshot(new BigDecimal("4.5"), 123L, 45L)));
+
+        GymView view = service.getByExtId("01HGYMX");
+        assertThat(view.rating()).isEqualByComparingTo("4.5");
+        assertThat(view.sendCount()).isEqualTo(123L);
+        assertThat(view.monthlyUserCount()).isEqualTo(45L);
     }
 
     @Test

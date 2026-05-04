@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @org.springframework.context.annotation.Profile("!test")
@@ -20,10 +21,12 @@ public class GymService {
 
     private final GymRepository gymRepository;
     private final BrandNormalizer brandNormalizer;
+    private final GymStatsService gymStatsService;
 
-    public GymService(GymRepository gymRepository, BrandNormalizer brandNormalizer) {
+    public GymService(GymRepository gymRepository, BrandNormalizer brandNormalizer, GymStatsService gymStatsService) {
         this.gymRepository = gymRepository;
         this.brandNormalizer = brandNormalizer;
+        this.gymStatsService = gymStatsService;
     }
 
     @Transactional(readOnly = true)
@@ -53,9 +56,12 @@ public class GymService {
             // 거리 정렬: cursor 무시, 키워드/브랜드 필터 후 lat/lng 가 있는 행만 가져와 정렬.
             // 데이터가 적은 베타 단계라 in-memory 정렬로 충분.
             List<Gym> all = gymRepository.searchAllForDistance(k, b);
+            Map<Long, GymStatsSnapshot> statsByGymId = gymStatsService.loadByGymIds(
+                    all.stream().map(Gym::getId).toList());
             List<GymView> sorted = all.stream()
                     .filter(g -> g.getLat() != null && g.getLng() != null)
-                    .map(g -> toView(g, haversineMeters(
+                    .map(g -> toView(g, statsByGymId.getOrDefault(g.getId(), GymStatsSnapshot.empty()),
+                            haversineMeters(
                             centerLat, centerLng,
                             g.getLat().doubleValue(), g.getLng().doubleValue())))
                     .sorted(Comparator.comparingDouble(GymView::distanceMeters))
@@ -65,8 +71,10 @@ public class GymService {
         }
 
         Slice<Gym> slice = gymRepository.search(cursorId, k, b, PageRequest.of(0, pageSize));
+        Map<Long, GymStatsSnapshot> statsByGymId = gymStatsService.loadByGymIds(
+                slice.getContent().stream().map(Gym::getId).toList());
         List<GymView> views = slice.getContent().stream()
-                .map(g -> toView(g, null))
+                .map(g -> toView(g, statsByGymId.getOrDefault(g.getId(), GymStatsSnapshot.empty()), null))
                 .toList();
         Long nextCursor = slice.hasNext() && !views.isEmpty()
                 ? slice.getContent().get(slice.getContent().size() - 1).getId()
@@ -78,7 +86,9 @@ public class GymService {
     public GymView getByExtId(String extId) {
         Gym gym = gymRepository.findByExtIdAndStatus(extId, GymStatus.ACTIVE)
                 .orElseThrow(() -> new GymException("GYM_NOT_FOUND", "Gym " + extId + " not found"));
-        return toView(gym, null);
+        GymStatsSnapshot stats = gymStatsService.loadByGymIds(List.of(gym.getId()))
+                .getOrDefault(gym.getId(), GymStatsSnapshot.empty());
+        return toView(gym, stats, null);
     }
 
     private static int capSize(Integer size) {
@@ -106,7 +116,7 @@ public class GymService {
         return R * c;
     }
 
-    private static GymView toView(Gym g, Double distanceMeters) {
+    private static GymView toView(Gym g, GymStatsSnapshot stats, Double distanceMeters) {
         return new GymView(
                 g.getExtId(),
                 g.getName(),
@@ -118,6 +128,9 @@ public class GymService {
                 g.getOpeningHoursJson(),
                 g.getSettingCycleDays() != null ? g.getSettingCycleDays().intValue() : null,
                 g.getFeaturesJson(),
+                stats.rating(),
+                stats.sendCount(),
+                stats.monthlyUserCount(),
                 distanceMeters
         );
     }

@@ -34,6 +34,9 @@ export const GymItemSchema = z.object({
   address: z.string().nullable(),
   lat: z.number().nullable(),
   lng: z.number().nullable(),
+  rating: z.number().nullable(),
+  sendCount: z.number(),
+  monthlyUserCount: z.number(),
   // [PR-G1] 검색이 lat/lng query param 으로 호출됐을 때만 채워짐 (m). 미사용 시 null.
   distanceMeters: z.number().nullable(),
 });
@@ -60,6 +63,9 @@ export const GymDetailSchema = z.object({
   openingHoursJson: z.string().nullable(),
   settingCycleDays: z.number().int().nullable(),
   featuresJson: z.string().nullable(),
+  rating: z.number().nullable(),
+  sendCount: z.number(),
+  monthlyUserCount: z.number(),
 });
 
 export type GymDetail = z.infer<typeof GymDetailSchema>;

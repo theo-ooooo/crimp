@@ -187,6 +187,11 @@ app:
       enabled: ${GYM_SYNC_SCHEDULER_ENABLED:false}
       cron: ${GYM_SYNC_SCHEDULER_CRON:0 0 4 * * MON}
       zone: ${GYM_SYNC_SCHEDULER_ZONE:UTC}
+  gym-stats:
+    scheduler:
+      enabled: ${GYM_STATS_SCHEDULER_ENABLED:true}
+      cron: ${GYM_STATS_SCHEDULER_CRON:0 30 4 * * *}
+      zone: ${GYM_STATS_SCHEDULER_ZONE:UTC}
 
 logging:
   level:
