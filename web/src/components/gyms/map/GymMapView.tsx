@@ -88,6 +88,7 @@ export function GymMapView({
               points={points}
               className="h-[62vh] min-h-[420px]"
               level={6}
+              focusPointId={selectedId}
               onMarkerClick={setSelectedId}
             />
             <aside className="flex max-h-[62vh] flex-col gap-3 overflow-y-auto rounded-xl border border-hairline bg-bg p-2">

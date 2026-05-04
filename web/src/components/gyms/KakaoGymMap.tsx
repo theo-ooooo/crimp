@@ -16,6 +16,7 @@ interface KakaoLatLngInstance {
 interface KakaoMapInstance {
   setCenter(latLng: KakaoLatLngInstance): void;
   setLevel(level: number): void;
+  panTo?(latLng: KakaoLatLngInstance): void;
 }
 
 interface KakaoMarker {
@@ -62,6 +63,7 @@ interface KakaoGymMapProps {
   className?: string;
   level?: number;
   cta?: string;
+  focusPointId?: string | null;
   onMarkerClick?: (pointId: string) => void;
 }
 
@@ -70,10 +72,12 @@ export function KakaoGymMap({
   className,
   level = 5,
   cta,
+  focusPointId,
   onMarkerClick,
 }: KakaoGymMapProps): JSX.Element {
   const containerId = useId();
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<KakaoMapInstance | null>(null);
   const markersRef = useRef<KakaoMarker[]>([]);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -110,6 +114,7 @@ export function KakaoGymMap({
     const centerPoint = normalized[0]!;
     const center = new maps.LatLng(centerPoint.lat, centerPoint.lng);
     const map = new maps.Map(containerRef.current, { center, level });
+    mapRef.current = map;
     normalized.forEach((point) => {
       const position = new maps.LatLng(point.lat, point.lng);
       const marker = new maps.Marker({
@@ -129,8 +134,23 @@ export function KakaoGymMap({
     return () => {
       markersRef.current.forEach((marker) => marker.setMap(null));
       markersRef.current = [];
+      mapRef.current = null;
     };
   }, [level, normalized, onMarkerClick, ready]);
+
+  useEffect(() => {
+    if (!ready || !focusPointId) return;
+    const maps = window.kakao?.maps;
+    const map = mapRef.current;
+    const point = normalized.find((p) => p.id === focusPointId);
+    if (!maps || !map || !point) return;
+    const nextCenter = new maps.LatLng(point.lat, point.lng);
+    if (typeof map.panTo === 'function') {
+      map.panTo(nextCenter);
+    } else {
+      map.setCenter(nextCenter);
+    }
+  }, [focusPointId, normalized, ready]);
 
   if (!apiKey || normalized.length === 0 || failed) {
     return <MapFallback className={className} points={normalized} cta={cta} />;
