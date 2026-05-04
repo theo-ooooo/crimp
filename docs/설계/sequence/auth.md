@@ -90,6 +90,8 @@ sequenceDiagram
 ## 5. 보안 고려
 
 - idToken 서명 검증: JWKS 캐싱(1시간), `kid` 매핑
-- `aud`는 앱 ClientID, `iss`는 provider 고정값 화이트리스트
+- `aud`는 provider별 앱 키를 명시적으로 분리해 검증한다. Kakao는
+  `KAKAO_NATIVE_CLIENT_ID`(모바일 SDK), `KAKAO_WEB_CLIENT_ID`(JavaScript SDK),
+  `KAKAO_REST_API_KEY`(웹 code 교환)를 각각 허용한다.
 - Refresh 회전 시 이전 토큰을 그레이스 없이 즉시 만료
 - 감사 로그: 로그인 성공·실패, 이상 IP(지리적 점프) 플래그

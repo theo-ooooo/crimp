@@ -39,6 +39,9 @@
 
 - Access: 15분, Refresh: 14일
 - Refresh는 Redis에 `refresh:{userId}:{jti}` 저장, 로테이션 방식
+- Kakao OAuth 키는 앱/웹/서버를 분리한다. 모바일 SDK audience 는
+  `KAKAO_NATIVE_CLIENT_ID`, 웹 JavaScript SDK audience 는 `KAKAO_WEB_CLIENT_ID`,
+  authorization code 교환의 token endpoint `client_id` 는 `KAKAO_REST_API_KEY` 를 쓴다.
 - code 교환 엔드포인트는 provider REST API 키가 환경 변수 (`KAKAO_REST_API_KEY` 등) 로
   설정되지 않았을 때 `KAKAO_OAUTH_NOT_CONFIGURED` (HTTP 503) 으로 명시 응답한다.
 

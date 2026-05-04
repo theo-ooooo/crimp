@@ -9,11 +9,10 @@ import java.util.List;
  *
  * <p>섹션 구분:
  * <ul>
- *   <li>OIDC ID Token 검증: {@code clientId}, {@code issuer}, {@code jwksUri}
- *       (모바일/JS SDK 가 직접 발급한 id_token 을 백엔드에서 검증). id_token 의
- *       {@code aud} 는 SDK 초기화에 사용한 키 종류(네이티브/JS/REST)에 따라 다르므로,
- *       {@code clientId} 외에 {@code restApiKey} 와 {@code additionalAudiences} 를
- *       모두 허용 audience 집합에 포함시킨다.</li>
+ *   <li>OIDC ID Token 검증: {@code nativeClientId}, {@code webClientId}, {@code issuer},
+ *       {@code jwksUri} (모바일/JS SDK 가 직접 발급한 id_token 을 백엔드에서 검증).
+ *       id_token 의 {@code aud} 는 SDK 초기화에 사용한 키 종류(네이티브/JS/REST)에 따라
+ *       다르므로 native/web/rest 키를 각각 명시적으로 허용 audience 집합에 포함시킨다.</li>
  *   <li>Authorization Code 교환: {@code restApiKey}, {@code clientSecret},
  *       {@code tokenUri} (웹 v2 redirect flow — 브라우저가 code 만 받고
  *       서버가 Kakao 의 /oauth/token 으로 직접 교환).</li>
@@ -27,7 +26,8 @@ import java.util.List;
  */
 @ConfigurationProperties(prefix = "app.auth.oauth.kakao")
 public record KakaoProperties(
-        String clientId,
+        String nativeClientId,
+        String webClientId,
         String issuer,
         String jwksUri,
         String restApiKey,
