@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 import { t } from '@/lib/i18n';
 import type { GymDetail, RouteItem } from '@/lib/schemas/gym';
@@ -34,8 +34,15 @@ export function GymDetailView({
   isFetchingNextRoutesPage,
   onLoadMoreRoutes,
 }: GymDetailViewProps): JSX.Element {
-  const startSessionHref =
-    `/sessions/new?gymExtId=${encodeURIComponent(gym.extId)}&gymName=${encodeURIComponent(gym.name)}` as const;
+  const router = useRouter();
+  const startSession = () => {
+    const params = new URLSearchParams({
+      gymExtId: gym.extId,
+      gymName: gym.name,
+      startAt: String(Date.now()),
+    });
+    router.push(`/sessions/new?${params.toString()}`);
+  };
 
   return (
     <main className="min-h-screen bg-bg">
@@ -54,13 +61,14 @@ export function GymDetailView({
             isFetchingNextPage={isFetchingNextRoutesPage}
             onLoadMore={onLoadMoreRoutes}
           />
-          <Link
-            href={startSessionHref}
+          <button
+            type="button"
+            onClick={startSession}
             aria-label={t('gym.detail.startSessionCta')}
             className="sticky bottom-5 z-10 inline-flex h-16 w-full items-center justify-center rounded-xl bg-accent text-title font-extrabold text-accent-on shadow-sm transition-transform duration-fast ease-standard active:scale-[0.98]"
           >
             {t('gym.detail.startSessionCta')}
-          </Link>
+          </button>
         </div>
       </div>
     </main>

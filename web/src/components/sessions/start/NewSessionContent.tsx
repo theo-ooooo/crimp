@@ -18,7 +18,8 @@ export function NewSessionContent(): JSX.Element {
     const name = searchParams?.get('gymName') ?? null;
     return extId && name ? { extId, name } : null;
   }, [searchParams]);
-  const form = useStartSessionForm(accessToken, routeGym);
+  const resetKey = searchParams?.get('startAt') ?? null;
+  const form = useStartSessionForm(accessToken, routeGym, resetKey);
 
   if (!accessToken) return <NewSessionSkeleton />;
 

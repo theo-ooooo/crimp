@@ -18,6 +18,7 @@ const SEARCH_DEBOUNCE_MS = 300;
 export function useStartSessionForm(
   accessToken: string | null,
   routeGym: StartSessionGymChoice | null,
+  resetKey: string | null = null,
 ): StartSessionViewProps {
   const router = useRouter();
   const mutation = useStartSession(accessToken);
@@ -41,12 +42,21 @@ export function useStartSessionForm(
   const [startedAtLocal, setStartedAtLocal] = useState(() =>
     toLocalInputValue(new Date()),
   );
+  const resetStartedAt = useCallback(() => {
+    setStartedAtLocal(toLocalInputValue(new Date()));
+  }, []);
 
   useEffect(() => {
     if (!routeGym) return;
     setPickedGym(routeGym);
+    resetStartedAt();
     setSearchMode(false);
-  }, [routeGym]);
+  }, [resetStartedAt, routeGym]);
+
+  useEffect(() => {
+    if (!resetKey) return;
+    resetStartedAt();
+  }, [resetKey, resetStartedAt]);
 
   useEffect(() => {
     if (!routeGym && !mainGym && !pickedGym && meQuery.isFetched) {
@@ -87,23 +97,27 @@ export function useStartSessionForm(
 
   const onUseOtherGym = useCallback(() => {
     clearRouteGym();
+    resetStartedAt();
     setPickedGym(null);
     setSearchMode(true);
-  }, [clearRouteGym]);
+  }, [clearRouteGym, resetStartedAt]);
 
   const onUseMainGym = useCallback(() => {
     clearRouteGym();
+    resetStartedAt();
     setPickedGym(null);
     setSearchMode(false);
-  }, [clearRouteGym]);
+  }, [clearRouteGym, resetStartedAt]);
 
   const onClearSelectedGym = useCallback(() => {
     clearRouteGym();
+    resetStartedAt();
     setPickedGym(null);
     setSearchMode(true);
-  }, [clearRouteGym]);
+  }, [clearRouteGym, resetStartedAt]);
 
   const onSelectGym = useCallback((gym: GymItem) => {
+    resetStartedAt();
     setPickedGym({
       extId: gym.extId,
       name: gym.name,
@@ -111,7 +125,7 @@ export function useStartSessionForm(
       address: gym.address,
     });
     setSearchMode(false);
-  }, []);
+  }, [resetStartedAt]);
 
   const onLoadMore = useCallback(() => {
     if (gymQuery.hasNextPage && !gymQuery.isFetchingNextPage) {

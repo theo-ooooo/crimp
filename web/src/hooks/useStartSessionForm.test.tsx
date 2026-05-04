@@ -1,8 +1,9 @@
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { StartSessionGymChoice } from '@/components/sessions/start/types';
+import { toLocalInputValue } from '@/lib/datetime';
 import type { GymItem } from '@/lib/schemas/gym';
 
 import { useStartSessionForm } from './useStartSessionForm';
@@ -60,19 +61,28 @@ vi.mock('@/hooks/useGyms', () => ({
 
 type HookResult = ReturnType<typeof useStartSessionForm>;
 
-function renderUseStartSessionForm(routeGym: StartSessionGymChoice | null = null) {
+function renderUseStartSessionForm(
+  routeGym: StartSessionGymChoice | null = null,
+  resetKey: string | null = null,
+) {
   let latest: HookResult | null = null;
   const container = document.createElement('div');
   let root: Root;
 
-  function Probe({ gym }: { gym: StartSessionGymChoice | null }) {
-    latest = useStartSessionForm('token', gym);
+  function Probe({
+    gym,
+    startResetKey,
+  }: {
+    gym: StartSessionGymChoice | null;
+    startResetKey: string | null;
+  }) {
+    latest = useStartSessionForm('token', gym, startResetKey);
     return null;
   }
 
   act(() => {
     root = createRoot(container);
-    root.render(<Probe gym={routeGym} />);
+    root.render(<Probe gym={routeGym} startResetKey={resetKey} />);
   });
 
   return {
@@ -82,9 +92,14 @@ function renderUseStartSessionForm(routeGym: StartSessionGymChoice | null = null
       }
       return latest;
     },
-    rerender: (nextRouteGym: StartSessionGymChoice | null) => {
+    rerender: (
+      nextRouteGym: StartSessionGymChoice | null,
+      nextResetKey: string | null = resetKey,
+    ) => {
       act(() => {
-        root.render(<Probe gym={nextRouteGym} />);
+        root.render(
+          <Probe gym={nextRouteGym} startResetKey={nextResetKey} />,
+        );
       });
     },
     unmount: () => {
@@ -121,6 +136,7 @@ const SEARCH_GYM = {
 
 describe('useStartSessionForm', () => {
   beforeEach(() => {
+    vi.useRealTimers();
     mocks.router.push.mockReset();
     mocks.router.replace.mockReset();
     mocks.mutation.mutate.mockReset();
@@ -132,6 +148,10 @@ describe('useStartSessionForm', () => {
     mocks.gymQuery.error = null;
     mocks.gymQuery.hasNextPage = false;
     mocks.gymQuery.fetchNextPage.mockReset();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('uses main gym as the default selection', () => {
@@ -159,6 +179,72 @@ describe('useStartSessionForm', () => {
     expect(mocks.router.replace).toHaveBeenCalledWith('/sessions/new');
     expect(hook.result().gymChoice.activeGym).toBeNull();
     expect(hook.result().gymChoice.mode).toBe('search');
+
+    hook.unmount();
+  });
+
+  it('resets start time when route gym changes', () => {
+    const firstNow = new Date(2026, 4, 4, 10, 0);
+    const secondNow = new Date(2026, 4, 4, 11, 15);
+    vi.useFakeTimers();
+    vi.setSystemTime(firstNow);
+
+    const hook = renderUseStartSessionForm(ROUTE_GYM);
+
+    expect(hook.result().startedAtLocal).toBe(toLocalInputValue(firstNow));
+
+    act(() => {
+      hook.result().onStartedAtChange('2026-05-01T09:00');
+    });
+    expect(hook.result().startedAtLocal).toBe('2026-05-01T09:00');
+
+    vi.setSystemTime(secondNow);
+    hook.rerender({
+      ...ROUTE_GYM,
+      extId: 'gym-route-next',
+      name: '다음 라우트 암장',
+    });
+
+    expect(hook.result().startedAtLocal).toBe(toLocalInputValue(secondNow));
+
+    hook.unmount();
+  });
+
+  it('resets start time when start reset key changes for the same route gym', () => {
+    const firstNow = new Date(2026, 4, 4, 10, 0);
+    const secondNow = new Date(2026, 4, 4, 10, 45);
+    vi.useFakeTimers();
+    vi.setSystemTime(firstNow);
+
+    const hook = renderUseStartSessionForm(ROUTE_GYM, 'first');
+
+    act(() => {
+      hook.result().onStartedAtChange('2026-05-01T09:00');
+    });
+
+    vi.setSystemTime(secondNow);
+    hook.rerender(ROUTE_GYM, 'second');
+
+    expect(hook.result().startedAtLocal).toBe(toLocalInputValue(secondNow));
+
+    hook.unmount();
+  });
+
+  it('resets start time when selecting a searched gym', () => {
+    const selectedAt = new Date(2026, 4, 4, 12, 30);
+    vi.useFakeTimers();
+
+    const hook = renderUseStartSessionForm();
+
+    act(() => {
+      hook.result().onStartedAtChange('2026-05-01T09:00');
+    });
+    vi.setSystemTime(selectedAt);
+    act(() => {
+      hook.result().gymActions.onSelectGym(SEARCH_GYM);
+    });
+
+    expect(hook.result().startedAtLocal).toBe(toLocalInputValue(selectedAt));
 
     hook.unmount();
   });
