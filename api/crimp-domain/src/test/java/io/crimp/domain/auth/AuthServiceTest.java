@@ -372,8 +372,8 @@ class AuthServiceTest {
     }
 
     @Test
-    void exchange_apple_rawNoncePassedAsTokenNonce_throws_AUTH_INVALID() {
-        // 흔한 클라 버그 시나리오 — Apple 인데 hashing 을 안 거치고 raw 를 비교하면 mismatch.
+    void exchange_apple_rawNoncePassedAsTokenNonce_passes_for_web_code_flow() {
+        // Apple Web OIDC code flow 는 id_token nonce 에 raw nonce 를 그대로 돌려줄 수 있다.
         String rawNonce = "client-original-nonce";
 
         OauthIdTokenVerifier appleVerifier = mock(OauthIdTokenVerifier.class);
@@ -382,9 +382,16 @@ class AuthServiceTest {
                 new OauthUserInfo(OauthProvider.APPLE, "apple-uid-1", null, rawNonce));
         AuthService svc = serviceWithApple(appleVerifier);
 
-        assertThatThrownBy(() -> svc.exchange(OauthProvider.APPLE, "apple-tok", rawNonce))
-                .isInstanceOf(AuthException.class)
-                .satisfies(e -> assertThat(((AuthException) e).code()).isEqualTo("AUTH_INVALID"));
+        when(oauthRepo.findByProviderAndProviderUid(OauthProvider.APPLE, "apple-uid-1"))
+                .thenReturn(Optional.empty());
+        when(userRepo.save(any(User.class))).thenAnswer(inv -> {
+            User u = inv.getArgument(0);
+            setField(u, "id", 4L);
+            return u;
+        });
+
+        AuthTokens tokens = svc.exchange(OauthProvider.APPLE, "apple-tok", rawNonce);
+        assertThat(tokens.accessToken()).isNotBlank();
     }
 
     @Test

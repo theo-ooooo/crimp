@@ -218,8 +218,8 @@ public class AuthService {
      * (PR #112) provider 별 규약에 맞춰 client 가 보낸 원본 nonce 와 id_token 의 nonce 클레임을 비교.
      *
      * <ul>
-     *   <li>Apple: id_token 의 nonce 는 SHA-256(원본) 의 hex. 명세상 소문자지만, provider 가 향후
-     *       대문자로 바꿀 가능성에 대비해 비교 시 토큰 측 값을 lowercase 로 정규화 (PR #112 리뷰 I3).</li>
+     *   <li>Apple: Native 는 SHA-256(원본) hex, Web OIDC code flow 는 원본 nonce 로 내려올 수
+     *       있어 둘 다 허용한다. hex 값은 대소문자 차이를 정규화한다.</li>
      *   <li>Kakao: id_token 의 nonce 는 원본 그대로. 평문 비교.</li>
      * </ul>
      * client 가 nonce 를 보내지 않은 경우 (null/blank) 검증을 건너뛴다 — 구버전 클라 호환.
@@ -236,8 +236,11 @@ public class AuthService {
         String actual;
         switch (provider) {
             case APPLE -> {
-                expected = hash(expectedRaw);
-                actual = tokenNonce.toLowerCase(Locale.ROOT);
+                String actualApple = tokenNonce.toLowerCase(Locale.ROOT);
+                if (hash(expectedRaw).equals(actualApple) || expectedRaw.equals(tokenNonce)) {
+                    return;
+                }
+                throw new AuthException("AUTH_INVALID", "nonce mismatch");
             }
             case KAKAO -> {
                 expected = expectedRaw;
