@@ -76,6 +76,19 @@ export function GymSearchBody({
     ),
     [navigation],
   );
+  const mapGyms = useMemo(
+    () => gyms
+      .filter((gym): gym is GymItem & { lat: number; lng: number } => gym.lat !== null && gym.lng !== null)
+      .map((gym) => ({
+        extId: gym.extId,
+        name: gym.name,
+        address: gym.address,
+        lat: gym.lat,
+        lng: gym.lng,
+        distanceMeters: gym.distanceMeters,
+      })),
+    [gyms],
+  );
 
   const header = useMemo(() => {
     if (error) {
@@ -154,6 +167,7 @@ export function GymSearchBody({
             variant="search"
             gyms={listForMap}
             actionLabel="지도 보기"
+            onPress={() => navigation.navigate('GymMap', { gyms: mapGyms })}
           />
         </View>
 
@@ -173,6 +187,8 @@ export function GymSearchBody({
     error,
     gyms,
     isLoading,
+    mapGyms,
+    navigation,
     searchText,
     setBrand,
     setSearchText,

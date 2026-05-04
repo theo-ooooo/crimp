@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import Config from 'react-native-config';
 import Svg, { Circle, Defs, LinearGradient, Rect, Stop, Line, Path, Text as SvgText } from 'react-native-svg';
+import WebView from 'react-native-webview';
 
 import { CrimpIcon } from '@/components/common/primitives';
 import { radius, space, withAlpha, type Theme } from '@/lib/tokens';
@@ -17,6 +19,14 @@ type Marker = {
   point: Point;
   active?: boolean;
   color?: string;
+};
+
+type MapPoint = {
+  key: string;
+  label: string;
+  lat: number;
+  lng: number;
+  active?: boolean;
 };
 
 type Props = {
@@ -39,23 +49,18 @@ export function GymMapPreview({
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const markers = useMemo(() => {
     if (variant === 'detail') {
-      const base: Marker[] = [
-        { key: 'a', label: 'A', point: { x: 18, y: 28 }, color: '#E53935' },
-        { key: 'b', label: 'B', point: { x: 38, y: 18 }, color: '#FB8C00' },
-        { key: 'c', label: 'C', point: { x: 62, y: 36 }, color: '#1E88E5' },
-        { key: 'd', label: 'D', point: { x: 75, y: 64 }, color: '#43A047' },
-        { key: 'e', label: 'E', point: { x: 26, y: 60 }, color: '#FFFFFF' },
-      ];
-      if (detailGym && detailGym.lat !== null && detailGym.lng !== null) {
-        base.push({
+      if (!detailGym || detailGym.lat === null || detailGym.lng === null) {
+        return [];
+      }
+      return [
+        {
           key: 'gym',
           label: detailGym.name.slice(0, 1) || 'G',
           point: { x: 50, y: 50 },
           active: true,
           color: theme.accent.base,
-        });
-      }
-      return base;
+        },
+      ];
     }
 
     const visibleGyms = gyms.filter((gym) => gym.lat !== null && gym.lng !== null).slice(0, 5);
@@ -88,9 +93,95 @@ export function GymMapPreview({
       };
     });
   }, [detailGym, gyms, theme.accent.base, theme.text, variant]);
+  const mapPoints = useMemo<MapPoint[]>(() => {
+    if (variant === 'detail') {
+      if (!detailGym || detailGym.lat === null || detailGym.lng === null) {
+        return [];
+      }
+      return [{
+        key: detailGym.extId,
+        label: detailGym.name.slice(0, 1) || 'G',
+        lat: detailGym.lat,
+        lng: detailGym.lng,
+        active: true,
+      }];
+    }
+
+    return gyms
+      .filter((gym) => gym.lat !== null && gym.lng !== null)
+      .slice(0, 5)
+      .map((gym, index) => ({
+        key: gym.extId,
+        label: gym.name.slice(0, 1),
+        lat: gym.lat as number,
+        lng: gym.lng as number,
+        active: index === 0,
+      }));
+  }, [detailGym, gyms, variant]);
+  const kakaoMapKey = Config.KAKAO_MAP_JS_KEY ?? '';
+  const kakaoMapBaseUrl = normalizeKakaoMapBaseUrl(Config.KAKAO_MAP_BASE_URL);
+  const shouldRenderKakaoMap = kakaoMapKey.length > 0 && (variant === 'search' || mapPoints.length > 0);
+
+  const kakaoMapContent =
+    shouldRenderKakaoMap ? (
+      <View style={[styles.frame, variant === 'detail' ? styles.detailFrame : styles.searchFrame]}>
+        <WebView
+          style={StyleSheet.absoluteFill}
+          source={{
+            html: buildKakaoMapHtml({
+              appKey: kakaoMapKey,
+              points: mapPoints,
+              centerLat: averageCoordinate(mapPoints, 'lat'),
+              centerLng: averageCoordinate(mapPoints, 'lng'),
+              level: variant === 'detail' ? 4 : 6,
+              accentColor: theme.accent.base,
+              textColor: theme.text,
+            }),
+            baseUrl: kakaoMapBaseUrl,
+          }}
+          javaScriptEnabled
+          domStorageEnabled
+          originWhitelist={['https://localhost:*']}
+          scrollEnabled={false}
+          showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
+        />
+        {mapPoints.length > 0 ? (
+          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+            {markers.map((marker) => (
+              <View
+                key={marker.key}
+                style={[
+                  styles.nativeMarker,
+                  {
+                    left: `${marker.point.x}%`,
+                    top: `${marker.point.y}%`,
+                    backgroundColor: marker.color ?? theme.accent.base,
+                    borderColor: marker.active ? theme.bg : withAlpha(theme.bg, 0.82),
+                    transform: [{ translateX: -13 }, { translateY: -13 }],
+                  },
+                ]}
+              >
+                <Text style={[styles.nativeMarkerText, { color: marker.active ? theme.text : theme.bg }]}>
+                  {marker.label}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+        {variant === 'search' ? (
+          <View style={styles.searchFooter}>
+            <View style={styles.actionButton}>
+              <Text style={styles.actionButtonText}>{actionLabel}</Text>
+              <CrimpIcon.chevR size={16} color={theme.text} />
+            </View>
+          </View>
+        ) : null}
+      </View>
+    ) : null;
 
   const content = (
-    <View style={[styles.frame, variant === 'detail' ? styles.detailFrame : styles.searchFrame]}>
+    kakaoMapContent ?? <View style={[styles.frame, variant === 'detail' ? styles.detailFrame : styles.searchFrame]}>
       <Svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
         {variant === 'detail' ? <DetailBackground theme={theme} /> : <SearchBackground theme={theme} />}
         {markers.map((marker) => (
@@ -215,6 +306,154 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
+function averageCoordinate(points: MapPoint[], key: 'lat' | 'lng'): number {
+  if (points.length === 0) {
+    return key === 'lat' ? 37.5665 : 126.978;
+  }
+  return points.reduce((sum, point) => sum + point[key], 0) / points.length;
+}
+
+function normalizeKakaoMapBaseUrl(value?: string): string {
+  const baseUrl = value && value.length > 0 ? value : 'https://localhost:8081';
+  return baseUrl.replace(/^http:\/\//, 'https://');
+}
+
+function buildKakaoMapHtml({
+  appKey,
+  points,
+  centerLat,
+  centerLng,
+  level,
+  accentColor,
+  textColor,
+}: {
+  appKey: string;
+  points: MapPoint[];
+  centerLat: number;
+  centerLng: number;
+  level: number;
+  accentColor: string;
+  textColor: string;
+}): string {
+  const safePointsJson = JSON.stringify(points).replace(/</g, '\\u003c');
+  const safeAppKey = encodeURIComponent(appKey);
+  const safeBaseUrl = JSON.stringify(Config.KAKAO_MAP_BASE_URL ?? 'http://localhost:8081');
+  return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <base href=${safeBaseUrl} />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <style>
+      html, body, #map {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: #edf2f4;
+      }
+      .marker {
+        width: 24px;
+        height: 24px;
+        border-radius: 999px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 3px solid #fff;
+        background: ${accentColor};
+        color: ${textColor};
+        font-size: 11px;
+        font-weight: 800;
+        line-height: 1;
+        box-shadow: 0 6px 16px rgba(0,0,0,.24);
+        transform: translate(-50%, -50%);
+      }
+      .marker.secondary {
+        background: rgba(15,20,25,.82);
+        color: #fff;
+      }
+    </style>
+    <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=${safeAppKey}&libraries=services"></script>
+  </head>
+  <body>
+    <div id="map"></div>
+    <script>
+      const points = ${safePointsJson};
+      let didCreateMap = false;
+
+      function initMap() {
+        if (!window.kakao || !window.kakao.maps) {
+          return;
+        }
+
+        waitForConstructors(0);
+      }
+
+      function waitForConstructors(attempt) {
+        if (typeof window.kakao.maps.Map === 'function' && typeof window.kakao.maps.LatLng === 'function') {
+          createMap();
+          return;
+        }
+        if (attempt >= 20) {
+          return;
+        }
+        setTimeout(function () {
+          waitForConstructors(attempt + 1);
+        }, 100);
+      }
+
+      function createMap() {
+        if (didCreateMap) {
+          return;
+        }
+        didCreateMap = true;
+
+        try {
+          const center = new kakao.maps.LatLng(${centerLat}, ${centerLng});
+          const map = new kakao.maps.Map(document.getElementById('map'), {
+            center: center,
+            level: ${level},
+            draggable: false,
+            scrollwheel: false,
+            disableDoubleClick: true,
+            disableDoubleClickZoom: true
+          });
+
+          points.forEach(function (point, index) {
+            const el = document.createElement('div');
+            el.className = 'marker' + (point.active || index === 0 ? '' : ' secondary');
+            el.textContent = point.label || 'G';
+            new kakao.maps.CustomOverlay({
+              map,
+              position: new kakao.maps.LatLng(point.lat, point.lng),
+              content: el,
+              yAnchor: 0.5,
+              xAnchor: 0.5
+            });
+          });
+
+          function relayout() {
+            map.relayout();
+            map.setCenter(center);
+          }
+
+          window.addEventListener('resize', relayout);
+          requestAnimationFrame(relayout);
+          setTimeout(relayout, 80);
+          setTimeout(relayout, 300);
+          setTimeout(relayout, 1000);
+        } catch (error) {
+          didCreateMap = false;
+        }
+      }
+
+      initMap();
+    </script>
+  </body>
+</html>`;
+}
+
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     pressable: {
@@ -250,6 +489,24 @@ function makeStyles(theme: Theme) {
       color: theme.text,
       fontSize: 13,
       fontWeight: '700',
+    },
+    nativeMarker: {
+      position: 'absolute',
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      borderWidth: 3,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#000000',
+      shadowOpacity: 0.18,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 3,
+    },
+    nativeMarkerText: {
+      fontSize: 10,
+      fontWeight: '800',
     },
   });
 }

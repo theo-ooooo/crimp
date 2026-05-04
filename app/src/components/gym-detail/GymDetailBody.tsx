@@ -10,6 +10,7 @@ import {
   Skeleton,
   CrimpIcon,
 } from '@/components/common/primitives';
+import { GymMapPreview } from '@/components/gym-map/GymMapPreview';
 import type { HoldColorKey } from '@/components/common/primitives';
 import { makeGymDetailStyles } from '@/components/gym/gymDetailStyles';
 import { toUserMessage } from '@/lib/api/errorMessage';
@@ -90,6 +91,7 @@ export function GymDetailBody({
               onBack={onBack}
             />
             <SummarySection gym={gym} theme={theme} />
+            <LocationSection gym={gym} theme={theme} />
             <ActiveSessionsSection
               theme={theme}
               activeSessions={activeSessions}
@@ -207,6 +209,29 @@ function SummarySection({ gym, theme }: { gym: GymDetail; theme: Theme }): JSX.E
         <StatItem label="완등" value={`${gym.sendCount}개`} />
         <StatItem label="친구" value={`${gym.monthlyUserCount}명`} />
       </View>
+    </View>
+  );
+}
+
+function LocationSection({ gym, theme }: { gym: GymDetail; theme: Theme }): JSX.Element | null {
+  const styles = useMemo(() => makeStyles(theme), [theme]);
+  if (gym.lat === null || gym.lng === null) {
+    return null;
+  }
+
+  return (
+    <View style={styles.locationCard}>
+      <View style={styles.locationHeader}>
+        <Text style={styles.sectionTitle}>위치</Text>
+        <Text style={styles.locationAddress} numberOfLines={1}>
+          {gym.address ?? t('gym.detail.addressFallback')}
+        </Text>
+      </View>
+      <GymMapPreview
+        theme={theme}
+        variant="detail"
+        detailGym={gym}
+      />
     </View>
   );
 }
@@ -1067,6 +1092,21 @@ function makeStyles(theme: Theme) {
       borderRadius: radius.xl,
       paddingHorizontal: space[4],
       paddingVertical: space[3],
+    },
+    locationCard: {
+      gap: space[3],
+      backgroundColor: theme.bg,
+      borderRadius: radius.xl,
+      paddingHorizontal: space[4],
+      paddingVertical: space[3],
+    },
+    locationHeader: {
+      gap: space[1],
+    },
+    locationAddress: {
+      fontSize: 13,
+      fontWeight: fontWeight.semibold,
+      color: theme.text3,
     },
     sectionTitle: {
       fontSize: 18,
