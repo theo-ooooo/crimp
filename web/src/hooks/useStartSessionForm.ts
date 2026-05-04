@@ -86,9 +86,10 @@ export function useStartSessionForm(
   }, [router]);
 
   const onUseOtherGym = useCallback(() => {
+    clearRouteGym();
     setPickedGym(null);
     setSearchMode(true);
-  }, []);
+  }, [clearRouteGym]);
 
   const onUseMainGym = useCallback(() => {
     clearRouteGym();
