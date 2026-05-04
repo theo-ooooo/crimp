@@ -134,6 +134,10 @@ const SPECS: Record<string, IconSpec> = {
       <circle cx="16" cy="10" r="1.8" />
     </>),
   },
+  heart: {
+    vb: 24, d: 24, sw: '2', slc: 'round', slj: 'round', f: 'none',
+    children: <path d="M20.8 5.6a5.3 5.3 0 0 0-7.5 0L12 6.9l-1.3-1.3a5.3 5.3 0 0 0-7.5 7.5L12 22l8.8-8.9a5.3 5.3 0 0 0 0-7.5Z" />,
+  },
   target: {
     vb: 20, d: 20, sw: '1.8', f: 'none',
     children: (<>
@@ -190,6 +194,7 @@ export const CrimpIcon = {
   filter: createIcon(SPECS.filter!),
   trend: createIcon(SPECS.trend!),
   dots: createIcon(SPECS.dots!),
+  heart: createIcon(SPECS.heart!),
   target: createIcon(SPECS.target!),
 } as const;
 
