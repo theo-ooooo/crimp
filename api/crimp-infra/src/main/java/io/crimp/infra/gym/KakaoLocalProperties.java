@@ -21,7 +21,7 @@ import java.util.List;
  *                      브랜드/상호명 중심 다중 호출 후 union dedup.
  * @param pageSize 1 호출당 결과 수. Kakao 최대 15.
  * @param maxPages 한 좌표·키워드 호출에서 최대 몇 페이지까지 가져올지 (페이지네이션).
- *                 PR #111 기본값 3 → 5 상향 (밀집 지역 누락 회피).
+ *                 Kakao Local keyword search 의 page 허용 범위는 1..45 이므로 그 이상은 45로 제한.
  */
 @ConfigurationProperties(prefix = "app.gym-sync.kakao-local")
 public record KakaoLocalProperties(
@@ -80,6 +80,9 @@ public record KakaoLocalProperties(
     }
 
     public int resolvedMaxPages() {
-        return maxPages != null && maxPages > 0 ? maxPages : 5;
+        if (maxPages == null || maxPages <= 0) {
+            return 45;
+        }
+        return Math.min(maxPages, 45);
     }
 }

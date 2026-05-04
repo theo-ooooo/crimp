@@ -117,6 +117,15 @@ class KakaoLocalGymClientTest {
     }
 
     @Test
+    void props_maxPagesDefaultsToKakaoLimitAndClamps() {
+        assertThat(props().resolvedMaxPages()).isEqualTo(45);
+        assertThat(new KakaoLocalProperties(null, null, null, null, null, null, 99).resolvedMaxPages())
+                .isEqualTo(45);
+        assertThat(new KakaoLocalProperties(null, null, null, null, null, null, 12).resolvedMaxPages())
+                .isEqualTo(12);
+    }
+
+    @Test
     void fetch_paginates_untilIsEnd() {
         RestTemplate rt = mock(RestTemplate.class);
         KeywordResponse page1 = new KeywordResponse(
