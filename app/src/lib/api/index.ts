@@ -21,6 +21,8 @@ export {
   fetchGyms,
   fetchGym,
   fetchGymRoutes,
+  fetchGymRecentActivity,
+  fetchGymActiveSessions,
   fetchFeed,
   togglePostLike,
   fetchComments,

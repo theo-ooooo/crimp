@@ -92,3 +92,36 @@ export const RouteListSchema = z.object({
 });
 
 export type RouteList = z.infer<typeof RouteListSchema>;
+
+// ===== Gym 현재 세션 / 최근 활동 =====
+
+export const GymActiveSessionsBucketSchema = z.object({
+  grade: z.string(),
+  count: z.number(),
+});
+
+export type GymActiveSessionsBucket = z.infer<typeof GymActiveSessionsBucketSchema>;
+
+export const GymActiveSessionsSchema = z.object({
+  activeUsers: z.number(),
+  gradeBuckets: z.array(GymActiveSessionsBucketSchema),
+});
+
+export type GymActiveSessions = z.infer<typeof GymActiveSessionsSchema>;
+
+export const GymRecentActivityItemSchema = z.object({
+  userExtId: z.string(),
+  nickname: z.string(),
+  avatarColorHue: z.number(),
+  gradeValue: z.string(),
+  result: z.enum(['SEND', 'FLASH', 'ONSIGHT', 'TRY', 'FAIL']),
+  loggedAt: z.string(),
+});
+
+export type GymRecentActivityItem = z.infer<typeof GymRecentActivityItemSchema>;
+
+export const GymRecentActivitySchema = z.object({
+  items: z.array(GymRecentActivityItemSchema),
+});
+
+export type GymRecentActivity = z.infer<typeof GymRecentActivitySchema>;

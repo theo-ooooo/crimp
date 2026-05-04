@@ -117,12 +117,12 @@ function GymsTabStack(): JSX.Element {
       <GymsStack.Screen
         name="GymSearch"
         component={GymSearchScreen}
-        options={{ title: t('gym.list.title') }}
+        options={{ headerShown: false, title: t('gym.list.title') }}
       />
       <GymsStack.Screen
         name="GymDetail"
         component={GymDetailScreen}
-        options={{ title: t('gym.detail.title') }}
+        options={{ headerShown: false, title: t('gym.detail.title') }}
       />
       <GymsStack.Screen
         name="StartSession"

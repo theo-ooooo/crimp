@@ -1,5 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useMemo } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { makeGymSearchStyles } from '@/components/gym/gymSearchStyles';
 import { GymSearchBody } from '@/components/gym-search/GymSearchBody';
@@ -35,26 +36,28 @@ export default function GymSearchScreen(): JSX.Element {
   const styles = useMemo(() => makeGymSearchStyles(theme), [theme]);
 
   return (
-    <GymSearchBody
-      styles={styles}
-      bgColor={theme.bg}
-      text3Color={theme.text3}
-      text4Color={theme.text4}
-      accentColor={theme.accent.base}
-      searchText={searchText}
-      setSearchText={setSearchText}
-      brand={brand}
-      setBrand={setBrand}
-      brandOptions={GYM_BRAND_OPTIONS}
-      gyms={gyms}
-      isLoading={isLoading}
-      error={error}
-      isRefetching={isRefetching}
-      isFetchingNextPage={isFetchingNextPage}
-      onRefresh={onRefresh}
-      onEndReached={onEndReached}
-      navigation={navigation}
-    />
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }} edges={['top']}>
+      <GymSearchBody
+        theme={theme}
+        styles={styles}
+        bgColor={theme.bg}
+        text3Color={theme.text3}
+        text4Color={theme.text4}
+        accentColor={theme.accent.base}
+        searchText={searchText}
+        setSearchText={setSearchText}
+        brand={brand}
+        setBrand={setBrand}
+        brandOptions={GYM_BRAND_OPTIONS}
+        gyms={gyms}
+        isLoading={isLoading}
+        error={error}
+        isRefetching={isRefetching}
+        isFetchingNextPage={isFetchingNextPage}
+        onRefresh={onRefresh}
+        onEndReached={onEndReached}
+        navigation={navigation}
+      />
+    </SafeAreaView>
   );
 }
-
