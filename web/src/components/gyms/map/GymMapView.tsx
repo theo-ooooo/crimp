@@ -160,7 +160,7 @@ function MapGymRow({
       onFocus={onSelect}
       className={`flex items-center gap-3 rounded-xl border p-3 transition-transform duration-fast ease-standard active:scale-[0.99] ${
         selected
-          ? 'border-accent bg-accent-soft text-text shadow-xs'
+          ? 'border-accent bg-accent-soft text-[#0F1419] shadow-xs hover:text-[#0F1419]'
           : 'border-transparent bg-subtle text-text hover:border-accent hover:bg-accent-soft hover:text-text'
       }`}
     >
@@ -173,11 +173,15 @@ function MapGymRow({
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-body font-extrabold">{gym.name}</p>
-        <p className="truncate text-caption font-semibold text-text-3 dark:text-text-2">
+        <p
+          className={`truncate text-caption font-semibold ${
+            selected ? 'text-[#4E5968]' : 'text-text-3 dark:text-text-2'
+          }`}
+        >
           {gym.address ?? t('gym.list.addressFallback')}
         </p>
       </div>
-      <CrimpIcon.chevR s={16} className="text-text-3" />
+      <CrimpIcon.chevR s={16} className={selected ? 'text-[#4E5968]' : 'text-text-3'} />
     </Link>
   );
 }
