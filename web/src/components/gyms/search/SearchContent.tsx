@@ -34,7 +34,7 @@ export function SearchContent({
           <h2 className="text-title font-extrabold text-text">주변 암장</h2>
           <span className="text-caption font-semibold text-text-3">거리순</span>
         </div>
-        <Link href="/gyms/map" aria-label="지도 보기">
+        <div className="relative">
           <KakaoGymMap
             points={featured.map((gym) => ({
               id: gym.extId,
@@ -43,9 +43,16 @@ export function SearchContent({
               lng: gym.lng ?? '',
             }))}
             className="h-[188px]"
-            cta="지도 보기"
           />
-        </Link>
+          <Link
+            href="/gyms/map"
+            aria-label="지도 보기"
+            className="absolute bottom-4 right-4 z-10 inline-flex h-10 items-center gap-2 rounded-lg bg-bg px-4 text-caption font-extrabold text-text shadow-xs"
+          >
+            지도 보기
+            <CrimpIcon.chevR s={16} />
+          </Link>
+        </div>
       </section>
 
       <section className="flex flex-col gap-3" aria-label="인기 있는 곳">

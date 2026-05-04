@@ -22,9 +22,14 @@ interface KakaoMarker {
   setMap(map: KakaoMapInstance | null): void;
 }
 
+interface KakaoEvent {
+  addListener(target: KakaoMarker, type: 'click', handler: () => void): void;
+}
+
 interface KakaoMaps {
   load(callback: () => void): void;
   LatLng: KakaoLatLng;
+  event: KakaoEvent;
   Map: new (
     container: HTMLElement,
     options: { center: KakaoLatLngInstance; level: number },
@@ -57,6 +62,7 @@ interface KakaoGymMapProps {
   className?: string;
   level?: number;
   cta?: string;
+  onMarkerClick?: (pointId: string) => void;
 }
 
 export function KakaoGymMap({
@@ -64,6 +70,7 @@ export function KakaoGymMap({
   className,
   level = 5,
   cta,
+  onMarkerClick,
 }: KakaoGymMapProps): JSX.Element {
   const containerId = useId();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -105,13 +112,13 @@ export function KakaoGymMap({
     const map = new maps.Map(containerRef.current, { center, level });
     normalized.forEach((point) => {
       const position = new maps.LatLng(point.lat, point.lng);
-      markersRef.current.push(
-        new maps.Marker({
-          map,
-          position,
-          title: point.name,
-        }),
-      );
+      const marker = new maps.Marker({
+        map,
+        position,
+        title: point.name,
+      });
+      maps.event.addListener(marker, 'click', () => onMarkerClick?.(point.id));
+      markersRef.current.push(marker);
     });
 
     if (normalized.length === 1) {
@@ -123,7 +130,7 @@ export function KakaoGymMap({
       markersRef.current.forEach((marker) => marker.setMap(null));
       markersRef.current = [];
     };
-  }, [level, normalized, ready]);
+  }, [level, normalized, onMarkerClick, ready]);
 
   if (!apiKey || normalized.length === 0 || failed) {
     return <MapFallback className={className} points={normalized} cta={cta} />;
@@ -133,7 +140,7 @@ export function KakaoGymMap({
     <div className={`relative overflow-hidden rounded-xl border border-hairline bg-subtle shadow-xs ${className ?? ''}`}>
       <div id={containerId} ref={containerRef} className="h-full min-h-[180px] w-full" />
       {cta ? (
-        <span className="absolute bottom-4 right-4 inline-flex h-10 items-center gap-2 rounded-lg bg-bg px-4 text-caption font-extrabold text-text shadow-xs">
+        <span className="absolute bottom-4 right-4 z-10 inline-flex h-10 items-center gap-2 rounded-lg bg-bg px-4 text-caption font-extrabold text-text shadow-xs">
           {cta}
           <CrimpIcon.chevR s={16} />
         </span>
@@ -170,7 +177,7 @@ function MapFallback({
         </span>
       ))}
       {cta ? (
-        <span className="absolute bottom-4 right-4 inline-flex h-10 items-center gap-2 rounded-lg bg-bg px-4 text-caption font-extrabold text-text shadow-xs">
+        <span className="absolute bottom-4 right-4 z-10 inline-flex h-10 items-center gap-2 rounded-lg bg-bg px-4 text-caption font-extrabold text-text shadow-xs">
           {cta}
           <CrimpIcon.chevR s={16} />
         </span>

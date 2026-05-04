@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { KakaoGymMap } from '@/components/gyms/KakaoGymMap';
 import { CrimpIcon, SecondaryButton, Skeleton } from '@/components/primitives';
@@ -24,14 +25,37 @@ export function GymMapView({
   isFetchingNextPage,
   onLoadMore,
 }: GymMapViewProps): JSX.Element {
-  const points = gyms
-    .filter((gym) => gym.lat != null && gym.lng != null)
-    .map((gym) => ({
-      id: gym.extId,
-      name: gym.name,
-      lat: gym.lat!,
-      lng: gym.lng!,
-    }));
+  const rowRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
+  const points = useMemo(
+    () =>
+      gyms
+        .filter((gym) => gym.lat != null && gym.lng != null)
+        .map((gym) => ({
+          id: gym.extId,
+          name: gym.name,
+          lat: gym.lat!,
+          lng: gym.lng!,
+        })),
+    [gyms],
+  );
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectedGym =
+    gyms.find((gym) => gym.extId === selectedId) ??
+    gyms.find((gym) => gym.extId === points[0]?.id) ??
+    null;
+
+  useEffect(() => {
+    if (selectedId || points.length === 0) return;
+    setSelectedId(points[0]!.id);
+  }, [points, selectedId]);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    rowRefs.current[selectedId]?.scrollIntoView({
+      block: 'nearest',
+      behavior: 'smooth',
+    });
+  }, [selectedId]);
 
   return (
     <main className="min-h-screen bg-bg">
@@ -60,10 +84,24 @@ export function GymMapView({
           <MapError message={errorMessage} />
         ) : (
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-            <KakaoGymMap points={points} className="h-[62vh] min-h-[420px]" level={6} />
+            <KakaoGymMap
+              points={points}
+              className="h-[62vh] min-h-[420px]"
+              level={6}
+              onMarkerClick={setSelectedId}
+            />
             <aside className="flex max-h-[62vh] flex-col gap-3 overflow-y-auto rounded-xl border border-hairline bg-bg p-2">
+              {selectedGym ? <SelectedGymCard gym={selectedGym} /> : null}
               {gyms.map((gym) => (
-                <MapGymRow key={gym.extId} gym={gym} />
+                <MapGymRow
+                  key={gym.extId}
+                  gym={gym}
+                  selected={gym.extId === selectedGym?.extId}
+                  refSetter={(el) => {
+                    rowRefs.current[gym.extId] = el;
+                  }}
+                  onSelect={() => setSelectedId(gym.extId)}
+                />
               ))}
               {hasNextPage ? (
                 <SecondaryButton onClick={onLoadMore} disabled={isFetchingNextPage}>
@@ -80,11 +118,48 @@ export function GymMapView({
   );
 }
 
-function MapGymRow({ gym }: { gym: GymItem }): JSX.Element {
+function SelectedGymCard({ gym }: { gym: GymItem }): JSX.Element {
   return (
     <Link
       href={`/gyms/${encodeURIComponent(gym.extId)}`}
-      className="flex items-center gap-3 rounded-xl bg-subtle p-3 transition-transform duration-fast ease-standard active:scale-[0.99]"
+      className="sticky top-0 z-10 flex flex-col gap-3 rounded-xl bg-accent p-4 text-text shadow-sm"
+    >
+      <div className="flex items-center gap-3">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-bg text-h2 font-extrabold">
+          {gym.name.trim().charAt(0)}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-title font-extrabold">{gym.name}</p>
+          <p className="truncate text-caption font-bold text-text/70">
+            {gym.address ?? t('gym.list.addressFallback')}
+          </p>
+        </div>
+        <CrimpIcon.chevR s={18} />
+      </div>
+    </Link>
+  );
+}
+
+function MapGymRow({
+  gym,
+  selected,
+  refSetter,
+  onSelect,
+}: {
+  gym: GymItem;
+  selected: boolean;
+  refSetter: (el: HTMLAnchorElement | null) => void;
+  onSelect: () => void;
+}): JSX.Element {
+  return (
+    <Link
+      ref={refSetter}
+      href={`/gyms/${encodeURIComponent(gym.extId)}`}
+      onMouseEnter={onSelect}
+      onFocus={onSelect}
+      className={`flex items-center gap-3 rounded-xl p-3 transition-transform duration-fast ease-standard active:scale-[0.99] ${
+        selected ? 'bg-accent-soft ring-2 ring-accent' : 'bg-subtle'
+      }`}
     >
       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-title font-extrabold text-text">
         {gym.name.trim().charAt(0)}

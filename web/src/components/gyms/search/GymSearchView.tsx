@@ -36,7 +36,9 @@ export function GymSearchView({
   onResetFilters,
   onLoadMore,
 }: GymSearchViewProps): JSX.Element {
-  const featured = items.slice(0, 4);
+  const featured = items
+    .filter((gym) => gym.lat != null && gym.lng != null)
+    .slice(0, 8);
   const hasFilter = inputQ.trim() !== '' || selectedBrand !== null;
 
   return (
