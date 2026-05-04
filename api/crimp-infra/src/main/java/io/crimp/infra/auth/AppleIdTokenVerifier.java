@@ -71,6 +71,7 @@ public class AppleIdTokenVerifier implements OauthIdTokenVerifier {
     static Set<String> allowedAudiences(AppleProperties props) {
         Set<String> set = new LinkedHashSet<>();
         addIfPresent(set, props.clientId());
+        addIfPresent(set, props.serviceId());
         if (props.additionalAudiences() != null) {
             props.additionalAudiences().forEach(a -> addIfPresent(set, a));
         }
