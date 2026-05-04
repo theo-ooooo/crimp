@@ -108,10 +108,66 @@ class GymServiceTest {
                 .satisfies(e -> assertThat(((GymException) e).code()).isEqualTo("GYM_NOT_FOUND"));
     }
 
+    // --- 거리 정렬 (PR-G1) ---
+
+    @Test
+    void search_with_lat_lng_sorts_by_haversine_distance() {
+        // 강남 (37.498, 127.028) ~ 홍대 (37.557, 126.924) ~ 잠실 (37.513, 127.100).
+        // 사용자 위치 = 강남 → 강남이 거리 0 가장 가깝고, 잠실 < 홍대 순.
+        Gym gangnam = gymAt(10L, "01HGN", "강남점", 37.498, 127.028);
+        Gym hongdae = gymAt(11L, "01HHD", "홍대점", 37.557, 126.924);
+        Gym jamsil  = gymAt(12L, "01HJS", "잠실점", 37.513, 127.100);
+        when(gymRepo.searchAllForDistance(eq(null), eq(null)))
+                .thenReturn(List.of(hongdae, gangnam, jamsil));
+
+        var result = service.search(null, null, null, 20, 37.498, 127.028);
+        assertThat(result.items()).extracting(GymView::extId)
+                .containsExactly("01HGN", "01HJS", "01HHD");
+        // 거리 정렬 모드는 cursor 페이지네이션 비활성.
+        assertThat(result.nextCursor()).isNull();
+        // 모든 item 의 distanceMeters 는 채워짐.
+        assertThat(result.items()).allMatch(v -> v.distanceMeters() != null);
+        // 강남=0 (정확히 0 은 아니지만 다른 둘보다 작음).
+        assertThat(result.items().get(0).distanceMeters())
+                .isLessThan(result.items().get(1).distanceMeters());
+    }
+
+    @Test
+    void search_with_lat_lng_excludes_gym_without_coords() {
+        Gym noCoord = gymAt(10L, "01HNC", "좌표없음", null, null);
+        Gym gangnam = gymAt(11L, "01HGN", "강남점", 37.498, 127.028);
+        when(gymRepo.searchAllForDistance(eq(null), eq(null)))
+                .thenReturn(List.of(noCoord, gangnam));
+
+        var result = service.search(null, null, null, 20, 37.5, 127.0);
+        // 좌표 없는 gym 은 거리 정렬 모드에서 제외.
+        assertThat(result.items()).extracting(GymView::extId).containsExactly("01HGN");
+    }
+
+    @Test
+    void search_without_lat_lng_falls_back_to_id_desc() {
+        // 한쪽만 주어지면 거리 모드 비활성, 기존 search() 가 호출됨.
+        Gym g1 = gym(10L, "01HGYMA", "A", "브A");
+        Slice<Gym> slice = new SliceImpl<>(List.of(g1), Pageable.ofSize(20), false);
+        when(gymRepo.search(eq(null), eq(null), eq(null), any())).thenReturn(slice);
+
+        var result = service.search(null, null, null, 20, 37.5, null);
+        assertThat(result.items()).hasSize(1);
+        assertThat(result.items().get(0).distanceMeters()).isNull();
+    }
+
     // --- helpers ---
 
     private static Gym gym(long id, String extId, String name, String brand) {
         Gym g = Gym.create(extId, name, "서울시 어딘가", new BigDecimal("37.5000000"), new BigDecimal("127.0000000"));
+        setField(g, "id", id);
+        return g;
+    }
+
+    private static Gym gymAt(long id, String extId, String name, Double lat, Double lng) {
+        Gym g = Gym.create(extId, name, "서울시 어딘가",
+                lat == null ? null : BigDecimal.valueOf(lat),
+                lng == null ? null : BigDecimal.valueOf(lng));
         setField(g, "id", id);
         return g;
     }

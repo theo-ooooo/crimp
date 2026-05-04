@@ -177,7 +177,7 @@
 ### 암장·루트 (`/api/v1/gyms`, `/api/v1/routes`)
 | Method | Path | 설명 |
 | --- | --- | --- |
-| GET | `/api/v1/gyms` | 암장 검색 (좌표·키워드·브랜드) |
+| GET | `/api/v1/gyms` | 암장 검색 (`q`, `brand`, `lat`, `lng`, `cursor`, `size`). `lat`/`lng` 둘 다 있으면 거리순 정렬 + `distanceMeters` 포함 |
 | GET | `/api/v1/gyms/{extId}` | 암장 상세 |
 | GET | `/api/v1/gyms/{extId}/routes` | 루트 목록 (활성, 인증 필요, 커서 페이지네이션 `?cursor=&size=`, id DESC) |
 | GET | `/api/v1/routes/{extId}` | 루트 상세 |

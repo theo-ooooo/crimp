@@ -33,13 +33,28 @@ public class GymController {
         this.routeService = routeService;
     }
 
+    /**
+     * gym 검색.
+     *
+     * <p>query parameters:
+     * <ul>
+     *   <li>{@code q} — 이름 부분 일치 (선택)</li>
+     *   <li>{@code brand} — canonical 브랜드 (선택)</li>
+     *   <li>{@code lat}, {@code lng} — 둘 다 주어지면 거리(haversine) 정렬, 응답에 distanceMeters 포함.
+     *       이 모드에선 cursor 페이지네이션 비활성 (size 만큼만 반환, nextCursor=null).</li>
+     *   <li>{@code cursor} — 거리 모드가 아닐 때 id DESC 페이지네이션</li>
+     *   <li>{@code size} — 페이지 크기 (기본 20, 최대 50)</li>
+     * </ul>
+     */
     @GetMapping
     public GymListResponse list(
             @RequestParam(required = false) Long cursor,
             @RequestParam(required = false) String q,
             @RequestParam(required = false) String brand,
+            @RequestParam(required = false) Double lat,
+            @RequestParam(required = false) Double lng,
             @RequestParam(required = false) Integer size) {
-        var result = gymService.search(cursor, q, brand, size);
+        var result = gymService.search(cursor, q, brand, size, lat, lng);
         List<GymItem> items = result.items().stream().map(GymItem::of).toList();
         return new GymListResponse(items, new Page(result.nextCursor(), result.size()));
     }
@@ -85,10 +100,12 @@ public class GymController {
             String brand,
             String address,
             BigDecimal lat,
-            BigDecimal lng
+            BigDecimal lng,
+            Double distanceMeters
     ) {
         static GymItem of(GymView v) {
-            return new GymItem(v.extId(), v.name(), v.brand(), v.address(), v.lat(), v.lng());
+            return new GymItem(v.extId(), v.name(), v.brand(), v.address(), v.lat(), v.lng(),
+                    v.distanceMeters());
         }
     }
 

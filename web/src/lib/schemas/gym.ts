@@ -37,6 +37,8 @@ export const GymItemSchema = z.object({
   address: z.string().nullable().optional(),
   lat: BigDecimalLikeNullable,
   lng: BigDecimalLikeNullable,
+  // [PR-G1] lat/lng query param 거리 정렬 모드에서만 채워짐 (m). 미사용 시 null.
+  distanceMeters: z.number().nullable().optional(),
 });
 
 export type GymItem = z.infer<typeof GymItemSchema>;
