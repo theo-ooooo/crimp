@@ -19,9 +19,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class KakaoIdTokenVerifierTest {
 
-    private static KakaoProperties props(String clientId, String restApiKey, List<String> additional) {
+    private static KakaoProperties props(
+            String nativeClientId,
+            String webClientId,
+            String restApiKey,
+            List<String> additional) {
         return new KakaoProperties(
-                clientId, "https://kauth.kakao.com", "https://x/jwks.json",
+                nativeClientId, webClientId, "https://kauth.kakao.com", "https://x/jwks.json",
                 restApiKey, "", "https://kauth.kakao.com/oauth/token", additional);
     }
 
@@ -36,9 +40,9 @@ class KakaoIdTokenVerifierTest {
     }
 
     @Test
-    void allowedAudiences_includesClientIdAndRestApiKeyAndExtras() {
+    void allowedAudiences_includesNativeWebRestKeysAndExtras() {
         Set<String> allowed = KakaoIdTokenVerifier.allowedAudiences(
-                props("native", "rest", List.of("js", "admin")));
+                props("native", "js", "rest", List.of("admin")));
 
         assertThat(allowed).containsExactlyInAnyOrder("native", "rest", "js", "admin");
     }
@@ -46,17 +50,17 @@ class KakaoIdTokenVerifierTest {
     @Test
     void allowedAudiences_filtersBlankAndNullEntries() {
         Set<String> allowed = KakaoIdTokenVerifier.allowedAudiences(
-                props("native", "", List.of("", "  ", "js")));
+                props("native", "", "", List.of("", "  ", "legacy")));
 
-        assertThat(allowed).containsExactlyInAnyOrder("native", "js");
+        assertThat(allowed).containsExactlyInAnyOrder("native", "legacy");
     }
 
     @Test
     void allowedAudiences_handlesNullAdditionalList() {
         Set<String> allowed = KakaoIdTokenVerifier.allowedAudiences(
-                props("native", "rest", null));
+                props("native", "js", "rest", null));
 
-        assertThat(allowed).containsExactlyInAnyOrder("native", "rest");
+        assertThat(allowed).containsExactlyInAnyOrder("native", "js", "rest");
     }
 
     @Test

@@ -39,7 +39,7 @@ class KakaoLocalGymClientTest {
 
     private KakaoProperties auth(String key) {
         return new KakaoProperties(
-                "test-client-id", "https://kauth.kakao.com", "https://x/jwks.json",
+                "test-native-client-id", "test-web-client-id", "https://kauth.kakao.com", "https://x/jwks.json",
                 key, "", "https://kauth.kakao.com/oauth/token", List.of());
     }
 

@@ -177,7 +177,8 @@ flyctl secrets set --app crimp-api-staging \
   S3_SECRET_KEY="<R2 Secret Access Key>" \
   S3_ENDPOINT_URL="https://<account_id>.r2.cloudflarestorage.com" \
   CDN_BASE_URL="https://pub-<account_hash>.r2.dev" \
-  KAKAO_CLIENT_ID="<staging Kakao app key>" \
+  KAKAO_NATIVE_CLIENT_ID="<staging Kakao native app key>" \
+  KAKAO_WEB_CLIENT_ID="<staging Kakao JavaScript key>" \
   KAKAO_REST_API_KEY="<staging Kakao REST key>" \
   KAKAO_CLIENT_SECRET="<staging Kakao client secret>" \
   APPLE_CLIENT_ID="<staging Apple bundle id>" \
@@ -270,7 +271,8 @@ flyctl deploy --remote-only --app crimp-mysql-staging
 ## 9. 검증 체크리스트
 
 - [ ] `GET /actuator/health` → 200
-- [ ] `POST /api/v1/auth/oauth/kakao` 가 staging Kakao 키로 로그인 성공 (web 또는 모바일에서)
+- [ ] Kakao 로그인 성공: 모바일은 `KAKAO_NATIVE_CLIENT_ID`, 웹은 `KAKAO_WEB_CLIENT_ID`,
+  code 교환은 `KAKAO_REST_API_KEY`/`KAKAO_CLIENT_SECRET` 값이 staging 앱 설정과 일치해야 함
 - [ ] R2 presigned PUT 으로 이미지 업로드 → 다운로드 가능
 - [ ] Flyway 마이그레이션 적용 (`SHOW TABLES;`)
 - [ ] Fly 머신 메모리 사용량 < 80% (`flyctl status`, JVM `-XX:MaxRAMPercentage=75` 정상 적용)

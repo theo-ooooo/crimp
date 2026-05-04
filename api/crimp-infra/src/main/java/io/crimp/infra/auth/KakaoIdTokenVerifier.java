@@ -52,12 +52,13 @@ public class KakaoIdTokenVerifier implements OauthIdTokenVerifier {
 
     /**
      * 검증에 허용할 audience 집합. 같은 Kakao 앱의 키 종류(네이티브/JS/REST)별로
-     * id_token 의 {@code aud} 가 달라지므로 {@code clientId} 외에 {@code restApiKey}
-     * 와 명시적 {@code additionalAudiences} 까지 합집합으로 허용한다.
+     * id_token 의 {@code aud} 가 달라지므로 native/web/rest 키를 각각 명시하고,
+     * 마이그레이션용 {@code additionalAudiences} 까지 합집합으로 허용한다.
      */
     static Set<String> allowedAudiences(KakaoProperties props) {
         Set<String> set = new LinkedHashSet<>();
-        addIfPresent(set, props.clientId());
+        addIfPresent(set, props.nativeClientId());
+        addIfPresent(set, props.webClientId());
         addIfPresent(set, props.restApiKey());
         if (props.additionalAudiences() != null) {
             props.additionalAudiences().forEach(a -> addIfPresent(set, a));
