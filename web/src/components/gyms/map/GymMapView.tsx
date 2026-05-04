@@ -122,15 +122,15 @@ function SelectedGymCard({ gym }: { gym: GymItem }): JSX.Element {
   return (
     <Link
       href={`/gyms/${encodeURIComponent(gym.extId)}`}
-      className="sticky top-0 z-10 flex flex-col gap-3 rounded-xl bg-accent p-4 text-text shadow-sm"
+      className="sticky top-0 z-10 flex flex-col gap-3 rounded-xl bg-accent p-4 text-accent-on shadow-sm"
     >
       <div className="flex items-center gap-3">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-bg text-h2 font-extrabold">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-text text-h2 font-extrabold text-bg">
           {gym.name.trim().charAt(0)}
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-title font-extrabold">{gym.name}</p>
-          <p className="truncate text-caption font-bold text-text/70">
+          <p className="truncate text-caption font-bold text-accent-on/70">
             {gym.address ?? t('gym.list.addressFallback')}
           </p>
         </div>
@@ -157,20 +157,26 @@ function MapGymRow({
       href={`/gyms/${encodeURIComponent(gym.extId)}`}
       onMouseEnter={onSelect}
       onFocus={onSelect}
-      className={`flex items-center gap-3 rounded-xl p-3 transition-transform duration-fast ease-standard active:scale-[0.99] ${
-        selected ? 'bg-accent-soft ring-2 ring-accent' : 'bg-subtle'
+      className={`flex items-center gap-3 rounded-xl border p-3 transition-transform duration-fast ease-standard active:scale-[0.99] ${
+        selected
+          ? 'border-accent bg-accent-soft text-text shadow-xs'
+          : 'border-transparent bg-subtle text-text'
       }`}
     >
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-title font-extrabold text-text">
+      <div
+        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-title font-extrabold ${
+          selected ? 'bg-bg text-text' : 'bg-accent-soft text-text'
+        }`}
+      >
         {gym.name.trim().charAt(0)}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-body font-extrabold text-text">{gym.name}</p>
-        <p className="truncate text-caption font-semibold text-text-3">
+        <p className="truncate text-body font-extrabold">{gym.name}</p>
+        <p className="truncate text-caption font-semibold text-text-3 dark:text-text-2">
           {gym.address ?? t('gym.list.addressFallback')}
         </p>
       </div>
-      <CrimpIcon.chevR s={16} className="text-text-4" />
+      <CrimpIcon.chevR s={16} className="text-text-3" />
     </Link>
   );
 }
