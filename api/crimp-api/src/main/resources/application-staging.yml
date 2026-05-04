@@ -65,8 +65,8 @@ management:
 
 crimp:
   cors:
-    # 환경 변수로 콤마 구분 origin 주입 (`https://staging.crimp.app,https://app-staging.crimp.app`).
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:}
+    # 환경 변수로 콤마 구분 origin 주입 가능. 기본 staging/prod web 도메인은 명시 허용.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://staging.crimp.run,https://crimp.run}
     # 와일드카드 미사용 — staging 도 명시 origin 목록만.
     allowed-origin-patterns: ""
 
