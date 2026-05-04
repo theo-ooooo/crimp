@@ -21,13 +21,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 class AppleIdTokenVerifierTest {
 
     private static AppleProperties props(String clientId, List<String> additional) {
+        return props(clientId, "", additional);
+    }
+
+    private static AppleProperties props(String clientId, String serviceId, List<String> additional) {
         return new AppleProperties(
                 clientId,
                 "https://appleid.apple.com",
                 "https://appleid.apple.com/auth/keys",
                 additional,
-                // PR #106 (PR-W2) 추가 필드 — verifier 테스트는 의존 X, 빈 값으로 충분.
-                "", "", "", "", ""
+                serviceId, "", "", "", ""
         );
     }
 
@@ -48,6 +51,14 @@ class AppleIdTokenVerifierTest {
 
         assertThat(allowed).containsExactlyInAnyOrder(
                 "io.crimp.app", "crimp.web", "crimp.admin");
+    }
+
+    @Test
+    void allowedAudiences_includesServiceIdForWebCodeFlow() {
+        Set<String> allowed = AppleIdTokenVerifier.allowedAudiences(
+                props("io.crimp.app", "com.crimp.web", List.of()));
+
+        assertThat(allowed).containsExactlyInAnyOrder("io.crimp.app", "com.crimp.web");
     }
 
     @Test

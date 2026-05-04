@@ -373,7 +373,8 @@ class AuthServiceTest {
 
     @Test
     void exchange_apple_rawNoncePassedAsTokenNonce_throws_AUTH_INVALID() {
-        // 흔한 클라 버그 시나리오 — Apple 인데 hashing 을 안 거치고 raw 를 비교하면 mismatch.
+        // Native/id_token 직접 교환 경로는 raw nonce 를 허용하지 않는다. 토큰의 hashed nonce
+        // 클레임을 요청 nonce 로 재전송하는 replay 우회를 막기 위함.
         String rawNonce = "client-original-nonce";
 
         OauthIdTokenVerifier appleVerifier = mock(OauthIdTokenVerifier.class);
@@ -461,6 +462,36 @@ class AuthServiceTest {
         when(userRepo.save(any(User.class))).thenAnswer(inv -> {
             User u = inv.getArgument(0);
             setField(u, "id", 99L);
+            return u;
+        });
+
+        AuthTokens tokens = svc.exchangeCode(
+                OauthProvider.APPLE, "apple-code", "https://web/cb", rawNonce);
+        assertThat(tokens.accessToken()).isNotBlank();
+    }
+
+    @Test
+    void exchangeCode_apple_rawNonce_passes_for_web_code_flow() {
+        // Apple Web OIDC code flow 는 id_token nonce 에 raw nonce 를 그대로 돌려줄 수 있다.
+        String rawNonce = "client-apple-nonce";
+
+        OauthIdTokenVerifier appleVerifier = mock(OauthIdTokenVerifier.class);
+        when(appleVerifier.supports()).thenReturn(OauthProvider.APPLE);
+        when(appleVerifier.verify("apple-id-token")).thenReturn(
+                new OauthUserInfo(OauthProvider.APPLE, "apple-uid-raw", null, rawNonce));
+
+        OauthCodeExchanger appleExchanger = mock(OauthCodeExchanger.class);
+        when(appleExchanger.supports()).thenReturn(OauthProvider.APPLE);
+        when(appleExchanger.isConfigured()).thenReturn(true);
+        when(appleExchanger.exchange("apple-code", "https://web/cb")).thenReturn("apple-id-token");
+
+        AuthService svc = serviceWithAppleCodeFlow(appleVerifier, appleExchanger);
+
+        when(oauthRepo.findByProviderAndProviderUid(OauthProvider.APPLE, "apple-uid-raw"))
+                .thenReturn(Optional.empty());
+        when(userRepo.save(any(User.class))).thenAnswer(inv -> {
+            User u = inv.getArgument(0);
+            setField(u, "id", 100L);
             return u;
         });
 
