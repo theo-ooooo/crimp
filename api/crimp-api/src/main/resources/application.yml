@@ -176,10 +176,10 @@ app:
         - 캐치스톤
         - 웨이브락
         - 오프더월클라이밍
-      # 한 호출당 응답 사이즈 (Kakao 상한 15) 와 페이지네이션 한도. PR #111 — max-pages 3 → 5
-      # 상향 (밀집 지역 누락 회피). 좌표·키워드당 최대 75건.
+      # 한 호출당 응답 사이즈 (Kakao 상한 15) 와 페이지네이션 한도.
+      # Kakao Local keyword search 의 page 허용 범위는 1..45 이므로 좌표·키워드당 최대 675건까지 수집한다.
       page-size: 15
-      max-pages: 5
+      max-pages: 45
     # PR #110 — cron 스케줄러. 기본 비활성. 환경 변수로 활성/cron 갱신 가능:
     #   GYM_SYNC_SCHEDULER_ENABLED=true GYM_SYNC_SCHEDULER_CRON="0 0 4 * * MON"
     # cron 표기는 Spring (sec min hour day month weekday). 기본 매주 월 04:00 zone 기준.
