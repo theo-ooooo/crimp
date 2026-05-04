@@ -15,6 +15,13 @@ const MAIN_GYM = {
   extId: '01JMAIN000000000000000001',
   name: '더클라임 강남',
   brand: '더클라임',
+  address: '서울 강남구',
+  lat: null,
+  lng: null,
+  rating: null,
+  sendCount: 0,
+  monthlyUserCount: 0,
+  distanceMeters: null,
 };
 
 const OTHER_GYM = {
@@ -24,6 +31,10 @@ const OTHER_GYM = {
   address: '서울 성동구',
   lat: null,
   lng: null,
+  rating: null,
+  sendCount: 0,
+  monthlyUserCount: 0,
+  distanceMeters: null,
 };
 
 type HookResult = ReturnType<typeof useStartSessionScreen>;
