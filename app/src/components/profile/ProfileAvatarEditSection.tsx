@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -48,7 +48,7 @@ type Props = {
   disabled: boolean;
   onAvatarUploaded: (mediaId: number) => Promise<void>;
   onAvatarCleared: () => Promise<void>;
-  onError: (error: unknown) => void;
+  onError: (error: unknown | string) => void;
 };
 
 export function ProfileAvatarEditSection({
@@ -69,6 +69,10 @@ export function ProfileAvatarEditSection({
   const busy = phase !== null;
   const blocked = disabled || busy;
 
+  useEffect(() => {
+    setImageFailed(false);
+  }, [avatarUrl]);
+
   const onChoose = async () => {
     if (blocked) {
       return;
@@ -84,6 +88,9 @@ export function ProfileAvatarEditSection({
     try {
       const selected = await pickImage(source).catch((err) => {
         logAvatarError('picker', err);
+        if (isCameraUnavailableError(err)) {
+          throw t('profile.edit.avatarCameraUnavailable');
+        }
         throw err;
       });
       if (selected === null) {
@@ -98,6 +105,11 @@ export function ProfileAvatarEditSection({
       }).catch((err) => {
         logAvatarError('upload', err, summarizeCapturedMedia(captured));
         throw err;
+      });
+      logAvatarEvent('uploaded', {
+        mediaId: uploaded.id,
+        hasCdnUrl: Boolean(uploaded.cdnUrl),
+        s3Key: uploaded.s3Key,
       });
       setPhase('saving');
       await onAvatarUploaded(uploaded.id).catch((err) => {
@@ -206,6 +218,20 @@ async function pickImage(source: AvatarSource): Promise<Asset | null> {
     throw new Error('No image selected');
   }
   return asset;
+}
+
+function isCameraUnavailableError(error: unknown): boolean {
+  return error instanceof Error && error.message === 'camera_unavailable';
+}
+
+function logAvatarEvent(event: string, context: Record<string, unknown>): void {
+  if (!__DEV__) {
+    return;
+  }
+  console.warn('[profile/avatar]', {
+    event,
+    ...context,
+  });
 }
 
 function logAvatarError(

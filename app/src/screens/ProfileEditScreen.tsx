@@ -130,7 +130,8 @@ export default function ProfileEditScreen(): JSX.Element {
   };
 
   const updateAvatar = async (avatarMediaId: number) => {
-    await updateMutation.mutateAsync({ avatarMediaId });
+    const updated = await updateMutation.mutateAsync({ avatarMediaId });
+    logProfileAvatarSaveResult(updated.avatarMediaId ?? null, updated.avatarUrl ?? null);
     setToastMessage(t('profile.edit.avatarSaved'));
   };
 
@@ -178,7 +179,9 @@ export default function ProfileEditScreen(): JSX.Element {
         disabled={updateMutation.isPending || !accessToken}
         onAvatarUploaded={updateAvatar}
         onAvatarCleared={clearAvatar}
-        onError={(err) => setToastMessage(toUserMessage(err))}
+        onError={(err) => {
+          setToastMessage(typeof err === 'string' ? err : toUserMessage(err));
+        }}
       />
 
       <Field
@@ -262,6 +265,20 @@ export default function ProfileEditScreen(): JSX.Element {
       {toastMessage ? <Toast message={toastMessage} styles={styles} /> : null}
     </View>
   );
+}
+
+function logProfileAvatarSaveResult(
+  avatarMediaId: number | null,
+  avatarUrl: string | null,
+): void {
+  if (!__DEV__) {
+    return;
+  }
+  console.warn('[profile/avatar]', {
+    event: 'profile-saved',
+    avatarMediaId,
+    hasAvatarUrl: Boolean(avatarUrl),
+  });
 }
 
 function Field({

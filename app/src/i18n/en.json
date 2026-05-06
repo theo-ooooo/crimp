@@ -317,6 +317,7 @@
       "avatarSourceBody": "Take a new photo or choose an image from your library.",
       "avatarCamera": "Take photo",
       "avatarLibrary": "Choose from library",
+      "avatarCameraUnavailable": "Camera is unavailable. Please choose an image from your library.",
       "avatarClear": "Remove image",
       "avatarCompressing": "Preparing image...",
       "avatarUploading": "Uploading image...",
