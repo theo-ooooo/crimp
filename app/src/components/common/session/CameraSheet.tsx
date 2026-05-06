@@ -362,6 +362,10 @@ export function CameraSheet({
     // 정상 캡처 흐름으로 흡수됨 (잘리지 않은 만큼 저장).
     maxDurationTimerRef.current = setTimeout(() => {
       maxDurationTimerRef.current = null;
+      if (recordingPhaseRef.current !== 'recording') {
+        return;
+      }
+      setVideoPhase('stopping');
       cameraRef.current?.stopRecording().catch(() => undefined);
     }, MAX_RECORDING_SECONDS * 1000);
   }, [busy, setVideoPhase, clearMaxDurationTimer]);

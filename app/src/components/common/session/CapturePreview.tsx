@@ -7,9 +7,26 @@ import { t } from '@/lib/i18n';
 
 import type { CameraSheetStyles } from './CameraSheet';
 
+type CapturePreviewStyles = Pick<
+  CameraSheetStyles,
+  | 'previewMediaWrap'
+  | 'previewMedia'
+  | 'previewVideoBox'
+  | 'previewVideoMeta'
+  | 'previewActions'
+  | 'previewTitle'
+  | 'previewButtonRow'
+  | 'previewBtn'
+  | 'previewBtnGhost'
+  | 'previewBtnPrimary'
+  | 'previewBtnDisabled'
+  | 'previewBtnGhostLabel'
+  | 'previewBtnPrimaryLabel'
+>;
+
 type Props = {
   media: CapturedMedia;
-  styles: CameraSheetStyles;
+  styles: CapturePreviewStyles;
   savingAlbum: boolean;
   onRetake: () => void;
   onConfirm: () => void;

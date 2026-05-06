@@ -5,8 +5,19 @@ import { t } from '@/lib/i18n';
 
 import type { CameraSheetStyles } from './CameraSheet';
 
+type CameraPermissionFallbackStyles = Pick<
+  CameraSheetStyles,
+  | 'fallbackBox'
+  | 'fallbackTitle'
+  | 'fallbackBody'
+  | 'fallbackBtn'
+  | 'fallbackBtnLabel'
+  | 'fallbackBtnGhost'
+  | 'fallbackBtnGhostLabel'
+>;
+
 type Props = {
-  styles: CameraSheetStyles;
+  styles: CameraPermissionFallbackStyles;
   onRetry: () => void;
   onOpenSettings: () => void;
 };
