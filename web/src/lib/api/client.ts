@@ -4,7 +4,7 @@ import type { ZodType } from 'zod';
 
 import { TokenResponseSchema } from '@/lib/schemas/auth';
 import { ApiEnvelopeSchema } from '@/lib/schemas/error';
-import { useTokenStore } from '@/store/tokenStore';
+import { isCookieAuthAccessToken, useTokenStore } from '@/store/tokenStore';
 
 import { API_BASE_URL } from './config';
 import { ApiError, ApiSchemaError, ApiTransportError } from './errors';
@@ -44,17 +44,18 @@ let inFlightRefresh: Promise<{ accessToken: string; refreshToken: string }> | nu
  *  1) `endpoints.ts` 의 `refreshTokens` 를 부르면 모듈 순환 참조가 생긴다.
  *  2) refresh 호출 자체가 401 을 다시 트리거해 무한 재귀하는 것을 방지한다.
  */
-async function postRefresh(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
+async function postRefresh(refreshToken: string | null): Promise<{ accessToken: string; refreshToken: string }> {
+  const body = refreshToken ? JSON.stringify({ refreshToken }) : undefined;
   const res = await fetch(`${API_BASE_URL}${REFRESH_PATH}`, {
     method: 'POST',
     headers: {
       Accept: 'application/json',
-      'Content-Type': 'application/json',
       // ngrok free tier 의 browser warning 우회 — apiRequest 와 동일.
       'ngrok-skip-browser-warning': '1',
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
     },
-    body: JSON.stringify({ refreshToken }),
-    credentials: 'omit',
+    body,
+    credentials: 'include',
   });
   if (!res.ok) throw new Error(`refresh failed: HTTP ${res.status}`);
   const json: unknown = await res.json().catch(() => null);
@@ -75,7 +76,7 @@ async function postRefresh(refreshToken: string): Promise<{ accessToken: string;
   };
 }
 
-function ensureRefresh(refreshToken: string) {
+function ensureRefresh(refreshToken: string | null) {
   if (!inFlightRefresh) {
     inFlightRefresh = postRefresh(refreshToken).finally(() => {
       inFlightRefresh = null;
@@ -134,7 +135,7 @@ async function doRequest<TBody, TResponse>(
     'ngrok-skip-browser-warning': '1',
     ...(headers ?? {}),
   };
-  if (accessToken) {
+  if (accessToken && !isCookieAuthAccessToken(accessToken)) {
     finalHeaders.Authorization = `Bearer ${accessToken}`;
   }
 
@@ -151,7 +152,7 @@ async function doRequest<TBody, TResponse>(
       headers: finalHeaders,
       body: requestBody,
       signal,
-      credentials: 'omit',
+      credentials: 'include',
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'network error';
@@ -210,12 +211,8 @@ async function doRequest<TBody, TResponse>(
         onAuthFailure();
         throw new ApiError(response.status, envelope.data.error);
       }
-      const stored = useTokenStore.getState().refreshToken;
-      if (!stored) {
-        onAuthFailure();
-        throw new ApiError(response.status, envelope.data.error);
-      }
       try {
+        const stored = useTokenStore.getState().refreshToken;
         const fresh = await ensureRefresh(stored);
         useTokenStore.getState().setTokens(fresh);
         return doRequest({ ...options, accessToken: fresh.accessToken }, true);

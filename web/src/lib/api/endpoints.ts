@@ -103,13 +103,13 @@ export function exchangeOauthCode(
  * `POST /api/v1/auth/refresh` — refresh 토큰으로 access·refresh 재발급.
  */
 export function refreshTokens(
-  refreshToken: string,
+  refreshToken: string | null,
   signal?: AbortSignal,
 ): Promise<TokenResponse> {
   return apiRequest({
     method: 'POST',
     path: '/api/v1/auth/refresh',
-    body: { refreshToken },
+    body: refreshToken ? { refreshToken } : undefined,
     schema: TokenResponseSchema,
     signal,
   });
@@ -119,13 +119,13 @@ export function refreshTokens(
  * `POST /api/v1/auth/logout` — refresh 토큰 폐기 (Redis 블랙리스트). 204 No Content.
  */
 export function logout(
-  refreshToken: string,
+  refreshToken: string | null,
   signal?: AbortSignal,
 ): Promise<void> {
   return apiRequest({
     method: 'POST',
     path: '/api/v1/auth/logout',
-    body: { refreshToken },
+    body: refreshToken ? { refreshToken } : undefined,
     schema: z.void(),
     signal,
   });
