@@ -94,17 +94,23 @@ public class AdminGymSyncController {
                     + "응답에는 영역별 결과 배열 + 합계가 포함됨."
     )
     @PostMapping("/sync/grid")
-    public ResponseEntity<ApiResponse<GridSyncResponse>> syncGrid(@Valid @RequestBody GridSyncRequest req) {
+    public ResponseEntity<ApiResponse<?>> syncGrid(@Valid @RequestBody GridSyncRequest req) {
         List<GymSyncRegion> regions = req.preset().regions();
-        List<GymSyncRegion> selectedRegions = selectRegions(regions, req.startRegion(), req.maxRegions());
-        List<GridRegionResult> results = new ArrayList<>(selectedRegions.size());
+        RegionSelection selection;
+        try {
+            selection = selectRegionRange(regions, req.startRegion(), req.maxRegions());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.failure(ErrorBody.of("INVALID_START_REGION", e.getMessage())));
+        }
+        List<GridRegionResult> results = new ArrayList<>(selection.selected().size());
         boolean interrupted = false;
-        String nextRegion = null;
+        String nextRegion = selection.nextRegion();
 
         log.info("[admin/gym-sync] grid start preset={} mode={} regions={} selected={} startRegion={} maxRegions={}",
-                req.preset(), req.mode(), regions.size(), selectedRegions.size(), req.startRegion(), req.maxRegions());
+                req.preset(), req.mode(), regions.size(), selection.selected().size(), req.startRegion(), req.maxRegions());
 
-        for (GymSyncRegion region : selectedRegions) {
+        for (GymSyncRegion region : selection.selected()) {
             try {
                 DryRunResult dry = gymSyncService.dryRun(
                         region.lat(), region.lng(), region.radiusMeters());
@@ -141,20 +147,28 @@ public class AdminGymSyncController {
         return ResponseEntity.ok(ApiResponse.success(body));
     }
 
-    private static List<GymSyncRegion> selectRegions(
+    private static RegionSelection selectRegionRange(
             List<GymSyncRegion> regions, String startRegion, Integer maxRegions) {
         int start = 0;
         if (startRegion != null && !startRegion.isBlank()) {
+            start = -1;
             for (int i = 0; i < regions.size(); i++) {
                 if (regions.get(i).label().equals(startRegion)) {
                     start = i;
                     break;
                 }
             }
+            if (start < 0) {
+                throw new IllegalArgumentException("Unknown startRegion: " + startRegion);
+            }
         }
         int limit = maxRegions != null && maxRegions > 0 ? Math.min(maxRegions, regions.size() - start) : regions.size() - start;
-        return regions.subList(start, start + limit);
+        int endExclusive = start + limit;
+        String nextRegion = endExclusive < regions.size() ? regions.get(endExclusive).label() : null;
+        return new RegionSelection(regions.subList(start, endExclusive), nextRegion);
     }
+
+    private record RegionSelection(List<GymSyncRegion> selected, String nextRegion) {}
 
     /** 동기화 모드. */
     public enum SyncMode {
