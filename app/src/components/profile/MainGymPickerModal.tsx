@@ -11,6 +11,7 @@ import {
   View,
   type ListRenderItem,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CrimpIcon, Skeleton } from '@/components/common/primitives';
 import { MainGymPickerActionFooter } from '@/components/profile/MainGymPickerActionFooter';
@@ -24,7 +25,7 @@ import {
 import { useGymsQuery } from '@/hooks/queries/useGyms';
 import { toUserMessage } from '@/lib/api/errorMessage';
 import { t } from '@/lib/i18n';
-import { radius } from '@/lib/tokens';
+import { radius, space } from '@/lib/tokens';
 import type { GymItem } from '@/lib/schemas/gym';
 import { useReducedMotion } from '@/lib/useReducedMotion';
 import { useTokens } from '@/lib/useTokens';
@@ -47,6 +48,7 @@ export function MainGymPickerModal({
   onSelect,
 }: Props): JSX.Element {
   const theme = useTokens();
+  const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
   const styles = useMemo(() => makeMainGymPickerModalStyles(theme), [theme]);
   const [searchText, setSearchText] = useState<string>('');
@@ -229,7 +231,12 @@ export function MainGymPickerModal({
             />
           )}
 
-          <View style={styles.actionFooter}>
+          <View
+            style={[
+              styles.actionFooter,
+              { paddingBottom: Math.max(insets.bottom, space[5]) },
+            ]}
+          >
             <MainGymPickerActionFooter
               disabled={!canConfirm}
               saving={saving}

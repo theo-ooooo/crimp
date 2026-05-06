@@ -27,7 +27,7 @@ export function makeMainGymPickerModalStyles(theme: Theme) {
       borderTopLeftRadius: radius['2xl'],
       borderTopRightRadius: radius['2xl'],
       paddingTop: space[3],
-      paddingBottom: space[5],
+      paddingBottom: 0,
       maxHeight: '92%',
       overflow: 'hidden',
     },
