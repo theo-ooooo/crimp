@@ -3,6 +3,7 @@ package io.crimp.api.scheduling;
 import io.crimp.domain.gym.sync.DryRunResult;
 import io.crimp.domain.gym.sync.GymSyncDiff;
 import io.crimp.domain.gym.sync.GymSyncGridPreset;
+import io.crimp.domain.gym.sync.GymSyncRateLimitException;
 import io.crimp.domain.gym.sync.GymSyncService;
 import io.crimp.domain.gym.sync.GymSyncService.ApplyReport;
 import org.junit.jupiter.api.Test;
@@ -81,6 +82,21 @@ class GymSyncSchedulerTest {
         verify(service, times(SEOUL_REGIONS)).dryRun(any(), any(), anyInt());
         // apply 는 dryRun 성공한 24개에서만.
         verify(service, atLeastOnce()).apply(any());
+    }
+
+    @Test
+    void rateLimitFailure_stopsRemainingRegions() {
+        GymSyncService service = mock(GymSyncService.class);
+        when(service.dryRun(any(), any(), anyInt()))
+                .thenThrow(new GymSyncRateLimitException("Kakao Local API limit exceeded"))
+                .thenReturn(emptyDryRun());
+
+        GymSyncScheduler scheduler = new GymSyncScheduler(service,
+                new GymSyncSchedulerProperties(true, "0 0 4 * * MON", "UTC"));
+        scheduler.syncSeoulGyms();
+
+        verify(service, times(1)).dryRun(any(), any(), anyInt());
+        verify(service, never()).apply(any());
     }
 
     private static DryRunResult emptyDryRun() {

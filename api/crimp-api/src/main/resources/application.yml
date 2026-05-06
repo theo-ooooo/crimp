@@ -177,9 +177,11 @@ app:
         - 웨이브락
         - 오프더월클라이밍
       # 한 호출당 응답 사이즈 (Kakao 상한 15) 와 페이지네이션 한도.
-      # Kakao Local keyword search 의 page 허용 범위는 1..45 이므로 좌표·키워드당 최대 675건까지 수집한다.
+      # 서울 25개 구 × 다중 키워드 호출은 Kakao short limit 에 쉽게 걸리므로 기본은 작게 둔다.
       page-size: 15
-      max-pages: 45
+      max-pages: ${KAKAO_LOCAL_MAX_PAGES:2}
+      # Kakao Local 요청 사이 지연(ms). short limit 발생 시 100~300ms 정도로 조정.
+      request-delay-ms: ${KAKAO_LOCAL_REQUEST_DELAY_MS:0}
     # PR #110 — cron 스케줄러. 기본 비활성. 환경 변수로 활성/cron 갱신 가능:
     #   GYM_SYNC_SCHEDULER_ENABLED=true GYM_SYNC_SCHEDULER_CRON="0 0 4 * * MON"
     # cron 표기는 Spring (sec min hour day month weekday). 기본 매주 월 04:00 zone 기준.

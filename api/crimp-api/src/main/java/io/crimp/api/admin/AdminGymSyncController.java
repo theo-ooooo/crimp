@@ -5,6 +5,7 @@ import io.crimp.common.response.ErrorBody;
 import io.crimp.domain.gym.sync.DryRunResult;
 import io.crimp.domain.gym.sync.GymSyncDiff;
 import io.crimp.domain.gym.sync.GymSyncGridPreset;
+import io.crimp.domain.gym.sync.GymSyncRateLimitException;
 import io.crimp.domain.gym.sync.GymSyncRegion;
 import io.crimp.domain.gym.sync.GymSyncService;
 import io.crimp.domain.gym.sync.RemoteGym;
@@ -95,12 +96,15 @@ public class AdminGymSyncController {
     @PostMapping("/sync/grid")
     public ResponseEntity<ApiResponse<GridSyncResponse>> syncGrid(@Valid @RequestBody GridSyncRequest req) {
         List<GymSyncRegion> regions = req.preset().regions();
-        List<GridRegionResult> results = new ArrayList<>(regions.size());
+        List<GymSyncRegion> selectedRegions = selectRegions(regions, req.startRegion(), req.maxRegions());
+        List<GridRegionResult> results = new ArrayList<>(selectedRegions.size());
+        boolean interrupted = false;
+        String nextRegion = null;
 
-        log.info("[admin/gym-sync] grid start preset={} mode={} regions={}",
-                req.preset(), req.mode(), regions.size());
+        log.info("[admin/gym-sync] grid start preset={} mode={} regions={} selected={} startRegion={} maxRegions={}",
+                req.preset(), req.mode(), regions.size(), selectedRegions.size(), req.startRegion(), req.maxRegions());
 
-        for (GymSyncRegion region : regions) {
+        for (GymSyncRegion region : selectedRegions) {
             try {
                 DryRunResult dry = gymSyncService.dryRun(
                         region.lat(), region.lng(), region.radiusMeters());
@@ -110,6 +114,15 @@ public class AdminGymSyncController {
                 }
                 GymSyncService.ApplyReport report = gymSyncService.apply(dry);
                 results.add(GridRegionResult.applied(region, dry, report));
+            } catch (GymSyncRateLimitException e) {
+                log.warn("[admin/gym-sync] grid region rate-limited: label={} lat={} lng={} err={}",
+                        region.label(), region.lat(), region.lng(), e.getMessage());
+                results.add(GridRegionResult.failed(region, e.getClass().getSimpleName() + ": " + e.getMessage()));
+                if (req.stopOnRateLimitValue()) {
+                    interrupted = true;
+                    nextRegion = region.label();
+                    break;
+                }
             } catch (RuntimeException e) {
                 // 한 영역의 외부 호출 실패가 다른 영역까지 막지 않도록 — 해당 영역만 FAILED 로 표시.
                 log.warn("[admin/gym-sync] grid region failed: label={} lat={} lng={} err={}",
@@ -118,13 +131,29 @@ public class AdminGymSyncController {
             }
         }
 
-        GridSyncResponse body = GridSyncResponse.of(req.preset(), req.mode(), results);
+        GridSyncResponse body = GridSyncResponse.of(req.preset(), req.mode(), regions.size(),
+                results, interrupted, nextRegion);
         GridSummary s = body.summary();
         log.info("[admin/gym-sync] grid done preset={} mode={} applied={} aborted={} failed={} dryRun={} inserted={} updated={}",
                 req.preset(), req.mode(),
                 s.applied(), s.aborted(), s.failed(), s.dryRun(),
                 s.totalInserted(), s.totalUpdated());
         return ResponseEntity.ok(ApiResponse.success(body));
+    }
+
+    private static List<GymSyncRegion> selectRegions(
+            List<GymSyncRegion> regions, String startRegion, Integer maxRegions) {
+        int start = 0;
+        if (startRegion != null && !startRegion.isBlank()) {
+            for (int i = 0; i < regions.size(); i++) {
+                if (regions.get(i).label().equals(startRegion)) {
+                    start = i;
+                    break;
+                }
+            }
+        }
+        int limit = maxRegions != null && maxRegions > 0 ? Math.min(maxRegions, regions.size() - start) : regions.size() - start;
+        return regions.subList(start, start + limit);
     }
 
     /** 동기화 모드. */
@@ -230,19 +259,41 @@ public class AdminGymSyncController {
     /** Grid preset 동기화 요청. */
     public record GridSyncRequest(
             @NotNull GymSyncGridPreset preset,
-            @NotNull SyncMode mode
-    ) {}
+            @NotNull SyncMode mode,
+            String startRegion,
+            @Min(1) @Max(25) Integer maxRegions,
+            Boolean stopOnRateLimit
+    ) {
+        public GridSyncRequest(GymSyncGridPreset preset, SyncMode mode) {
+            this(preset, mode, null, null, null);
+        }
+
+        boolean stopOnRateLimitValue() {
+            return stopOnRateLimit == null || stopOnRateLimit;
+        }
+    }
 
     /** Grid preset 동기화 응답 — 영역별 결과 배열 + 합계. */
     public record GridSyncResponse(
             String preset,
             String mode,
             int regionCount,
+            int totalRegionCount,
+            boolean interrupted,
+            String nextRegion,
             GridSummary summary,
             List<GridRegionResult> results
     ) {
-        static GridSyncResponse of(GymSyncGridPreset preset, SyncMode mode, List<GridRegionResult> results) {
-            return new GridSyncResponse(preset.name(), mode.name(), results.size(), GridSummary.of(results), results);
+        static GridSyncResponse of(
+                GymSyncGridPreset preset,
+                SyncMode mode,
+                int totalRegionCount,
+                List<GridRegionResult> results,
+                boolean interrupted,
+                String nextRegion) {
+            return new GridSyncResponse(
+                    preset.name(), mode.name(), results.size(), totalRegionCount,
+                    interrupted, nextRegion, GridSummary.of(results), results);
         }
     }
 

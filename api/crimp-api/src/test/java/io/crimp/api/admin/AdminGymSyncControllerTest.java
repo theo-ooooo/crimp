@@ -11,6 +11,7 @@ import io.crimp.common.response.ApiResponse;
 import io.crimp.domain.gym.sync.DryRunResult;
 import io.crimp.domain.gym.sync.GymSyncDiff;
 import io.crimp.domain.gym.sync.GymSyncGridPreset;
+import io.crimp.domain.gym.sync.GymSyncRateLimitException;
 import io.crimp.domain.gym.sync.GymSyncService;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -200,5 +201,47 @@ class AdminGymSyncControllerTest {
         assertThat(body.results().get(0).status()).isEqualTo(RegionStatus.FAILED);
         assertThat(body.results().get(0).reason()).contains("kakao temporary outage");
         verify(syncService, atLeastOnce()).apply(any());
+    }
+
+    @Test
+    void grid_rateLimitStopsAndReturnsNextRegion() {
+        when(syncService.dryRun(any(), any(), eq(5000)))
+                .thenAnswer(inv -> new DryRunResult(
+                        inv.getArgument(0), inv.getArgument(1), 5000,
+                        new GymSyncDiff.Result(0, List.of(), List.of(), List.of())))
+                .thenThrow(new GymSyncRateLimitException("Kakao Local API limit exceeded"));
+
+        ResponseEntity<ApiResponse<GridSyncResponse>> res = controller.syncGrid(
+                new GridSyncRequest(GymSyncGridPreset.SEOUL_GU, SyncMode.DRY_RUN));
+
+        GridSyncResponse body = res.getBody().data();
+        assertThat(body.interrupted()).isTrue();
+        assertThat(body.nextRegion()).isEqualTo("중구");
+        assertThat(body.regionCount()).isEqualTo(2);
+        assertThat(body.totalRegionCount()).isEqualTo(25);
+        assertThat(body.summary().dryRun()).isEqualTo(1);
+        assertThat(body.summary().failed()).isEqualTo(1);
+        assertThat(body.results().get(1).reason()).contains("limit exceeded");
+        verify(syncService, times(2)).dryRun(any(), any(), eq(5000));
+    }
+
+    @Test
+    void grid_canStartFromRegionAndLimitBatchSize() {
+        when(syncService.dryRun(any(), any(), eq(5000)))
+                .thenAnswer(inv -> new DryRunResult(
+                        inv.getArgument(0), inv.getArgument(1), 5000,
+                        new GymSyncDiff.Result(0, List.of(), List.of(), List.of())));
+
+        ResponseEntity<ApiResponse<GridSyncResponse>> res = controller.syncGrid(
+                new GridSyncRequest(GymSyncGridPreset.SEOUL_GU, SyncMode.DRY_RUN, "마포구", 3, true));
+
+        GridSyncResponse body = res.getBody().data();
+        assertThat(body.interrupted()).isFalse();
+        assertThat(body.nextRegion()).isNull();
+        assertThat(body.regionCount()).isEqualTo(3);
+        assertThat(body.totalRegionCount()).isEqualTo(25);
+        assertThat(body.results()).extracting(AdminGymSyncController.GridRegionResult::label)
+                .containsExactly("마포구", "양천구", "강서구");
+        verify(syncService, times(3)).dryRun(any(), any(), eq(5000));
     }
 }

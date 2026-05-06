@@ -2,6 +2,7 @@ package io.crimp.infra.gym;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.crimp.domain.gym.sync.GymSyncRateLimitException;
 import io.crimp.domain.gym.sync.GymSyncSource;
 import io.crimp.domain.gym.sync.RemoteGym;
 import io.crimp.infra.auth.KakaoProperties;
@@ -109,6 +110,7 @@ public class KakaoLocalGymClient implements GymSyncSource {
                     .toUri();
 
             try {
+                sleepBeforeRequest();
                 ResponseEntity<KeywordResponse> resp = restTemplate.exchange(
                         uri, HttpMethod.GET, request, KeywordResponse.class);
                 KeywordResponse body = resp.getBody();
@@ -134,8 +136,13 @@ public class KakaoLocalGymClient implements GymSyncSource {
                 if (Boolean.TRUE.equals(body.metaIsEnd())) break;
             } catch (HttpStatusCodeException e) {
                 if (e.getStatusCode().is4xxClientError()) {
+                    String body = summarize(e.getResponseBodyAsString());
+                    if (isKakaoLimitExceeded(body)) {
+                        throw new GymSyncRateLimitException("Kakao Local API limit exceeded: status="
+                                + e.getStatusCode().value() + " body=" + body);
+                    }
                     throw new KakaoLocalException("Kakao Local API 요청 실패: status="
-                            + e.getStatusCode().value() + " body=" + summarize(e.getResponseBodyAsString()));
+                            + e.getStatusCode().value() + " body=" + body);
                 }
                 log.warn("[gym-sync/kakao] keyword='{}' page {} failed for ({},{}): status={} body={}",
                         keyword, page, lat, lng, e.getStatusCode().value(), summarize(e.getResponseBodyAsString()));
@@ -162,6 +169,24 @@ public class KakaoLocalGymClient implements GymSyncSource {
         String addr = d.roadAddressName() != null && !d.roadAddressName().isBlank()
                 ? d.roadAddressName() : d.addressName();
         return new RemoteGym(d.id(), d.placeName(), brand, addr, lat, lng, d.phone());
+    }
+
+    private void sleepBeforeRequest() {
+        long delayMs = props.resolvedRequestDelayMs();
+        if (delayMs <= 0) return;
+        try {
+            Thread.sleep(delayMs);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new KakaoLocalException("Kakao Local API request delay interrupted");
+        }
+    }
+
+    private static boolean isKakaoLimitExceeded(String body) {
+        return body != null
+                && (body.contains("API limit has been exceeded")
+                || body.contains("\"code\":-10")
+                || body.contains("\"code\": -10"));
     }
 
     /**
