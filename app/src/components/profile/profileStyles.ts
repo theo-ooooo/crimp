@@ -296,6 +296,27 @@ export function makeProfileStyles(theme: Theme) {
       color: theme.text2,
       letterSpacing: letterSpacing.body,
     },
+    deleteAccountButton: {
+      paddingVertical: space[3],
+      paddingHorizontal: space[4],
+      borderRadius: radius.lg,
+      backgroundColor: withAlpha(theme.semantic.danger, 0.08),
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    deleteAccountButtonPressed: {
+      opacity: 0.85,
+    },
+    deleteAccountButtonDisabled: {
+      opacity: 0.5,
+    },
+    deleteAccountButtonLabel: {
+      fontFamily,
+      fontSize: fontSize.body,
+      fontWeight: fontWeight.semibold,
+      color: theme.semantic.danger,
+      letterSpacing: letterSpacing.body,
+    },
     errorBox: {
       margin: space[5],
       backgroundColor: withAlpha(theme.semantic.danger, 0.08),

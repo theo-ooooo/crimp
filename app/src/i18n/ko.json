@@ -322,7 +322,13 @@
       "laterCta": "나중에"
     },
     "logout": "로그아웃",
-    "logoutLoading": "로그아웃 중…"
+    "logoutLoading": "로그아웃 중…",
+    "deleteAccount": "계정 탈퇴",
+    "deleteAccountLoading": "탈퇴 처리 중…",
+    "deleteAccountConfirmTitle": "계정을 탈퇴할까요?",
+    "deleteAccountConfirmBody": "탈퇴하면 로그아웃되고 프로필 정보가 비노출됩니다. 이 작업은 되돌릴 수 없어요.",
+    "deleteAccountConfirmCta": "탈퇴하기",
+    "deleteAccountErrorTitle": "탈퇴 처리에 실패했어요"
   },
   "onboarding": {
     "mainGym": {

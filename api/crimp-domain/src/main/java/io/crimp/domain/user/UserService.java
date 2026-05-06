@@ -1,12 +1,14 @@
 package io.crimp.domain.user;
 
 import io.crimp.core.entity.enums.GymStatus;
+import io.crimp.core.entity.enums.UserStatus;
 import io.crimp.core.entity.gym.Gym;
 import io.crimp.core.entity.user.Profile;
 import io.crimp.core.entity.user.User;
 import io.crimp.core.repository.gym.GymRepository;
 import io.crimp.core.repository.user.ProfileRepository;
 import io.crimp.core.repository.user.UserRepository;
+import io.crimp.domain.auth.RefreshTokenStore;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,17 +19,24 @@ public class UserService {
     private final UserRepository userRepo;
     private final ProfileRepository profileRepo;
     private final GymRepository gymRepo;
+    private final RefreshTokenStore refreshTokenStore;
 
-    public UserService(UserRepository userRepo, ProfileRepository profileRepo, GymRepository gymRepo) {
+    public UserService(
+            UserRepository userRepo,
+            ProfileRepository profileRepo,
+            GymRepository gymRepo,
+            RefreshTokenStore refreshTokenStore) {
         this.userRepo = userRepo;
         this.profileRepo = profileRepo;
         this.gymRepo = gymRepo;
+        this.refreshTokenStore = refreshTokenStore;
     }
 
     @Transactional(readOnly = true)
     public ProfileView getMe(long userId) {
         User user = userRepo.findById(userId)
                 .orElseThrow(() -> new UserException("USER_NOT_FOUND", "User " + userId + " not found"));
+        requireActive(user);
         var profile = profileRepo.findById(userId)
                 .orElseThrow(() -> new UserException("PROFILE_MISSING", "Profile for user " + userId + " missing"));
         return toView(user, profile);
@@ -37,6 +46,7 @@ public class UserService {
     public ProfileView getPublicProfile(String extId) {
         User user = userRepo.findByExtId(extId)
                 .orElseThrow(() -> new UserException("USER_NOT_FOUND", "User " + extId + " not found"));
+        requireActive(user);
         var profile = profileRepo.findById(user.getId())
                 .orElseThrow(() -> new UserException("PROFILE_MISSING", "Profile missing for " + extId));
         // I4: PublicUserResponse 는 mainGym 정보를 노출하지 않으므로 resolve 호출은 낭비.
@@ -51,6 +61,7 @@ public class UserService {
 
         User user = userRepo.findById(userId)
                 .orElseThrow(() -> new UserException("USER_NOT_FOUND", "User " + userId + " not found"));
+        requireActive(user);
         var profile = profileRepo.findById(userId)
                 .orElseThrow(() -> new UserException("PROFILE_MISSING", "Profile for user " + userId + " missing"));
 
@@ -88,6 +99,24 @@ public class UserService {
         if (cmd.avatarMediaId() != null) profile.updateAvatar(cmd.avatarMediaId());
 
         return toView(user, profile);
+    }
+
+    @Transactional
+    public void deleteMe(long userId) {
+        User user = userRepo.findById(userId)
+                .orElseThrow(() -> new UserException("USER_NOT_FOUND", "User " + userId + " not found"));
+        if (user.getStatus() == UserStatus.DELETED || user.isDeleted()) {
+            refreshTokenStore.deleteAllForUser(userId);
+            return;
+        }
+        user.deleteAccount();
+        refreshTokenStore.deleteAllForUser(userId);
+    }
+
+    private static void requireActive(User user) {
+        if (user.getStatus() == UserStatus.DELETED || user.isDeleted()) {
+            throw new UserException("USER_NOT_FOUND", "User " + user.getId() + " not found");
+        }
     }
 
     /**

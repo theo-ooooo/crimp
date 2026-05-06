@@ -7,6 +7,7 @@ import {
   ProfileStatsRow,
   ProfileTopGradeHero,
 } from '@/components/profile/ProfileOverviewSections';
+import { ProfileDeleteAccountButton } from './ProfileDeleteAccountButton';
 import { ProfileLogoutButton } from './ProfileLogoutButton';
 import type { ProfileStyles } from '@/components/profile/profileStyles';
 import { toUserMessage } from '@/lib/api/errorMessage';
@@ -166,6 +167,7 @@ export function ProfileBody({
       </View>
 
       <ProfileLogoutButton styles={styles} />
+      <ProfileDeleteAccountButton styles={styles} />
     </ScrollView>
   );
 }

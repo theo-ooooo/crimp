@@ -2,6 +2,8 @@ package io.crimp.api.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.crimp.core.entity.enums.UserRole;
+import io.crimp.core.entity.user.User;
+import io.crimp.core.repository.user.UserRepository;
 import io.crimp.domain.auth.JwtProperties;
 import io.crimp.domain.auth.JwtProvider;
 import io.jsonwebtoken.Jwts;
@@ -21,8 +23,10 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -39,15 +43,23 @@ class JwtAuthenticationFilterTest {
 
     private final JwtProvider provider = new JwtProvider(
             new JwtProperties(SECRET, 900L, 1_209_600L, ISSUER));
+    private final UserRepository userRepository = mock(UserRepository.class);
 
     /** 테스트 헬퍼 — 쿠키 fallback 을 사용하지 않는 경우 (기본). */
     private final JwtAuthenticationFilter filter = new JwtAuthenticationFilter(
-            provider, new ObjectMapper(), emptyCookieFactory());
+            provider, new ObjectMapper(), userRepositoryProvider(), emptyCookieFactory());
 
     /** AuthCookieFactory 빈이 없는 환경 (단위 테스트) — ObjectProvider 가 null 반환. */
     private static ObjectProvider<AuthCookieFactory> emptyCookieFactory() {
         @SuppressWarnings("unchecked")
         ObjectProvider<AuthCookieFactory> p = mock(ObjectProvider.class);
+        return p;
+    }
+
+    private ObjectProvider<UserRepository> userRepositoryProvider() {
+        @SuppressWarnings("unchecked")
+        ObjectProvider<UserRepository> p = mock(ObjectProvider.class);
+        when(p.getIfAvailable()).thenReturn(userRepository);
         return p;
     }
 
@@ -58,7 +70,7 @@ class JwtAuthenticationFilterTest {
         @SuppressWarnings("unchecked")
         ObjectProvider<AuthCookieFactory> p = mock(ObjectProvider.class);
         when(p.getIfAvailable()).thenReturn(factory);
-        return new JwtAuthenticationFilter(provider, new ObjectMapper(), p);
+        return new JwtAuthenticationFilter(provider, new ObjectMapper(), userRepositoryProvider(), p);
     }
 
     @AfterEach
@@ -68,6 +80,7 @@ class JwtAuthenticationFilterTest {
 
     @Test
     void mapsUserRoleClaim_toRoleUserAuthority() throws Exception {
+        stubActiveUser();
         var token = provider.issueAccess(1L, "ext-1", UserRole.USER).token();
 
         var req = new MockHttpServletRequest();
@@ -86,6 +99,7 @@ class JwtAuthenticationFilterTest {
 
     @Test
     void mapsAdminRoleClaim_toRoleAdminAuthority() throws Exception {
+        stubActiveUser();
         var token = provider.issueAccess(2L, "ext-2", UserRole.ADMIN).token();
 
         var req = new MockHttpServletRequest();
@@ -115,6 +129,7 @@ class JwtAuthenticationFilterTest {
 
     @Test
     void legacyToken_withoutRoleClaim_mapsToRoleUser() throws Exception {
+        stubActiveUser();
         // [PR #88 리뷰 I3] role claim 이 없는 구버전 토큰이 들어오면 ROLE_USER 로 안전하게
         // fallback 되어야 한다. JwtProvider 단의 fallback 만으로는 filter→authority 라인의
         // end-to-end 회귀를 못 잡으므로 본 테스트가 그 라인을 직접 보증.
@@ -145,6 +160,7 @@ class JwtAuthenticationFilterTest {
 
     @Test
     void cookieFallback_readsAccessTokenFromCrimpAccessCookie() throws Exception {
+        stubActiveUser();
         // [PR #94, HttpOnly 전환] Authorization 헤더 없이 access 쿠키만 있어도 인증 통과.
         var token = provider.issueAccess(11L, "ext-cookie", UserRole.USER).token();
 
@@ -164,6 +180,7 @@ class JwtAuthenticationFilterTest {
 
     @Test
     void cookieAndBearer_bothPresent_BearerWins() throws Exception {
+        stubActiveUser();
         // 둘 다 있으면 Bearer 가 우선 (모바일 호환).
         var bearerToken = provider.issueAccess(1L, "ext-bearer", UserRole.ADMIN).token();
         var cookieToken = provider.issueAccess(2L, "ext-cookie", UserRole.USER).token();
@@ -193,5 +210,28 @@ class JwtAuthenticationFilterTest {
 
         assertThat(res.getStatus()).isEqualTo(401);
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
+
+    @Test
+    void deletedUserToken_returns401_andDoesNotCallChain() throws Exception {
+        User deleted = User.create("ext-deleted", null, null);
+        deleted.deleteAccount();
+        when(userRepository.findById(7L)).thenReturn(Optional.of(deleted));
+        var token = provider.issueAccess(7L, "ext-deleted", UserRole.USER).token();
+
+        var req = new MockHttpServletRequest();
+        req.addHeader("Authorization", "Bearer " + token);
+        var res = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(req, res, chain);
+
+        assertThat(res.getStatus()).isEqualTo(401);
+        assertThat(res.getContentAsString()).contains("AUTH_ACCOUNT_INACTIVE");
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
+
+    private void stubActiveUser() {
+        when(userRepository.findById(anyLong())).thenReturn(Optional.of(User.create("ext-active", null, null)));
     }
 }

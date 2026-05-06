@@ -1,5 +1,6 @@
 package io.crimp.domain.user;
 
+import io.crimp.core.entity.enums.UserStatus;
 import io.crimp.core.entity.enums.GymStatus;
 import io.crimp.core.entity.gym.Gym;
 import io.crimp.core.entity.user.Profile;
@@ -7,6 +8,7 @@ import io.crimp.core.entity.user.User;
 import io.crimp.core.repository.gym.GymRepository;
 import io.crimp.core.repository.user.ProfileRepository;
 import io.crimp.core.repository.user.UserRepository;
+import io.crimp.domain.auth.RefreshTokenStore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -27,6 +29,7 @@ class UserServiceTest {
     private UserRepository userRepo;
     private ProfileRepository profileRepo;
     private GymRepository gymRepo;
+    private RefreshTokenStore refreshTokenStore;
     private UserService service;
 
     @BeforeEach
@@ -34,7 +37,8 @@ class UserServiceTest {
         userRepo = mock(UserRepository.class);
         profileRepo = mock(ProfileRepository.class);
         gymRepo = mock(GymRepository.class);
-        service = new UserService(userRepo, profileRepo, gymRepo);
+        refreshTokenStore = mock(RefreshTokenStore.class);
+        service = new UserService(userRepo, profileRepo, gymRepo, refreshTokenStore);
     }
 
     @Test
@@ -57,6 +61,17 @@ class UserServiceTest {
     void getMe_userNotFound_throws() {
         when(userRepo.findById(99L)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.getMe(99L))
+                .isInstanceOf(UserException.class)
+                .satisfies(e -> assertThat(((UserException) e).code()).isEqualTo("USER_NOT_FOUND"));
+    }
+
+    @Test
+    void getMe_deletedUser_throws_notFound() {
+        User user = user(1L, "01HDELETED_");
+        user.deleteAccount();
+        when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> service.getMe(1L))
                 .isInstanceOf(UserException.class)
                 .satisfies(e -> assertThat(((UserException) e).code()).isEqualTo("USER_NOT_FOUND"));
     }
@@ -352,6 +367,30 @@ class UserServiceTest {
 
         assertThat(view.mainGymId()).isEqualTo(404L);
         assertThat(view.mainGym()).isNull();
+    }
+
+    @Test
+    void deleteMe_marksDeleted_andClearsRefreshTokens() {
+        User user = user(1L, "01HDELETE__");
+        when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+
+        service.deleteMe(1L);
+
+        assertThat(user.getStatus()).isEqualTo(UserStatus.DELETED);
+        assertThat(user.isDeleted()).isTrue();
+        verify(refreshTokenStore).deleteAllForUser(1L);
+    }
+
+    @Test
+    void deleteMe_alreadyDeleted_isIdempotent_andClearsRefreshTokens() {
+        User user = user(1L, "01HDELETE__");
+        user.deleteAccount();
+        when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+
+        service.deleteMe(1L);
+
+        assertThat(user.getStatus()).isEqualTo(UserStatus.DELETED);
+        verify(refreshTokenStore).deleteAllForUser(1L);
     }
 
     // --- helpers ---
