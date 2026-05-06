@@ -1660,6 +1660,27 @@ PODS:
     - React-Core
   - RNFS (2.20.0):
     - React-Core
+  - RNKeychain (10.0.0):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.01.01.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
   - RNPermissions (5.5.1):
     - React-Core
   - RNScreens (3.34.0):
@@ -1772,6 +1793,7 @@ DEPENDENCIES:
   - "RNAppleAuthentication (from `../node_modules/@invertase/react-native-apple-authentication`)"
   - RNBootSplash (from `../node_modules/react-native-bootsplash`)
   - RNFS (from `../node_modules/react-native-fs`)
+  - RNKeychain (from `../node_modules/react-native-keychain`)
   - RNPermissions (from `../node_modules/react-native-permissions`)
   - RNScreens (from `../node_modules/react-native-screens`)
   - RNSVG (from `../node_modules/react-native-svg`)
@@ -1936,6 +1958,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-bootsplash"
   RNFS:
     :path: "../node_modules/react-native-fs"
+  RNKeychain:
+    :path: "../node_modules/react-native-keychain"
   RNPermissions:
     :path: "../node_modules/react-native-permissions"
   RNScreens:
@@ -2026,6 +2050,7 @@ SPEC CHECKSUMS:
   RNAppleAuthentication: a89c9804592b38ed4ab11f0aee68d05ba12ad432
   RNBootSplash: cf2099b76af3eeacbd5dc26ac95347a30f561fb1
   RNFS: 89de7d7f4c0f6bafa05343c578f61118c8282ed8
+  RNKeychain: 57c0b42f79950ba6bdca5277ab52a6b24dccd595
   RNPermissions: 48458b6caf05c13ddae0c50cbbb470f8d58f3221
   RNScreens: 28fbd73104cc9719371da9d9aaa3c70d876a8c6b
   RNSVG: fc707517bcf04a9c0a09da7c20b2e02446dce7b9
