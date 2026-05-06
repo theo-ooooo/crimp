@@ -11,6 +11,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 
 import { PrimaryButton, SecondaryButton } from '@/components/common/primitives';
+import { ProfileAvatarEditSection } from '@/components/profile/ProfileAvatarEditSection';
 import { useMeQuery } from '@/hooks/queries/useMe';
 import { useUpdateProfile } from '@/hooks/queries/useUpdateProfile';
 import { toUserMessage } from '@/lib/api/errorMessage';
@@ -120,6 +121,16 @@ export default function ProfileEditScreen(): JSX.Element {
     });
   };
 
+  const updateAvatar = async (avatarMediaId: number) => {
+    await updateMutation.mutateAsync({ avatarMediaId });
+    setToastMessage(t('profile.edit.avatarSaved'));
+  };
+
+  const clearAvatar = async () => {
+    await updateMutation.mutateAsync({ clearAvatar: true });
+    setToastMessage(t('profile.edit.avatarCleared'));
+  };
+
   if (meQuery.error) {
     return (
       <View style={styles.container}>
@@ -151,6 +162,16 @@ export default function ProfileEditScreen(): JSX.Element {
         <Text style={styles.eyebrow}>{t('profile.title')}</Text>
         <Text style={styles.title}>{t('profile.edit.title')}</Text>
       </View>
+
+      <ProfileAvatarEditSection
+        accessToken={accessToken ?? ''}
+        avatarUrl={me.avatarUrl}
+        nickname={nickname || me.nickname || t('home.nicknameFallback')}
+        disabled={updateMutation.isPending || !accessToken}
+        onAvatarUploaded={updateAvatar}
+        onAvatarCleared={clearAvatar}
+        onError={(err) => setToastMessage(toUserMessage(err))}
+      />
 
       <Field
         label={t('profile.nickname')}
