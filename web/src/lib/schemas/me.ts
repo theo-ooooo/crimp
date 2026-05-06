@@ -4,7 +4,7 @@ import { z } from 'zod';
  * `GET /api/v1/me` 응답 스키마.
  *
  * 참조: api/crimp-api/src/main/java/io/crimp/api/user/UserController.java
- * `MeResponse(extId, nickname, bio, levelSelf, mainGymId, mainGym, avatarMediaId)`.
+ * `MeResponse(extId, nickname, bio, levelSelf, mainGymId, mainGym, avatarMediaId, avatarUrl)`.
  *
  * 백엔드에서 nullable 로 직렬화되는 필드는 zod 에서도 `.nullable()` 로 표기.
  */
@@ -40,6 +40,7 @@ const MeWireSchema = z.object({
   // 해석된 mainGym 객체. null 또는 NON_NULL 정책으로 키 누락 가능.
   mainGym: MainGymRefSchema.nullable().optional(),
   avatarMediaId: z.number().nullable(),
+  avatarUrl: z.string().url().nullable().optional(),
 });
 
 export const MeSchema = MeWireSchema.transform((value) => ({

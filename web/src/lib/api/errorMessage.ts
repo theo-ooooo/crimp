@@ -27,6 +27,10 @@ const CODE_TO_KEY: Record<string, MessageKey> = {
   // PR #59 — 주 암장 contract 에러
   MAIN_GYM_NOT_FOUND: 'error.mainGymNotFound',
   INVALID_MAIN_GYM_REQUEST: 'error.mainGymInvalid',
+  AVATAR_MEDIA_NOT_FOUND: 'error.avatarMediaNotFound',
+  AVATAR_MEDIA_FORBIDDEN: 'error.avatarMediaForbidden',
+  AVATAR_MEDIA_INVALID: 'error.avatarMediaInvalid',
+  INVALID_AVATAR_REQUEST: 'error.avatarInvalidRequest',
 };
 
 export function toUserMessage(err: unknown): string {

@@ -170,6 +170,10 @@ export function fetchMe(accessToken: string, signal?: AbortSignal): Promise<Me> 
  * 서버 에러:
  *   - 404 `MAIN_GYM_NOT_FOUND` — extId 미일치 / 비활성 암장.
  *   - 400 `INVALID_MAIN_GYM_REQUEST` — clearMainGym + 다른 main gym 필드 동시 set.
+ *   - 400 `INVALID_AVATAR_REQUEST` — clearAvatar + avatarMediaId 동시 set.
+ *   - 400 `AVATAR_MEDIA_INVALID` — READY IMAGE 가 아닌 미디어.
+ *   - 403 `AVATAR_MEDIA_FORBIDDEN` — 다른 유저 소유 미디어.
+ *   - 404 `AVATAR_MEDIA_NOT_FOUND` — 존재하지 않는 미디어.
  */
 export interface UpdateProfileBody {
   nickname?: string;
@@ -178,6 +182,7 @@ export interface UpdateProfileBody {
   mainGymId?: number;
   mainGymExtId?: string;
   clearMainGym?: boolean;
+  clearAvatar?: boolean;
   avatarMediaId?: number;
 }
 

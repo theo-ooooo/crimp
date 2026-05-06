@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Image, Pressable, Text, View } from 'react-native';
 
 import { CrimpIcon, Skeleton } from '@/components/common/primitives';
 import { t } from '@/lib/i18n';
@@ -29,9 +29,17 @@ export function ProfileHeaderRow({
   return (
     <View style={styles.headerRow}>
       <View style={styles.avatar}>
-        <Text style={styles.avatarText} accessibilityLabel={nickname}>
-          {initial}
-        </Text>
+        {me?.avatarUrl ? (
+          <Image
+            source={{ uri: me.avatarUrl }}
+            style={styles.avatarImage}
+            accessibilityLabel={nickname}
+          />
+        ) : (
+          <Text style={styles.avatarText} accessibilityLabel={nickname}>
+            {initial}
+          </Text>
+        )}
       </View>
       <View style={styles.headerRowBody}>
         <View style={styles.nicknameRow}>

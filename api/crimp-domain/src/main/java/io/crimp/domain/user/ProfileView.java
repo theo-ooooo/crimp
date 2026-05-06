@@ -14,6 +14,7 @@ public record ProfileView(
         boolean nicknameConfigured,
         String bio,
         Long avatarMediaId,
+        String avatarUrl,
         Byte levelSelf,
         Long mainGymId,
         MainGymView mainGym

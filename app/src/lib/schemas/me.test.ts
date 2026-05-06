@@ -27,6 +27,7 @@ describe('MeSchema', () => {
       brand: '클라임파크',
     },
     avatarMediaId: 99,
+    avatarUrl: 'https://cdn.crimp.test/media/users/1/image/avatar.jpg',
   };
 
   it('parses a fully-populated Me response', () => {
@@ -39,6 +40,7 @@ describe('MeSchema', () => {
     expect(parsed.mainGym?.name).toBe('클라임파크 강남점');
     expect(parsed.mainGym?.brand).toBe('클라임파크');
     expect(parsed.levelSelf).toBe(5);
+    expect(parsed.avatarUrl).toBe(fullMe.avatarUrl);
   });
 
   it('parses a Me where nullable keys are explicit null', () => {
@@ -50,6 +52,7 @@ describe('MeSchema', () => {
       mainGymId: null,
       mainGym: null,
       avatarMediaId: null,
+      avatarUrl: null,
     });
     expect(parsed.nickname).toBeNull();
     expect(parsed.mainGymId).toBeNull();
@@ -127,6 +130,20 @@ describe('UpdateProfileBodySchema', () => {
   it('accepts clearMainGym=true', () => {
     const parsed = UpdateProfileBodySchema.parse({ clearMainGym: true });
     expect(parsed.clearMainGym).toBe(true);
+  });
+
+  it('accepts clearAvatar=true', () => {
+    const parsed = UpdateProfileBodySchema.parse({ clearAvatar: true });
+    expect(parsed.clearAvatar).toBe(true);
+  });
+
+  it('rejects clearAvatar=true combined with avatarMediaId', () => {
+    expect(() =>
+      UpdateProfileBodySchema.parse({
+        clearAvatar: true,
+        avatarMediaId: 1,
+      }),
+    ).toThrow();
   });
 
   it('rejects clearMainGym=true combined with mainGymExtId (백엔드 INVALID_MAIN_GYM_REQUEST 사전 차단)', () => {
