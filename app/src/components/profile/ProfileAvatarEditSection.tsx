@@ -38,7 +38,6 @@ const PICKER_OPTIONS: ImageLibraryOptions = {
   quality: 0.9,
   includeBase64: true,
 };
-const PICKER_LAUNCH_DELAY_MS = 240;
 
 type AvatarSource = 'camera' | 'library';
 
@@ -67,21 +66,13 @@ export function ProfileAvatarEditSection({
   const [phase, setPhase] = useState<UploadPhase | 'saving' | null>(null);
   const [imageFailed, setImageFailed] = useState(false);
   const [sourceModalVisible, setSourceModalVisible] = useState(false);
-  const pickerLaunchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingSourceRef = useRef<AvatarSource | null>(null);
   const busy = phase !== null;
   const blocked = disabled || busy;
 
   useEffect(() => {
     setImageFailed(false);
   }, [avatarUrl]);
-
-  useEffect(() => {
-    return () => {
-      if (pickerLaunchTimerRef.current) {
-        clearTimeout(pickerLaunchTimerRef.current);
-      }
-    };
-  }, []);
 
   const onChoose = async () => {
     if (blocked) {
@@ -94,14 +85,16 @@ export function ProfileAvatarEditSection({
     if (blocked) {
       return;
     }
+    pendingSourceRef.current = source;
     setSourceModalVisible(false);
-    if (pickerLaunchTimerRef.current) {
-      clearTimeout(pickerLaunchTimerRef.current);
-    }
-    pickerLaunchTimerRef.current = setTimeout(() => {
-      pickerLaunchTimerRef.current = null;
+  };
+
+  const onSourceModalDismissed = () => {
+    const source = pendingSourceRef.current;
+    pendingSourceRef.current = null;
+    if (source) {
       void chooseSourceAfterModalDismiss(source);
-    }, PICKER_LAUNCH_DELAY_MS);
+    }
   };
 
   const chooseSourceAfterModalDismiss = async (source: AvatarSource) => {
@@ -170,6 +163,7 @@ export function ProfileAvatarEditSection({
         onCamera={() => void onChooseSource('camera')}
         onLibrary={() => void onChooseSource('library')}
         onCancel={() => setSourceModalVisible(false)}
+        onDismissed={onSourceModalDismissed}
       />
       <View style={styles.avatarWrap}>
         <View style={styles.avatar}>
