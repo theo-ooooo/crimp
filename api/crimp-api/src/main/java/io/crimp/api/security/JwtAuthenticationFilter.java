@@ -3,6 +3,9 @@ package io.crimp.api.security;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.crimp.common.response.ApiResponse;
 import io.crimp.common.response.ErrorBody;
+import io.crimp.core.entity.enums.UserStatus;
+import io.crimp.core.entity.user.User;
+import io.crimp.core.repository.user.UserRepository;
 import io.crimp.domain.auth.JwtProvider;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -31,6 +34,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtProvider jwtProvider;
     private final ObjectMapper objectMapper;
+    private final UserRepository userRepository;
     /**
      * AuthCookieFactory 는 {@code !test} 프로파일이라 단위 테스트에서 빈이 없을 수 있음.
      * ObjectProvider 로 lazy 주입 — 없으면 cookie fallback skip 하고 Bearer 만 처리한다.
@@ -40,9 +44,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     public JwtAuthenticationFilter(
             JwtProvider jwtProvider,
             ObjectMapper objectMapper,
+            UserRepository userRepository,
             ObjectProvider<AuthCookieFactory> cookieFactoryProvider) {
         this.jwtProvider = jwtProvider;
         this.objectMapper = objectMapper;
+        this.userRepository = userRepository;
         this.cookieFactoryProvider = cookieFactoryProvider;
     }
 
@@ -60,6 +66,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             JwtProvider.ParsedToken parsed = jwtProvider.parseAccess(token);
+            User user = userRepository.findById(parsed.userId()).orElse(null);
+            if (!isActive(user)) {
+                writeUnauthorized(response, "AUTH_ACCOUNT_INACTIVE", "Account is inactive");
+                return;
+            }
             CrimpPrincipal principal = new CrimpPrincipal(parsed.userId(), parsed.userExtId());
             // role claim 을 Spring Security 권한으로 매핑 — `ROLE_<UserRole.name()>` 컨벤션.
             // hasRole("ADMIN") / @PreAuthorize("hasRole('ADMIN')") 등이 그대로 동작.
@@ -70,13 +81,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             chain.doFilter(request, response);
         } catch (JwtException e) {
             // 토큰이 존재하지만 유효하지 않음 (만료·변조·잘못된 타입) — 즉시 401 AUTH_INVALID.
-            response.setStatus(HttpStatus.UNAUTHORIZED.value());
-            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-            objectMapper.writeValue(
-                    response.getOutputStream(),
-                    ApiResponse.failure(ErrorBody.of("AUTH_INVALID", "Invalid or expired access token")));
+            writeUnauthorized(response, "AUTH_INVALID", "Invalid or expired access token");
         }
+    }
+
+    private static boolean isActive(User user) {
+        return user != null && user.getStatus() == UserStatus.ACTIVE && !user.isDeleted();
+    }
+
+    private void writeUnauthorized(HttpServletResponse response, String code, String message) throws IOException {
+        response.setStatus(HttpStatus.UNAUTHORIZED.value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        objectMapper.writeValue(
+                response.getOutputStream(),
+                ApiResponse.failure(ErrorBody.of(code, message)));
     }
 
     /**
