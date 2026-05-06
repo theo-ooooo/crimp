@@ -9,12 +9,9 @@ import { AuthHydrationGate } from '@/components/common/screen/AuthHydrationGate'
 import { SessionDetailBody } from '@/components/session-detail/SessionDetailBody';
 import { makeSessionDetailStyles } from '@/components/session-detail/sessionDetailStyles';
 import { useSessionDetailScreen } from '@/hooks/screens/useSessionDetailScreen';
+import { navigateHomeAfterSessionEnd } from '@/lib/navigation/sessionEndNavigation';
 import { useTokens } from '@/lib/useTokens';
-import type {
-  MainTabsNavigationProp,
-  RootStackNavigationProp,
-  RootStackParamList,
-} from '@/navigation/types';
+import type { RootStackNavigationProp, RootStackParamList } from '@/navigation/types';
 import { useTokenStore } from '@/store/tokenStore';
 
 /**
@@ -47,11 +44,7 @@ export default function SessionDetailScreen(): JSX.Element {
           styles={styles}
           bgColor={theme.bg}
           textColor={theme.text}
-          onSessionEnded={() => {
-            navigation.popToTop();
-            const parent = navigation.getParent<MainTabsNavigationProp<'HomeTab'>>();
-            parent?.navigate('HomeTab');
-          }}
+          onSessionEnded={() => navigateHomeAfterSessionEnd(navigation)}
         />
       )}
     </AuthHydrationGate>
