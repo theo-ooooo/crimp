@@ -175,6 +175,8 @@ export function CameraSheet({
   const [recordingPhase, setRecordingPhase] = useState<RecordingPhase>('idle');
   const recordingPhaseRef = useRef<RecordingPhase>('idle');
   const [busy, setBusy] = useState(false);
+  const [cameraInitialized, setCameraInitialized] = useState(false);
+  const [previewStarted, setPreviewStarted] = useState(false);
   // [PR #97, F5 PR-5] 캡처 직후 자동 업로드 대신 미리보기 + 사용/다시촬영 분기.
   // pending != null 이면 viewfinder 위로 preview 오버레이가 떠 있는 상태.
   // "사용" 으로만 onCaptured 가 발동, "다시촬영" 은 pending 만 비우고 viewfinder 복귀.
@@ -196,6 +198,7 @@ export function CameraSheet({
   const maxDurationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // 영상 모드인데 mic 권한이 없으면 사운드 없이 녹화 — 권한 요청은 시트 진입 시 한 번 시도.
   const audioEnabled = mode === 'video' && micPerm.hasPermission;
+  const cameraReady = Boolean(cameraPerm.hasPermission && device && cameraInitialized && previewStarted);
   const recording = recordingPhase === 'recording';
   const videoBusy = recordingPhase === 'stopping' || recordingPhase === 'processing';
 
@@ -237,6 +240,11 @@ export function CameraSheet({
     }
   }, [visible, introDismissed]);
 
+  useEffect(() => {
+    setCameraInitialized(false);
+    setPreviewStarted(false);
+  }, [visible, device?.id, mode]);
+
   // 시트 닫힐 때 녹화 중이면 중단 — cancelRequestedRef 를 세팅해 onRecordingFinished 가
   // onCaptured 를 발동하지 않도록 표시. pending preview 도 함께 폐기 (시트 재진입 시
   // 이전 캡처가 그대로 떠 있는 회귀 차단).
@@ -268,7 +276,7 @@ export function CameraSheet({
   }, [clearMaxDurationTimer]);
 
   const handlePhoto = useCallback(async () => {
-    if (busy || !cameraRef.current) return;
+    if (busy || !cameraReady || !cameraRef.current) return;
     setBusy(true);
     try {
       const photo = await cameraRef.current.takePhoto({ flash: 'off' });
@@ -298,10 +306,10 @@ export function CameraSheet({
     } finally {
       setBusy(false);
     }
-  }, [busy]);
+  }, [busy, cameraReady]);
 
   const handleStartRecording = useCallback(() => {
-    if (busy || recordingPhaseRef.current !== 'idle' || !cameraRef.current) return;
+    if (busy || !cameraReady || recordingPhaseRef.current !== 'idle' || !cameraRef.current) return;
     setVideoPhase('recording');
     cancelRequestedRef.current = false;
     try {
@@ -368,7 +376,7 @@ export function CameraSheet({
       setVideoPhase('stopping');
       cameraRef.current?.stopRecording().catch(() => undefined);
     }, MAX_RECORDING_SECONDS * 1000);
-  }, [busy, setVideoPhase, clearMaxDurationTimer]);
+  }, [busy, cameraReady, setVideoPhase, clearMaxDurationTimer]);
 
   const handleStopRecording = useCallback(async () => {
     if (!cameraRef.current || recordingPhaseRef.current !== 'recording') return;
@@ -556,7 +564,18 @@ export function CameraSheet({
                     video={mode === 'video'}
                     audio={audioEnabled}
                     zoom={zoom}
+                    onInitialized={() => setCameraInitialized(true)}
+                    onPreviewStarted={() => setPreviewStarted(true)}
+                    onPreviewStopped={() => setPreviewStarted(false)}
                   />
+                  {!cameraReady ? (
+                    <View style={styles.cameraReadyOverlay} pointerEvents="none">
+                      <ActivityIndicator color={CAMERA_FG} />
+                      <Text style={styles.cameraReadyText}>
+                        {t('session.log.cameraPreparing')}
+                      </Text>
+                    </View>
+                  ) : null}
                   {/* focus reticle */}
                   <View style={styles.reticle} pointerEvents="none" />
                   {/* mode indicator */}
@@ -602,7 +621,7 @@ export function CameraSheet({
 
               <Pressable
                 onPress={handleShoot}
-                disabled={mode === 'photo' ? busy : videoBusy}
+                disabled={mode === 'photo' ? busy || !cameraReady : videoBusy || !cameraReady}
                 style={styles.shutter}
                 accessibilityRole="button"
                 accessibilityLabel={
@@ -610,9 +629,13 @@ export function CameraSheet({
                     ? t('session.log.cameraVideoTitle')
                     : t('session.log.cameraPhotoTitle')
                 }
+                accessibilityState={{
+                  disabled: mode === 'photo' ? busy || !cameraReady : videoBusy || !cameraReady,
+                  busy: mode === 'photo' ? busy : videoBusy,
+                }}
               >
                 <View style={styles.shutterRing} />
-                {(mode === 'photo' && busy) || (mode === 'video' && videoBusy) ? (
+                {!cameraReady || (mode === 'photo' && busy) || (mode === 'video' && videoBusy) ? (
                   <ActivityIndicator color={CAMERA_FG} />
                 ) : (
                   <View
@@ -775,6 +798,19 @@ function makeStyles(theme: Theme) {
     modeLabel: {
       fontFamily,
       fontSize: 12,
+      fontWeight: fontWeight.bold,
+      color: CAMERA_FG,
+    },
+    cameraReadyOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: space[2],
+      backgroundColor: withAlpha(CAMERA_BG, 0.24),
+    },
+    cameraReadyText: {
+      fontFamily,
+      fontSize: 13,
       fontWeight: fontWeight.bold,
       color: CAMERA_FG,
     },

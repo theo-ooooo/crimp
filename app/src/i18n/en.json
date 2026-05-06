@@ -141,6 +141,7 @@
       "openCta": "Log attempt",
       "cameraError": "Camera error",
       "cameraNoDevice": "No camera device available on this phone.",
+      "cameraPreparing": "Preparing camera...",
       "cameraPermissionTitle": "Camera permission required",
       "cameraPermissionBody": "Allow camera access to record climbing attempts. You can change this later in Settings.",
       "cameraPermissionRetry": "Request again",
