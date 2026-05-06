@@ -108,6 +108,7 @@ export function CrimpModal({
   const reducedMotionRef = useRef(reducedMotion);
   const animationTypeRef = useRef(animationType);
   const onDismissedRef = useRef(onDismissed);
+  const pendingNativeDismissRef = useRef(false);
   useEffect(() => {
     reducedMotionRef.current = reducedMotion;
   }, [reducedMotion]);
@@ -158,8 +159,8 @@ export function CrimpModal({
       }),
     ]).start(({ finished }) => {
       if (finished) {
+        pendingNativeDismissRef.current = true;
         setMounted(false);
-        onDismissedRef.current?.();
       }
     });
     // [I4] reducedMotion / animationType 은 ref 스냅샷 사용 — deps 에 두면 런타임 변경
@@ -196,11 +197,20 @@ export function CrimpModal({
   const contentVariantStyle =
     variant === 'centered' ? styles.centered : styles.fullscreen;
 
+  const handleNativeDismiss = () => {
+    if (!pendingNativeDismissRef.current) {
+      return;
+    }
+    pendingNativeDismissRef.current = false;
+    onDismissedRef.current?.();
+  };
+
   return (
     <RNModal
       visible
       transparent
       animationType="none"
+      onDismiss={handleNativeDismiss}
       onRequestClose={onRequestClose}
       statusBarTranslucent
       testID={testID}
