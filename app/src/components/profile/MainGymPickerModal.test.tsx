@@ -75,4 +75,25 @@ describe('MainGymPickerModal', () => {
 
     expect(onSelect).toHaveBeenCalledWith(GYM);
   });
+
+  it('keeps confirm disabled for the current gym', () => {
+    const onSelect = jest.fn();
+    const renderer = create(
+      <MainGymPickerModal
+        visible
+        currentGymExtId={GYM.extId}
+        saving={false}
+        onClose={jest.fn()}
+        onSelect={onSelect}
+      />,
+    );
+
+    const confirm = renderer.root.findByProps({ accessibilityLabel: '확인' });
+
+    expect(confirm.props.accessibilityState).toEqual({ disabled: true });
+    act(() => {
+      confirm.props.onPress();
+    });
+    expect(onSelect).not.toHaveBeenCalled();
+  });
 });
