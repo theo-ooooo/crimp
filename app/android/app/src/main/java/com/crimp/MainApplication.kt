@@ -1,6 +1,7 @@
 package com.crimp
 
 import android.app.Application
+import com.crimp.capturealbum.CrimpCaptureAlbumPackage
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
@@ -19,6 +20,7 @@ class MainApplication : Application(), ReactApplication {
             PackageList(this).packages.apply {
               // Packages that cannot be autolinked yet can be added manually here, for example:
               // add(MyReactNativePackage())
+              add(CrimpCaptureAlbumPackage())
             }
 
         override fun getJSMainModuleName(): String = "index"

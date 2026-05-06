@@ -127,6 +127,7 @@ export function LogAttemptSheet({
   const [grade, setGrade] = useState<string>('V5');
   const [hold, setHold] = useState<HoldColorKey>('red');
   const [note, setNote] = useState<string>('');
+  const mediaBusy = mediaPhase !== 'idle';
 
   const reset = () => {
     setResult('SEND');
@@ -137,6 +138,9 @@ export function LogAttemptSheet({
   };
 
   const onSave = () => {
+    if (mediaBusy) {
+      return;
+    }
     const trimmed = note.trim();
     mutation.mutate(
       {
@@ -421,11 +425,17 @@ export function LogAttemptSheet({
               ) : (
                 <PrimaryButton
                   onPress={onSave}
+                  disabled={mediaBusy}
                   accessibilityLabel={t('session.log.save')}
                 >
                   {t('session.log.save')}
                 </PrimaryButton>
               )}
+              {mediaBusy ? (
+                <Text style={styles.saveHint}>
+                  {t('session.log.saveBlockedByMedia')}
+                </Text>
+              ) : null}
             </View>
           </ScrollView>
         </View>
@@ -667,6 +677,13 @@ function makeStyles(theme: Theme) {
     },
     saveWrap: {
       paddingHorizontal: space[5],
+    },
+    saveHint: {
+      marginTop: space[2],
+      fontFamily,
+      fontSize: 12,
+      color: theme.text3,
+      textAlign: 'center',
     },
     pendingRow: {
       paddingVertical: space[3],
