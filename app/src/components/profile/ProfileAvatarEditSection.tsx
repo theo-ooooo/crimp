@@ -67,16 +67,28 @@ export function ProfileAvatarEditSection({
       return;
     }
     try {
-      const selected = await pickImage();
+      const selected = await pickImage().catch((err) => {
+        logAvatarError('picker', err);
+        throw err;
+      });
       if (selected === null) {
         return;
       }
-      const captured = await assetToCapturedMedia(selected);
+      const captured = await assetToCapturedMedia(selected).catch((err) => {
+        logAvatarError('asset-meta', err, summarizeAsset(selected));
+        throw err;
+      });
       const uploaded = await uploadAvatarImage(accessToken, captured, {
         onPhase: setPhase,
+      }).catch((err) => {
+        logAvatarError('upload', err, summarizeCapturedMedia(captured));
+        throw err;
       });
       setPhase('saving');
-      await onAvatarUploaded(uploaded.id);
+      await onAvatarUploaded(uploaded.id).catch((err) => {
+        logAvatarError('profile-save', err, { mediaId: uploaded.id });
+        throw err;
+      });
       setImageFailed(false);
     } catch (err) {
       onError(err);
@@ -91,7 +103,10 @@ export function ProfileAvatarEditSection({
     }
     try {
       setPhase('saving');
-      await onAvatarCleared();
+      await onAvatarCleared().catch((err) => {
+        logAvatarError('profile-clear', err);
+        throw err;
+      });
       setImageFailed(false);
     } catch (err) {
       onError(err);
@@ -166,6 +181,52 @@ async function pickImage(): Promise<Asset | null> {
     throw new Error('No image selected');
   }
   return asset;
+}
+
+function logAvatarError(
+  stage: string,
+  error: unknown,
+  context: Record<string, unknown> = {},
+): void {
+  if (!__DEV__) {
+    return;
+  }
+  const errorInfo =
+    error instanceof Error
+      ? { name: error.name, message: error.message }
+      : { name: typeof error, message: String(error) };
+  console.warn('[profile/avatar] failed', {
+    stage,
+    ...errorInfo,
+    ...context,
+  });
+}
+
+function summarizeAsset(asset: Asset): Record<string, unknown> {
+  return {
+    type: asset.type ?? null,
+    hasUri: Boolean(asset.uri),
+    uriScheme: uriScheme(asset.uri),
+    fileSize: asset.fileSize ?? null,
+    width: asset.width ?? null,
+    height: asset.height ?? null,
+  };
+}
+
+function summarizeCapturedMedia(media: CapturedMedia): Record<string, unknown> {
+  return {
+    kind: media.kind,
+    mime: media.mime,
+    byteSize: media.byteSize,
+    width: media.width,
+    height: media.height,
+    uriScheme: uriScheme(media.uri),
+  };
+}
+
+function uriScheme(uri: string | undefined): string | null {
+  const match = uri?.match(/^([a-zA-Z][a-zA-Z0-9+.-]*):/);
+  return match?.[1] ?? null;
 }
 
 async function assetToCapturedMedia(asset: Asset): Promise<CapturedMedia> {

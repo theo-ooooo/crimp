@@ -16,6 +16,7 @@ import { useMeQuery } from '@/hooks/queries/useMe';
 import { useUpdateProfile } from '@/hooks/queries/useUpdateProfile';
 import { toUserMessage } from '@/lib/api/errorMessage';
 import { t } from '@/lib/i18n';
+import { shouldInitializeProfileEditDraft } from '@/lib/profile/profileEditDraft';
 import type { UpdateProfileBody } from '@/lib/schemas/me';
 import {
   fontFamily,
@@ -50,16 +51,23 @@ export default function ProfileEditScreen(): JSX.Element {
   const [nickname, setNickname] = useState('');
   const [bio, setBio] = useState('');
   const [levelSelf, setLevelSelf] = useState(0);
+  const [initializedUserExtId, setInitializedUserExtId] = useState<string | null>(
+    null,
+  );
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!me) {
+    if (
+      !me ||
+      !shouldInitializeProfileEditDraft(initializedUserExtId, me.extId)
+    ) {
       return;
     }
     setNickname(me.nickname ?? '');
     setBio(me.bio ?? '');
     setLevelSelf(clampLevel(me.levelSelf ?? 0));
-  }, [me]);
+    setInitializedUserExtId(me.extId);
+  }, [initializedUserExtId, me]);
 
   useEffect(() => {
     if (!updateMutation.error) {
