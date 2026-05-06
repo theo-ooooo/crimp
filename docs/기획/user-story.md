@@ -76,9 +76,9 @@
 **Acceptance Criteria**
 - [x] 백엔드: Profile.mainGymId 컬럼 + PATCH /api/v1/me/profile
 - [x] web: `/me` MainGymSection 완료
-- [ ] app: ProfileScreen MainGymPickerModal 보완 (암장 검색·선택·해제 UI)
+- [x] app: ProfileScreen MainGymPickerModal 보완 (암장 검색·선택·해제 UI)
 
-**진척**: web 완료 / app 일부 — Phase 1 must-fix
+**진척**: web/app 완료 — Phase 1 must-fix 해소
 
 ---
 

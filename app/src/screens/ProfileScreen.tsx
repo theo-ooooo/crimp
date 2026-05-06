@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { useNavigation } from '@react-navigation/native';
 
 import { AuthHydrationGate } from '@/components/common/screen/AuthHydrationGate';
+import { MainGymClearConfirmModal } from '@/components/profile/MainGymClearConfirmModal';
 import { MainGymPickerModal } from '@/components/profile/MainGymPickerModal';
 import { ProfileBody } from '@/components/profile/ProfileBody';
 import { makeProfileStyles } from '@/components/profile/profileStyles';
@@ -87,6 +88,13 @@ function ProfileLoggedInContainer({
           onSelect={profile.onPickerSelect}
         />
       ) : null}
+      <MainGymClearConfirmModal
+        visible={profile.clearConfirmOpen}
+        saving={profile.updateMutation.isPending}
+        errorMessage={profile.clearErrorMessage}
+        onCancel={profile.onCancelClearMainGym}
+        onConfirm={profile.onConfirmClearMainGym}
+      />
     </>
   );
 }
