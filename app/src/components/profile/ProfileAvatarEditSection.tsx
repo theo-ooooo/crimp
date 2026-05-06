@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import {
+  launchCamera,
   launchImageLibrary,
   type Asset,
   type ImageLibraryOptions,
@@ -15,6 +16,7 @@ import {
 import RNFS from 'react-native-fs';
 
 import { SecondaryButton } from '@/components/common/primitives';
+import { ProfileAvatarSourceModal } from '@/components/profile/ProfileAvatarSourceModal';
 import type { CapturedMedia } from '@/lib/camera/types';
 import { readImageMeta, type DetectedImageMime } from '@/lib/camera/measure';
 import { t } from '@/lib/i18n';
@@ -36,6 +38,8 @@ const PICKER_OPTIONS: ImageLibraryOptions = {
   quality: 0.9,
   includeBase64: true,
 };
+
+type AvatarSource = 'camera' | 'library';
 
 type Props = {
   accessToken: string;
@@ -61,6 +65,7 @@ export function ProfileAvatarEditSection({
   const initial = nickname.trim().slice(0, 1) || '?';
   const [phase, setPhase] = useState<UploadPhase | 'saving' | null>(null);
   const [imageFailed, setImageFailed] = useState(false);
+  const [sourceModalVisible, setSourceModalVisible] = useState(false);
   const busy = phase !== null;
   const blocked = disabled || busy;
 
@@ -68,8 +73,16 @@ export function ProfileAvatarEditSection({
     if (blocked) {
       return;
     }
+    setSourceModalVisible(true);
+  };
+
+  const onChooseSource = async (source: AvatarSource) => {
+    if (blocked) {
+      return;
+    }
+    setSourceModalVisible(false);
     try {
-      const selected = await pickImage().catch((err) => {
+      const selected = await pickImage(source).catch((err) => {
         logAvatarError('picker', err);
         throw err;
       });
@@ -77,7 +90,7 @@ export function ProfileAvatarEditSection({
         return;
       }
       const captured = await assetToCapturedMedia(selected).catch((err) => {
-        logAvatarError('asset-meta', err, summarizeAsset(selected));
+        logAvatarError('asset-prepare', err, summarizeAsset(selected));
         throw err;
       });
       const uploaded = await uploadAvatarImage(accessToken, captured, {
@@ -119,6 +132,13 @@ export function ProfileAvatarEditSection({
 
   return (
     <View style={styles.card}>
+      <ProfileAvatarSourceModal
+        visible={sourceModalVisible}
+        disabled={blocked}
+        onCamera={() => void onChooseSource('camera')}
+        onLibrary={() => void onChooseSource('library')}
+        onCancel={() => setSourceModalVisible(false)}
+      />
       <View style={styles.avatarWrap}>
         <View style={styles.avatar}>
           {avatarUrl && !imageFailed ? (
@@ -170,8 +190,11 @@ export function ProfileAvatarEditSection({
   );
 }
 
-async function pickImage(): Promise<Asset | null> {
-  const result = await launchImageLibrary(PICKER_OPTIONS);
+async function pickImage(source: AvatarSource): Promise<Asset | null> {
+  const result =
+    source === 'camera'
+      ? await launchCamera(PICKER_OPTIONS)
+      : await launchImageLibrary(PICKER_OPTIONS);
   if (result.didCancel) {
     return null;
   }
@@ -240,14 +263,14 @@ async function assetToCapturedMedia(asset: Asset): Promise<CapturedMedia> {
     : null;
   let detectedMime: DetectedImageMime | null = normalizeImageMime(asset.type);
   let uri = asset.uri;
-  if (asset.base64 && detectedMime !== null) {
-    uri = await persistBase64Image(asset.base64, detectedMime);
-    byteSize = byteSize ?? measureBase64Bytes(asset.base64);
-  }
   if (detectedMime === null) {
     const meta = await readImageMeta(uri);
     byteSize = byteSize ?? meta.byteSize;
     detectedMime = detectedMime ?? meta.mime;
+  }
+  uri = await persistPickerImage(asset, detectedMime ?? 'image/jpeg');
+  if (asset.base64) {
+    byteSize = byteSize ?? measureBase64Bytes(asset.base64);
   }
   return {
     uri,
@@ -260,14 +283,24 @@ async function assetToCapturedMedia(asset: Asset): Promise<CapturedMedia> {
   };
 }
 
-async function persistBase64Image(
-  base64: string,
+async function persistPickerImage(
+  asset: Asset,
   mime: DetectedImageMime,
 ): Promise<string> {
   const extension = imageExtension(mime);
   const path = `${RNFS.CachesDirectoryPath}/profile-avatar-${Date.now()}.${extension}`;
-  await RNFS.writeFile(path, base64, 'base64');
+  if (asset.base64) {
+    await RNFS.writeFile(path, asset.base64, 'base64');
+  } else if (asset.uri) {
+    await RNFS.copyFile(stripFileScheme(asset.uri), path);
+  } else {
+    throw new Error('Image uri is missing');
+  }
   return `file://${path}`;
+}
+
+function stripFileScheme(uri: string): string {
+  return uri.startsWith('file://') ? uri.slice('file://'.length) : uri;
 }
 
 function measureBase64Bytes(base64: string): number {
