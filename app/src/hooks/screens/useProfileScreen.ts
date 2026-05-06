@@ -13,6 +13,8 @@ export function useProfileScreen(accessToken: string) {
   const statsQuery = useMeStatsQuery(accessToken);
   const updateMutation = useUpdateProfile(accessToken);
   const [pickerOpen, setPickerOpen] = useState<boolean>(false);
+  const [clearConfirmOpen, setClearConfirmOpen] = useState<boolean>(false);
+  const [clearErrorMessage, setClearErrorMessage] = useState<string | null>(null);
 
   const me = meQuery.data;
   const mainGym = me?.mainGym ?? null;
@@ -34,17 +36,26 @@ export function useProfileScreen(accessToken: string) {
   );
 
   const onClearMainGym = useCallback(() => {
-    Alert.alert(
-      t('me.mainGym.clearConfirmTitle'),
-      t('me.mainGym.clearConfirmBody'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('me.mainGym.clearCta'),
-          style: 'destructive',
-          onPress: () => updateMutation.mutate({ clearMainGym: true }),
-        },
-      ],
+    setClearErrorMessage(null);
+    setClearConfirmOpen(true);
+  }, []);
+
+  const onCancelClearMainGym = useCallback(() => {
+    if (updateMutation.isPending) {
+      return;
+    }
+    setClearErrorMessage(null);
+    setClearConfirmOpen(false);
+  }, [updateMutation.isPending]);
+
+  const onConfirmClearMainGym = useCallback(() => {
+    setClearErrorMessage(null);
+    updateMutation.mutate(
+      { clearMainGym: true },
+      {
+        onSuccess: () => setClearConfirmOpen(false),
+        onError: (err) => setClearErrorMessage(toUserMessage(err)),
+      },
     );
   }, [updateMutation]);
 
@@ -59,10 +70,14 @@ export function useProfileScreen(accessToken: string) {
     updateMutation,
     pickerOpen,
     setPickerOpen,
+    clearConfirmOpen,
+    clearErrorMessage,
     mainGym,
     hasMainGym,
     onPickerSelect,
     onClearMainGym,
+    onCancelClearMainGym,
+    onConfirmClearMainGym,
     onRefresh,
   };
 }
