@@ -1,6 +1,7 @@
 import * as Keychain from 'react-native-keychain';
 
-import { useTokenStore } from './tokenStore';
+import { createDefaultTokenStorages } from './keychainTokenStorage';
+import { InMemoryTokenStorage, setTokenStorage, useTokenStore } from './tokenStore';
 
 const resetKeychainMock = (Keychain as unknown as {
   __resetKeychainMock: () => void;
@@ -9,6 +10,9 @@ const resetKeychainMock = (Keychain as unknown as {
 describe('useTokenStore', () => {
   beforeEach(async () => {
     resetKeychainMock();
+    jest.restoreAllMocks();
+    const storages = createDefaultTokenStorages();
+    setTokenStorage(storages.access, storages.refresh);
     useTokenStore.setState({
       accessToken: null,
       refreshToken: null,
@@ -49,5 +53,18 @@ describe('useTokenStore', () => {
 
     expect(useTokenStore.getState().accessToken).toBeNull();
     expect(useTokenStore.getState().refreshToken).toBeNull();
+  });
+
+  it('marks hydration complete with empty tokens when secure storage read fails', async () => {
+    const failingStorage = new InMemoryTokenStorage();
+    jest.spyOn(failingStorage, 'get').mockRejectedValue(new Error('keychain failed'));
+    setTokenStorage(failingStorage, new InMemoryTokenStorage());
+
+    await useTokenStore.getState().hydrate();
+
+    expect(useTokenStore.getState().accessToken).toBeNull();
+    expect(useTokenStore.getState().refreshToken).toBeNull();
+    expect(useTokenStore.getState().accessTokenExpiresAt).toBeNull();
+    expect(useTokenStore.getState().hydrated).toBe(true);
   });
 });

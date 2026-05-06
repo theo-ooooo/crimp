@@ -96,11 +96,20 @@ export const useTokenStore = create<TokenState>((set) => ({
   accessTokenExpiresAt: null,
   hydrated: false,
   hydrate: async () => {
-    const [access, refresh] = await Promise.all([
-      activeAccessStorage.get(),
-      activeRefreshStorage.get(),
-    ]);
-    set({ accessToken: access, refreshToken: refresh, hydrated: true });
+    try {
+      const [access, refresh] = await Promise.all([
+        activeAccessStorage.get(),
+        activeRefreshStorage.get(),
+      ]);
+      set({ accessToken: access, refreshToken: refresh, hydrated: true });
+    } catch {
+      set({
+        accessToken: null,
+        refreshToken: null,
+        accessTokenExpiresAt: null,
+        hydrated: true,
+      });
+    }
   },
   setAccessToken: async (token) => {
     if (token === null) {
