@@ -18,12 +18,16 @@ import {
   useMicrophonePermission,
   type CameraCaptureError,
 } from 'react-native-vision-camera';
+import Video from 'react-native-video';
 
 import { CrimpIcon } from '@/components/common/primitives';
+import { AlbumSavePromptOverlay } from '@/components/common/session/AlbumSavePromptOverlay';
 import { CameraPermissionIntro } from '@/components/common/session/CameraPermissionIntro';
 import { useCameraEntryPermissions } from '@/hooks/permissions/useCameraEntryPermissions';
+import { saveCapturedMediaToAlbum } from '@/lib/camera/albumSave';
 import { measureFileBytes, readImageMeta, type DetectedImageMime } from '@/lib/camera/measure';
 import type { CapturedMedia } from '@/lib/camera/types';
+import { readVideoDurationMs, videoDurationSecondsToMs } from '@/lib/camera/videoMeta';
 import { t } from '@/lib/i18n';
 import {
   fontFamily,
@@ -171,6 +175,10 @@ export function CameraSheet({
   // pending != null 이면 viewfinder 위로 preview 오버레이가 떠 있는 상태.
   // "사용" 으로만 onCaptured 가 발동, "다시촬영" 은 pending 만 비우고 viewfinder 복귀.
   const [pending, setPending] = useState<CapturedMedia | null>(null);
+  const [savingAlbum, setSavingAlbum] = useState(false);
+  const [albumPromptVisible, setAlbumPromptVisible] = useState(false);
+  const [albumSaveErrorVisible, setAlbumSaveErrorVisible] = useState(false);
+  const albumPromptMediaRef = useRef<CapturedMedia | null>(null);
   // [PR #97 리뷰 I1] handleConfirm 더블탭 가드. 같은 렌더 클로저에서 두 번의 onPress 가
   // 들어와 둘 다 `pending !== null` 체크를 통과해 onCaptured 가 2회 발동 → 부모 업로드
   // 중복 시작을 차단. 동기 ref 라 setState 의 다음 렌더 반영을 기다리지 않아도 됨.
@@ -227,6 +235,12 @@ export function CameraSheet({
     }
     if (!visible && pending) {
       setPending(null);
+    }
+    if (!visible) {
+      albumPromptMediaRef.current = null;
+      setAlbumPromptVisible(false);
+      setAlbumSaveErrorVisible(false);
+      setSavingAlbum(false);
     }
   }, [visible, recording, pending]);
 
@@ -290,7 +304,12 @@ export function CameraSheet({
           if (cancelRequestedRef.current) return;
 
           const uri = video.path.startsWith('file://') ? video.path : `file://${video.path}`;
-          const byteSize = await measureFileBytes(uri);
+          const [byteSize, metaDurationMs] = await Promise.all([
+            measureFileBytes(uri),
+            readVideoDurationMs(uri).catch(() => null),
+          ]);
+          const cameraDurationMs = videoDurationSecondsToMs(video.duration);
+          const durationMs = metaDurationMs ?? cameraDurationMs;
           // 영상 확장자는 vision-camera v4 가 platform 기본값(iOS=.mov, Android=.mp4) 으로
           // 정확히 저장하므로 확장자 추정이 신뢰 가능.
           const mime: CapturedMedia['mime'] = video.path.toLowerCase().endsWith('.mov')
@@ -306,7 +325,7 @@ export function CameraSheet({
             byteSize,
             width: null,
             height: null,
-            durationMs: Math.round(video.duration * 1000),
+            durationMs,
           });
         } catch (e) {
           Alert.alert(t('session.log.cameraError'), describeError(e));
@@ -362,23 +381,59 @@ export function CameraSheet({
     }
   }, [mode, recording, handlePhoto, handleStartRecording, handleStopRecording]);
 
-  // [PR #97 F5 PR-5] 미리보기 액션. "사용" 은 setPending(null) → onCaptured 순서가 중요 —
-  // 부모가 onCaptured 안에서 setCameraOpen(false) 를 호출하므로 visible 이 false 가 되며,
-  // 그 시점에는 이미 pending 이 비어있어 위쪽 useEffect 의 cleanup 이 no-op. 반대 순서면
-  // 부모 close → useEffect 가 setPending(null) 을 한 번 더 — 결과는 같지만 노이즈.
-  const handleConfirm = useCallback(() => {
+  const finishCapture = useCallback(
+    (captured: CapturedMedia) => {
+      setSavingAlbum(false);
+      setAlbumPromptVisible(false);
+      setAlbumSaveErrorVisible(false);
+      albumPromptMediaRef.current = null;
+      setPending(null);
+      onCaptured(captured);
+    },
+    [onCaptured],
+  );
+
+  // [PR #97 F5 PR-5] 미리보기 액션. "사용" 을 누르면 앨범 저장 여부를 한 번 더 묻고,
+  // 저장/건너뛰기 모두 기존 onCaptured 업로드 흐름으로 이어진다.
+  const handleConfirm = useCallback(async () => {
     // [PR #97 리뷰 I1] 더블탭 가드 — 같은 클로저 두 번 진입 시 confirmingRef 가 동기적으로
     // 두 번째 호출을 차단해 onCaptured 중복 발동 방지.
     if (!pending || confirmingRef.current) return;
     confirmingRef.current = true;
     const captured = pending;
-    setPending(null);
-    onCaptured(captured);
-  }, [pending, onCaptured]);
+    albumPromptMediaRef.current = captured;
+    setAlbumSaveErrorVisible(false);
+    setAlbumPromptVisible(true);
+  }, [pending, finishCapture]);
 
   const handleRetake = useCallback(() => {
+    albumPromptMediaRef.current = null;
+    setAlbumPromptVisible(false);
+    setAlbumSaveErrorVisible(false);
+    setSavingAlbum(false);
+    confirmingRef.current = false;
     setPending(null);
   }, []);
+
+  const handleAlbumSkip = useCallback(() => {
+    const captured = albumPromptMediaRef.current;
+    if (!captured || savingAlbum) return;
+    finishCapture(captured);
+  }, [finishCapture, savingAlbum]);
+
+  const handleAlbumSave = useCallback(async () => {
+    const captured = albumPromptMediaRef.current;
+    if (!captured || savingAlbum) return;
+    setAlbumSaveErrorVisible(false);
+    setSavingAlbum(true);
+    try {
+      await saveCapturedMediaToAlbum(captured);
+      finishCapture(captured);
+    } catch {
+      setSavingAlbum(false);
+      setAlbumSaveErrorVisible(true);
+    }
+  }, [finishCapture, savingAlbum]);
 
   // [PR #100, F5 PR-B] 인트로 표시 결정 — entryPerms.ready 가 true 이고 (OS 응답 도착)
   // needsIntro 가 true (denied 인 권한 1개 이상) 인 경우만. introDismissed 면 사용자가
@@ -458,6 +513,7 @@ export function CameraSheet({
           <CapturePreview
             media={pending}
             styles={styles}
+            savingAlbum={savingAlbum}
             onRetake={handleRetake}
             onConfirm={handleConfirm}
           />
@@ -574,6 +630,13 @@ export function CameraSheet({
           onAllow={handlePermAllow}
           onSkip={handlePermSkip}
         />
+        <AlbumSavePromptOverlay
+          visible={albumPromptVisible}
+          saving={savingAlbum}
+          errorVisible={albumSaveErrorVisible}
+          onSave={handleAlbumSave}
+          onSkip={handleAlbumSkip}
+        />
       </View>
     </Modal>
   );
@@ -584,18 +647,18 @@ export function CameraSheet({
  *
  * <p>이미지: 전체 화면 `<Image>` (resizeMode=contain) — vision-camera 로 받은 file:// URI
  * 그대로 표시.
- * <p>영상: 재생 라이브러리(react-native-video / expo-video)가 아직 미도입이라 Phase 1 은
- * 메타(길이·크기) + "재생은 다음 업데이트" 안내. 사용자는 다시촬영 여부만 결정하면 됨 —
- * 녹화 직후라 '뭐 찍었는지' 는 본인이 알고 있음.
+ * <p>영상: react-native-video 로 로컬 파일을 재생해 확인한다.
  */
 function CapturePreview({
   media,
   styles,
+  savingAlbum,
   onRetake,
   onConfirm,
 }: {
   media: CapturedMedia;
   styles: ReturnType<typeof makeStyles>;
+  savingAlbum: boolean;
   onRetake: () => void;
   onConfirm: () => void;
 }) {
@@ -622,13 +685,16 @@ function CapturePreview({
           />
         ) : (
           <View style={styles.previewVideoBox}>
-            <View style={styles.previewVideoIcon}>
-              <CrimpIcon.play size={42} color={CAMERA_FG} />
-            </View>
+            <Video
+              source={{ uri: media.uri }}
+              style={styles.previewMedia}
+              resizeMode="contain"
+              controls
+              repeat
+              paused={false}
+              muted={false}
+            />
             <Text style={styles.previewVideoMeta}>{formatVideoMeta(media)}</Text>
-            <Text style={styles.previewVideoNote}>
-              {t('session.log.capturePreviewVideoNoPlayback')}
-            </Text>
           </View>
         )}
       </View>
@@ -641,9 +707,15 @@ function CapturePreview({
         <View style={styles.previewButtonRow}>
           <Pressable
             onPress={onRetake}
-            style={[styles.previewBtn, styles.previewBtnGhost]}
+            disabled={savingAlbum}
+            style={[
+              styles.previewBtn,
+              styles.previewBtnGhost,
+              savingAlbum && styles.previewBtnDisabled,
+            ]}
             accessibilityRole="button"
             accessibilityLabel={t('session.log.capturePreviewRetake')}
+            accessibilityState={{ disabled: savingAlbum }}
           >
             <Text style={styles.previewBtnGhostLabel}>
               {t('session.log.capturePreviewRetake')}
@@ -651,12 +723,24 @@ function CapturePreview({
           </Pressable>
           <Pressable
             onPress={onConfirm}
-            style={[styles.previewBtn, styles.previewBtnPrimary]}
+            disabled={savingAlbum}
+            style={[
+              styles.previewBtn,
+              styles.previewBtnPrimary,
+              savingAlbum && styles.previewBtnDisabled,
+            ]}
             accessibilityRole="button"
-            accessibilityLabel={t('session.log.capturePreviewConfirm')}
+            accessibilityLabel={
+              savingAlbum
+                ? t('session.log.capturePreviewSaving')
+                : t('session.log.capturePreviewConfirm')
+            }
+            accessibilityState={{ busy: savingAlbum, disabled: savingAlbum }}
           >
             <Text style={styles.previewBtnPrimaryLabel}>
-              {t('session.log.capturePreviewConfirm')}
+              {savingAlbum
+                ? t('session.log.capturePreviewSaving')
+                : t('session.log.capturePreviewConfirm')}
             </Text>
           </Pressable>
         </View>
@@ -958,21 +1042,18 @@ function makeStyles(theme: Theme) {
       width: '100%',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingHorizontal: space[6],
-      gap: space[3],
-    },
-    previewVideoIcon: {
-      width: 88,
-      height: 88,
-      borderRadius: 44,
-      backgroundColor: glassBg,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: space[2],
+      position: 'relative',
     },
     previewVideoMeta: {
+      position: 'absolute',
+      bottom: space[4],
+      alignSelf: 'center',
+      paddingHorizontal: space[3],
+      paddingVertical: space[2],
+      borderRadius: radius.full,
+      backgroundColor: overlayBg,
       fontFamily,
-      fontSize: 16,
+      fontSize: 13,
       fontWeight: fontWeight.bold,
       color: CAMERA_FG,
     },
@@ -1017,6 +1098,9 @@ function makeStyles(theme: Theme) {
     },
     previewBtnPrimary: {
       backgroundColor: CAMERA_FG,
+    },
+    previewBtnDisabled: {
+      opacity: 0.55,
     },
     previewBtnPrimaryLabel: {
       fontFamily,
