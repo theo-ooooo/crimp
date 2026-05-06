@@ -72,34 +72,41 @@ function SessionDetailLoggedInContainer({
     <SessionDetailBody
       styles={styles}
       bgColor={bgColor}
-      textColor={textColor}
-      session={detail.session ?? null}
-      attempts={detail.attempts}
-      sessionLoading={detail.sessionQuery.isLoading}
-      sessionError={detail.sessionQuery.error ?? null}
-      attemptsLoading={detail.attemptsQuery.isLoading}
-      attemptsError={detail.attemptsQuery.error ?? null}
-      isOngoing={detail.isOngoing}
-      extId={extId}
-      accessToken={accessToken}
-      logSheetOpen={detail.logSheetOpen}
-      setLogSheetOpen={detail.setLogSheetOpen}
-      cameraOpen={detail.cameraOpen}
-      cameraMode={detail.cameraMode}
-      onCameraMode={detail.openCamera}
-      closeCamera={detail.closeCamera}
-      onLogSheetDismissed={detail.onLogSheetDismissed}
-      onCameraDismissed={detail.onCameraDismissed}
-      onCaptured={detail.handleCaptured}
-      videoAwaitingPoster={detail.videoAwaitingPoster}
-      onPosterUploadRequest={detail.onPosterUploadRequest}
-      onPosterModalDismissed={detail.onPosterModalDismissed}
-      mediaPhase={detail.mediaPhase}
-      uploadedMediaId={detail.uploadedMediaId}
-      onClearMedia={() => detail.setUploadedMediaId(null)}
-      onEndSession={detail.endSessionAction}
-      endPending={detail.endSession.isPending}
-      endError={detail.endSession.error ?? null}
+      sessionState={{
+        session: detail.session ?? null,
+        loading: detail.sessionQuery.isLoading,
+        error: detail.sessionQuery.error ?? null,
+        isOngoing: detail.isOngoing,
+        onEnd: detail.endSessionAction,
+        endPending: detail.endSession.isPending,
+        endError: detail.endSession.error ?? null,
+      }}
+      attemptsState={{
+        attempts: detail.attempts,
+        loading: detail.attemptsQuery.isLoading,
+        error: detail.attemptsQuery.error ?? null,
+      }}
+      logFlow={{
+        extId,
+        accessToken,
+        logSheetOpen: detail.logSheetOpen,
+        setLogSheetOpen: detail.setLogSheetOpen,
+        cameraOpen: detail.cameraOpen,
+        cameraMode: detail.cameraMode,
+        onCameraMode: detail.openCamera,
+        closeCamera: detail.closeCamera,
+        onLogSheetDismissed: detail.onLogSheetDismissed,
+        onCameraDismissed: detail.onCameraDismissed,
+        onCaptured: detail.handleCaptured,
+        videoAwaitingPoster: detail.videoAwaitingPoster,
+        onPosterUploadRequest: detail.onPosterUploadRequest,
+        onPosterModalDismissed: detail.onPosterModalDismissed,
+        mediaPhase: detail.mediaPhase,
+        uploadedMediaId: detail.uploadedMediaId,
+        mediaUploadError: detail.mediaUploadError,
+        onRetryMediaUpload: detail.retryMediaUpload,
+        onClearMedia: detail.clearMediaAttachment,
+      }}
     />
   );
 }
