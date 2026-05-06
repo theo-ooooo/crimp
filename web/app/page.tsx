@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -15,7 +16,12 @@ import { toUserMessage } from '@/lib/api/errorMessage';
 import { t } from '@/lib/i18n';
 import type { MeStats } from '@/lib/schemas/meStats';
 import type { Session } from '@/lib/schemas/session';
-import { useAccessToken, useTokenStore } from '@/store/tokenStore';
+import {
+  COOKIE_AUTH_ACCESS_TOKEN,
+  useAccessToken,
+  useCookieAuthCandidate,
+  useTokenStore,
+} from '@/store/tokenStore';
 
 /**
  * `/` — 홈.
@@ -38,9 +44,22 @@ import { useAccessToken, useTokenStore } from '@/store/tokenStore';
  */
 export default function HomePage(): JSX.Element {
   const hydrated = useTokenStore((s) => s.hydrated);
+  const markCookieAuthenticated = useTokenStore((s) => s.markCookieAuthenticated);
   const accessToken = useAccessToken();
+  const cookieAuthCandidate = useCookieAuthCandidate();
+  const cookieProbe = useMeQuery(cookieAuthCandidate ? COOKIE_AUTH_ACCESS_TOKEN : null);
+
+  useEffect(() => {
+    if (cookieAuthCandidate && cookieProbe.data) {
+      markCookieAuthenticated();
+    }
+  }, [cookieAuthCandidate, cookieProbe.data, markCookieAuthenticated]);
 
   if (!hydrated) {
+    return <HydrationGate />;
+  }
+
+  if (cookieAuthCandidate && !cookieProbe.isError) {
     return <HydrationGate />;
   }
 

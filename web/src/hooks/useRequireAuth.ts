@@ -6,7 +6,12 @@ import type { Route } from 'next';
 
 import { onboardingDismiss } from '@/lib/auth/onboardingDismiss';
 import { shouldShowOnboardingGate } from '@/lib/onboardingGate';
-import { useAccessToken, useTokenStore } from '@/store/tokenStore';
+import {
+  COOKIE_AUTH_ACCESS_TOKEN,
+  useAccessToken,
+  useCookieAuthCandidate,
+  useTokenStore,
+} from '@/store/tokenStore';
 
 import { useMeQuery } from './useMe';
 
@@ -33,14 +38,24 @@ const ONBOARDING_PATH = '/onboarding/main-gym' as const;
  */
 export function useRequireAuth(opts?: { skipOnboardingGate?: boolean }): string | null {
   const hydrated = useTokenStore((s) => s.hydrated);
+  const markCookieAuthenticated = useTokenStore((s) => s.markCookieAuthenticated);
   const accessToken = useAccessToken();
-  const meQuery = useMeQuery(accessToken);
+  const cookieAuthCandidate = useCookieAuthCandidate();
+  const effectiveAccessToken =
+    accessToken ?? (cookieAuthCandidate ? COOKIE_AUTH_ACCESS_TOKEN : null);
+  const meQuery = useMeQuery(effectiveAccessToken);
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
     if (!hydrated) return;
-    if (!accessToken) {
+    if (cookieAuthCandidate) {
+      if (meQuery.data) {
+        markCookieAuthenticated();
+      }
+      if (!meQuery.isError) return;
+    }
+    if (!effectiveAccessToken) {
       router.replace('/login');
       return;
     }
@@ -62,11 +77,15 @@ export function useRequireAuth(opts?: { skipOnboardingGate?: boolean }): string 
   }, [
     hydrated,
     accessToken,
+    effectiveAccessToken,
+    cookieAuthCandidate,
     meQuery.data,
+    meQuery.isError,
+    markCookieAuthenticated,
     router,
     pathname,
     opts?.skipOnboardingGate,
   ]);
 
-  return accessToken;
+  return effectiveAccessToken;
 }

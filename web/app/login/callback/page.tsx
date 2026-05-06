@@ -9,7 +9,11 @@ import { useExchangeOauthCode } from '@/hooks/useAuth';
 import { toUserMessage } from '@/lib/api/errorMessage';
 import { consumeOauthState } from '@/lib/auth/oauthState';
 import { t } from '@/lib/i18n';
-import { useAccessToken, useTokenStore } from '@/store/tokenStore';
+import {
+  isCookieAuthAccessToken,
+  useAccessToken,
+  useTokenStore,
+} from '@/store/tokenStore';
 
 /**
  * `/login/callback` — OAuth provider redirect 도착 페이지.
@@ -61,6 +65,8 @@ function CallbackInner(): JSX.Element {
   const searchParams = useSearchParams();
   const hydrated = useTokenStore((s) => s.hydrated);
   const accessToken = useAccessToken();
+  const hasVerifiedAccessToken =
+    Boolean(accessToken) && !isCookieAuthAccessToken(accessToken);
   const exchange = useExchangeOauthCode();
 
   const [phase, setPhase] = useState<CallbackPhase>('idle');
@@ -69,15 +75,15 @@ function CallbackInner(): JSX.Element {
 
   // 이미 로그인된 상태라면 즉시 홈으로 (중복 교환 방지).
   useEffect(() => {
-    if (hydrated && accessToken) {
+    if (hydrated && hasVerifiedAccessToken) {
       router.replace('/');
     }
-  }, [hydrated, accessToken, router]);
+  }, [hydrated, hasVerifiedAccessToken, router]);
 
   // hydration 이 끝나면 한 번만 교환 시도.
   useEffect(() => {
     if (!hydrated) return;
-    if (accessToken) return; // 위 useEffect 가 redirect 처리.
+    if (hasVerifiedAccessToken) return; // 위 useEffect 가 redirect 처리.
     if (startedRef.current) return;
     startedRef.current = true;
 
@@ -138,7 +144,7 @@ function CallbackInner(): JSX.Element {
         },
       },
     );
-  }, [hydrated, accessToken, searchParams, exchange, router]);
+  }, [hydrated, hasVerifiedAccessToken, searchParams, exchange, router]);
 
   if (!hydrated || phase === 'idle' || phase === 'loading' || phase === 'success') {
     return <LoadingView />;

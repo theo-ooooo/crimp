@@ -9,7 +9,11 @@ import { useExchangeOauth } from '@/hooks/useAuth';
 import { toUserMessage } from '@/lib/api/errorMessage';
 import { generateOauthState, saveOauthState } from '@/lib/auth/oauthState';
 import { t } from '@/lib/i18n';
-import { useAccessToken, useTokenStore } from '@/store/tokenStore';
+import {
+  isCookieAuthAccessToken,
+  useAccessToken,
+  useTokenStore,
+} from '@/store/tokenStore';
 
 /**
  * `/login` — Kakao + Apple OIDC 소셜 로그인 (v2 redirect) + 개발자 모드 ID 토큰 폴백.
@@ -88,6 +92,8 @@ export default function LoginPage(): JSX.Element {
   const router = useRouter();
   const hydrated = useTokenStore((s) => s.hydrated);
   const accessToken = useAccessToken();
+  const hasVerifiedAccessToken =
+    Boolean(accessToken) && !isCookieAuthAccessToken(accessToken);
   const exchange = useExchangeOauth();
 
   const [sdkReady, setSdkReady] = useState<boolean>(false);
@@ -99,10 +105,10 @@ export default function LoginPage(): JSX.Element {
 
   // 이미 로그인된 상태로 진입 시 즉시 홈으로.
   useEffect(() => {
-    if (hydrated && accessToken) {
+    if (hydrated && hasVerifiedAccessToken) {
       router.replace('/');
     }
-  }, [hydrated, accessToken, router]);
+  }, [hydrated, hasVerifiedAccessToken, router]);
 
   // 개발자 모드 전용 — id_token 직접 교환.
   const submitIdToken = useCallback(
@@ -217,7 +223,7 @@ export default function LoginPage(): JSX.Element {
   }
 
   // 이미 로그인된 사용자 진입 — 안내 메시지 + redirect (useEffect 가 처리).
-  if (accessToken) {
+  if (hasVerifiedAccessToken) {
     return (
       <main
         aria-live="polite"
