@@ -84,7 +84,12 @@ async function uploadReadyMedia(
 ): Promise<CompleteResponse> {
   const presigned = await presignMedia(
     accessToken,
-    { kind: ready.kind, mime: ready.mime, byteSize: ready.byteSize },
+    {
+      kind: ready.kind,
+      usage: attachAsPosterForVideoId !== undefined ? 'POSTER' : 'ATTEMPT',
+      mime: ready.mime,
+      byteSize: ready.byteSize,
+    },
     signal,
   );
   await putToS3(presigned.uploadUrl, ready.uri, ready.mime, signal);

@@ -117,7 +117,7 @@ describe('uploadCapturedMedia', () => {
     expect(result.cdnUrl).toBe('https://cdn.test/media/2026-04-29/01HMEDIA.jpg');
     expect(mockedPresign).toHaveBeenCalledWith(
       'access',
-      { kind: 'IMAGE', mime: 'image/jpeg', byteSize: 1234 },
+      { kind: 'IMAGE', usage: 'ATTEMPT', mime: 'image/jpeg', byteSize: 1234 },
       undefined,
     );
     expect(mockedComplete).toHaveBeenCalledWith(
@@ -272,6 +272,18 @@ describe('uploadVideoWithOptionalPoster', () => {
     expect(mockedCompress).toHaveBeenCalledTimes(2);
     expect(mockedPresign).toHaveBeenCalledTimes(2);
     expect(mockedComplete).toHaveBeenCalledTimes(2);
+    expect(mockedPresign).toHaveBeenNthCalledWith(
+      1,
+      'tok',
+      expect.objectContaining({ kind: 'VIDEO', usage: 'ATTEMPT' }),
+      undefined,
+    );
+    expect(mockedPresign).toHaveBeenNthCalledWith(
+      2,
+      'tok',
+      expect.objectContaining({ kind: 'IMAGE', usage: 'POSTER' }),
+      undefined,
+    );
 
     expect(mockedComplete).toHaveBeenNthCalledWith(
       1,

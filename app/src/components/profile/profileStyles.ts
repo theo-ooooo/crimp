@@ -61,6 +61,11 @@ export function makeProfileStyles(theme: Theme) {
       backgroundColor: theme.accent.base,
       alignItems: 'center',
       justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    avatarImage: {
+      width: '100%',
+      height: '100%',
     },
     avatarText: {
       fontFamily,

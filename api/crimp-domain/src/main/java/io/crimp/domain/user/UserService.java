@@ -1,11 +1,17 @@
 package io.crimp.domain.user;
 
+import io.crimp.common.config.AppProperties;
+import io.crimp.core.entity.enums.MediaKind;
+import io.crimp.core.entity.enums.MediaStatus;
+import io.crimp.core.entity.enums.MediaUsage;
 import io.crimp.core.entity.enums.GymStatus;
 import io.crimp.core.entity.enums.UserStatus;
 import io.crimp.core.entity.gym.Gym;
+import io.crimp.core.entity.media.MediaAsset;
 import io.crimp.core.entity.user.Profile;
 import io.crimp.core.entity.user.User;
 import io.crimp.core.repository.gym.GymRepository;
+import io.crimp.core.repository.media.MediaAssetRepository;
 import io.crimp.core.repository.user.ProfileRepository;
 import io.crimp.core.repository.user.UserRepository;
 import io.crimp.domain.auth.RefreshTokenStore;
@@ -20,16 +26,22 @@ public class UserService {
     private final ProfileRepository profileRepo;
     private final GymRepository gymRepo;
     private final RefreshTokenStore refreshTokenStore;
+    private final MediaAssetRepository mediaAssetRepo;
+    private final AppProperties appProperties;
 
     public UserService(
             UserRepository userRepo,
             ProfileRepository profileRepo,
             GymRepository gymRepo,
-            RefreshTokenStore refreshTokenStore) {
+            RefreshTokenStore refreshTokenStore,
+            MediaAssetRepository mediaAssetRepo,
+            AppProperties appProperties) {
         this.userRepo = userRepo;
         this.profileRepo = profileRepo;
         this.gymRepo = gymRepo;
         this.refreshTokenStore = refreshTokenStore;
+        this.mediaAssetRepo = mediaAssetRepo;
+        this.appProperties = appProperties;
     }
 
     @Transactional(readOnly = true)
@@ -58,6 +70,7 @@ public class UserService {
     public ProfileView updateMyProfile(long userId, UpdateProfileCommand cmd) {
         // 주 암장 관련 입력 사전 검증: 명시 해제와 신규 지정은 상호 배타.
         validateMainGymInput(cmd);
+        validateAvatarInput(cmd);
 
         User user = userRepo.findById(userId)
                 .orElseThrow(() -> new UserException("USER_NOT_FOUND", "User " + userId + " not found"));
@@ -96,7 +109,12 @@ public class UserService {
             profile.updateMainGym(cmd.mainGymId());
         }
 
-        if (cmd.avatarMediaId() != null) profile.updateAvatar(cmd.avatarMediaId());
+        if (cmd.clearAvatar()) {
+            profile.updateAvatar(null);
+        } else if (cmd.avatarMediaId() != null) {
+            validateAvatarMedia(userId, cmd.avatarMediaId());
+            profile.updateAvatar(cmd.avatarMediaId());
+        }
 
         return toView(user, profile);
     }
@@ -142,14 +160,37 @@ public class UserService {
         }
     }
 
+    private static void validateAvatarInput(UpdateProfileCommand cmd) {
+        if (cmd.clearAvatar() && cmd.avatarMediaId() != null) {
+            throw new UserException(
+                    "INVALID_AVATAR_REQUEST",
+                    "clearAvatar cannot be combined with avatarMediaId");
+        }
+    }
+
+    private void validateAvatarMedia(long userId, long avatarMediaId) {
+        MediaAsset asset = mediaAssetRepo.findById(avatarMediaId)
+                .orElseThrow(() -> new UserException("AVATAR_MEDIA_NOT_FOUND", "Avatar media not found: " + avatarMediaId));
+        if (!asset.getOwnerUserId().equals(userId)) {
+            throw new UserException("AVATAR_MEDIA_FORBIDDEN", "Avatar media belongs to another user: " + avatarMediaId);
+        }
+        if (asset.getKind() != MediaKind.IMAGE
+                || asset.getStatus() != MediaStatus.READY
+                || asset.getUsage() != MediaUsage.AVATAR) {
+            throw new UserException("AVATAR_MEDIA_INVALID", "Avatar media must be a READY AVATAR IMAGE: " + avatarMediaId);
+        }
+    }
+
     private ProfileView toView(User user, Profile profile) {
         ProfileView.MainGymView mainGym = resolveMainGym(profile.getMainGymId());
+        MediaAsset avatar = resolveAvatar(profile.getAvatarMediaId(), user.getId());
         return new ProfileView(
                 user.getExtId(),
                 profile.getNickname(),
                 profile.isNicknameConfigured(),
                 profile.getBio(),
                 profile.getAvatarMediaId(),
+                resolveAvatarUrl(avatar),
                 profile.getLevelSelf(),
                 profile.getMainGymId(),
                 mainGym
@@ -159,13 +200,15 @@ public class UserService {
     /**
      * 공개 프로필용 변환 — mainGym 정보를 항상 null 로 둔다 (PublicUserResponse 미노출).
      */
-    private static ProfileView toViewWithoutMainGym(User user, Profile profile) {
+    private ProfileView toViewWithoutMainGym(User user, Profile profile) {
+        MediaAsset avatar = resolveAvatar(profile.getAvatarMediaId(), user.getId());
         return new ProfileView(
                 user.getExtId(),
                 profile.getNickname(),
                 profile.isNicknameConfigured(),
                 profile.getBio(),
                 profile.getAvatarMediaId(),
+                resolveAvatarUrl(avatar),
                 profile.getLevelSelf(),
                 profile.getMainGymId(),
                 null
@@ -181,5 +224,28 @@ public class UserService {
         return gymRepo.findById(mainGymId)
                 .map(g -> new ProfileView.MainGymView(g.getExtId(), g.getName(), g.getBrand()))
                 .orElse(null);
+    }
+
+    private MediaAsset resolveAvatar(Long avatarMediaId, Long ownerUserId) {
+        if (avatarMediaId == null) return null;
+        return mediaAssetRepo.findById(avatarMediaId)
+                .filter(a -> a.getOwnerUserId().equals(ownerUserId))
+                .filter(a -> a.getKind() == MediaKind.IMAGE)
+                .filter(a -> a.getStatus() == MediaStatus.READY)
+                .filter(a -> a.getUsage() == MediaUsage.AVATAR)
+                .orElse(null);
+    }
+
+    private String resolveAvatarUrl(MediaAsset avatar) {
+        if (avatar == null) return null;
+        String cdnBaseUrl = appProperties.media().cdnBaseUrl();
+        if (cdnBaseUrl == null || cdnBaseUrl.isBlank()) return null;
+        return joinUrl(cdnBaseUrl, avatar.getS3Key());
+    }
+
+    private static String joinUrl(String baseUrl, String s3Key) {
+        String base = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+        String key = s3Key.startsWith("/") ? s3Key.substring(1) : s3Key;
+        return base + "/" + key;
     }
 }

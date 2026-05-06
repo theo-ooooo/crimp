@@ -331,6 +331,10 @@
     "gymNotFound": "Gym not found.",
     "mainGymNotFound": "The selected gym is no longer available.",
     "mainGymInvalid": "Main gym request is invalid.",
+    "avatarMediaNotFound": "We could not find that profile image. Please choose it again.",
+    "avatarMediaForbidden": "You can only use your own image as a profile image.",
+    "avatarMediaInvalid": "Only uploaded images can be used as profile images.",
+    "avatarInvalidRequest": "The profile image request is invalid.",
     "attemptInvalid": "Attempt data is invalid.",
     "generic": "Request failed."
   }

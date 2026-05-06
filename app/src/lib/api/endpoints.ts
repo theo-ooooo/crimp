@@ -45,6 +45,7 @@ import {
   PresignResponseSchema,
   type CompleteResponse,
   type MediaKind,
+  type MediaUsage,
   type PresignResponse,
 } from '@/lib/schemas/media';
 import { MeSchema, type Me, type UpdateProfileBody } from '@/lib/schemas/me';
@@ -579,7 +580,7 @@ export function deleteComment(
  */
 export function presignMedia(
   accessToken: string,
-  body: { kind: MediaKind; mime: string; byteSize: number },
+  body: { kind: MediaKind; usage?: MediaUsage; mime: string; byteSize: number },
   signal?: AbortSignal,
 ): Promise<PresignResponse> {
   return apiRequest({

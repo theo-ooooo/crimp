@@ -93,8 +93,10 @@ CREATE TABLE profiles (
 ```
 
 > 프로필 이미지 업로드 메모: 기존 media 업로드 플로우(`presign` → object storage PUT → `complete`)로
-> 이미지 media row 를 만든 뒤 `profiles.avatar_media_id` 에 연결한다. 사용자가 이미지를 삭제하면
-> `avatar_media_id=NULL` 로 되돌리고, 탈퇴 시 avatar media 는 비공개 처리 또는 삭제 정책에 포함한다.
+> `usage=AVATAR` 이미지 media row 를 만든 뒤 `profiles.avatar_media_id` 에 연결한다. 사용자가 이미지를
+> 삭제하면 `avatar_media_id=NULL` 로 되돌리고, 탈퇴 시 avatar media 는 비공개 처리 또는 삭제 정책에
+> 포함한다. API 는 연결 시 본인 소유 READY AVATAR IMAGE 인지 검증하고, 조회 응답에는 CDN 기반
+> `avatarUrl` 을 함께 내려준다.
 
 ### 3.4 gyms (암장)
 ```sql
@@ -221,6 +223,7 @@ CREATE TABLE media_assets (
   owner_user_id BIGINT UNSIGNED NOT NULL,
   kind         TINYINT NOT NULL,             -- 1=IMAGE, 2=VIDEO
   status       TINYINT NOT NULL DEFAULT 1,   -- 1=UPLOADING, 2=PROCESSING, 3=READY, 9=FAILED
+  usage_type   TINYINT NOT NULL DEFAULT 1,   -- 1=ATTEMPT, 2=AVATAR, 3=POSTER
   mime         VARCHAR(80) NOT NULL,
   byte_size    BIGINT UNSIGNED NULL,
   width        INT UNSIGNED NULL,

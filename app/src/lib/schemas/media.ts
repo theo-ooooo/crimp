@@ -8,6 +8,9 @@ import { z } from 'zod';
 export const MediaKindSchema = z.enum(['IMAGE', 'VIDEO']);
 export type MediaKind = z.infer<typeof MediaKindSchema>;
 
+export const MediaUsageSchema = z.enum(['ATTEMPT', 'AVATAR', 'POSTER']);
+export type MediaUsage = z.infer<typeof MediaUsageSchema>;
+
 export const PresignResponseSchema = z.object({
   id: z.number().int(),
   extId: z.string(),
@@ -15,6 +18,7 @@ export const PresignResponseSchema = z.object({
   s3Key: z.string(),
   expiresAt: z.string(), // ISO Instant
   mime: z.string(),
+  usage: MediaUsageSchema.optional(),
 });
 export type PresignResponse = z.infer<typeof PresignResponseSchema>;
 
@@ -23,6 +27,7 @@ export const CompleteResponseSchema = z.object({
   extId: z.string(),
   kind: z.string(), // 백엔드가 enum.name() 으로 보내므로 문자열로 받음
   status: z.string(),
+  usage: z.string().optional(),
   mime: z.string(),
   byteSize: z.number().nullable(),
   width: z.number().nullable(),

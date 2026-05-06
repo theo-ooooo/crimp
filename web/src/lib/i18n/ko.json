@@ -331,6 +331,10 @@
     "gymNotFound": "해당 암장을 찾을 수 없어요.",
     "mainGymNotFound": "선택한 암장을 더 이상 사용할 수 없어요.",
     "mainGymInvalid": "내 암장 요청이 올바르지 않아요.",
+    "avatarMediaNotFound": "프로필 이미지를 찾을 수 없어요. 다시 선택해 주세요.",
+    "avatarMediaForbidden": "본인의 이미지만 프로필로 사용할 수 있어요.",
+    "avatarMediaInvalid": "업로드가 완료된 이미지만 프로필로 사용할 수 있어요.",
+    "avatarInvalidRequest": "프로필 이미지 요청이 올바르지 않아요.",
     "attemptInvalid": "시도 정보가 올바르지 않아요.",
     "generic": "요청을 처리하지 못했어요."
   }

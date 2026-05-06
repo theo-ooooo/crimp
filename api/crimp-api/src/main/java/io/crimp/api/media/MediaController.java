@@ -5,6 +5,7 @@ import io.crimp.common.response.ApiResponse;
 import io.crimp.common.response.ErrorBody;
 import io.crimp.core.entity.enums.MediaKind;
 import io.crimp.core.entity.enums.MediaStatus;
+import io.crimp.core.entity.enums.MediaUsage;
 import io.crimp.domain.media.MediaException;
 import io.crimp.domain.media.MediaService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -63,11 +64,12 @@ public class MediaController {
             @AuthenticationPrincipal CrimpPrincipal principal,
             @Valid @RequestBody PresignRequest req) {
         MediaKind kind = parseKind(req.kind());
-        var result = mediaService.presignUpload(principal.userId(), kind, req.mime(), req.byteSize());
+        MediaUsage usage = parseUsage(req.usage());
+        var result = mediaService.presignUpload(principal.userId(), kind, usage, req.mime(), req.byteSize());
         return new PresignResponse(
                 result.id(), result.extId(),
                 result.uploadUrl(), result.s3Key(),
-                result.expiresAt(), result.mime());
+                result.expiresAt(), result.mime(), result.usage().name());
     }
 
     @Operation(
@@ -87,7 +89,7 @@ public class MediaController {
                 req.attachAsPosterForVideoId());
         return new CompleteResponse(
                 result.id(), result.extId(), result.kind().name(), result.status().name(),
-                result.mime(), result.byteSize(),
+                result.usage().name(), result.mime(), result.byteSize(),
                 result.width(), result.height(), result.durationMs(),
                 result.s3Key(), result.cdnUrl(), result.thumbnailCdnUrl(), result.createdAt());
     }
@@ -100,7 +102,7 @@ public class MediaController {
             case "MEDIA_POSTER_ATTACH_INVALID" -> HttpStatus.BAD_REQUEST;
             case "MEDIA_INVALID_STATE" -> HttpStatus.CONFLICT;
             case "MEDIA_SIZE_TOO_LARGE" -> HttpStatus.PAYLOAD_TOO_LARGE;
-            case "MEDIA_MIME_NOT_ALLOWED", "MEDIA_KIND_INVALID", "MEDIA_SIZE_INVALID" -> HttpStatus.BAD_REQUEST;
+            case "MEDIA_MIME_NOT_ALLOWED", "MEDIA_KIND_INVALID", "MEDIA_USAGE_INVALID", "MEDIA_SIZE_INVALID" -> HttpStatus.BAD_REQUEST;
             default -> HttpStatus.UNPROCESSABLE_ENTITY;
         };
         return ResponseEntity.status(status)
@@ -115,8 +117,20 @@ public class MediaController {
         }
     }
 
+    private static MediaUsage parseUsage(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return MediaUsage.ATTEMPT;
+        }
+        try {
+            return MediaUsage.valueOf(raw);
+        } catch (IllegalArgumentException e) {
+            throw new MediaException("MEDIA_USAGE_INVALID", "Unknown media usage: " + raw);
+        }
+    }
+
     public record PresignRequest(
             @NotBlank String kind,
+            String usage,
             @NotBlank String mime,
             // [PR #90 리뷰 I2] 클라가 업로드할 정확한 byteSize 를 미리 선언 — presigned URL 의 서명에
             // 박혀 다른 크기 PUT 시 S3 거부. service 레이어가 추가로 per-kind 한도(image 20MB, video 200MB)
@@ -126,7 +140,7 @@ public class MediaController {
 
     public record PresignResponse(
             long id, String extId, String uploadUrl, String s3Key,
-            Instant expiresAt, String mime
+            Instant expiresAt, String mime, String usage
     ) {}
 
     public record CompleteRequest(
@@ -139,7 +153,7 @@ public class MediaController {
     ) {}
 
     public record CompleteResponse(
-            long id, String extId, String kind, String status, String mime,
+            long id, String extId, String kind, String status, String usage, String mime,
             Long byteSize, Integer width, Integer height, Integer durationMs,
             // [PR #90 리뷰 I1] cdnUrl 은 cdn-base-url 미설정 시 null — 클라는 s3Key 를 별도 활용.
             String s3Key, String cdnUrl, String thumbnailCdnUrl, Instant createdAt

@@ -2,6 +2,7 @@ package io.crimp.core.entity.media;
 
 import io.crimp.core.entity.enums.MediaKind;
 import io.crimp.core.entity.enums.MediaStatus;
+import io.crimp.core.entity.enums.MediaUsage;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -38,6 +39,9 @@ public class MediaAsset {
     @Column(name = "status", nullable = false)
     private MediaStatus status;
 
+    @Column(name = "usage_type", nullable = false)
+    private MediaUsage usage;
+
     @Column(name = "mime", nullable = false, length = 80)
     private String mime;
 
@@ -67,17 +71,28 @@ public class MediaAsset {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    private MediaAsset(String extId, Long ownerUserId, MediaKind kind, String mime, String s3Key) {
+    private MediaAsset(String extId, Long ownerUserId, MediaKind kind, MediaUsage usage, String mime, String s3Key) {
         this.extId = extId;
         this.ownerUserId = ownerUserId;
         this.kind = kind;
         this.status = MediaStatus.UPLOADING;
+        this.usage = usage;
         this.mime = mime;
         this.s3Key = s3Key;
     }
 
     public static MediaAsset createUploading(String extId, Long ownerUserId, MediaKind kind, String mime, String s3Key) {
-        return new MediaAsset(extId, ownerUserId, kind, mime, s3Key);
+        return createUploading(extId, ownerUserId, kind, MediaUsage.ATTEMPT, mime, s3Key);
+    }
+
+    public static MediaAsset createUploading(
+            String extId,
+            Long ownerUserId,
+            MediaKind kind,
+            MediaUsage usage,
+            String mime,
+            String s3Key) {
+        return new MediaAsset(extId, ownerUserId, kind, usage, mime, s3Key);
     }
 
     public void markProcessing() { this.status = MediaStatus.PROCESSING; }

@@ -65,6 +65,11 @@ public abstract class CodeEnumConverter<E extends Enum<E>> implements AttributeC
     }
 
     @Converter(autoApply = true)
+    public static final class ForMediaUsage extends CodeEnumConverter<MediaUsage> {
+        public ForMediaUsage() { super(MediaUsage.class); }
+    }
+
+    @Converter(autoApply = true)
     public static final class ForPostVisibility extends CodeEnumConverter<PostVisibility> {
         public ForPostVisibility() { super(PostVisibility.class); }
     }
