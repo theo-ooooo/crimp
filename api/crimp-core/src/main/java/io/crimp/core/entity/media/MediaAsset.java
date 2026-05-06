@@ -39,7 +39,7 @@ public class MediaAsset {
     @Column(name = "status", nullable = false)
     private MediaStatus status;
 
-    @Column(name = "usage", nullable = false)
+    @Column(name = "usage_type", nullable = false)
     private MediaUsage usage;
 
     @Column(name = "mime", nullable = false, length = 80)

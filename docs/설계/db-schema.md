@@ -223,7 +223,7 @@ CREATE TABLE media_assets (
   owner_user_id BIGINT UNSIGNED NOT NULL,
   kind         TINYINT NOT NULL,             -- 1=IMAGE, 2=VIDEO
   status       TINYINT NOT NULL DEFAULT 1,   -- 1=UPLOADING, 2=PROCESSING, 3=READY, 9=FAILED
-  usage        TINYINT NOT NULL DEFAULT 1,   -- 1=ATTEMPT, 2=AVATAR, 3=POSTER
+  usage_type   TINYINT NOT NULL DEFAULT 1,   -- 1=ATTEMPT, 2=AVATAR, 3=POSTER
   mime         VARCHAR(80) NOT NULL,
   byte_size    BIGINT UNSIGNED NULL,
   width        INT UNSIGNED NULL,
