@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -38,6 +38,7 @@ const PICKER_OPTIONS: ImageLibraryOptions = {
   quality: 0.9,
   includeBase64: true,
 };
+const PICKER_LAUNCH_DELAY_MS = 240;
 
 type AvatarSource = 'camera' | 'library';
 
@@ -66,12 +67,21 @@ export function ProfileAvatarEditSection({
   const [phase, setPhase] = useState<UploadPhase | 'saving' | null>(null);
   const [imageFailed, setImageFailed] = useState(false);
   const [sourceModalVisible, setSourceModalVisible] = useState(false);
+  const pickerLaunchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const busy = phase !== null;
   const blocked = disabled || busy;
 
   useEffect(() => {
     setImageFailed(false);
   }, [avatarUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (pickerLaunchTimerRef.current) {
+        clearTimeout(pickerLaunchTimerRef.current);
+      }
+    };
+  }, []);
 
   const onChoose = async () => {
     if (blocked) {
@@ -85,6 +95,16 @@ export function ProfileAvatarEditSection({
       return;
     }
     setSourceModalVisible(false);
+    if (pickerLaunchTimerRef.current) {
+      clearTimeout(pickerLaunchTimerRef.current);
+    }
+    pickerLaunchTimerRef.current = setTimeout(() => {
+      pickerLaunchTimerRef.current = null;
+      void chooseSourceAfterModalDismiss(source);
+    }, PICKER_LAUNCH_DELAY_MS);
+  };
+
+  const chooseSourceAfterModalDismiss = async (source: AvatarSource) => {
     try {
       const selected = await pickImage(source).catch((err) => {
         logAvatarError('picker', err);
