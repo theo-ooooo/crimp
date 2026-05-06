@@ -3,6 +3,7 @@ package io.crimp.domain.user;
 import io.crimp.common.config.AppProperties;
 import io.crimp.core.entity.enums.MediaKind;
 import io.crimp.core.entity.enums.MediaStatus;
+import io.crimp.core.entity.enums.MediaUsage;
 import io.crimp.core.entity.enums.GymStatus;
 import io.crimp.core.entity.enums.UserStatus;
 import io.crimp.core.entity.gym.Gym;
@@ -173,8 +174,10 @@ public class UserService {
         if (!asset.getOwnerUserId().equals(userId)) {
             throw new UserException("AVATAR_MEDIA_FORBIDDEN", "Avatar media belongs to another user: " + avatarMediaId);
         }
-        if (asset.getKind() != MediaKind.IMAGE || asset.getStatus() != MediaStatus.READY) {
-            throw new UserException("AVATAR_MEDIA_INVALID", "Avatar media must be a READY IMAGE: " + avatarMediaId);
+        if (asset.getKind() != MediaKind.IMAGE
+                || asset.getStatus() != MediaStatus.READY
+                || asset.getUsage() != MediaUsage.AVATAR) {
+            throw new UserException("AVATAR_MEDIA_INVALID", "Avatar media must be a READY AVATAR IMAGE: " + avatarMediaId);
         }
     }
 
@@ -229,6 +232,7 @@ public class UserService {
                 .filter(a -> a.getOwnerUserId().equals(ownerUserId))
                 .filter(a -> a.getKind() == MediaKind.IMAGE)
                 .filter(a -> a.getStatus() == MediaStatus.READY)
+                .filter(a -> a.getUsage() == MediaUsage.AVATAR)
                 .orElse(null);
     }
 

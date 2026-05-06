@@ -3,6 +3,7 @@ package io.crimp.domain.user;
 import io.crimp.common.config.AppProperties;
 import io.crimp.core.entity.enums.MediaKind;
 import io.crimp.core.entity.enums.MediaStatus;
+import io.crimp.core.entity.enums.MediaUsage;
 import io.crimp.core.entity.enums.UserStatus;
 import io.crimp.core.entity.enums.GymStatus;
 import io.crimp.core.entity.gym.Gym;
@@ -108,7 +109,7 @@ class UserServiceTest {
         User user = user(1L, "01HU");
         Profile profile = Profile.create(1L, "old_nick");
         Gym gym = gym(9L, "01HGYM_NEW", "더클라임 강남", "더클라임");
-        MediaAsset avatar = readyImage(7L, 1L, "media/users/1/image/avatar.jpg");
+        MediaAsset avatar = readyAvatarImage(7L, 1L, "media/users/1/avatar/image/avatar.jpg");
         when(userRepo.findById(1L)).thenReturn(Optional.of(user));
         when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
         when(profileRepo.existsByNickname("new_nick")).thenReturn(false);
@@ -125,7 +126,7 @@ class UserServiceTest {
         assertThat(view.levelSelf()).isEqualTo((byte) 4);
         assertThat(view.mainGymId()).isEqualTo(9L);
         assertThat(view.avatarMediaId()).isEqualTo(7L);
-        assertThat(view.avatarUrl()).isEqualTo("https://cdn.crimp.test/media/users/1/image/avatar.jpg");
+        assertThat(view.avatarUrl()).isEqualTo("https://cdn.crimp.test/media/users/1/avatar/image/avatar.jpg");
         assertThat(view.mainGym()).isNotNull();
         assertThat(view.mainGym().extId()).isEqualTo("01HGYM_NEW");
     }
@@ -386,7 +387,7 @@ class UserServiceTest {
         profile.updateAvatar(10L);
         when(userRepo.findById(1L)).thenReturn(Optional.of(user));
         when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
-        when(mediaAssetRepo.findById(10L)).thenReturn(Optional.of(readyImage(10L, 2L, "media/users/2/image/a.png")));
+        when(mediaAssetRepo.findById(10L)).thenReturn(Optional.of(readyAvatarImage(10L, 2L, "media/users/2/avatar/image/a.png")));
 
         ProfileView view = service.getMe(1L);
 
@@ -398,7 +399,7 @@ class UserServiceTest {
     void updateMyProfile_avatarMediaId_requires_owned_ready_image() {
         User user = user(1L, "01HU");
         Profile profile = Profile.create(1L, "kk");
-        MediaAsset avatar = readyImage(10L, 1L, "media/users/1/image/a.png");
+        MediaAsset avatar = readyAvatarImage(10L, 1L, "media/users/1/avatar/image/a.png");
         when(userRepo.findById(1L)).thenReturn(Optional.of(user));
         when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
         when(mediaAssetRepo.findById(10L)).thenReturn(Optional.of(avatar));
@@ -408,7 +409,7 @@ class UserServiceTest {
                 new UpdateProfileCommand(null, null, null, null, null, false, 10L));
 
         assertThat(view.avatarMediaId()).isEqualTo(10L);
-        assertThat(view.avatarUrl()).isEqualTo("https://cdn.crimp.test/media/users/1/image/a.png");
+        assertThat(view.avatarUrl()).isEqualTo("https://cdn.crimp.test/media/users/1/avatar/image/a.png");
     }
 
     @Test
@@ -417,7 +418,7 @@ class UserServiceTest {
         Profile profile = Profile.create(1L, "kk");
         when(userRepo.findById(1L)).thenReturn(Optional.of(user));
         when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
-        when(mediaAssetRepo.findById(10L)).thenReturn(Optional.of(readyImage(10L, 2L, "media/users/2/image/a.png")));
+        when(mediaAssetRepo.findById(10L)).thenReturn(Optional.of(readyAvatarImage(10L, 2L, "media/users/2/avatar/image/a.png")));
 
         assertThatThrownBy(() -> service.updateMyProfile(
                 1L,
@@ -435,6 +436,21 @@ class UserServiceTest {
         when(userRepo.findById(1L)).thenReturn(Optional.of(user));
         when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
         when(mediaAssetRepo.findById(10L)).thenReturn(Optional.of(uploading));
+
+        assertThatThrownBy(() -> service.updateMyProfile(
+                1L,
+                new UpdateProfileCommand(null, null, null, null, null, false, 10L)))
+                .isInstanceOf(UserException.class)
+                .satisfies(e -> assertThat(((UserException) e).code()).isEqualTo("AVATAR_MEDIA_INVALID"));
+    }
+
+    @Test
+    void updateMyProfile_avatarMediaId_attemptUsage_throws() {
+        User user = user(1L, "01HU");
+        Profile profile = Profile.create(1L, "kk");
+        when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+        when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
+        when(mediaAssetRepo.findById(10L)).thenReturn(Optional.of(readyImage(10L, 1L, "media/users/1/attempt/image/a.png")));
 
         assertThatThrownBy(() -> service.updateMyProfile(
                 1L,
@@ -514,6 +530,21 @@ class UserServiceTest {
         setField(asset, "id", id);
         asset.markReady(null);
         assertThat(asset.getStatus()).isEqualTo(MediaStatus.READY);
+        return asset;
+    }
+
+    private static MediaAsset readyAvatarImage(long id, long ownerUserId, String s3Key) {
+        MediaAsset asset = MediaAsset.createUploading(
+                "01HMEDIA" + id,
+                ownerUserId,
+                MediaKind.IMAGE,
+                MediaUsage.AVATAR,
+                "image/jpeg",
+                s3Key);
+        setField(asset, "id", id);
+        asset.markReady(null);
+        assertThat(asset.getStatus()).isEqualTo(MediaStatus.READY);
+        assertThat(asset.getUsage()).isEqualTo(MediaUsage.AVATAR);
         return asset;
     }
 

@@ -3,6 +3,7 @@ package io.crimp.domain.media;
 import io.crimp.common.config.AppProperties;
 import io.crimp.core.entity.enums.MediaKind;
 import io.crimp.core.entity.enums.MediaStatus;
+import io.crimp.core.entity.enums.MediaUsage;
 import io.crimp.core.entity.media.MediaAsset;
 import io.crimp.core.repository.media.MediaAssetRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -64,12 +65,13 @@ class MediaServiceTest {
         MediaAsset saved = captor.getValue();
         assertThat(saved.getOwnerUserId()).isEqualTo(7L);
         assertThat(saved.getKind()).isEqualTo(MediaKind.IMAGE);
+        assertThat(saved.getUsage()).isEqualTo(MediaUsage.ATTEMPT);
         assertThat(saved.getMime()).isEqualTo("image/jpeg");
         assertThat(saved.getStatus()).isEqualTo(MediaStatus.UPLOADING);
         // [PR #96] media/users/{userId}/{kind}/YYYY/MM/DD/<extId>.<ext> 구조.
         assertThat(saved.getS3Key())
-                .startsWith("media/users/7/image/")
-                .matches("media/users/7/image/\\d{4}/\\d{2}/\\d{2}/[A-Z0-9]{26}\\.jpg");
+                .startsWith("media/users/7/attempt/image/")
+                .matches("media/users/7/attempt/image/\\d{4}/\\d{2}/\\d{2}/[A-Z0-9]{26}\\.jpg");
 
         assertThat(result.id()).isEqualTo(42L);
         assertThat(result.uploadUrl()).contains(saved.getS3Key());
@@ -84,10 +86,28 @@ class MediaServiceTest {
 
         ArgumentCaptor<MediaAsset> captor = ArgumentCaptor.forClass(MediaAsset.class);
         verify(repo).save(captor.capture());
-        // [PR #96] video kind 는 media/users/{userId}/video/... prefix.
+        // usage/kind prefix 로 업로드 의도와 미디어 타입을 같이 드러낸다.
         assertThat(captor.getValue().getS3Key())
-                .startsWith("media/users/42/video/")
+                .startsWith("media/users/42/attempt/video/")
                 .endsWith(".mp4");
+    }
+
+    @Test
+    void presignUpload_avatar_setsUsageAndAvatarPrefix() {
+        service.presignUpload(7L, MediaKind.IMAGE, MediaUsage.AVATAR, "image/png", 12345L);
+
+        ArgumentCaptor<MediaAsset> captor = ArgumentCaptor.forClass(MediaAsset.class);
+        verify(repo).save(captor.capture());
+        assertThat(captor.getValue().getUsage()).isEqualTo(MediaUsage.AVATAR);
+        assertThat(captor.getValue().getS3Key()).startsWith("media/users/7/avatar/image/");
+    }
+
+    @Test
+    void presignUpload_avatarVideo_throwsInvalidUsage() {
+        assertThatThrownBy(() -> service.presignUpload(7L, MediaKind.VIDEO, MediaUsage.AVATAR, "video/mp4", 1000L))
+                .isInstanceOf(MediaException.class)
+                .hasFieldOrPropertyWithValue("code", "MEDIA_USAGE_INVALID");
+        verify(repo, never()).save(any());
     }
 
     @Test

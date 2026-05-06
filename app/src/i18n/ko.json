@@ -412,6 +412,7 @@
     "mediaSizeTooLarge": "파일이 너무 커요. 이미지는 20MB, 영상은 200MB 이내로 다시 시도해 주세요.",
     "mediaMimeNotAllowed": "지원하지 않는 파일 형식이에요.",
     "mediaSizeInvalid": "파일 크기가 올바르지 않아요.",
+    "mediaUsageInvalid": "미디어 사용 목적이 올바르지 않아요.",
     "mediaForbidden": "본인의 미디어가 아니에요.",
     "mediaNotFound": "미디어를 찾을 수 없어요. 다시 촬영해 주세요.",
     "mediaInvalidState": "미디어 상태가 잘못되었어요. 다시 촬영해 주세요.",

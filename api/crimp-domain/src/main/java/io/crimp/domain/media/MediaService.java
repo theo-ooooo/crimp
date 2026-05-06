@@ -4,6 +4,7 @@ import io.crimp.common.config.AppProperties;
 import io.crimp.common.id.UlidGenerator;
 import io.crimp.core.entity.enums.MediaKind;
 import io.crimp.core.entity.enums.MediaStatus;
+import io.crimp.core.entity.enums.MediaUsage;
 import io.crimp.core.entity.media.MediaAsset;
 import io.crimp.core.repository.media.MediaAssetRepository;
 import org.slf4j.Logger;
@@ -22,7 +23,7 @@ import java.util.Set;
  *
  * <p>Phase 1 MVP 흐름:
  * <ol>
- *   <li>{@link #presignUpload(long, MediaKind, String, long)} — 클라가 호출, S3 PUT URL + UPLOADING row 발급</li>
+ *   <li>{@link #presignUpload(long, MediaKind, MediaUsage, String, long)} — 클라가 호출, S3 PUT URL + UPLOADING row 발급</li>
  *   <li>클라가 받은 URL 로 직접 업로드 (백엔드 경유 X)</li>
  *   <li>{@link #completeUpload(long, long, Long, Integer, Integer, Integer, Long)} — 클라가 업로드 완료
  *       알림 + 메타데이터 (size/dim/duration). row 가 READY 로 전환되며 응답에 cdn URL 합성.</li>
@@ -73,25 +74,32 @@ public class MediaService {
      */
     @Transactional
     public PresignResult presignUpload(long ownerUserId, MediaKind kind, String mime, long byteSize) {
+        return presignUpload(ownerUserId, kind, MediaUsage.ATTEMPT, mime, byteSize);
+    }
+
+    @Transactional
+    public PresignResult presignUpload(long ownerUserId, MediaKind kind, MediaUsage usage, String mime, long byteSize) {
         validateMime(kind, mime);
+        validateUsage(kind, usage);
         validateSize(kind, byteSize);
         String extId = UlidGenerator.next();
-        String s3Key = buildS3Key(ownerUserId, kind, extId, mime);
+        String s3Key = buildS3Key(ownerUserId, kind, usage, extId, mime);
 
-        MediaAsset asset = MediaAsset.createUploading(extId, ownerUserId, kind, mime, s3Key);
+        MediaAsset asset = MediaAsset.createUploading(extId, ownerUserId, kind, usage, mime, s3Key);
         mediaAssetRepository.save(asset);
 
         Duration ttl = Duration.ofSeconds(appProperties.media().presignedUrlTtlSeconds());
         MediaPresigner.PresignedUpload presigned = presigner.presignPut(s3Key, mime, byteSize, ttl);
 
-        log.info("[media] presign issued id={} extId={} owner={} kind={} mime={} bytes={}",
-                asset.getId(), extId, ownerUserId, kind, mime, byteSize);
+        log.info("[media] presign issued id={} extId={} owner={} kind={} usage={} mime={} bytes={}",
+                asset.getId(), extId, ownerUserId, kind, usage, mime, byteSize);
         return new PresignResult(
                 asset.getId(), extId,
                 presigned.url(),
                 s3Key,
                 presigned.expiresAt(),
-                mime);
+                mime,
+                usage);
     }
 
     /**
@@ -141,7 +149,7 @@ public class MediaService {
                 asset.getId(), asset.getExtId(), callerUserId, byteSize, width, height, durationMs);
         return new CompleteResult(
                 asset.getId(), asset.getExtId(), asset.getKind(), asset.getStatus(),
-                asset.getMime(), asset.getByteSize(),
+                asset.getUsage(), asset.getMime(), asset.getByteSize(),
                 asset.getWidth(), asset.getHeight(), asset.getDurationMs(),
                 asset.getS3Key(), cdnUrl, null, asset.getCreatedAt());
     }
@@ -197,6 +205,15 @@ public class MediaService {
         }
     }
 
+    private void validateUsage(MediaKind kind, MediaUsage usage) {
+        if (usage == null) {
+            throw new MediaException("MEDIA_USAGE_INVALID", "usage is required");
+        }
+        if ((usage == MediaUsage.AVATAR || usage == MediaUsage.POSTER) && kind != MediaKind.IMAGE) {
+            throw new MediaException("MEDIA_USAGE_INVALID", usage + " media must be IMAGE");
+        }
+    }
+
     private void validateSize(MediaKind kind, long byteSize) {
         long max = (kind == MediaKind.IMAGE) ? IMAGE_MAX_BYTES : VIDEO_MAX_BYTES;
         if (byteSize <= 0) {
@@ -211,29 +228,30 @@ public class MediaService {
 
     /**
      * S3 키 패턴 (PR #96 — 폴더 구조 개선):
-     * {@code media/users/{ownerUserId}/{kind}/YYYY/MM/DD/<extId>.<ext>}
+     * {@code media/users/{ownerUserId}/{usage}/{kind}/YYYY/MM/DD/<extId>.<ext>}
      *
-     * <p>예: {@code media/users/123/image/2026/04/29/01HABC...DEF.jpg}
+     * <p>예: {@code media/users/123/attempt/image/2026/04/29/01HABC...DEF.jpg}
      *
      * <p>설계 의도:
      * <ul>
      *   <li><b>users/{userId}</b> — 사용자별 그룹핑. 콘솔에서 특정 사용자 미디어 즉시 탐색 가능,
      *       향후 사용자 삭제 시 prefix 단위로 일괄 정리 (S3 lifecycle 또는 batch delete).</li>
-     *   <li><b>{kind}</b> — image / video 분리. video 만 별도 lifecycle (예: 30일 후 IA 티어로
-     *       이동) 적용 가능.</li>
+     *   <li><b>{usage}/{kind}</b> — avatar / attempt / poster 의 의도를 분리하고,
+     *       image / video 별 lifecycle 을 다시 나눌 수 있게 한다.</li>
      *   <li><b>YYYY/MM/DD 계층</b> — 운영 분석 시 콘솔 탐색이 깔끔. 단일 prefix 의 객체 수가
      *       너무 많아지면 S3 partition split 효율↓ — 일·월 분리로 자연스럽게 균형.</li>
      *   <li><b>extId leaf</b> — ULID 라 같은 일자 내 정렬·중복 방지 보장.</li>
      * </ul>
      */
-    private static String buildS3Key(long ownerUserId, MediaKind kind, String extId, String mime) {
+    private static String buildS3Key(long ownerUserId, MediaKind kind, MediaUsage usage, String extId, String mime) {
         LocalDate today = LocalDate.now(ZoneOffset.UTC);
         String yyyy = String.format("%04d", today.getYear());
         String mm = String.format("%02d", today.getMonthValue());
         String dd = String.format("%02d", today.getDayOfMonth());
         String ext = guessExtension(mime);
         String kindSegment = kind.name().toLowerCase(); // IMAGE → image, VIDEO → video
-        return "media/users/" + ownerUserId + "/" + kindSegment + "/"
+        String usageSegment = usage.name().toLowerCase(); // ATTEMPT → attempt
+        return "media/users/" + ownerUserId + "/" + usageSegment + "/" + kindSegment + "/"
                 + yyyy + "/" + mm + "/" + dd + "/"
                 + extId + (ext.isEmpty() ? "" : "." + ext);
     }
@@ -267,11 +285,11 @@ public class MediaService {
 
     public record PresignResult(
             long id, String extId, String uploadUrl, String s3Key,
-            Instant expiresAt, String mime
+            Instant expiresAt, String mime, MediaUsage usage
     ) {}
 
     public record CompleteResult(
-            long id, String extId, MediaKind kind, MediaStatus status, String mime,
+            long id, String extId, MediaKind kind, MediaStatus status, MediaUsage usage, String mime,
             Long byteSize, Integer width, Integer height, Integer durationMs,
             String s3Key, String cdnUrl, String thumbnailCdnUrl, Instant createdAt
     ) {}
