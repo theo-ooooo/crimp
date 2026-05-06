@@ -201,6 +201,10 @@ export function CameraSheet({
   const cameraReady = Boolean(cameraPerm.hasPermission && device && cameraInitialized && previewStarted);
   const recording = recordingPhase === 'recording';
   const videoBusy = recordingPhase === 'stopping' || recordingPhase === 'processing';
+  const videoShutterDisabled = recording ? false : videoBusy || !cameraReady;
+  const photoShutterDisabled = busy || !cameraReady;
+  const shutterDisabled = mode === 'photo' ? photoShutterDisabled : videoShutterDisabled;
+  const shutterBusy = mode === 'photo' ? busy : videoBusy;
 
   const setVideoPhase = useCallback((phase: RecordingPhase) => {
     recordingPhaseRef.current = phase;
@@ -243,7 +247,7 @@ export function CameraSheet({
   useEffect(() => {
     setCameraInitialized(false);
     setPreviewStarted(false);
-  }, [visible, device?.id, mode]);
+  }, [device?.id, mode]);
 
   // 시트 닫힐 때 녹화 중이면 중단 — cancelRequestedRef 를 세팅해 onRecordingFinished 가
   // onCaptured 를 발동하지 않도록 표시. pending preview 도 함께 폐기 (시트 재진입 시
@@ -568,7 +572,7 @@ export function CameraSheet({
                     onPreviewStarted={() => setPreviewStarted(true)}
                     onPreviewStopped={() => setPreviewStarted(false)}
                   />
-                  {!cameraReady ? (
+                  {!cameraReady && !recording ? (
                     <View style={styles.cameraReadyOverlay} pointerEvents="none">
                       <ActivityIndicator color={CAMERA_FG} />
                       <Text style={styles.cameraReadyText}>
@@ -621,7 +625,7 @@ export function CameraSheet({
 
               <Pressable
                 onPress={handleShoot}
-                disabled={mode === 'photo' ? busy || !cameraReady : videoBusy || !cameraReady}
+                disabled={shutterDisabled}
                 style={styles.shutter}
                 accessibilityRole="button"
                 accessibilityLabel={
@@ -630,12 +634,12 @@ export function CameraSheet({
                     : t('session.log.cameraPhotoTitle')
                 }
                 accessibilityState={{
-                  disabled: mode === 'photo' ? busy || !cameraReady : videoBusy || !cameraReady,
-                  busy: mode === 'photo' ? busy : videoBusy,
+                  disabled: shutterDisabled,
+                  busy: shutterBusy,
                 }}
               >
                 <View style={styles.shutterRing} />
-                {!cameraReady || (mode === 'photo' && busy) || (mode === 'video' && videoBusy) ? (
+                {(!cameraReady && !recording) || shutterBusy ? (
                   <ActivityIndicator color={CAMERA_FG} />
                 ) : (
                   <View
