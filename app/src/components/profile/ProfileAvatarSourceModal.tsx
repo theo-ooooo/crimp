@@ -20,6 +20,7 @@ type Props = {
   onCamera: () => void;
   onLibrary: () => void;
   onCancel: () => void;
+  onDismissed?: () => void;
 };
 
 export function ProfileAvatarSourceModal({
@@ -28,6 +29,7 @@ export function ProfileAvatarSourceModal({
   onCamera,
   onLibrary,
   onCancel,
+  onDismissed,
 }: Props): JSX.Element {
   const theme = useTokens();
   const styles = useMemo(() => makeStyles(theme), [theme]);
@@ -38,6 +40,7 @@ export function ProfileAvatarSourceModal({
       onRequestClose={onCancel}
       dismissOnBackdrop={!disabled}
       contentStyle={styles.modal}
+      onDismissed={onDismissed}
       testID="profile-avatar-source-modal"
     >
       <View style={styles.header}>
