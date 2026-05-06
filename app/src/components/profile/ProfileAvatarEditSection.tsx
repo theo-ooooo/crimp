@@ -237,7 +237,7 @@ async function assetToCapturedMedia(asset: Asset): Promise<CapturedMedia> {
     ? asset.fileSize
     : null;
   let detectedMime: DetectedImageMime | null = normalizeImageMime(asset.type);
-  if (byteSize === null || detectedMime === null) {
+  if (detectedMime === null) {
     const meta = await readImageMeta(asset.uri);
     byteSize = byteSize ?? meta.byteSize;
     detectedMime = detectedMime ?? meta.mime;
@@ -246,8 +246,8 @@ async function assetToCapturedMedia(asset: Asset): Promise<CapturedMedia> {
     uri: asset.uri,
     mime: detectedMime ?? 'image/jpeg',
     byteSize: byteSize ?? 1,
-    width: asset.width ?? null,
-    height: asset.height ?? null,
+    width: positiveDimension(asset.width),
+    height: positiveDimension(asset.height),
     durationMs: null,
     kind: 'IMAGE',
   };
@@ -256,13 +256,18 @@ async function assetToCapturedMedia(asset: Asset): Promise<CapturedMedia> {
 function normalizeImageMime(mime: string | undefined): DetectedImageMime | null {
   if (
     mime === 'image/jpeg' ||
+    mime === 'image/jpg' ||
     mime === 'image/png' ||
     mime === 'image/heic' ||
     mime === 'image/webp'
   ) {
-    return mime;
+    return mime === 'image/jpg' ? 'image/jpeg' : mime;
   }
   return null;
+}
+
+function positiveDimension(value: number | undefined): number | null {
+  return typeof value === 'number' && value > 0 ? value : null;
 }
 
 function phaseLabel(phase: UploadPhase | 'saving' | null): string {
