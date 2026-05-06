@@ -174,7 +174,7 @@
 | GET | `/api/v1/me` | 내 정보. 응답에 `nicknameConfigured`(사용자가 닉네임을 직접 저장했는지), `mainGymId`(numeric, 호환) 와 `mainGym: { extId, name, brand }`(해석된 lightweight 객체, 미설정 시 null/누락) 를 함께 반환. |
 | PATCH | `/api/v1/me/profile` | 프로필 수정. 주 암장은 `mainGymExtId: String` (권장) / `mainGymId: number` (호환) / `clearMainGym: true` (명시 해제) 중 하나로 표현. 두 변경 입력을 동시에 set 하면 400 (`INVALID_MAIN_GYM_REQUEST`), `mainGymExtId` 가 존재하지 않는 ULID 면 404 (`MAIN_GYM_NOT_FOUND`). Phase 1.5 에서 `avatarMediaId` 또는 `clearAvatar: true` 를 추가해 프로필 이미지 연결/해제를 지원한다. |
 | POST | `/api/v1/me/profile/avatar` | Phase 1.5 후보. 프로필 이미지 업로드 편의 endpoint. 기본안은 기존 `/media/presign` → PUT → `/media/complete` 후 `PATCH /me/profile { avatarMediaId }` 재사용이며, UX 단순화를 위해 래핑 endpoint 도 검토한다. |
-| DELETE | `/api/v1/me` | Phase 1.5 후보. 계정 탈퇴. refresh token 폐기, `users.status=DELETED` soft delete, 개인정보성 프로필 필드 비노출/삭제, 공개 컨텐츠 익명화 또는 삭제 정책을 적용한다. 30일 복구 정책 확정 필요. |
+| DELETE | `/api/v1/me` | 계정 탈퇴. 204 응답. refresh token 전체 폐기, `users.status=DELETED` soft delete, 이후 내 정보/공개 프로필 조회·수정 및 OAuth 재로그인/refresh 재발급을 차단한다. 기존 댓글은 유지하되 작성자 `userExtId` 는 null, 닉네임은 `탈퇴사용자` 로 익명화한다. |
 | GET | `/api/v1/users/{extId}` | 타 사용자 프로필 |
 | POST | `/api/v1/users/{extId}:follow` | 팔로우 |
 | DELETE | `/api/v1/users/{extId}:follow` | 언팔로우 |

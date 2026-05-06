@@ -4,14 +4,19 @@ import io.crimp.core.entity.enums.PostVisibility;
 import io.crimp.core.entity.feed.Comment;
 import io.crimp.core.entity.feed.FeedPost;
 import io.crimp.core.repository.feed.CommentRepository;
+import io.crimp.core.repository.feed.CommentRow;
 import io.crimp.core.repository.feed.FeedPostRepository;
 import io.crimp.core.repository.user.ProfileRepository;
 import io.crimp.core.repository.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.SliceImpl;
 
 import java.lang.reflect.Field;
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,6 +44,34 @@ class CommentServiceTest {
         profileRepo = mock(ProfileRepository.class);
         // user/profile findById 는 Mockito 기본이 Optional.empty() 반환이라 별도 stub 불필요.
         service = new CommentService(feedPostRepo, commentRepo, userRepo, profileRepo);
+    }
+
+    // --- list ---
+
+    @Test
+    void list_anonymizes_deleted_user_author() {
+        FeedPost post = activePost(1L, "01HFP01");
+        when(feedPostRepo.findByExtId("01HFP01")).thenReturn(Optional.of(post));
+        when(commentRepo.listByPost(1L, null, PageRequest.of(0, 20)))
+                .thenReturn(new SliceImpl<>(List.of(new CommentRow(
+                        10L,
+                        "01HCOMMENT00000000000001",
+                        7L,
+                        "01HUSER00000000000000001",
+                        "old_nick",
+                        "남길 댓글",
+                        Instant.EPOCH,
+                        null,
+                        true
+                )), PageRequest.of(0, 20), false));
+
+        CommentPage page = service.list("01HFP01", null, null);
+
+        assertThat(page.items()).hasSize(1);
+        assertThat(page.items().get(0).userExtId()).isNull();
+        assertThat(page.items().get(0).userNickname()).isEqualTo("탈퇴사용자");
+        assertThat(page.items().get(0).avatarColorHue()).isZero();
+        assertThat(page.items().get(0).content()).isEqualTo("남길 댓글");
     }
 
     // --- create ---
