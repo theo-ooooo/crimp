@@ -62,7 +62,11 @@ async function compressImage(captured: CapturedMedia): Promise<CapturedMedia> {
     // 가 없으면 압축 결과를 채택하지 않고 원본 유지가 안전.
     const reportedSize =
       typeof result.size === 'number' && result.size > 0 ? result.size : null;
-    if (reportedSize === null || reportedSize >= captured.byteSize) {
+    const originalSizeKnown = captured.byteSize > 1;
+    if (
+      reportedSize === null ||
+      (originalSizeKnown && reportedSize >= captured.byteSize)
+    ) {
       return captured;
     }
     return {

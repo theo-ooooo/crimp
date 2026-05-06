@@ -3,6 +3,7 @@ import type { CapturedMedia } from '@/lib/camera/types';
 
 import {
   MediaUploadError,
+  uploadAvatarImage,
   uploadCapturedMedia,
   uploadVideoWithOptionalPoster,
 } from './upload';
@@ -63,6 +64,7 @@ function completeResponse(
     cdnUrl: `https://cdn.test/media/k-${id}`,
     thumbnailCdnUrl: null,
     createdAt: '2026-05-03T12:00:00Z',
+    usage: kind === 'VIDEO' ? 'ATTEMPT' : 'ATTEMPT',
   };
 }
 
@@ -304,5 +306,45 @@ describe('uploadVideoWithOptionalPoster', () => {
       undefined,
     );
     expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+});
+
+describe('uploadAvatarImage', () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    jest.resetAllMocks();
+    mockedCompress.mockImplementation(async (c: CapturedMedia) => c);
+  });
+
+  it('uploads an image with AVATAR usage', async () => {
+    mockedPresign.mockResolvedValue({
+      id: 77,
+      extId: '01HAVATAR',
+      uploadUrl: 'https://s3.test/avatar',
+      s3Key: 'media/users/7/avatar/image/a.jpg',
+      expiresAt: '',
+      mime: 'image/jpeg',
+      usage: 'AVATAR',
+    });
+    mockedComplete.mockResolvedValue({
+      ...completeResponse(77, 'IMAGE'),
+      usage: 'AVATAR',
+    });
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce({ blob: async () => ({ size: 1234 }) })
+      .mockResolvedValueOnce({ ok: true, status: 200 });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const result = await uploadAvatarImage('access', captured);
+
+    expect(result.id).toBe(77);
+    expect(mockedPresign).toHaveBeenCalledWith(
+      'access',
+      { kind: 'IMAGE', usage: 'AVATAR', mime: 'image/jpeg', byteSize: 1234 },
+      undefined,
+    );
   });
 });

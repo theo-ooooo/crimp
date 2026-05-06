@@ -1,7 +1,7 @@
 import { completeMedia, presignMedia } from '@/lib/api/endpoints';
 import type { CapturedMedia } from '@/lib/camera/types';
 import { compressCapturedMedia } from '@/lib/media/compress';
-import type { CompleteResponse } from '@/lib/schemas/media';
+import type { CompleteResponse, MediaUsage } from '@/lib/schemas/media';
 
 /**
  * 캡처된 로컬 파일을 백엔드로 업로드 (PR #92, F5 PR-3).
@@ -47,6 +47,27 @@ export async function uploadCapturedMedia(
   return uploadReadyMedia(accessToken, ready, signal);
 }
 
+export async function uploadAvatarImage(
+  accessToken: string,
+  image: CapturedMedia,
+  options?: {
+    signal?: AbortSignal;
+    onPhase?: (phase: UploadPhase) => void;
+  },
+): Promise<CompleteResponse> {
+  const signal = options?.signal;
+  if (signal?.aborted) {
+    throw new DOMException('aborted before upload', 'AbortError');
+  }
+  options?.onPhase?.('compressing');
+  const ready = await compressCapturedMedia(image, signal);
+  if (ready.kind !== 'IMAGE') {
+    throw new MediaUploadError('local-read', 'avatar upload requires an image');
+  }
+  options?.onPhase?.('uploading');
+  return uploadReadyMedia(accessToken, ready, signal, { usage: 'AVATAR' });
+}
+
 /**
  * 비디오 업로드 후(READY) JPEG 포스터를 올리고 `attachAsPosterForVideoId` 로 연결.
  * 반환은 비디오 미디어 `CompleteResponse`.
@@ -72,7 +93,10 @@ export async function uploadVideoWithOptionalPoster(
     return videoComplete;
   }
   const posterReady = await compressCapturedMedia(poster, signal);
-  await uploadReadyMedia(accessToken, posterReady, signal, videoComplete.id);
+  await uploadReadyMedia(accessToken, posterReady, signal, {
+    usage: 'POSTER',
+    attachAsPosterForVideoId: videoComplete.id,
+  });
   return videoComplete;
 }
 
@@ -80,13 +104,16 @@ async function uploadReadyMedia(
   accessToken: string,
   ready: CapturedMedia,
   signal: AbortSignal | undefined,
-  attachAsPosterForVideoId?: number,
+  options: {
+    usage?: MediaUsage;
+    attachAsPosterForVideoId?: number;
+  } = {},
 ): Promise<CompleteResponse> {
   const presigned = await presignMedia(
     accessToken,
     {
       kind: ready.kind,
-      usage: attachAsPosterForVideoId !== undefined ? 'POSTER' : 'ATTEMPT',
+      usage: options.usage ?? 'ATTEMPT',
       mime: ready.mime,
       byteSize: ready.byteSize,
     },
@@ -101,7 +128,7 @@ async function uploadReadyMedia(
       width: ready.width,
       height: ready.height,
       durationMs: ready.durationMs,
-      attachAsPosterForVideoId,
+      attachAsPosterForVideoId: options.attachAsPosterForVideoId,
     },
     signal,
   );
