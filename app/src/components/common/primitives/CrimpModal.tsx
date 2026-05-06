@@ -60,6 +60,8 @@ export type CrimpModalProps = {
    * 부활시키도록 타입에서 제거. 기본 'fade' 도 fade + 가벼운 translateY 를 같이 한다.
    */
   animationType?: 'fade' | 'none';
+  /** exit 애니메이션이 끝나 RN Modal 이 완전히 내려간 직후 호출. */
+  onDismissed?: () => void;
   testID?: string;
 };
 
@@ -76,6 +78,7 @@ export function CrimpModal({
   dismissOnBackdrop,
   contentStyle,
   animationType = 'fade',
+  onDismissed,
   testID,
 }: CrimpModalProps): JSX.Element | null {
   const theme = useTokens();
@@ -104,12 +107,16 @@ export function CrimpModal({
   // 있음. visible 변경 시 use*Ref.current 는 최신 값을 보장.
   const reducedMotionRef = useRef(reducedMotion);
   const animationTypeRef = useRef(animationType);
+  const onDismissedRef = useRef(onDismissed);
   useEffect(() => {
     reducedMotionRef.current = reducedMotion;
   }, [reducedMotion]);
   useEffect(() => {
     animationTypeRef.current = animationType;
   }, [animationType]);
+  useEffect(() => {
+    onDismissedRef.current = onDismissed;
+  }, [onDismissed]);
 
   useEffect(() => {
     const useReduced = reducedMotionRef.current || animationTypeRef.current === 'none';
@@ -152,6 +159,7 @@ export function CrimpModal({
     ]).start(({ finished }) => {
       if (finished) {
         setMounted(false);
+        onDismissedRef.current?.();
       }
     });
     // [I4] reducedMotion / animationType 은 ref 스냅샷 사용 — deps 에 두면 런타임 변경

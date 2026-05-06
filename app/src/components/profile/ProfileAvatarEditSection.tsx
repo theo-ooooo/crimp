@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -66,6 +66,7 @@ export function ProfileAvatarEditSection({
   const [phase, setPhase] = useState<UploadPhase | 'saving' | null>(null);
   const [imageFailed, setImageFailed] = useState(false);
   const [sourceModalVisible, setSourceModalVisible] = useState(false);
+  const pendingSourceRef = useRef<AvatarSource | null>(null);
   const busy = phase !== null;
   const blocked = disabled || busy;
 
@@ -84,7 +85,19 @@ export function ProfileAvatarEditSection({
     if (blocked) {
       return;
     }
+    pendingSourceRef.current = source;
     setSourceModalVisible(false);
+  };
+
+  const onSourceModalDismissed = () => {
+    const source = pendingSourceRef.current;
+    pendingSourceRef.current = null;
+    if (source) {
+      void chooseSourceAfterModalDismiss(source);
+    }
+  };
+
+  const chooseSourceAfterModalDismiss = async (source: AvatarSource) => {
     try {
       const selected = await pickImage(source).catch((err) => {
         logAvatarError('picker', err);
@@ -150,6 +163,7 @@ export function ProfileAvatarEditSection({
         onCamera={() => void onChooseSource('camera')}
         onLibrary={() => void onChooseSource('library')}
         onCancel={() => setSourceModalVisible(false)}
+        onDismissed={onSourceModalDismissed}
       />
       <View style={styles.avatarWrap}>
         <View style={styles.avatar}>
