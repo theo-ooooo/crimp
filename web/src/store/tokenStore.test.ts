@@ -16,6 +16,7 @@ describe('web tokenStore', () => {
     useTokenStore.setState({
       accessToken: null,
       refreshToken: null,
+      cookieAuthCandidate: false,
       hydrated: false,
     });
   });
@@ -24,8 +25,9 @@ describe('web tokenStore', () => {
     useTokenStore.getState().hydrate();
 
     expect(useTokenStore.getState()).toMatchObject({
-      accessToken: COOKIE_AUTH_ACCESS_TOKEN,
+      accessToken: null,
       refreshToken: null,
+      cookieAuthCandidate: true,
       hydrated: true,
     });
     expect(window.localStorage.getItem).not.toHaveBeenCalled();
@@ -34,7 +36,7 @@ describe('web tokenStore', () => {
     expect(window.localStorage.removeItem).toHaveBeenCalledWith('crimp.refreshToken');
   });
 
-  it('keeps oauth tokens only in memory', () => {
+  it('keeps only the access token in memory', () => {
     useTokenStore.getState().setTokens({
       accessToken: 'access',
       refreshToken: 'refresh',
@@ -42,9 +44,28 @@ describe('web tokenStore', () => {
 
     expect(useTokenStore.getState()).toMatchObject({
       accessToken: 'access',
-      refreshToken: 'refresh',
+      refreshToken: null,
+      cookieAuthCandidate: false,
     });
     expect(window.localStorage.setItem).not.toHaveBeenCalled();
+  });
+
+  it('marks a validated HttpOnly cookie session as authenticated', () => {
+    useTokenStore.setState({
+      accessToken: null,
+      refreshToken: null,
+      cookieAuthCandidate: true,
+      hydrated: true,
+    });
+
+    useTokenStore.getState().markCookieAuthenticated();
+
+    expect(useTokenStore.getState()).toMatchObject({
+      accessToken: COOKIE_AUTH_ACCESS_TOKEN,
+      refreshToken: null,
+      cookieAuthCandidate: false,
+      hydrated: true,
+    });
   });
 
   it('detects the cookie-auth sentinel', () => {

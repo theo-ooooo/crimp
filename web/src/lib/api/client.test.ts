@@ -21,6 +21,7 @@ describe('apiRequest cookie auth', () => {
     useTokenStore.setState({
       accessToken: COOKIE_AUTH_ACCESS_TOKEN,
       refreshToken: null,
+      cookieAuthCandidate: false,
       hydrated: true,
     });
   });
@@ -101,7 +102,7 @@ describe('apiRequest cookie auth', () => {
     );
     expect(useTokenStore.getState()).toMatchObject({
       accessToken: 'fresh-access',
-      refreshToken: 'fresh-refresh',
+      refreshToken: null,
     });
   });
 });
