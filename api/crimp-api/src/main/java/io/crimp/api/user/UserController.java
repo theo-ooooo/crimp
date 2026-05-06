@@ -15,6 +15,7 @@ import jakarta.validation.constraints.Size;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -63,6 +64,12 @@ public class UserController {
         // Phase 1: KST 고정. 사용자 profile 에 timezone 필드 추가 시 User 엔티티에서 읽어 전달 (F1).
         return MeStatsResponse.of(
                 meStatsService.getStats(principal.userId(), AppTimeZone.KST));
+    }
+
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> deleteMe(@AuthenticationPrincipal CrimpPrincipal principal) {
+        userService.deleteMe(principal.userId());
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/users/{extId}")

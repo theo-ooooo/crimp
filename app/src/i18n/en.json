@@ -322,7 +322,13 @@
       "laterCta": "Later"
     },
     "logout": "Sign out",
-    "logoutLoading": "Signing out…"
+    "logoutLoading": "Signing out…",
+    "deleteAccount": "Delete account",
+    "deleteAccountLoading": "Deleting account…",
+    "deleteAccountConfirmTitle": "Delete your account?",
+    "deleteAccountConfirmBody": "You will be signed out and your profile will no longer be visible. This cannot be undone.",
+    "deleteAccountConfirmCta": "Delete account",
+    "deleteAccountErrorTitle": "Failed to delete account"
   },
   "onboarding": {
     "mainGym": {

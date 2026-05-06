@@ -2,6 +2,7 @@ package io.crimp.domain.auth;
 
 import io.crimp.common.id.UlidGenerator;
 import io.crimp.core.entity.enums.OauthProvider;
+import io.crimp.core.entity.enums.UserStatus;
 import io.crimp.core.entity.user.OauthIdentity;
 import io.crimp.core.entity.user.Profile;
 import io.crimp.core.entity.user.User;
@@ -102,6 +103,7 @@ public class AuthService {
                 .map(id -> userRepository.findById(id.getUserId())
                         .orElseThrow(() -> new AuthException("AUTH_USER_MISSING", "Linked user not found")))
                 .orElseGet(() -> createUser(info));
+        requireActive(user);
         user.markLoggedIn();
 
         return issueTokens(user);
@@ -175,6 +177,7 @@ public class AuthService {
 
         User user = userRepository.findById(parsed.userId())
                 .orElseThrow(() -> new AuthException("AUTH_USER_MISSING", "User not found"));
+        requireActive(user);
         return issueTokens(user);
     }
 
@@ -215,6 +218,12 @@ public class AuthService {
         return new AuthTokens(
                 access.token(), refresh.token(),
                 jwtProperties.accessTtlSeconds(), jwtProperties.refreshTtlSeconds());
+    }
+
+    private static void requireActive(User user) {
+        if (user.getStatus() == UserStatus.DELETED || user.isDeleted()) {
+            throw new AuthException("AUTH_ACCOUNT_DELETED", "Account is deleted");
+        }
     }
 
     private static String hash(String value) {

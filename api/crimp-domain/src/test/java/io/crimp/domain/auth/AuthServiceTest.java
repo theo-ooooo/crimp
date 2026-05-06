@@ -107,6 +107,26 @@ class AuthServiceTest {
     }
 
     @Test
+    void exchange_existingDeletedUser_throws_AUTH_ACCOUNT_DELETED() {
+        OauthUserInfo info = new OauthUserInfo(OauthProvider.KAKAO, "kakao-uid-1", "a@b.com", null);
+        when(kakaoVerifier.verify("valid-token")).thenReturn(info);
+
+        OauthIdentity identity = OauthIdentity.link(10L, OauthProvider.KAKAO, "kakao-uid-1");
+        setField(identity, "userId", 10L);
+        when(oauthRepo.findByProviderAndProviderUid(OauthProvider.KAKAO, "kakao-uid-1"))
+                .thenReturn(Optional.of(identity));
+
+        User existing = User.create("01HXXXXXXX", "hash", null);
+        setField(existing, "id", 10L);
+        existing.deleteAccount();
+        when(userRepo.findById(10L)).thenReturn(Optional.of(existing));
+
+        assertThatThrownBy(() -> service.exchange(OauthProvider.KAKAO, "valid-token"))
+                .isInstanceOf(AuthException.class)
+                .satisfies(e -> assertThat(((AuthException) e).code()).isEqualTo("AUTH_ACCOUNT_DELETED"));
+    }
+
+    @Test
     void exchange_new_user_createsUserAndIdentity() {
         OauthUserInfo info = new OauthUserInfo(OauthProvider.KAKAO, "new-uid", "n@b.com", null);
         when(kakaoVerifier.verify("valid-token")).thenReturn(info);
@@ -252,6 +272,21 @@ class AuthServiceTest {
         AuthTokens rotated = service.refresh(initial.refreshToken());
         assertThat(rotated.refreshToken()).isNotEqualTo(initial.refreshToken());
         assertThat(refreshStore.size()).isEqualTo(1); // 이전 삭제 + 새 추가 = 여전히 1
+    }
+
+    @Test
+    void refresh_deletedUser_throws_AUTH_ACCOUNT_DELETED() {
+        stubNewLogin("uid-1", 42L);
+        AuthTokens initial = service.exchange(OauthProvider.KAKAO, "token");
+
+        User user = User.create("01HUUUUUUU", null, null);
+        setField(user, "id", 42L);
+        user.deleteAccount();
+        when(userRepo.findById(42L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> service.refresh(initial.refreshToken()))
+                .isInstanceOf(AuthException.class)
+                .satisfies(e -> assertThat(((AuthException) e).code()).isEqualTo("AUTH_ACCOUNT_DELETED"));
     }
 
     @Test

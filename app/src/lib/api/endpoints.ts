@@ -151,6 +151,20 @@ export function fetchMe(
   });
 }
 
+/** `DELETE /api/v1/me` — 내 계정 탈퇴. 서버에서 계정을 soft-delete 하고 refresh token 을 폐기한다. */
+export function deleteMe(
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  return apiRequest({
+    method: 'DELETE',
+    path: '/api/v1/me',
+    accessToken,
+    schema: z.void(),
+    signal,
+  });
+}
+
 /**
  * `PATCH /api/v1/me/profile` — 내 프로필 부분 수정.
  *
