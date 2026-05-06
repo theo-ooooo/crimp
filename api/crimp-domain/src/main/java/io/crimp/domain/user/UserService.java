@@ -180,13 +180,14 @@ public class UserService {
 
     private ProfileView toView(User user, Profile profile) {
         ProfileView.MainGymView mainGym = resolveMainGym(profile.getMainGymId());
+        MediaAsset avatar = resolveAvatar(profile.getAvatarMediaId(), user.getId());
         return new ProfileView(
                 user.getExtId(),
                 profile.getNickname(),
                 profile.isNicknameConfigured(),
                 profile.getBio(),
                 profile.getAvatarMediaId(),
-                resolveAvatarUrl(profile.getAvatarMediaId()),
+                resolveAvatarUrl(avatar),
                 profile.getLevelSelf(),
                 profile.getMainGymId(),
                 mainGym
@@ -197,13 +198,14 @@ public class UserService {
      * 공개 프로필용 변환 — mainGym 정보를 항상 null 로 둔다 (PublicUserResponse 미노출).
      */
     private ProfileView toViewWithoutMainGym(User user, Profile profile) {
+        MediaAsset avatar = resolveAvatar(profile.getAvatarMediaId(), user.getId());
         return new ProfileView(
                 user.getExtId(),
                 profile.getNickname(),
                 profile.isNicknameConfigured(),
                 profile.getBio(),
                 profile.getAvatarMediaId(),
-                resolveAvatarUrl(profile.getAvatarMediaId()),
+                resolveAvatarUrl(avatar),
                 profile.getLevelSelf(),
                 profile.getMainGymId(),
                 null
@@ -221,16 +223,20 @@ public class UserService {
                 .orElse(null);
     }
 
-    private String resolveAvatarUrl(Long avatarMediaId) {
+    private MediaAsset resolveAvatar(Long avatarMediaId, Long ownerUserId) {
         if (avatarMediaId == null) return null;
-        String cdnBaseUrl = appProperties.media().cdnBaseUrl();
-        if (cdnBaseUrl == null || cdnBaseUrl.isBlank()) return null;
         return mediaAssetRepo.findById(avatarMediaId)
+                .filter(a -> a.getOwnerUserId().equals(ownerUserId))
                 .filter(a -> a.getKind() == MediaKind.IMAGE)
                 .filter(a -> a.getStatus() == MediaStatus.READY)
-                .map(MediaAsset::getS3Key)
-                .map(s3Key -> joinUrl(cdnBaseUrl, s3Key))
                 .orElse(null);
+    }
+
+    private String resolveAvatarUrl(MediaAsset avatar) {
+        if (avatar == null) return null;
+        String cdnBaseUrl = appProperties.media().cdnBaseUrl();
+        if (cdnBaseUrl == null || cdnBaseUrl.isBlank()) return null;
+        return joinUrl(cdnBaseUrl, avatar.getS3Key());
     }
 
     private static String joinUrl(String baseUrl, String s3Key) {

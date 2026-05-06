@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Image, Pressable, Text, View } from 'react-native';
 
 import { CrimpIcon, Skeleton } from '@/components/common/primitives';
@@ -25,15 +25,22 @@ export function ProfileHeaderRow({
   const nickname = me?.nickname ?? t('home.nicknameFallback');
   const initial = nickname.trim().slice(0, 1) || '?';
   const bio = me?.bio ?? null;
+  const avatarUrl = me?.avatarUrl ?? null;
+  const [avatarFailed, setAvatarFailed] = useState(false);
+
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [avatarUrl]);
 
   return (
     <View style={styles.headerRow}>
       <View style={styles.avatar}>
-        {me?.avatarUrl ? (
+        {avatarUrl && !avatarFailed ? (
           <Image
-            source={{ uri: me.avatarUrl }}
+            source={{ uri: avatarUrl }}
             style={styles.avatarImage}
             accessibilityLabel={nickname}
+            onError={() => setAvatarFailed(true)}
           />
         ) : (
           <Text style={styles.avatarText} accessibilityLabel={nickname}>

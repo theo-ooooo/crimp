@@ -380,6 +380,21 @@ class UserServiceTest {
     }
 
     @Test
+    void getMe_doesNotExposeAvatarUrl_whenStoredAvatarBelongsToAnotherUser() {
+        User user = user(1L, "01HU");
+        Profile profile = Profile.create(1L, "kk");
+        profile.updateAvatar(10L);
+        when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+        when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
+        when(mediaAssetRepo.findById(10L)).thenReturn(Optional.of(readyImage(10L, 2L, "media/users/2/image/a.png")));
+
+        ProfileView view = service.getMe(1L);
+
+        assertThat(view.avatarMediaId()).isEqualTo(10L);
+        assertThat(view.avatarUrl()).isNull();
+    }
+
+    @Test
     void updateMyProfile_avatarMediaId_requires_owned_ready_image() {
         User user = user(1L, "01HU");
         Profile profile = Profile.create(1L, "kk");
