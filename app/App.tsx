@@ -52,7 +52,6 @@ export default function App(): JSX.Element {
   const accessToken = useTokenStore((s) => s.accessToken);
 
   useEffect(() => {
-    // SecureStore 교체 전까지는 인-메모리 스토리지를 hydrate 한다 (TODO: 후속 PR).
     useTokenStore
       .getState()
       .hydrate()
