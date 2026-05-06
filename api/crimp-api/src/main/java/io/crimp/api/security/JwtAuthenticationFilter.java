@@ -34,7 +34,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtProvider jwtProvider;
     private final ObjectMapper objectMapper;
-    private final UserRepository userRepository;
+    private final ObjectProvider<UserRepository> userRepositoryProvider;
     /**
      * AuthCookieFactory 는 {@code !test} 프로파일이라 단위 테스트에서 빈이 없을 수 있음.
      * ObjectProvider 로 lazy 주입 — 없으면 cookie fallback skip 하고 Bearer 만 처리한다.
@@ -44,11 +44,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     public JwtAuthenticationFilter(
             JwtProvider jwtProvider,
             ObjectMapper objectMapper,
-            UserRepository userRepository,
+            ObjectProvider<UserRepository> userRepositoryProvider,
             ObjectProvider<AuthCookieFactory> cookieFactoryProvider) {
         this.jwtProvider = jwtProvider;
         this.objectMapper = objectMapper;
-        this.userRepository = userRepository;
+        this.userRepositoryProvider = userRepositoryProvider;
         this.cookieFactoryProvider = cookieFactoryProvider;
     }
 
@@ -66,10 +66,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             JwtProvider.ParsedToken parsed = jwtProvider.parseAccess(token);
-            User user = userRepository.findById(parsed.userId()).orElse(null);
-            if (!isActive(user)) {
-                writeUnauthorized(response, "AUTH_ACCOUNT_INACTIVE", "Account is inactive");
-                return;
+            UserRepository userRepository = userRepositoryProvider.getIfAvailable();
+            if (userRepository != null) {
+                User user = userRepository.findById(parsed.userId()).orElse(null);
+                if (!isActive(user)) {
+                    writeUnauthorized(response, "AUTH_ACCOUNT_INACTIVE", "Account is inactive");
+                    return;
+                }
             }
             CrimpPrincipal principal = new CrimpPrincipal(parsed.userId(), parsed.userExtId());
             // role claim 을 Spring Security 권한으로 매핑 — `ROLE_<UserRole.name()>` 컨벤션.

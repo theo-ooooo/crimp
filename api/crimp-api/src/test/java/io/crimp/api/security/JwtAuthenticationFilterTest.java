@@ -47,12 +47,19 @@ class JwtAuthenticationFilterTest {
 
     /** 테스트 헬퍼 — 쿠키 fallback 을 사용하지 않는 경우 (기본). */
     private final JwtAuthenticationFilter filter = new JwtAuthenticationFilter(
-            provider, new ObjectMapper(), userRepository, emptyCookieFactory());
+            provider, new ObjectMapper(), userRepositoryProvider(), emptyCookieFactory());
 
     /** AuthCookieFactory 빈이 없는 환경 (단위 테스트) — ObjectProvider 가 null 반환. */
     private static ObjectProvider<AuthCookieFactory> emptyCookieFactory() {
         @SuppressWarnings("unchecked")
         ObjectProvider<AuthCookieFactory> p = mock(ObjectProvider.class);
+        return p;
+    }
+
+    private ObjectProvider<UserRepository> userRepositoryProvider() {
+        @SuppressWarnings("unchecked")
+        ObjectProvider<UserRepository> p = mock(ObjectProvider.class);
+        when(p.getIfAvailable()).thenReturn(userRepository);
         return p;
     }
 
@@ -63,7 +70,7 @@ class JwtAuthenticationFilterTest {
         @SuppressWarnings("unchecked")
         ObjectProvider<AuthCookieFactory> p = mock(ObjectProvider.class);
         when(p.getIfAvailable()).thenReturn(factory);
-        return new JwtAuthenticationFilter(provider, new ObjectMapper(), userRepository, p);
+        return new JwtAuthenticationFilter(provider, new ObjectMapper(), userRepositoryProvider(), p);
     }
 
     @AfterEach
