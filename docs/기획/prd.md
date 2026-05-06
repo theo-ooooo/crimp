@@ -80,6 +80,8 @@
 - **암장 동기화 운영화** — `@Scheduled` 트리거 + admin POST API + `gym_sync_log` 감사 테이블 (인프라는 #84/#85 에서 완료, 트리거·관측 미구현)
 - **HttpOnly 쿠키 전환** — 베타 전 보안 필수
 - **카메라 실 캡처 (F5)** — vision-camera + S3 presigned + hold-color 컬럼
+- **프로필 이미지 업로드** — 기존 media presign/complete 흐름 재사용, `profiles.avatar_media_id` 연결, 앱·웹 프로필 편집 UI
+- **계정 탈퇴** — app/web 탈퇴 진입점, soft delete + 30일 복구 정책, refresh token 폐기, 공개 컨텐츠 익명화/삭제 정책 확정
 - 크루 개설/가입 (지역·수준·스타일별)
 - 파트너 매칭 베타 (날짜·암장·레벨)
 - 영상 타임라인 주석

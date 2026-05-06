@@ -87,6 +87,31 @@ sequenceDiagram
 | 이메일 중복(타 provider) | 동일 email_hash 있으면 연결 제안 화면 (Phase 1.5) |
 | Apple 첫 로그인만 email 제공 | 최초 로그인 시 email 저장, 이후 Apple은 email 미제공 허용 |
 
+## 4.1 계정 탈퇴 (Phase 1.5)
+
+```mermaid
+sequenceDiagram
+    participant App
+    participant API
+    participant DB
+    participant Redis
+    participant Storage
+
+    App->>API: DELETE /api/v1/me
+    API->>DB: users.status=DELETED, deleted_at=now()
+    API->>DB: profiles 개인정보성 필드 비노출/초기화 정책 적용
+    API->>Redis: refresh token/session key 폐기
+    API->>Storage: avatar/private media 비공개 처리 또는 삭제 예약
+    API-->>App: 204
+    App->>App: 로컬 토큰 제거 + 로그인 화면 reset
+```
+
+정책 기본안:
+- 30일 복구 기간 동안 `oauth_identities` 는 유지하되 로그인 시 복구 분기를 노출한다.
+- 복구 기간 만료 후 provider 식별자와 개인정보성 프로필 필드 삭제 또는 irreversible anonymize 를 수행한다.
+- 공개 피드/댓글/시도 기록은 서비스 무결성을 위해 작성자 익명화 우선, 법적/정책상 삭제 요청 범위는 별도 약관에서 확정한다.
+- `profiles.avatar_media_id` 로 연결된 프로필 이미지는 즉시 비노출하고, 보관 기간 만료 후 삭제 대상으로 예약한다.
+
 ## 5. 보안 고려
 
 - idToken 서명 검증: JWKS 캐싱(1시간), `kid` 매핑

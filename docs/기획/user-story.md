@@ -65,6 +65,26 @@
 
 ---
 
+### US-AUTH-04: 계정 탈퇴 (Phase 1.5)
+
+> **As a** 클라이머
+> **I want** 앱/웹에서 계정을 탈퇴할 수 있고
+> **So that** 더 이상 서비스를 쓰지 않을 때 내 계정과 개인정보 처리를 직접 요청할 수 있다.
+
+**Acceptance Criteria**
+- [ ] app/web 프로필 또는 설정 화면에 탈퇴 진입점 제공
+- [ ] 탈퇴 전 확인 모달: 되돌릴 수 있는 기간, 삭제/익명화 범위, 재로그인 영향 안내
+- [ ] 백엔드 `DELETE /api/v1/me` 또는 `POST /api/v1/me:delete` 구현
+- [ ] refresh token 폐기 + 로컬 토큰 정리 + 로그인 화면 reset
+- [ ] `users.status=DELETED` soft delete 및 30일 복구 정책 확정
+- [ ] 게시물/댓글/시도/미디어 처리 정책 확정: 삭제, 익명화, 또는 보관 범위 명시
+
+**정책 메모**
+- Phase 1.5 기본안: 사용자 계정은 soft delete, 인증 식별자 재사용은 복구 기간 동안 차단.
+- 공개 피드에 노출된 컨텐츠는 작성자 익명화 우선, 개인정보성 프로필 필드는 즉시 비노출.
+
+---
+
 ## 프로필 (M2)
 
 ### US-PROF-01: 내 암장 설정
@@ -92,6 +112,26 @@
 - [ ] PATCH /api/v1/me/profile 의 nickname/bio/levelSelf 모두 web/app UI 지원
 - [ ] 닉네임 중복 검증
 - [ ] 자가 등급 슬라이더 (V0~V12)
+
+---
+
+### US-PROF-03: 프로필 이미지 업로드 (Phase 1.5)
+
+> **As a** 클라이머
+> **I want** 내 프로필 이미지를 직접 업로드하고 변경할 수 있고
+> **So that** 피드/암장 활동/댓글에서 나를 쉽게 알아볼 수 있다.
+
+**Acceptance Criteria**
+- [ ] app/web 프로필 편집 화면에서 이미지 선택·촬영·삭제 지원
+- [ ] 업로드는 기존 media presign/complete 흐름 재사용
+- [ ] 완료된 이미지 media id 를 `profiles.avatar_media_id` 에 연결
+- [ ] 이미지 제한: 정사각형 crop 권장, 최대 해상도/용량 제한, JPEG/WebP 변환 정책 확정
+- [ ] `GET /api/v1/me`, `GET /api/v1/users/{extId}`, 피드/댓글/암장 최근활동 응답에 avatar URL 노출
+- [ ] 실패 시 기존 아바타 유지, 업로드 중 저장 버튼 중복 방지
+
+**정책 메모**
+- 기본 placeholder 는 기존 이니셜/색상 아바타를 유지한다.
+- 탈퇴 시 avatar media 는 비공개 처리 또는 삭제 대상으로 포함한다.
 
 ---
 
