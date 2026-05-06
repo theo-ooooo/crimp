@@ -1,8 +1,6 @@
 import {
   useNavigation,
   useRoute,
-  type NavigationProp,
-  type ParamListBase,
   type RouteProp,
 } from '@react-navigation/native';
 import React, { useMemo } from 'react';
@@ -11,8 +9,9 @@ import { AuthHydrationGate } from '@/components/common/screen/AuthHydrationGate'
 import { SessionDetailBody } from '@/components/session-detail/SessionDetailBody';
 import { makeSessionDetailStyles } from '@/components/session-detail/sessionDetailStyles';
 import { useSessionDetailScreen } from '@/hooks/screens/useSessionDetailScreen';
+import { navigateHomeAfterSessionEnd } from '@/lib/navigation/sessionEndNavigation';
 import { useTokens } from '@/lib/useTokens';
-import type { RootStackParamList } from '@/navigation/types';
+import type { RootStackNavigationProp, RootStackParamList } from '@/navigation/types';
 import { useTokenStore } from '@/store/tokenStore';
 
 /**
@@ -25,7 +24,7 @@ import { useTokenStore } from '@/store/tokenStore';
 export default function SessionDetailScreen(): JSX.Element {
   const theme = useTokens();
   const route = useRoute<RouteProp<RootStackParamList, 'SessionDetail'>>();
-  const navigation = useNavigation<NavigationProp<ParamListBase>>();
+  const navigation = useNavigation<RootStackNavigationProp<'SessionDetail'>>();
   const { extId } = route.params;
   const hydrated = useTokenStore((s) => s.hydrated);
   const accessToken = useTokenStore((s) => s.accessToken);
@@ -45,10 +44,7 @@ export default function SessionDetailScreen(): JSX.Element {
           styles={styles}
           bgColor={theme.bg}
           textColor={theme.text}
-          onSessionEnded={() => {
-            const parent = navigation.getParent<NavigationProp<ParamListBase>>();
-            parent?.navigate('HomeTab', { screen: 'Home' });
-          }}
+          onSessionEnded={() => navigateHomeAfterSessionEnd(navigation)}
         />
       )}
     </AuthHydrationGate>
