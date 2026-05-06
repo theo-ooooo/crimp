@@ -12,6 +12,7 @@ import {
   type Asset,
   type ImageLibraryOptions,
 } from 'react-native-image-picker';
+import RNFS from 'react-native-fs';
 
 import { SecondaryButton } from '@/components/common/primitives';
 import type { CapturedMedia } from '@/lib/camera/types';
@@ -33,6 +34,7 @@ const PICKER_OPTIONS: ImageLibraryOptions = {
   mediaType: 'photo',
   selectionLimit: 1,
   quality: 0.9,
+  includeBase64: true,
 };
 
 type Props = {
@@ -237,13 +239,18 @@ async function assetToCapturedMedia(asset: Asset): Promise<CapturedMedia> {
     ? asset.fileSize
     : null;
   let detectedMime: DetectedImageMime | null = normalizeImageMime(asset.type);
+  let uri = asset.uri;
+  if (asset.base64 && detectedMime !== null) {
+    uri = await persistBase64Image(asset.base64, detectedMime);
+    byteSize = byteSize ?? measureBase64Bytes(asset.base64);
+  }
   if (detectedMime === null) {
-    const meta = await readImageMeta(asset.uri);
+    const meta = await readImageMeta(uri);
     byteSize = byteSize ?? meta.byteSize;
     detectedMime = detectedMime ?? meta.mime;
   }
   return {
-    uri: asset.uri,
+    uri,
     mime: detectedMime ?? 'image/jpeg',
     byteSize: byteSize ?? 1,
     width: positiveDimension(asset.width),
@@ -251,6 +258,40 @@ async function assetToCapturedMedia(asset: Asset): Promise<CapturedMedia> {
     durationMs: null,
     kind: 'IMAGE',
   };
+}
+
+async function persistBase64Image(
+  base64: string,
+  mime: DetectedImageMime,
+): Promise<string> {
+  const extension = imageExtension(mime);
+  const path = `${RNFS.CachesDirectoryPath}/profile-avatar-${Date.now()}.${extension}`;
+  await RNFS.writeFile(path, base64, 'base64');
+  return `file://${path}`;
+}
+
+function measureBase64Bytes(base64: string): number {
+  const normalized = base64.trim();
+  let padding = 0;
+  if (normalized.endsWith('==')) {
+    padding = 2;
+  } else if (normalized.endsWith('=')) {
+    padding = 1;
+  }
+  return Math.max(1, Math.floor((normalized.length * 3) / 4) - padding);
+}
+
+function imageExtension(mime: DetectedImageMime): string {
+  if (mime === 'image/png') {
+    return 'png';
+  }
+  if (mime === 'image/webp') {
+    return 'webp';
+  }
+  if (mime === 'image/heic') {
+    return 'heic';
+  }
+  return 'jpg';
 }
 
 function normalizeImageMime(mime: string | undefined): DetectedImageMime | null {
