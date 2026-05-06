@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { fetchSession, listAttempts, updateSession } from '@/lib/api';
 import type { CapturedMedia } from '@/lib/camera/types';
-import { uploadCapturedMedia } from '@/lib/media/upload';
+import { uploadCapturedMedia, uploadVideoWithOptionalPoster } from '@/lib/media/upload';
 
 import { useSessionDetailScreen } from './useSessionDetailScreen';
 
@@ -44,6 +44,26 @@ const CAPTURED: CapturedMedia = {
   byteSize: 1200,
   width: 800,
   height: 600,
+  durationMs: null,
+};
+
+const VIDEO: CapturedMedia = {
+  kind: 'VIDEO',
+  uri: 'file:///tmp/video.mp4',
+  mime: 'video/mp4',
+  byteSize: 2400,
+  width: null,
+  height: null,
+  durationMs: 3000,
+};
+
+const POSTER: CapturedMedia = {
+  kind: 'IMAGE',
+  uri: 'file:///tmp/poster.jpg',
+  mime: 'image/jpeg',
+  byteSize: 800,
+  width: 640,
+  height: 360,
   durationMs: null,
 };
 
@@ -100,6 +120,53 @@ describe('useSessionDetailScreen', () => {
       expect.objectContaining({ onPhase: expect.any(Function) }),
     );
     expect(latest.current.uploadedMediaId).toBe(99);
+    expect(latest.current.mediaUploadError).toBeNull();
+  });
+
+  it('keeps failed video and poster upload retryable with the same captured files', async () => {
+    (uploadVideoWithOptionalPoster as jest.Mock)
+      .mockRejectedValueOnce(new Error('poster upload failed'))
+      .mockResolvedValueOnce({
+        id: 100,
+        extId: '01JMEDIA0000000000000002',
+        kind: 'VIDEO',
+        status: 'READY',
+        cdnUrl: 'https://cdn.example.com/video.mp4',
+      });
+    const { latest } = await renderHook();
+
+    await act(async () => {
+      latest.current.onPosterUploadRequest(POSTER);
+      await flush();
+    });
+    expect(uploadVideoWithOptionalPoster).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await latest.current.handleCaptured(VIDEO);
+    });
+
+    await act(async () => {
+      latest.current.onPosterUploadRequest(POSTER);
+      await flush();
+    });
+
+    expect(uploadVideoWithOptionalPoster).toHaveBeenCalledTimes(1);
+    expect(latest.current.uploadedMediaId).toBeNull();
+    expect(latest.current.mediaUploadError).toBe('다시 시도해주세요. 네트워크나 사이즈 한도(이미지 20MB / 영상 200MB) 를 확인해보세요.');
+
+    await act(async () => {
+      latest.current.retryMediaUpload();
+      await flush();
+    });
+
+    expect(uploadVideoWithOptionalPoster).toHaveBeenCalledTimes(2);
+    expect(uploadVideoWithOptionalPoster).toHaveBeenLastCalledWith(
+      'access-token',
+      VIDEO,
+      POSTER,
+      expect.objectContaining({ onPhase: expect.any(Function) }),
+    );
+    expect(latest.current.uploadedMediaId).toBe(100);
     expect(latest.current.mediaUploadError).toBeNull();
   });
 });

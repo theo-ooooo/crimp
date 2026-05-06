@@ -143,7 +143,7 @@ export function LogAttemptSheet({
   };
 
   const onSave = () => {
-    if (mediaBusy) {
+    if (mediaBlocked) {
       return;
     }
     const trimmed = note.trim();
