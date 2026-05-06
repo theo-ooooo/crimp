@@ -82,7 +82,7 @@ CREATE TABLE profiles (
   nickname     VARCHAR(30) NOT NULL,
   nickname_configured BOOLEAN NOT NULL DEFAULT FALSE,
   bio          VARCHAR(300) NULL,
-  avatar_media_id BIGINT UNSIGNED NULL,
+  avatar_media_id BIGINT UNSIGNED NULL,    -- Phase 1.5: 프로필 이미지 media.id 참조
   level_self   TINYINT UNSIGNED NULL,       -- 자가 선언 레벨 (V0~V16)
   main_gym_id  BIGINT UNSIGNED NULL,
   updated_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -91,6 +91,10 @@ CREATE TABLE profiles (
   KEY idx_profiles_main_gym (main_gym_id)
 );
 ```
+
+> 프로필 이미지 업로드 메모: 기존 media 업로드 플로우(`presign` → object storage PUT → `complete`)로
+> 이미지 media row 를 만든 뒤 `profiles.avatar_media_id` 에 연결한다. 사용자가 이미지를 삭제하면
+> `avatar_media_id=NULL` 로 되돌리고, 탈퇴 시 avatar media 는 비공개 처리 또는 삭제 정책에 포함한다.
 
 ### 3.4 gyms (암장)
 ```sql
