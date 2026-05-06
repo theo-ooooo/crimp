@@ -11,6 +11,7 @@ import io.crimp.common.response.ApiResponse;
 import io.crimp.domain.gym.sync.DryRunResult;
 import io.crimp.domain.gym.sync.GymSyncDiff;
 import io.crimp.domain.gym.sync.GymSyncGridPreset;
+import io.crimp.domain.gym.sync.GymSyncRateLimitException;
 import io.crimp.domain.gym.sync.GymSyncService;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -25,6 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
@@ -137,13 +139,13 @@ class AdminGymSyncControllerTest {
                         inv.getArgument(0), inv.getArgument(1), 5000,
                         new GymSyncDiff.Result(0, List.of(), List.of(), List.of())));
 
-        ResponseEntity<ApiResponse<GridSyncResponse>> res = controller.syncGrid(
+        ResponseEntity<ApiResponse<?>> res = controller.syncGrid(
                 new GridSyncRequest(GymSyncGridPreset.SEOUL_GU, SyncMode.DRY_RUN));
 
         assertThat(res.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(res.getBody()).isNotNull();
         assertThat(res.getBody().status()).isTrue();
-        GridSyncResponse body = res.getBody().data();
+        GridSyncResponse body = (GridSyncResponse) res.getBody().data();
         assertThat(body.preset()).isEqualTo("SEOUL_GU");
         assertThat(body.mode()).isEqualTo("DRY_RUN");
         assertThat(body.regionCount()).isEqualTo(25);
@@ -169,11 +171,11 @@ class AdminGymSyncControllerTest {
         when(syncService.apply(any())).thenAnswer(inv ->
                 callIndex.getAndIncrement() < 24 ? applied : aborted);
 
-        ResponseEntity<ApiResponse<GridSyncResponse>> res = controller.syncGrid(
+        ResponseEntity<ApiResponse<?>> res = controller.syncGrid(
                 new GridSyncRequest(GymSyncGridPreset.SEOUL_GU, SyncMode.APPLY));
 
         assertThat(res.getStatusCode()).isEqualTo(HttpStatus.OK);
-        GridSyncResponse body = res.getBody().data();
+        GridSyncResponse body = (GridSyncResponse) res.getBody().data();
         assertThat(body.summary().applied()).isEqualTo(24);
         assertThat(body.summary().aborted()).isEqualTo(1);
         assertThat(body.summary().failed()).isZero();
@@ -191,14 +193,68 @@ class AdminGymSyncControllerTest {
                         new GymSyncDiff.Result(0, List.of(), List.of(), List.of())));
         when(syncService.apply(any())).thenReturn(GymSyncService.ApplyReport.applied(0, 0, 0, 0));
 
-        ResponseEntity<ApiResponse<GridSyncResponse>> res = controller.syncGrid(
+        ResponseEntity<ApiResponse<?>> res = controller.syncGrid(
                 new GridSyncRequest(GymSyncGridPreset.SEOUL_GU, SyncMode.APPLY));
 
-        GridSyncResponse body = res.getBody().data();
+        GridSyncResponse body = (GridSyncResponse) res.getBody().data();
         assertThat(body.summary().failed()).isEqualTo(1);
         assertThat(body.summary().applied()).isEqualTo(24);
         assertThat(body.results().get(0).status()).isEqualTo(RegionStatus.FAILED);
         assertThat(body.results().get(0).reason()).contains("kakao temporary outage");
         verify(syncService, atLeastOnce()).apply(any());
+    }
+
+    @Test
+    void grid_rateLimitStopsAndReturnsNextRegion() {
+        when(syncService.dryRun(any(), any(), eq(5000)))
+                .thenAnswer(inv -> new DryRunResult(
+                        inv.getArgument(0), inv.getArgument(1), 5000,
+                        new GymSyncDiff.Result(0, List.of(), List.of(), List.of())))
+                .thenThrow(new GymSyncRateLimitException("Kakao Local API limit exceeded"));
+
+        ResponseEntity<ApiResponse<?>> res = controller.syncGrid(
+                new GridSyncRequest(GymSyncGridPreset.SEOUL_GU, SyncMode.DRY_RUN));
+
+        GridSyncResponse body = (GridSyncResponse) res.getBody().data();
+        assertThat(body.interrupted()).isTrue();
+        assertThat(body.nextRegion()).isEqualTo("중구");
+        assertThat(body.regionCount()).isEqualTo(2);
+        assertThat(body.totalRegionCount()).isEqualTo(25);
+        assertThat(body.summary().dryRun()).isEqualTo(1);
+        assertThat(body.summary().failed()).isEqualTo(1);
+        assertThat(body.results().get(1).reason()).contains("limit exceeded");
+        verify(syncService, times(2)).dryRun(any(), any(), eq(5000));
+    }
+
+    @Test
+    void grid_canStartFromRegionAndLimitBatchSize() {
+        when(syncService.dryRun(any(), any(), eq(5000)))
+                .thenAnswer(inv -> new DryRunResult(
+                        inv.getArgument(0), inv.getArgument(1), 5000,
+                        new GymSyncDiff.Result(0, List.of(), List.of(), List.of())));
+
+        ResponseEntity<ApiResponse<?>> res = controller.syncGrid(
+                new GridSyncRequest(GymSyncGridPreset.SEOUL_GU, SyncMode.DRY_RUN, "마포구", 3, true));
+
+        GridSyncResponse body = (GridSyncResponse) res.getBody().data();
+        assertThat(body.interrupted()).isFalse();
+        assertThat(body.nextRegion()).isEqualTo("구로구");
+        assertThat(body.regionCount()).isEqualTo(3);
+        assertThat(body.totalRegionCount()).isEqualTo(25);
+        assertThat(body.results()).extracting(AdminGymSyncController.GridRegionResult::label)
+                .containsExactly("마포구", "양천구", "강서구");
+        verify(syncService, times(3)).dryRun(any(), any(), eq(5000));
+    }
+
+    @Test
+    void grid_rejectsUnknownStartRegion() {
+        ResponseEntity<ApiResponse<?>> res = controller.syncGrid(
+                new GridSyncRequest(GymSyncGridPreset.SEOUL_GU, SyncMode.DRY_RUN, "없는구", 3, true));
+
+        assertThat(res.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(res.getBody()).isNotNull();
+        assertThat(res.getBody().status()).isFalse();
+        assertThat(res.getBody().error().code()).isEqualTo("INVALID_START_REGION");
+        verify(syncService, never()).dryRun(any(), any(), anyInt());
     }
 }

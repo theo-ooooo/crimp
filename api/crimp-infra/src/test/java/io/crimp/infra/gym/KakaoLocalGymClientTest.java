@@ -1,6 +1,7 @@
 package io.crimp.infra.gym;
 
 import io.crimp.domain.gym.sync.RemoteGym;
+import io.crimp.domain.gym.sync.GymSyncRateLimitException;
 import io.crimp.infra.auth.KakaoProperties;
 import io.crimp.infra.gym.KakaoLocalGymClient.Document;
 import io.crimp.infra.gym.KakaoLocalGymClient.KakaoLocalException;
@@ -46,7 +47,7 @@ class KakaoLocalGymClientTest {
     private KakaoLocalProperties props() {
         // 모든 필드 null → record 의 default 메서드가 합리적 default 반환.
         // (PR #111) queryKeywords 추가 — null 이면 단일 queryKeyword 또는 DEFAULT_KEYWORDS fallback.
-        return new KakaoLocalProperties(null, null, null, null, null, null, null);
+        return new KakaoLocalProperties(null, null, null, null, null, null, null, null);
     }
 
     private Document doc(String id, String name, String addr, String roadAddr, String x, String y, String phone) {
@@ -117,11 +118,11 @@ class KakaoLocalGymClientTest {
     }
 
     @Test
-    void props_maxPagesDefaultsToKakaoLimitAndClamps() {
-        assertThat(props().resolvedMaxPages()).isEqualTo(45);
-        assertThat(new KakaoLocalProperties(null, null, null, null, null, null, 99).resolvedMaxPages())
+    void props_maxPagesDefaultsToSmallBatchAndClamps() {
+        assertThat(props().resolvedMaxPages()).isEqualTo(2);
+        assertThat(new KakaoLocalProperties(null, null, null, null, null, null, 99, null).resolvedMaxPages())
                 .isEqualTo(45);
-        assertThat(new KakaoLocalProperties(null, null, null, null, null, null, 12).resolvedMaxPages())
+        assertThat(new KakaoLocalProperties(null, null, null, null, null, null, 12, null).resolvedMaxPages())
                 .isEqualTo(12);
     }
 
@@ -191,6 +192,25 @@ class KakaoLocalGymClientTest {
                 .hasMessageContaining("Kakao Local API 요청 실패")
                 .hasMessageContaining("401")
                 .hasMessageContaining("invalid app key");
+    }
+
+    @Test
+    void fetch_kakaoLimitError_throwsRateLimitException() {
+        RestTemplate rt = mock(RestTemplate.class);
+        when(rt.exchange(any(URI.class), eq(HttpMethod.GET), any(HttpEntity.class), eq(KeywordResponse.class)))
+                .thenThrow(new HttpClientErrorException(
+                        HttpStatus.BAD_REQUEST,
+                        "Bad Request",
+                        "{\"errorType\":\"BadRequest\",\"message\":\"API limit has been exceeded.\",\"code\":-10}"
+                                .getBytes(StandardCharsets.UTF_8),
+                        StandardCharsets.UTF_8));
+
+        var client = new KakaoLocalGymClient(rt, auth("REST-KEY"), props());
+
+        assertThatThrownBy(() -> client.fetchByRadius(LAT, LNG, 5000))
+                .isInstanceOf(GymSyncRateLimitException.class)
+                .hasMessageContaining("limit exceeded")
+                .hasMessageContaining("400");
     }
 
     @Test

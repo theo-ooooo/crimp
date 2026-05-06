@@ -106,7 +106,7 @@ sequenceDiagram
 
 - 엔드포인트: `GET https://dapi.kakao.com/v2/local/search/keyword.json`
 - 헤더: `Authorization: KakaoAK <REST_API_KEY>`
-- 파라미터: `query=클라이밍, x=lng, y=lat, radius=5000, size=15, page=1..3`
+- 파라미터: `query=클라이밍, x=lng, y=lat, radius=5000, size=15, page=1..maxPages`
 - 응답: `documents[]` (id, place_name, address_name, road_address_name, x, y, phone) + `meta.is_end`
 - 설정: `app.gym-sync.kakao-local.*` (application.yml)
 - API 키: `KAKAO_REST_API_KEY` env (OAuth 흐름과 동일 키 재사용)
@@ -115,14 +115,15 @@ sequenceDiagram
 
 | 항목 | 상태 |
 | --- | --- |
-| `@Scheduled` 트리거 | 본 PR 미포함. `@EnableScheduling` 도 미설정 |
-| admin API (`POST /api/v1/admin/gyms/sync`) | 미구현. 인증·권한 가드 필요해 별도 설계 |
+| `@Scheduled` 트리거 | 구현 완료. 기본 비활성, `GYM_SYNC_SCHEDULER_ENABLED=true` 로 활성화 |
+| admin API (`POST /api/v1/admin/gyms/sync`) | 구현 완료. 단일 좌표 sync 및 grid preset sync 지원 |
 | `Gym` 엔티티의 update 메서드 | 구현 완료. `Gym.applyRemoteUpdate(brand, phone, lat, lng)` 로 좌표·brand·phone 만 갱신 (이름/주소는 매칭 키로 보존) |
 | 폐업 마킹 (status=CLOSED) | 미구현. 다중 좌표 호출 통합 단계 필요 |
 | Slack/Discord webhook | 미구현 |
 | `gym_sync_log` 감사 테이블 | 구현 완료 (PR #87). apply 1회당 row 1건 — APPLIED / ABORTED_RATIO_GUARD 상태 + diff 입력·실제 적용 카운트 + 좌표 컨텍스트 |
 | 다중 소스 (Naver Place 등) | 미구현 |
-| 좌표 격자 자동 스캔 | 서울 25개 구 (`SEOUL_GU` preset) 구현 (PR #89). `POST /api/v1/admin/gyms/sync/grid` 로 일괄 호출, 각 구는 독립 트랜잭션 — 한 구 실패가 다른 구를 막지 않음. 타 광역(부산/대구 등) 은 추후 preset 추가 |
+| 좌표 격자 자동 스캔 | 서울 25개 구 (`SEOUL_GU` preset) 구현 (PR #89). `POST /api/v1/admin/gyms/sync/grid` 로 일괄 호출. `startRegion`, `maxRegions` 로 분할 실행 가능하며 Kakao limit 발생 시 기본적으로 즉시 중단하고 `nextRegion` 을 내려 재개 지점을 알려준다. 타 광역(부산/대구 등) 은 추후 preset 추가 |
+| Kakao Local rate limit | 다중 키워드 × 25개 구 호출은 short limit 에 쉽게 걸린다. 기본 `max-pages=2`, 필요 시 `KAKAO_LOCAL_REQUEST_DELAY_MS` 로 요청 간 지연을 둔다. |
 | Brand 추정 정확도 | 단순 prefix 추정 — `BrandNormalizer` 의 synonym 사전이 보강 |
 | 좌표 정확도 검수 (PR #82 후속) | 본 어댑터를 활용해 시드 13곳 좌표 갱신 가능 |
 

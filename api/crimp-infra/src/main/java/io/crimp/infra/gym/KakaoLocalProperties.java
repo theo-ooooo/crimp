@@ -22,6 +22,8 @@ import java.util.List;
  * @param pageSize 1 호출당 결과 수. Kakao 최대 15.
  * @param maxPages 한 좌표·키워드 호출에서 최대 몇 페이지까지 가져올지 (페이지네이션).
  *                 Kakao Local keyword search 의 page 허용 범위는 1..45 이므로 그 이상은 45로 제한.
+ * @param requestDelayMs Kakao Local 요청 사이 지연(ms). 기본 0. 운영에서 짧은 rate limit 에
+ *                       걸리면 100~300ms 정도로 조정한다.
  */
 @ConfigurationProperties(prefix = "app.gym-sync.kakao-local")
 public record KakaoLocalProperties(
@@ -31,7 +33,8 @@ public record KakaoLocalProperties(
         String queryKeyword,
         List<String> queryKeywords,
         Integer pageSize,
-        Integer maxPages
+        Integer maxPages,
+        Long requestDelayMs
 ) {
 
     private static final List<String> DEFAULT_KEYWORDS = List.of(
@@ -81,8 +84,12 @@ public record KakaoLocalProperties(
 
     public int resolvedMaxPages() {
         if (maxPages == null || maxPages <= 0) {
-            return 45;
+            return 2;
         }
         return Math.min(maxPages, 45);
+    }
+
+    public long resolvedRequestDelayMs() {
+        return requestDelayMs != null && requestDelayMs > 0 ? requestDelayMs : 0L;
     }
 }
