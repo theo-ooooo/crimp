@@ -85,6 +85,7 @@ export type LogAttemptSheetProps = {
    * `mediaId` 로 첨부해 attempt 와 미디어를 영구 연결. null 이면 미첨부 상태.
    */
   attachedMediaId?: number | null;
+  mediaUploadError?: string | null;
   /**
    * (PR #115/#116 후속) 미디어 진행 단계 — 'compressing' | 'uploading' | 'idle'.
    * - compressing: 비디오/이미지 압축 중 (10분 비디오는 30s+).
@@ -104,6 +105,7 @@ export type LogAttemptSheetProps = {
    * UI 토글은 후속에서 보강.
    */
   onClearMedia?: () => void;
+  onRetryMediaUpload?: () => void;
 };
 
 export function LogAttemptSheet({
@@ -113,9 +115,11 @@ export function LogAttemptSheet({
   onClose,
   onCamera,
   attachedMediaId = null,
+  mediaUploadError = null,
   mediaPhase = 'idle',
   onDismissed,
   onClearMedia,
+  onRetryMediaUpload,
 }: LogAttemptSheetProps): JSX.Element {
   const theme = useTokens();
   const reducedMotion = useReducedMotion();
@@ -128,6 +132,7 @@ export function LogAttemptSheet({
   const [hold, setHold] = useState<HoldColorKey>('red');
   const [note, setNote] = useState<string>('');
   const mediaBusy = mediaPhase !== 'idle';
+  const mediaBlocked = mediaBusy || mediaUploadError !== null;
 
   const reset = () => {
     setResult('SEND');
@@ -331,6 +336,40 @@ export function LogAttemptSheet({
                     </Text>
                   </View>
                 </View>
+              ) : mediaUploadError !== null ? (
+                <View style={styles.mediaErrorRow}>
+                  <View style={styles.mediaErrorHeader}>
+                    <CrimpIcon.close size={18} color={theme.semantic.danger} />
+                    <View style={styles.mediaErrorTextWrap}>
+                      <Text style={styles.mediaErrorTitle}>
+                        {t('session.log.mediaUploadFailed')}
+                      </Text>
+                      <Text style={styles.mediaErrorBody}>{mediaUploadError}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.mediaErrorActions}>
+                    <Pressable
+                      onPress={onRetryMediaUpload}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('session.log.mediaUploadRetry')}
+                      hitSlop={8}
+                    >
+                      <Text style={styles.mediaRetryText}>
+                        {t('session.log.mediaUploadRetry')}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => onClearMedia?.()}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('session.log.mediaClear')}
+                      hitSlop={8}
+                    >
+                      <Text style={styles.attachedClear}>
+                        {t('session.log.mediaClear')}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
               ) : attachedMediaId !== null ? (
                 // [PR #92, F5 PR-3] 미디어 첨부 완료 — 두 셀 대신 첨부 표시 + 다시 촬영 버튼.
                 <View style={styles.attachedRow}>
@@ -425,15 +464,17 @@ export function LogAttemptSheet({
               ) : (
                 <PrimaryButton
                   onPress={onSave}
-                  disabled={mediaBusy}
+                  disabled={mediaBlocked}
                   accessibilityLabel={t('session.log.save')}
                 >
                   {t('session.log.save')}
                 </PrimaryButton>
               )}
-              {mediaBusy ? (
+              {mediaBlocked ? (
                 <Text style={styles.saveHint}>
-                  {t('session.log.saveBlockedByMedia')}
+                  {mediaUploadError
+                    ? t('session.log.saveBlockedByMediaError')
+                    : t('session.log.saveBlockedByMedia')}
                 </Text>
               ) : null}
             </View>
@@ -616,6 +657,51 @@ function makeStyles(theme: Theme) {
       fontSize: 13,
       fontWeight: fontWeight.semibold,
       color: theme.text2,
+      textDecorationLine: 'underline',
+    },
+    mediaErrorRow: {
+      paddingHorizontal: space[3],
+      paddingVertical: space[3],
+      borderRadius: radius.lg,
+      borderWidth: 1.5,
+      borderStyle: 'solid',
+      borderColor: theme.semantic.danger,
+      backgroundColor: withAlpha(theme.semantic.danger, 0.08),
+      gap: space[3],
+    },
+    mediaErrorHeader: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: space[2],
+    },
+    mediaErrorTextWrap: {
+      flex: 1,
+      gap: space[1],
+    },
+    mediaErrorTitle: {
+      fontFamily,
+      fontSize: 14,
+      fontWeight: fontWeight.bold,
+      color: theme.text,
+    },
+    mediaErrorBody: {
+      fontFamily,
+      fontSize: 12,
+      fontWeight: fontWeight.medium,
+      color: theme.text2,
+      lineHeight: 17,
+    },
+    mediaErrorActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      gap: space[4],
+    },
+    mediaRetryText: {
+      fontFamily,
+      fontSize: 13,
+      fontWeight: fontWeight.bold,
+      color: theme.semantic.danger,
       textDecorationLine: 'underline',
     },
     cameraCell: {

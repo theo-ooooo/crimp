@@ -42,6 +42,8 @@ type Props = {
   onPosterModalDismissed: () => void;
   mediaPhase: 'idle' | 'compressing' | 'uploading';
   uploadedMediaId: number | null;
+  mediaUploadError: string | null;
+  onRetryMediaUpload: () => void;
   onClearMedia: () => void;
   onEndSession: () => void;
   endPending: boolean;
@@ -76,6 +78,8 @@ export function SessionDetailBody(props: Props): JSX.Element {
     onPosterModalDismissed,
     mediaPhase,
     uploadedMediaId,
+    mediaUploadError,
+    onRetryMediaUpload,
     onClearMedia,
     onEndSession,
     endPending,
@@ -147,6 +151,8 @@ export function SessionDetailBody(props: Props): JSX.Element {
             onCamera={(mode) => onCameraMode(mode)}
             attachedMediaId={uploadedMediaId}
             mediaPhase={mediaPhase}
+            mediaUploadError={mediaUploadError}
+            onRetryMediaUpload={onRetryMediaUpload}
             onClearMedia={onClearMedia}
           />
           <CameraSheet

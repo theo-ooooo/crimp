@@ -15,6 +15,11 @@ import {
 import type { Attempt } from '@/lib/schemas/attempt';
 import type { CameraMode } from '@/components/common/session';
 
+type PendingMediaUpload = {
+  media: CapturedMedia;
+  poster: CapturedMedia | null;
+};
+
 export function useSessionDetailScreen(
   accessToken: string,
   extId: string,
@@ -34,6 +39,8 @@ export function useSessionDetailScreen(
     'idle',
   );
   const [uploadedMediaId, setUploadedMediaId] = useState<number | null>(null);
+  const [pendingMediaUpload, setPendingMediaUpload] = useState<PendingMediaUpload | null>(null);
+  const [mediaUploadError, setMediaUploadError] = useState<string | null>(null);
   const [videoAwaitingPoster, setVideoAwaitingPoster] = useState<CapturedMedia | null>(null);
   const pendingVideoForPosterRef = useRef<CapturedMedia | null>(null);
 
@@ -125,6 +132,47 @@ export function useSessionDetailScreen(
     }
   };
 
+  const runMediaUpload = useCallback(
+    async (upload: PendingMediaUpload) => {
+      setPendingMediaUpload(upload);
+      setMediaUploadError(null);
+      setMediaPhase('compressing');
+      try {
+        const completed =
+          upload.media.kind === 'VIDEO'
+            ? await uploadVideoWithOptionalPoster(accessToken, upload.media, upload.poster, {
+                onPhase: (phase) => setMediaPhase(phase),
+              })
+            : await uploadCapturedMedia(accessToken, upload.media, {
+                onPhase: (phase) => setMediaPhase(phase),
+              });
+        setUploadedMediaId(completed.id);
+        setPendingMediaUpload(null);
+        setMediaUploadError(null);
+      } catch (e) {
+        const body = describeMediaUploadFailure(e);
+        setMediaUploadError(body);
+        Alert.alert(t('session.log.uploadFailed'), body);
+      } finally {
+        setMediaPhase('idle');
+      }
+    },
+    [accessToken],
+  );
+
+  const retryMediaUpload = useCallback(() => {
+    if (!pendingMediaUpload || mediaPhase !== 'idle') {
+      return;
+    }
+    runMediaUpload(pendingMediaUpload).catch(() => {});
+  }, [pendingMediaUpload, mediaPhase, runMediaUpload]);
+
+  const clearMediaAttachment = useCallback(() => {
+    setUploadedMediaId(null);
+    setPendingMediaUpload(null);
+    setMediaUploadError(null);
+  }, []);
+
   const onPosterUploadRequest = useCallback(
     (poster: CapturedMedia | null) => {
       const v = pendingVideoForPosterRef.current;
@@ -141,36 +189,9 @@ export function useSessionDetailScreen(
       if (!v) {
         return;
       }
-      setMediaPhase('compressing');
-      const run = async () => {
-        try {
-          const completed = await uploadVideoWithOptionalPoster(accessToken, v, poster, {
-            onPhase: (phase) => setMediaPhase(phase),
-          });
-          setUploadedMediaId(completed.id);
-        } catch (e) {
-          let body: string;
-          if (e instanceof ApiError) {
-            body = toUserMessage(e);
-          } else if (e instanceof MediaUploadError) {
-            body =
-              e.phase === 'local-read'
-                ? t('error.uploadLocalRead')
-                : e.phase === 'network'
-                  ? t('error.uploadNetwork')
-                  : t('error.uploadS3');
-          } else {
-            body = t('session.log.uploadFailedRetry');
-          }
-          Alert.alert(t('session.log.uploadFailed'), body);
-        } finally {
-          setMediaPhase('idle');
-          // LogAttemptSheet 재오픈은 위에서 (Android 는 즉시 / iOS 는 onPosterModalDismissed) 처리.
-        }
-      };
-      run().catch(() => {});
+      runMediaUpload({ media: v, poster }).catch(() => {});
     },
-    [accessToken],
+    [runMediaUpload],
   );
 
   const handleCaptured = async (captured: CapturedMedia) => {
@@ -200,30 +221,7 @@ export function useSessionDetailScreen(
     if (Platform.OS === 'android') {
       setLogSheetOpen(true);
     }
-    setMediaPhase('compressing');
-    try {
-      const completed = await uploadCapturedMedia(accessToken, captured, {
-        onPhase: (phase) => setMediaPhase(phase),
-      });
-      setUploadedMediaId(completed.id);
-    } catch (e) {
-      let body: string;
-      if (e instanceof ApiError) {
-        body = toUserMessage(e);
-      } else if (e instanceof MediaUploadError) {
-        body =
-          e.phase === 'local-read'
-            ? t('error.uploadLocalRead')
-            : e.phase === 'network'
-              ? t('error.uploadNetwork')
-              : t('error.uploadS3');
-      } else {
-        body = t('session.log.uploadFailedRetry');
-      }
-      Alert.alert(t('session.log.uploadFailed'), body);
-    } finally {
-      setMediaPhase('idle');
-    }
+    await runMediaUpload({ media: captured, poster: null });
   };
 
   const endSessionAction = () => {
@@ -253,7 +251,9 @@ export function useSessionDetailScreen(
     setCameraMode,
     mediaPhase,
     uploadedMediaId,
-    setUploadedMediaId,
+    mediaUploadError,
+    retryMediaUpload,
+    clearMediaAttachment,
     openCamera,
     closeCamera,
     onLogSheetDismissed,
@@ -264,4 +264,18 @@ export function useSessionDetailScreen(
     onPosterUploadRequest,
     onPosterModalDismissed,
   };
+}
+
+function describeMediaUploadFailure(e: unknown): string {
+  if (e instanceof ApiError) {
+    return toUserMessage(e);
+  }
+  if (e instanceof MediaUploadError) {
+    return e.phase === 'local-read'
+      ? t('error.uploadLocalRead')
+      : e.phase === 'network'
+        ? t('error.uploadNetwork')
+        : t('error.uploadS3');
+  }
+  return t('session.log.uploadFailedRetry');
 }

@@ -96,7 +96,9 @@ function SessionDetailLoggedInContainer({
       onPosterModalDismissed={detail.onPosterModalDismissed}
       mediaPhase={detail.mediaPhase}
       uploadedMediaId={detail.uploadedMediaId}
-      onClearMedia={() => detail.setUploadedMediaId(null)}
+      mediaUploadError={detail.mediaUploadError}
+      onRetryMediaUpload={detail.retryMediaUpload}
+      onClearMedia={detail.clearMediaAttachment}
       onEndSession={detail.endSessionAction}
       endPending={detail.endSession.isPending}
       endError={detail.endSession.error ?? null}
