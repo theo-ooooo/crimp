@@ -122,7 +122,7 @@ public class FeedService {
     }
 
     /**
-     * post_media 행 리스트를 postId 별로 group + cdn-base-url + s3_key 합성. seq 순서는
+     * post_media 행 리스트를 postId 별로 group + cdn-base-url + 저장 path 합성. seq 순서는
      * 리포지토리 쿼리가 보장 (ORDER BY post_id, seq). LinkedHashMap 으로 입력 순서 유지.
      *
      * <p>{@code cdnBaseUrl} 이 null/공백이면 (env 미설정) 미디어를 응답에서 모두 제외 — 클라가
@@ -137,18 +137,30 @@ public class FeedService {
                 ? cdnBaseUrl.substring(0, cdnBaseUrl.length() - 1)
                 : cdnBaseUrl;
         for (FeedMediaRow r : rows) {
-            String url = base + "/" + r.s3Key();
+            String mediaPath = displayPath(r.originalPath(), r.variantPath());
+            if (mediaPath == null) {
+                continue;
+            }
+            String url = base + "/" + mediaPath;
             String thumb = null;
-            if (r.kind() == MediaKind.VIDEO
-                    && r.posterS3Key() != null
-                    && !r.posterS3Key().isBlank()) {
-                thumb = base + "/" + r.posterS3Key();
+            if (r.kind() == MediaKind.VIDEO && r.thumbnailPath() != null && !r.thumbnailPath().isBlank()) {
+                thumb = base + "/" + r.thumbnailPath();
             }
             grouped
                     .computeIfAbsent(r.feedPostId(), k -> new ArrayList<>())
                     .add(new FeedMediaItem(r.kind(), url, thumb));
         }
         return grouped;
+    }
+
+    private static String displayPath(String originalPath, String variantPath) {
+        if (variantPath != null && !variantPath.isBlank()) {
+            return variantPath;
+        }
+        if (originalPath != null && !originalPath.isBlank()) {
+            return originalPath;
+        }
+        return null;
     }
 
     /**

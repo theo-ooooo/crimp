@@ -68,7 +68,7 @@ public class MediaController {
         var result = mediaService.presignUpload(principal.userId(), kind, usage, req.mime(), req.byteSize());
         return new PresignResponse(
                 result.id(), result.extId(),
-                result.uploadUrl(), result.s3Key(),
+                result.uploadUrl(), result.originalPath(), result.originalPath(),
                 result.expiresAt(), result.mime(), result.usage().name());
     }
 
@@ -76,7 +76,7 @@ public class MediaController {
             summary = "업로드 완료 보고",
             description = "S3 PUT 성공 후 호출. byteSize/width/height/durationMs 메타 + READY 전환. "
                     + "본인 소유가 아닌 미디어 호출 시 403 MEDIA_FORBIDDEN. UPLOADING 외 상태에서 호출 시 409. "
-                    + "응답의 cdnUrl 은 cdn-base-url 미설정 시 null — 그 경우 클라는 s3Key 를 통해 별도 처리."
+                    + "응답의 cdnUrl 은 cdn-base-url 미설정 시 null — 그 경우 클라는 originalPath 를 통해 별도 처리."
     )
     @PostMapping("/{id}/complete")
     public CompleteResponse complete(
@@ -91,7 +91,9 @@ public class MediaController {
                 result.id(), result.extId(), result.kind().name(), result.status().name(),
                 result.usage().name(), result.mime(), result.byteSize(),
                 result.width(), result.height(), result.durationMs(),
-                result.s3Key(), result.cdnUrl(), result.thumbnailCdnUrl(), result.createdAt());
+                result.originalPath(), result.originalPath(), result.variantPath(),
+                result.originalUrl(), result.variantUrl(), result.cdnUrl(), result.thumbnailCdnUrl(),
+                result.createdAt());
     }
 
     @ExceptionHandler(MediaException.class)
@@ -139,7 +141,10 @@ public class MediaController {
     ) {}
 
     public record PresignResponse(
-            long id, String extId, String uploadUrl, String s3Key,
+            long id, String extId, String uploadUrl,
+            // Deprecated API field kept as originalPath alias for existing app builds.
+            String s3Key,
+            String originalPath,
             Instant expiresAt, String mime, String usage
     ) {}
 
@@ -155,7 +160,10 @@ public class MediaController {
     public record CompleteResponse(
             long id, String extId, String kind, String status, String usage, String mime,
             Long byteSize, Integer width, Integer height, Integer durationMs,
-            // [PR #90 리뷰 I1] cdnUrl 은 cdn-base-url 미설정 시 null — 클라는 s3Key 를 별도 활용.
-            String s3Key, String cdnUrl, String thumbnailCdnUrl, Instant createdAt
+            // Deprecated API field kept as originalPath alias for existing app builds.
+            String s3Key,
+            String originalPath, String variantPath,
+            String originalUrl, String variantUrl, String cdnUrl, String thumbnailCdnUrl,
+            Instant createdAt
     ) {}
 }

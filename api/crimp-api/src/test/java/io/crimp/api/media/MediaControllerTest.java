@@ -55,7 +55,7 @@ class MediaControllerTest {
 
         assertThat(res.id()).isEqualTo(42L);
         assertThat(res.uploadUrl()).isEqualTo("https://s3.test/presigned");
-        assertThat(res.s3Key()).startsWith("media/");
+        assertThat(res.originalPath()).startsWith("media/");
         assertThat(res.usage()).isEqualTo("AVATAR");
     }
 
@@ -74,6 +74,8 @@ class MediaControllerTest {
                         42L, "01HMEDIA", MediaKind.IMAGE, MediaStatus.READY,
                         MediaUsage.ATTEMPT, "image/jpeg", 12345L, 1920, 1080, null,
                         "media/2026-04-28/01HMEDIA.jpg",
+                        null,
+                        "https://cdn.test/media/2026-04-28/01HMEDIA.jpg", null,
                         "https://cdn.test/media/2026-04-28/01HMEDIA.jpg", null,
                         Instant.parse("2026-04-28T13:00:00Z")));
 
@@ -83,8 +85,12 @@ class MediaControllerTest {
         assertThat(res.id()).isEqualTo(42L);
         assertThat(res.status()).isEqualTo("READY");
         assertThat(res.cdnUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA.jpg");
-        // [PR #90 리뷰 I1] s3Key 가 응답에 포함되어야 함.
+        // s3Key 는 기존 앱 호환 alias 로 유지, 신규 필드는 originalPath.
         assertThat(res.s3Key()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
+        assertThat(res.originalPath()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
+        assertThat(res.originalUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA.jpg");
+        assertThat(res.variantPath()).isNull();
+        assertThat(res.variantUrl()).isNull();
         verify(service).completeUpload(42L, 7L, 12345L, 1920, 1080, null, null);
     }
 

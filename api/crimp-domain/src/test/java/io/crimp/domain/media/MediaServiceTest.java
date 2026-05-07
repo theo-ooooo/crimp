@@ -5,7 +5,17 @@ import io.crimp.core.entity.enums.MediaKind;
 import io.crimp.core.entity.enums.MediaStatus;
 import io.crimp.core.entity.enums.MediaUsage;
 import io.crimp.core.entity.media.MediaAsset;
+import io.crimp.core.entity.media.MediaImage;
+import io.crimp.core.entity.media.MediaImageVariant;
+import io.crimp.core.entity.media.MediaVideo;
+import io.crimp.core.entity.media.MediaVideoThumbnail;
+import io.crimp.core.entity.media.MediaVideoVariant;
 import io.crimp.core.repository.media.MediaAssetRepository;
+import io.crimp.core.repository.media.MediaImageRepository;
+import io.crimp.core.repository.media.MediaImageVariantRepository;
+import io.crimp.core.repository.media.MediaVideoRepository;
+import io.crimp.core.repository.media.MediaVideoThumbnailRepository;
+import io.crimp.core.repository.media.MediaVideoVariantRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -32,6 +42,11 @@ import static org.mockito.Mockito.when;
 class MediaServiceTest {
 
     private MediaAssetRepository repo;
+    private MediaImageRepository imageRepo;
+    private MediaImageVariantRepository imageVariantRepo;
+    private MediaVideoRepository videoRepo;
+    private MediaVideoThumbnailRepository videoThumbnailRepo;
+    private MediaVideoVariantRepository videoVariantRepo;
     private MediaPresigner presigner;
     private AppProperties appProps;
     private MediaService service;
@@ -39,10 +54,15 @@ class MediaServiceTest {
     @BeforeEach
     void setUp() {
         repo = mock(MediaAssetRepository.class);
+        imageRepo = mock(MediaImageRepository.class);
+        imageVariantRepo = mock(MediaImageVariantRepository.class);
+        videoRepo = mock(MediaVideoRepository.class);
+        videoThumbnailRepo = mock(MediaVideoThumbnailRepository.class);
+        videoVariantRepo = mock(MediaVideoVariantRepository.class);
         presigner = mock(MediaPresigner.class);
         appProps = new AppProperties("Crimp", "test", null,
                 new AppProperties.Media("https://cdn.test", 600));
-        service = new MediaService(repo, presigner, appProps);
+        service = new MediaService(repo, imageRepo, imageVariantRepo, videoRepo, videoThumbnailRepo, videoVariantRepo, presigner, appProps);
 
         // save 는 입력 그대로 반환하면서 id 는 reflection 으로 채워줌 — 도메인 서비스는 id 가 채워진 가정.
         when(repo.save(any(MediaAsset.class))).thenAnswer(inv -> {
@@ -66,18 +86,18 @@ class MediaServiceTest {
         assertThat(saved.getOwnerUserId()).isEqualTo(7L);
         assertThat(saved.getKind()).isEqualTo(MediaKind.IMAGE);
         assertThat(saved.getUsage()).isEqualTo(MediaUsage.ATTEMPT);
-        assertThat(saved.getMime()).isEqualTo("image/jpeg");
+        assertThat(saved.getOriginalMime()).isEqualTo("image/jpeg");
         assertThat(saved.getStatus()).isEqualTo(MediaStatus.UPLOADING);
         // [PR #96] media/users/{userId}/{kind}/YYYY/MM/DD/<extId>.<ext> 구조.
-        assertThat(saved.getS3Key())
+        assertThat(saved.getOriginalPath())
                 .startsWith("media/users/7/attempt/image/")
                 .matches("media/users/7/attempt/image/\\d{4}/\\d{2}/\\d{2}/[A-Z0-9]{26}\\.jpg");
 
         assertThat(result.id()).isEqualTo(42L);
-        assertThat(result.uploadUrl()).contains(saved.getS3Key());
+        assertThat(result.uploadUrl()).contains(saved.getOriginalPath());
         assertThat(result.expiresAt()).isAfter(Instant.parse("2026-01-01T00:00:00Z"));
         // [PR #90 리뷰 I2] presigner 가 byteSize 를 받았는지 검증.
-        verify(presigner).presignPut(eq(saved.getS3Key()), eq("image/jpeg"), eq(12345L), any(Duration.class));
+        verify(presigner).presignPut(eq(saved.getOriginalPath()), eq("image/jpeg"), eq(12345L), any(Duration.class));
     }
 
     @Test
@@ -87,7 +107,7 @@ class MediaServiceTest {
         ArgumentCaptor<MediaAsset> captor = ArgumentCaptor.forClass(MediaAsset.class);
         verify(repo).save(captor.capture());
         // usage/kind prefix 로 업로드 의도와 미디어 타입을 같이 드러낸다.
-        assertThat(captor.getValue().getS3Key())
+        assertThat(captor.getValue().getOriginalPath())
                 .startsWith("media/users/42/attempt/video/")
                 .endsWith(".mp4");
     }
@@ -99,7 +119,7 @@ class MediaServiceTest {
         ArgumentCaptor<MediaAsset> captor = ArgumentCaptor.forClass(MediaAsset.class);
         verify(repo).save(captor.capture());
         assertThat(captor.getValue().getUsage()).isEqualTo(MediaUsage.AVATAR);
-        assertThat(captor.getValue().getS3Key()).startsWith("media/users/7/avatar/image/");
+        assertThat(captor.getValue().getOriginalPath()).startsWith("media/users/7/avatar/image/");
     }
 
     @Test
@@ -155,12 +175,63 @@ class MediaServiceTest {
         var result = service.completeUpload(100L, 7L, 12345L, 1920, 1080, null, null);
 
         assertThat(asset.getStatus()).isEqualTo(MediaStatus.READY);
-        assertThat(asset.getByteSize()).isEqualTo(12345L);
-        assertThat(asset.getWidth()).isEqualTo(1920);
-        assertThat(asset.getHeight()).isEqualTo(1080);
-        // cdn URL 은 응답 시점에 base + s3Key 로 합성 — DB 에 저장하지 않음.
+        assertThat(asset.getOriginalByteSize()).isEqualTo(12345L);
+        verify(imageRepo).save(any(MediaImage.class));
+        // cdn URL 은 응답 시점에 base + originalPath 로 합성 — DB 에 저장하지 않음.
         assertThat(result.cdnUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA.jpg");
-        assertThat(result.s3Key()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
+        assertThat(result.originalPath()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
+    }
+
+    @Test
+    void completeUpload_whenTypeRowAlreadyExists_doesNotInsertDuplicate() {
+        MediaAsset asset = MediaAsset.createUploading("01HMEDIA", 7L, MediaKind.IMAGE,
+                "image/jpeg", "media/2026-04-28/01HMEDIA.jpg");
+        setId(asset, 100L);
+        when(repo.findById(100L)).thenReturn(Optional.of(asset));
+        when(imageRepo.existsById(100L)).thenReturn(true);
+
+        service.completeUpload(100L, 7L, 12345L, 1920, 1080, null, null);
+
+        assertThat(asset.getStatus()).isEqualTo(MediaStatus.READY);
+        verify(imageRepo, never()).save(any(MediaImage.class));
+    }
+
+    @Test
+    void completeUpload_whenImageVariantExists_prefersVariantForDisplayCdnUrl() {
+        MediaAsset asset = MediaAsset.createUploading("01HMEDIA", 7L, MediaKind.IMAGE,
+                "image/jpeg", "media/2026-04-28/01HMEDIA.jpg");
+        MediaImageVariant variant = mock(MediaImageVariant.class);
+        setId(asset, 100L);
+        when(repo.findById(100L)).thenReturn(Optional.of(asset));
+        when(variant.getPath()).thenReturn("media/2026-04-28/01HMEDIA.webp");
+        when(imageVariantRepo.findFirstByMediaIdAndStatusAndPrimaryTrueOrderByIdDesc(100L, MediaStatus.READY))
+                .thenReturn(Optional.of(variant));
+
+        var result = service.completeUpload(100L, 7L, 12345L, 1920, 1080, null, null);
+
+        assertThat(result.originalPath()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
+        assertThat(result.variantPath()).isEqualTo("media/2026-04-28/01HMEDIA.webp");
+        assertThat(result.originalUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA.jpg");
+        assertThat(result.variantUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA.webp");
+        assertThat(result.cdnUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA.webp");
+    }
+
+    @Test
+    void completeUpload_whenVideoVariantExists_prefersVariantForDisplayCdnUrl() {
+        MediaAsset asset = MediaAsset.createUploading("01HMEDIA", 7L, MediaKind.VIDEO,
+                "video/mp4", "media/2026-04-28/01HMEDIA.mp4");
+        MediaVideoVariant variant = mock(MediaVideoVariant.class);
+        setId(asset, 100L);
+        when(repo.findById(100L)).thenReturn(Optional.of(asset));
+        when(variant.getPath()).thenReturn("media/2026-04-28/01HMEDIA-compressed.mp4");
+        when(videoVariantRepo.findFirstByMediaIdAndStatusAndPrimaryTrueOrderByIdDesc(100L, MediaStatus.READY))
+                .thenReturn(Optional.of(variant));
+
+        var result = service.completeUpload(100L, 7L, 12345L, 1920, 1080, 5000, null);
+
+        assertThat(result.variantPath()).isEqualTo("media/2026-04-28/01HMEDIA-compressed.mp4");
+        assertThat(result.variantUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA-compressed.mp4");
+        assertThat(result.cdnUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA-compressed.mp4");
     }
 
     @Test
@@ -168,7 +239,7 @@ class MediaServiceTest {
         // cdn-base-url 이 비어있으면 응답 cdnUrl=null. 클라는 s3Key 로 별도 처리.
         var noCdnProps = new AppProperties("Crimp", "test", null,
                 new AppProperties.Media("", 600));
-        var noCdnService = new MediaService(repo, presigner, noCdnProps);
+        var noCdnService = new MediaService(repo, imageRepo, imageVariantRepo, videoRepo, videoThumbnailRepo, videoVariantRepo, presigner, noCdnProps);
 
         MediaAsset asset = MediaAsset.createUploading("01HMEDIA", 7L, MediaKind.IMAGE,
                 "image/jpeg", "media/2026-04-28/01HMEDIA.jpg");
@@ -178,7 +249,7 @@ class MediaServiceTest {
         var result = noCdnService.completeUpload(100L, 7L, 12345L, 1920, 1080, null, null);
 
         assertThat(result.cdnUrl()).isNull();
-        assertThat(result.s3Key()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
+        assertThat(result.originalPath()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
         // entity 자체는 status 만 변경 — URL 은 DB 에 보존하지 않음.
         assertThat(asset.getStatus()).isEqualTo(MediaStatus.READY);
     }
@@ -201,7 +272,7 @@ class MediaServiceTest {
         MediaAsset asset = MediaAsset.createUploading("01HMEDIA", 7L, MediaKind.IMAGE,
                 "image/jpeg", "media/2026-04-28/01HMEDIA.jpg");
         setId(asset, 100L);
-        asset.markReady(null);
+        asset.markReady();
         when(repo.findById(100L)).thenReturn(Optional.of(asset));
 
         assertThatThrownBy(() -> service.completeUpload(100L, 7L, 100L, 1, 1, null, null))
@@ -219,23 +290,24 @@ class MediaServiceTest {
     }
 
     @Test
-    void completeUpload_image_with_posterLink_setsVideoPosterMediaId() {
+    void completeUpload_image_with_posterLink_createsVideoThumbnail() {
         MediaAsset image = MediaAsset.createUploading("01HIMG", 7L, MediaKind.IMAGE,
                 "image/jpeg", "media/users/7/image/2026/05/03/01HIMG.jpg");
         setId(image, 200L);
         MediaAsset video = MediaAsset.createUploading("01HVID", 7L, MediaKind.VIDEO,
                 "video/mp4", "media/users/7/video/2026/05/03/01HVID.mp4");
         setId(video, 10L);
-        video.markReady(null);
+        video.markReady();
 
         when(repo.findById(200L)).thenReturn(Optional.of(image));
         when(repo.findById(10L)).thenReturn(Optional.of(video));
+        when(videoRepo.existsById(10L)).thenReturn(true);
 
         service.completeUpload(200L, 7L, 5000L, 1280, 720, null, 10L);
 
         assertThat(image.getStatus()).isEqualTo(MediaStatus.READY);
-        assertThat(video.getPosterMediaId()).isEqualTo(200L);
-        verify(repo).save(video);
+        verify(videoThumbnailRepo).clearPrimaryByVideoMediaId(10L);
+        verify(videoThumbnailRepo).save(any(MediaVideoThumbnail.class));
     }
 
     @Test
@@ -299,7 +371,7 @@ class MediaServiceTest {
                 .isInstanceOf(MediaException.class)
                 .hasFieldOrPropertyWithValue("code", "MEDIA_POSTER_ATTACH_INVALID");
         assertThat(image.getStatus()).isEqualTo(MediaStatus.UPLOADING);
-        assertThat(video.getPosterMediaId()).isNull();
+        verify(videoThumbnailRepo, never()).save(any());
     }
 
     @Test
@@ -311,7 +383,7 @@ class MediaServiceTest {
         MediaAsset video = MediaAsset.createUploading("01HVID", 999L, MediaKind.VIDEO,
                 "video/mp4", "media/v.mp4");
         setId(video, 10L);
-        video.markReady(null);
+        video.markReady();
         when(repo.findById(200L)).thenReturn(Optional.of(image));
         when(repo.findById(10L)).thenReturn(Optional.of(video));
 
@@ -319,7 +391,7 @@ class MediaServiceTest {
                 .isInstanceOf(MediaException.class)
                 .hasFieldOrPropertyWithValue("code", "MEDIA_FORBIDDEN");
         assertThat(image.getStatus()).isEqualTo(MediaStatus.UPLOADING);
-        assertThat(video.getPosterMediaId()).isNull();
+        verify(videoThumbnailRepo, never()).save(any());
     }
 
     private static void setId(MediaAsset target, long id) {

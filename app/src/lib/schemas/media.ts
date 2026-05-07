@@ -15,7 +15,9 @@ export const PresignResponseSchema = z.object({
   id: z.number().int(),
   extId: z.string(),
   uploadUrl: z.string().url(),
+  /** @deprecated originalPath 와 동일한 호환 필드 */
   s3Key: z.string(),
+  originalPath: z.string().optional(),
   expiresAt: z.string(), // ISO Instant
   mime: z.string(),
   usage: MediaUsageSchema.optional(),
@@ -33,7 +35,12 @@ export const CompleteResponseSchema = z.object({
   width: z.number().nullable(),
   height: z.number().nullable(),
   durationMs: z.number().nullable(),
+  /** @deprecated originalPath 와 동일한 호환 필드 */
   s3Key: z.string(),
+  originalPath: z.string().optional(),
+  variantPath: z.string().nullable().optional(),
+  originalUrl: z.string().nullable().optional(),
+  variantUrl: z.string().nullable().optional(),
   cdnUrl: z.string().nullable(),
   thumbnailCdnUrl: z.string().nullable(),
   createdAt: z.string(),
