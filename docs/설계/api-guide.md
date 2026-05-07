@@ -174,7 +174,7 @@
 | GET | `/api/v1/me` | 내 정보. 응답에 `nicknameConfigured`(사용자가 닉네임을 직접 저장했는지), `mainGymId`(numeric, 호환), `mainGym: { extId, name, brand }`(해석된 lightweight 객체, 미설정 시 null/누락), `avatarMediaId`, `avatarUrl` 을 함께 반환. `avatarUrl` 은 CDN 설정이 있고 연결된 미디어가 READY IMAGE 일 때만 내려간다. |
 | PATCH | `/api/v1/me/profile` | 프로필 수정. 주 암장은 `mainGymExtId: String` (권장) / `mainGymId: number` (호환) / `clearMainGym: true` (명시 해제) 중 하나로 표현. 두 변경 입력을 동시에 set 하면 400 (`INVALID_MAIN_GYM_REQUEST`), `mainGymExtId` 가 존재하지 않는 ULID 면 404 (`MAIN_GYM_NOT_FOUND`). 프로필 이미지는 `avatarMediaId` 또는 `clearAvatar: true` 로 연결/해제한다. `avatarMediaId` 는 본인 소유 READY IMAGE 만 허용하며, 위반 시 `AVATAR_MEDIA_*` 에러를 반환한다. |
 | POST | `/api/v1/me/profile/avatar` | Phase 1.5 후보. 프로필 이미지 업로드 편의 endpoint. 기본안은 기존 `/media/presign` → PUT → `/media/complete` 후 `PATCH /me/profile { avatarMediaId }` 재사용이며, UX 단순화를 위해 래핑 endpoint 도 검토한다. |
-| DELETE | `/api/v1/me` | 계정 탈퇴. 204 응답. refresh token 전체 폐기, `users.status=DELETED` soft delete, 이후 내 정보/공개 프로필 조회·수정 및 OAuth 재로그인/refresh 재발급을 차단한다. 기존 댓글은 유지하되 작성자 `userExtId` 는 null, 닉네임은 `탈퇴사용자` 로 익명화한다. |
+| DELETE | `/api/v1/me` | 계정 탈퇴. 204 응답. refresh token 전체 폐기, `users.status=DELETED` soft delete, 이후 내 정보/공개 프로필 조회·수정 및 OAuth 재로그인/refresh 재발급을 차단한다. 기존 공개 컨텐츠는 유지하되 작성자 식별 정보는 익명화한다. |
 | GET | `/api/v1/users/{extId}` | 타 사용자 프로필 |
 | POST | `/api/v1/users/{extId}:follow` | 팔로우 |
 | DELETE | `/api/v1/users/{extId}:follow` | 언팔로우 |
@@ -185,6 +185,7 @@
 | GET | `/api/v1/gyms` | 암장 검색 (`q`, `brand`, `lat`, `lng`, `cursor`, `size`). `lat`/`lng` 둘 다 있으면 거리순 정렬 + `distanceMeters` 포함 |
 | GET | `/api/v1/gyms/{extId}` | 암장 상세 |
 | GET | `/api/v1/gyms/{extId}/routes` | 루트 목록 (활성, 인증 필요, 커서 페이지네이션 `?cursor=&size=`, id DESC) |
+| GET | `/api/v1/gyms/{extId}/recent-activity` | 암장 최근 활동. 탈퇴 사용자 활동은 `userExtId=null`, `nickname=탈퇴사용자`, `avatarColorHue=0` 으로 익명화한다. |
 | GET | `/api/v1/routes/{extId}` | 루트 상세 |
 
 ### 등반 기록 (`/api/v1/sessions`, `/api/v1/attempts`)
@@ -204,7 +205,7 @@
 ### 피드 (`/api/v1/feed`, `/api/v1/feed-posts`, `/api/v1/comments`)
 | Method | Path | 설명 |
 | --- | --- | --- |
-| GET | `/api/v1/feed?filter=popular\|my-gym\|friends&cursor=&size=` | 피드 (popular 기본 / my-gym = Profile.mainGymId / friends = Follow 기반). items.extId 는 **feed_post.ext_id** (V908 후 의미 전환), liked / likes / comments 실데이터. |
+| GET | `/api/v1/feed?filter=popular\|my-gym\|friends&cursor=&size=` | 피드 (popular 기본 / my-gym = Profile.mainGymId / friends = Follow 기반). items.extId 는 **feed_post.ext_id** (V908 후 의미 전환), liked / likes / comments 실데이터. 탈퇴 사용자 게시글은 유지하되 작성자 `userExtId=null`, `userNickname=탈퇴사용자`, `avatarColorHue=0`, `avatarUrl=null` 로 익명화한다. |
 | POST | `/api/v1/feed-posts/{extId}/like` | 좋아요 추가 (멱등) → `{ liked: true, likeCount: N }` |
 | DELETE | `/api/v1/feed-posts/{extId}/like` | 좋아요 취소 (멱등) → `{ liked: false, likeCount: N }` |
 | GET | `/api/v1/feed-posts/{extId}/comments?cursor=&size=` | 댓글 목록 (Comment.id ASC, forward 페이지네이션) |
@@ -219,6 +220,11 @@
 > **자동 게시 정책**: `POST /sessions/{extId}/attempts` 에서 `result ∈ {SEND, FLASH, ONSIGHT}`
 > 인 시도가 기록되면 동일 트랜잭션에서 `feed_posts` 행이 자동 생성된다 (`visibility=PUBLIC`,
 > `attempt_id` UNIQUE 1:1, V908). `FAIL`/`TRY` 는 게시되지 않는다.
+
+> **탈퇴 사용자 표시 정책**: 공개 피드/댓글/암장 최근 활동은 기록 자체를 유지한다. 작성자가 탈퇴한 경우
+> `userExtId` 는 `null` 또는 `@JsonInclude(NON_NULL)` 에 의해 누락될 수 있고, 닉네임은
+> `탈퇴사용자`, `avatarColorHue=0`, 프로필 이미지 URL 은 `null/누락` 으로 응답한다. 앱/웹 스키마는
+> 작성자 extId nullable 을 허용해야 한다.
 
 ### 미디어 (`/api/v1/media`)
 | Method | Path | 설명 |
