@@ -240,7 +240,7 @@ class FeedServiceTest {
     }
 
     @Test
-    void avatar_url_falls_back_to_original_path() {
+    void avatar_url_is_null_without_image_variant_path() {
         FeedRow row = baseRow()
                 .withAvatarOriginalPath("media/users/1/avatar/image/avatar.jpg")
                 .build();
@@ -249,8 +249,7 @@ class FeedServiceTest {
 
         FeedPage page = service.listFeed(7L, FeedFilter.POPULAR, null, null);
 
-        assertThat(page.items().get(0).avatarUrl())
-                .isEqualTo("https://cdn.test/media/users/1/avatar/image/avatar.jpg");
+        assertThat(page.items().get(0).avatarUrl()).isNull();
     }
 
     // --- nextCursor / hasNext ---

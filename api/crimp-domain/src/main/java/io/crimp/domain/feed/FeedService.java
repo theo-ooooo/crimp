@@ -216,7 +216,7 @@ public class FeedService {
         // [PR #93, F5 PR-4 — 리뷰 B1] holdColor 1급 컬럼 우선, 미저장(legacy) 시 tagsJson 의
         // hold 키를 fallback 으로 추출해 hold 점 시각화 회귀 방지.
         String holdColor = row.holdColor() != null ? row.holdColor() : extractHoldColor(row.tagsJson());
-        String avatarUrl = buildCdnUrl(cdnBaseUrl, displayPath(row.avatarOriginalPath(), row.avatarVariantPath()));
+        String avatarUrl = buildCdnUrl(cdnBaseUrl, row.avatarVariantPath());
         return new FeedItemView(
                 row.feedPostExtId(),
                 row.userExtId(),
