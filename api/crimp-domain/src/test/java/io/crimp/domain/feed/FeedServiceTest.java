@@ -342,15 +342,15 @@ class FeedServiceTest {
         when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
                 .thenReturn(slice(List.of(r1, r2), false));
         when(feedRepository.findFeedMediaForPosts(any())).thenReturn(List.of(
-                new FeedMediaRow(100L, (short) 0, MediaKind.IMAGE, "media/100-0.jpg", null),
-                new FeedMediaRow(100L, (short) 1, MediaKind.VIDEO, "media/100-1.mp4", null),
-                new FeedMediaRow(50L, (short) 0, MediaKind.IMAGE, "media/50-0.jpg", null)
+                new FeedMediaRow(100L, (short) 0, MediaKind.IMAGE, "media/100-0.jpg", null, null, null),
+                new FeedMediaRow(100L, (short) 1, MediaKind.VIDEO, "media/100-1.mp4", null, null, null),
+                new FeedMediaRow(50L, (short) 0, MediaKind.IMAGE, "media/50-0.jpg", null, null, null)
         ));
 
         FeedPage page = service.listFeed(1L, FeedFilter.POPULAR, null, null);
 
         assertThat(page.items()).hasSize(2);
-        // r1 (postId 100): seq 0 → 1 순. URL = cdn-base + "/" + s3Key
+        // r1 (postId 100): seq 0 → 1 순. URL = cdn-base + "/" + display path
         assertThat(page.items().get(0).mediaUrls()).hasSize(2);
         assertThat(page.items().get(0).mediaUrls().get(0).url())
                 .isEqualTo("https://cdn.test/media/100-0.jpg");
@@ -371,7 +371,7 @@ class FeedServiceTest {
         when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
                 .thenReturn(slice(List.of(r1), false));
         when(feedRepository.findFeedMediaForPosts(any())).thenReturn(List.of(
-                new FeedMediaRow(100L, (short) 0, MediaKind.VIDEO, "media/v.mp4", "media/poster.jpg")
+                new FeedMediaRow(100L, (short) 0, MediaKind.VIDEO, "media/v.mp4", null, "media/poster.jpg", null)
         ));
 
         FeedPage page = service.listFeed(1L, FeedFilter.POPULAR, null, null);
@@ -382,6 +382,25 @@ class FeedServiceTest {
     }
 
     @Test
+    void media_urls_prefer_webp_paths_when_present() {
+        FeedRow r1 = baseRow().withFeedPostId(100L).build();
+        when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
+                .thenReturn(slice(List.of(r1), false));
+        when(feedRepository.findFeedMediaForPosts(any())).thenReturn(List.of(
+                new FeedMediaRow(100L, (short) 0, MediaKind.VIDEO,
+                        "media/v.mp4", "media/v.webp",
+                        "media/poster.jpg", "media/poster.webp")
+        ));
+
+        FeedPage page = service.listFeed(1L, FeedFilter.POPULAR, null, null);
+
+        assertThat(page.items().get(0).mediaUrls().get(0).url())
+                .isEqualTo("https://cdn.test/media/v.webp");
+        assertThat(page.items().get(0).mediaUrls().get(0).thumbnailUrl())
+                .isEqualTo("https://cdn.test/media/poster.webp");
+    }
+
+    @Test
     void media_urls_excluded_when_cdn_base_missing() {
         // cdn-base-url 미설정 시 응답에서 모두 제외 — 클라가 깨진 이미지 표시하지 않도록.
         FeedService noBase = new FeedService(feedRepository, profileRepository, appPropsWithCdn(null));
@@ -389,7 +408,7 @@ class FeedServiceTest {
         when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
                 .thenReturn(slice(List.of(row), false));
         when(feedRepository.findFeedMediaForPosts(any())).thenReturn(List.of(
-                new FeedMediaRow(100L, (short) 0, MediaKind.IMAGE, "media/100-0.jpg", null)
+                new FeedMediaRow(100L, (short) 0, MediaKind.IMAGE, "media/100-0.jpg", null, null, null)
         ));
 
         FeedPage page = noBase.listFeed(1L, FeedFilter.POPULAR, null, null);
@@ -405,7 +424,7 @@ class FeedServiceTest {
         when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
                 .thenReturn(slice(List.of(row), false));
         when(feedRepository.findFeedMediaForPosts(any())).thenReturn(List.of(
-                new FeedMediaRow(100L, (short) 0, MediaKind.IMAGE, "media/x.jpg", null)
+                new FeedMediaRow(100L, (short) 0, MediaKind.IMAGE, "media/x.jpg", null, null, null)
         ));
 
         FeedPage page = trailing.listFeed(1L, FeedFilter.POPULAR, null, null);

@@ -29,8 +29,9 @@ import java.util.Set;
  *       알림 + 메타데이터 (size/dim/duration). row 가 READY 로 전환되며 응답에 cdn URL 합성.</li>
  * </ol>
  *
- * <p>URL 정책: DB 에는 {@code s3_key} 만 저장하고, 응답 시점마다 {@code app.media.cdn-base-url}
- * 과 합성해 절대 URL 을 구성한다. CDN 도메인이 바뀌어도 backfill 불필요.
+ * <p>URL 정책: DB 에는 {@code original_path}/{@code webp_path} 만 저장하고, 응답 시점마다
+ * {@code app.media.cdn-base-url} 과 합성해 절대 URL 을 구성한다. CDN 도메인이 바뀌어도
+ * backfill 불필요.
  *
  * <p>Phase 1 단순화: 영상도 PROCESSING 단계 없이 UPLOADING → READY 직행. 트랜스코드(MediaConvert)
  * 는 별도 PR 에서 추가 (Phase 1.5).
@@ -83,20 +84,20 @@ public class MediaService {
         validateUsage(kind, usage);
         validateSize(kind, byteSize);
         String extId = UlidGenerator.next();
-        String s3Key = buildS3Key(ownerUserId, kind, usage, extId, mime);
+        String originalPath = buildOriginalPath(ownerUserId, kind, usage, extId, mime);
 
-        MediaAsset asset = MediaAsset.createUploading(extId, ownerUserId, kind, usage, mime, s3Key);
+        MediaAsset asset = MediaAsset.createUploading(extId, ownerUserId, kind, usage, mime, originalPath);
         mediaAssetRepository.save(asset);
 
         Duration ttl = Duration.ofSeconds(appProperties.media().presignedUrlTtlSeconds());
-        MediaPresigner.PresignedUpload presigned = presigner.presignPut(s3Key, mime, byteSize, ttl);
+        MediaPresigner.PresignedUpload presigned = presigner.presignPut(originalPath, mime, byteSize, ttl);
 
         log.info("[media] presign issued id={} extId={} owner={} kind={} usage={} mime={} bytes={}",
                 asset.getId(), extId, ownerUserId, kind, usage, mime, byteSize);
         return new PresignResult(
                 asset.getId(), extId,
                 presigned.url(),
-                s3Key,
+                originalPath,
                 presigned.expiresAt(),
                 mime,
                 usage);
@@ -104,7 +105,7 @@ public class MediaService {
 
     /**
      * 업로드 완료 — 클라가 S3 PUT 성공 후 호출. 메타 업데이트 + READY 전환.
-     * 응답의 cdnUrl 은 {@code cdn-base-url} 과 {@code s3_key} 합성.
+     * 응답의 cdnUrl 은 {@code cdn-base-url} 과 display path(WebP 우선, 없으면 원본) 합성.
      *
      * @throws MediaException {@code MEDIA_NOT_FOUND}/{@code MEDIA_FORBIDDEN}/{@code MEDIA_INVALID_STATE}
      */
@@ -138,20 +139,23 @@ public class MediaService {
         }
 
         asset.applyUploadedMeta(byteSize, width, height, durationMs);
-        asset.markReady(null);
+        asset.markReady();
 
         if (attachAsPosterForVideoId != null) {
             linkPosterImageToVideo(attachAsPosterForVideoId, asset.getId(), callerUserId);
         }
 
-        String cdnUrl = buildCdnUrl(asset.getS3Key());
+        String cdnUrl = buildCdnUrl(asset.displayPath());
+        String originalUrl = buildCdnUrl(asset.getOriginalPath());
+        String webpUrl = buildCdnUrl(asset.getWebpPath());
         log.info("[media] upload complete id={} extId={} owner={} byteSize={} dim={}x{} duration={}ms",
                 asset.getId(), asset.getExtId(), callerUserId, byteSize, width, height, durationMs);
         return new CompleteResult(
                 asset.getId(), asset.getExtId(), asset.getKind(), asset.getStatus(),
                 asset.getUsage(), asset.getMime(), asset.getByteSize(),
                 asset.getWidth(), asset.getHeight(), asset.getDurationMs(),
-                asset.getS3Key(), cdnUrl, null, asset.getCreatedAt());
+                asset.getOriginalPath(), asset.getWebpPath(),
+                originalUrl, webpUrl, cdnUrl, null, asset.getCreatedAt());
     }
 
     /**
@@ -227,7 +231,7 @@ public class MediaService {
     }
 
     /**
-     * S3 키 패턴 (PR #96 — 폴더 구조 개선):
+     * 원본 path 패턴 (PR #96 — 폴더 구조 개선):
      * {@code media/users/{ownerUserId}/{usage}/{kind}/YYYY/MM/DD/<extId>.<ext>}
      *
      * <p>예: {@code media/users/123/attempt/image/2026/04/29/01HABC...DEF.jpg}
@@ -243,7 +247,7 @@ public class MediaService {
      *   <li><b>extId leaf</b> — ULID 라 같은 일자 내 정렬·중복 방지 보장.</li>
      * </ul>
      */
-    private static String buildS3Key(long ownerUserId, MediaKind kind, MediaUsage usage, String extId, String mime) {
+    private static String buildOriginalPath(long ownerUserId, MediaKind kind, MediaUsage usage, String extId, String mime) {
         LocalDate today = LocalDate.now(ZoneOffset.UTC);
         String yyyy = String.format("%04d", today.getYear());
         String mm = String.format("%02d", today.getMonthValue());
@@ -272,25 +276,28 @@ public class MediaService {
     }
 
     /**
-     * cdn-base-url 미설정 시 null 반환 — 클라가 raw s3Key 를 fetch URL 로 잘못 사용하는 사고 방지.
-     * 응답은 cdnUrl/s3Key 둘 다 노출하므로 클라는 cdnUrl 이 null 이면 별도 처리한다.
+     * cdn-base-url 미설정 또는 path 미존재 시 null 반환 — 클라가 raw path 를 fetch URL 로
+     * 잘못 사용하는 사고 방지.
      */
-    private String buildCdnUrl(String s3Key) {
+    private String buildCdnUrl(String path) {
         String base = appProperties.media().cdnBaseUrl();
-        if (base == null || base.isBlank()) {
+        if (base == null || base.isBlank() || path == null || path.isBlank()) {
             return null;
         }
-        return base.endsWith("/") ? base + s3Key : base + "/" + s3Key;
+        String normalizedPath = path.startsWith("/") ? path.substring(1) : path;
+        return base.endsWith("/") ? base + normalizedPath : base + "/" + normalizedPath;
     }
 
     public record PresignResult(
-            long id, String extId, String uploadUrl, String s3Key,
+            long id, String extId, String uploadUrl, String originalPath,
             Instant expiresAt, String mime, MediaUsage usage
     ) {}
 
     public record CompleteResult(
             long id, String extId, MediaKind kind, MediaStatus status, MediaUsage usage, String mime,
             Long byteSize, Integer width, Integer height, Integer durationMs,
-            String s3Key, String cdnUrl, String thumbnailCdnUrl, Instant createdAt
+            String originalPath, String webpPath,
+            String originalUrl, String webpUrl, String cdnUrl, String thumbnailCdnUrl,
+            Instant createdAt
     ) {}
 }

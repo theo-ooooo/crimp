@@ -61,28 +61,28 @@ public class MediaAsset {
     @Column(name = "poster_media_id")
     private Long posterMediaId;
 
-    @Column(name = "s3_key", nullable = false, length = 500)
-    private String s3Key;
+    @Column(name = "original_path", nullable = false, length = 500)
+    private String originalPath;
 
-    @Column(name = "variants", columnDefinition = "json")
-    private String variantsJson;
+    @Column(name = "webp_path", length = 500)
+    private String webpPath;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    private MediaAsset(String extId, Long ownerUserId, MediaKind kind, MediaUsage usage, String mime, String s3Key) {
+    private MediaAsset(String extId, Long ownerUserId, MediaKind kind, MediaUsage usage, String mime, String originalPath) {
         this.extId = extId;
         this.ownerUserId = ownerUserId;
         this.kind = kind;
         this.status = MediaStatus.UPLOADING;
         this.usage = usage;
         this.mime = mime;
-        this.s3Key = s3Key;
+        this.originalPath = originalPath;
     }
 
-    public static MediaAsset createUploading(String extId, Long ownerUserId, MediaKind kind, String mime, String s3Key) {
-        return createUploading(extId, ownerUserId, kind, MediaUsage.ATTEMPT, mime, s3Key);
+    public static MediaAsset createUploading(String extId, Long ownerUserId, MediaKind kind, String mime, String originalPath) {
+        return createUploading(extId, ownerUserId, kind, MediaUsage.ATTEMPT, mime, originalPath);
     }
 
     public static MediaAsset createUploading(
@@ -91,16 +91,23 @@ public class MediaAsset {
             MediaKind kind,
             MediaUsage usage,
             String mime,
-            String s3Key) {
-        return new MediaAsset(extId, ownerUserId, kind, usage, mime, s3Key);
+            String originalPath) {
+        return new MediaAsset(extId, ownerUserId, kind, usage, mime, originalPath);
     }
 
     public void markProcessing() { this.status = MediaStatus.PROCESSING; }
-    public void markReady(String variantsJson) {
+    public void markReady() {
         this.status = MediaStatus.READY;
-        this.variantsJson = variantsJson;
     }
     public void markFailed() { this.status = MediaStatus.FAILED; }
+
+    public String displayPath() {
+        return webpPath == null || webpPath.isBlank() ? originalPath : webpPath;
+    }
+
+    public void assignWebpPath(String webpPath) {
+        this.webpPath = webpPath;
+    }
 
     /**
      * 업로드 완료 후 클라가 보고하는 메타데이터 적용 (PR #90, F5). null 인 필드는 변경하지 않음 —

@@ -69,15 +69,15 @@ class MediaServiceTest {
         assertThat(saved.getMime()).isEqualTo("image/jpeg");
         assertThat(saved.getStatus()).isEqualTo(MediaStatus.UPLOADING);
         // [PR #96] media/users/{userId}/{kind}/YYYY/MM/DD/<extId>.<ext> 구조.
-        assertThat(saved.getS3Key())
+        assertThat(saved.getOriginalPath())
                 .startsWith("media/users/7/attempt/image/")
                 .matches("media/users/7/attempt/image/\\d{4}/\\d{2}/\\d{2}/[A-Z0-9]{26}\\.jpg");
 
         assertThat(result.id()).isEqualTo(42L);
-        assertThat(result.uploadUrl()).contains(saved.getS3Key());
+        assertThat(result.uploadUrl()).contains(saved.getOriginalPath());
         assertThat(result.expiresAt()).isAfter(Instant.parse("2026-01-01T00:00:00Z"));
         // [PR #90 리뷰 I2] presigner 가 byteSize 를 받았는지 검증.
-        verify(presigner).presignPut(eq(saved.getS3Key()), eq("image/jpeg"), eq(12345L), any(Duration.class));
+        verify(presigner).presignPut(eq(saved.getOriginalPath()), eq("image/jpeg"), eq(12345L), any(Duration.class));
     }
 
     @Test
@@ -87,7 +87,7 @@ class MediaServiceTest {
         ArgumentCaptor<MediaAsset> captor = ArgumentCaptor.forClass(MediaAsset.class);
         verify(repo).save(captor.capture());
         // usage/kind prefix 로 업로드 의도와 미디어 타입을 같이 드러낸다.
-        assertThat(captor.getValue().getS3Key())
+        assertThat(captor.getValue().getOriginalPath())
                 .startsWith("media/users/42/attempt/video/")
                 .endsWith(".mp4");
     }
@@ -99,7 +99,7 @@ class MediaServiceTest {
         ArgumentCaptor<MediaAsset> captor = ArgumentCaptor.forClass(MediaAsset.class);
         verify(repo).save(captor.capture());
         assertThat(captor.getValue().getUsage()).isEqualTo(MediaUsage.AVATAR);
-        assertThat(captor.getValue().getS3Key()).startsWith("media/users/7/avatar/image/");
+        assertThat(captor.getValue().getOriginalPath()).startsWith("media/users/7/avatar/image/");
     }
 
     @Test
@@ -160,7 +160,24 @@ class MediaServiceTest {
         assertThat(asset.getHeight()).isEqualTo(1080);
         // cdn URL 은 응답 시점에 base + s3Key 로 합성 — DB 에 저장하지 않음.
         assertThat(result.cdnUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA.jpg");
-        assertThat(result.s3Key()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
+        assertThat(result.originalPath()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
+    }
+
+    @Test
+    void completeUpload_whenWebpPathExists_prefersWebpForDisplayCdnUrl() {
+        MediaAsset asset = MediaAsset.createUploading("01HMEDIA", 7L, MediaKind.IMAGE,
+                "image/jpeg", "media/2026-04-28/01HMEDIA.jpg");
+        asset.assignWebpPath("media/2026-04-28/01HMEDIA.webp");
+        setId(asset, 100L);
+        when(repo.findById(100L)).thenReturn(Optional.of(asset));
+
+        var result = service.completeUpload(100L, 7L, 12345L, 1920, 1080, null, null);
+
+        assertThat(result.originalPath()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
+        assertThat(result.webpPath()).isEqualTo("media/2026-04-28/01HMEDIA.webp");
+        assertThat(result.originalUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA.jpg");
+        assertThat(result.webpUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA.webp");
+        assertThat(result.cdnUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA.webp");
     }
 
     @Test
@@ -178,7 +195,7 @@ class MediaServiceTest {
         var result = noCdnService.completeUpload(100L, 7L, 12345L, 1920, 1080, null, null);
 
         assertThat(result.cdnUrl()).isNull();
-        assertThat(result.s3Key()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
+        assertThat(result.originalPath()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
         // entity 자체는 status 만 변경 — URL 은 DB 에 보존하지 않음.
         assertThat(asset.getStatus()).isEqualTo(MediaStatus.READY);
     }
@@ -201,7 +218,7 @@ class MediaServiceTest {
         MediaAsset asset = MediaAsset.createUploading("01HMEDIA", 7L, MediaKind.IMAGE,
                 "image/jpeg", "media/2026-04-28/01HMEDIA.jpg");
         setId(asset, 100L);
-        asset.markReady(null);
+        asset.markReady();
         when(repo.findById(100L)).thenReturn(Optional.of(asset));
 
         assertThatThrownBy(() -> service.completeUpload(100L, 7L, 100L, 1, 1, null, null))
@@ -226,7 +243,7 @@ class MediaServiceTest {
         MediaAsset video = MediaAsset.createUploading("01HVID", 7L, MediaKind.VIDEO,
                 "video/mp4", "media/users/7/video/2026/05/03/01HVID.mp4");
         setId(video, 10L);
-        video.markReady(null);
+        video.markReady();
 
         when(repo.findById(200L)).thenReturn(Optional.of(image));
         when(repo.findById(10L)).thenReturn(Optional.of(video));
@@ -311,7 +328,7 @@ class MediaServiceTest {
         MediaAsset video = MediaAsset.createUploading("01HVID", 999L, MediaKind.VIDEO,
                 "video/mp4", "media/v.mp4");
         setId(video, 10L);
-        video.markReady(null);
+        video.markReady();
         when(repo.findById(200L)).thenReturn(Optional.of(image));
         when(repo.findById(10L)).thenReturn(Optional.of(video));
 

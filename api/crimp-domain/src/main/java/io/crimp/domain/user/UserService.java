@@ -240,12 +240,12 @@ public class UserService {
         if (avatar == null) return null;
         String cdnBaseUrl = appProperties.media().cdnBaseUrl();
         if (cdnBaseUrl == null || cdnBaseUrl.isBlank()) return null;
-        return joinUrl(cdnBaseUrl, avatar.getS3Key());
+        return joinUrl(cdnBaseUrl, avatar.displayPath());
     }
 
-    private static String joinUrl(String baseUrl, String s3Key) {
+    private static String joinUrl(String baseUrl, String path) {
         String base = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
-        String key = s3Key.startsWith("/") ? s3Key.substring(1) : s3Key;
+        String key = path.startsWith("/") ? path.substring(1) : path;
         return base + "/" + key;
     }
 }

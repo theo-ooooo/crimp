@@ -132,6 +132,23 @@ class UserServiceTest {
     }
 
     @Test
+    void updateMyProfile_avatarUrl_prefersWebpPath() {
+        User user = user(1L, "01HU");
+        Profile profile = Profile.create(1L, "old_nick");
+        MediaAsset avatar = readyAvatarImage(7L, 1L, "media/users/1/avatar/image/avatar.jpg");
+        avatar.assignWebpPath("media/users/1/avatar/image/avatar.webp");
+        when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+        when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
+        when(mediaAssetRepo.findById(7L)).thenReturn(Optional.of(avatar));
+
+        var cmd = new UpdateProfileCommand(null, null, null, null, null, false, 7L);
+        ProfileView view = service.updateMyProfile(1L, cmd);
+
+        assertThat(view.avatarMediaId()).isEqualTo(7L);
+        assertThat(view.avatarUrl()).isEqualTo("https://cdn.crimp.test/media/users/1/avatar/image/avatar.webp");
+    }
+
+    @Test
     void updateMyProfile_nickname_taken_throws() {
         User user = user(1L, "01HU");
         Profile profile = Profile.create(1L, "mine");
@@ -528,7 +545,7 @@ class UserServiceTest {
     private static MediaAsset readyImage(long id, long ownerUserId, String s3Key) {
         MediaAsset asset = MediaAsset.createUploading("01HMEDIA" + id, ownerUserId, MediaKind.IMAGE, "image/jpeg", s3Key);
         setField(asset, "id", id);
-        asset.markReady(null);
+        asset.markReady();
         assertThat(asset.getStatus()).isEqualTo(MediaStatus.READY);
         return asset;
     }
@@ -542,7 +559,7 @@ class UserServiceTest {
                 "image/jpeg",
                 s3Key);
         setField(asset, "id", id);
-        asset.markReady(null);
+        asset.markReady();
         assertThat(asset.getStatus()).isEqualTo(MediaStatus.READY);
         assertThat(asset.getUsage()).isEqualTo(MediaUsage.AVATAR);
         return asset;
