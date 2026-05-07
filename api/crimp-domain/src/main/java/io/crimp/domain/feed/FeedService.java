@@ -43,6 +43,8 @@ public class FeedService {
 
     private static final int DEFAULT_PAGE_SIZE = 20;
     private static final int MAX_PAGE_SIZE = 50;
+    private static final String DELETED_USER_NICKNAME = "탈퇴사용자";
+    private static final int DELETED_USER_AVATAR_HUE = 0;
 
     /**
      * cdn-base-url 미설정 시 첫 호출에서 1회 warn 로그를 남기기 위한 가드. 요청마다 찍으면
@@ -235,12 +237,13 @@ public class FeedService {
         // [PR #93, F5 PR-4 — 리뷰 B1] holdColor 1급 컬럼 우선, 미저장(legacy) 시 tagsJson 의
         // hold 키를 fallback 으로 추출해 hold 점 시각화 회귀 방지.
         String holdColor = row.holdColor() != null ? row.holdColor() : extractHoldColor(row.tagsJson());
-        String avatarUrl = buildCdnUrl(cdnBaseUrl, avatarVariantPath);
+        boolean userDeleted = row.userDeleted();
+        String avatarUrl = userDeleted ? null : buildCdnUrl(cdnBaseUrl, avatarVariantPath);
         return new FeedItemView(
                 row.feedPostExtId(),
-                row.userExtId(),
-                row.nickname(),
-                avatarColorHue(row.userId()),
+                userDeleted ? null : row.userExtId(),
+                userDeleted ? DELETED_USER_NICKNAME : row.nickname(),
+                userDeleted ? DELETED_USER_AVATAR_HUE : avatarColorHue(row.userId()),
                 avatarUrl,
                 row.gymName(),
                 row.result(),

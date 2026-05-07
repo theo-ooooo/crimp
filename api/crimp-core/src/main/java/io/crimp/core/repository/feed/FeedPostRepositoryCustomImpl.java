@@ -8,6 +8,7 @@ import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import io.crimp.core.entity.enums.MediaStatus;
 import io.crimp.core.entity.enums.PostVisibility;
+import io.crimp.core.entity.enums.UserStatus;
 import io.crimp.core.entity.feed.QFeedPost;
 import io.crimp.core.entity.feed.QPostLike;
 import io.crimp.core.entity.feed.QPostMedia;
@@ -68,7 +69,6 @@ public class FeedPostRepositoryCustomImpl implements FeedPostRepositoryCustom {
 
         BooleanBuilder where = new BooleanBuilder()
                 .and(fp.deletedAt.isNull())
-                .and(u.deletedAt.isNull())
                 // 가시성: PUBLIC 만 노출 (FOLLOWERS / PRIVATE 는 향후 별도 분기)
                 .and(fp.visibility.eq(PostVisibility.PUBLIC));
 
@@ -121,7 +121,8 @@ public class FeedPostRepositoryCustomImpl implements FeedPostRepositoryCustom {
                                 "coalesce({0}, {1})", a.loggedAt, fp.createdAt),
                         fp.likeCount.longValue(),
                         fp.commentCount.longValue(),
-                        likedExpr))
+                        likedExpr,
+                        u.deletedAt.isNotNull().or(u.status.eq(UserStatus.DELETED))))
                 .from(fp)
                 .leftJoin(a).on(fp.attemptId.eq(a.id))
                 .join(u).on(fp.userId.eq(u.id))

@@ -254,6 +254,30 @@ class FeedServiceTest {
         assertThat(page.items().get(0).avatarUrl()).isNull();
     }
 
+    @Test
+    void deleted_user_author_is_anonymized_in_feed() {
+        FeedRow row = baseRow()
+                .withUserId(9L)
+                .withUserExtId("01HDELETED")
+                .withNickname("삭제전닉네임")
+                .withAvatarMediaId(7L)
+                .withUserDeleted(true)
+                .build();
+        when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
+                .thenReturn(slice(List.of(row), false));
+        when(feedRepository.findAvatarVariantsForMediaIds(any())).thenReturn(List.of(
+                new FeedAvatarRow(7L, "media/users/9/avatar/image/avatar.webp")
+        ));
+
+        FeedPage page = service.listFeed(7L, FeedFilter.POPULAR, null, null);
+
+        FeedItemView item = page.items().get(0);
+        assertThat(item.userExtId()).isNull();
+        assertThat(item.userNickname()).isEqualTo("탈퇴사용자");
+        assertThat(item.avatarColorHue()).isZero();
+        assertThat(item.avatarUrl()).isNull();
+    }
+
     // --- nextCursor / hasNext ---
 
     @Test
@@ -546,23 +570,27 @@ class FeedServiceTest {
         private long likeCount = 0L;
         private long commentCount = 0L;
         private boolean liked = false;
+        private boolean userDeleted = false;
 
         FeedRowBuilder withFeedPostId(long v) { this.feedPostId = v; return this; }
         FeedRowBuilder withFeedPostExtId(String v) { this.feedPostExtId = v; return this; }
         FeedRowBuilder withAttemptExtId(String v) { this.attemptExtId = v; return this; }
         FeedRowBuilder withUserId(long v) { this.userId = v; return this; }
+        FeedRowBuilder withUserExtId(String v) { this.userExtId = v; return this; }
+        FeedRowBuilder withNickname(String v) { this.nickname = v; return this; }
         FeedRowBuilder withAvatarMediaId(Long v) { this.avatarMediaId = v; return this; }
         FeedRowBuilder withTagsJson(String v) { this.tagsJson = v; return this; }
         FeedRowBuilder withHoldColor(String v) { this.holdColor = v; return this; }
         FeedRowBuilder withLikeCount(long v) { this.likeCount = v; return this; }
         FeedRowBuilder withCommentCount(long v) { this.commentCount = v; return this; }
         FeedRowBuilder withLiked(boolean v) { this.liked = v; return this; }
+        FeedRowBuilder withUserDeleted(boolean v) { this.userDeleted = v; return this; }
 
         FeedRow build() {
             return new FeedRow(feedPostId, feedPostExtId, attemptId, attemptExtId,
                     userId, userExtId, nickname, avatarMediaId, gymName,
                     result, gradeValue, gradeNumeric, tagsJson, holdColor, note, loggedAt,
-                    likeCount, commentCount, liked);
+                    likeCount, commentCount, liked, userDeleted);
         }
     }
 }

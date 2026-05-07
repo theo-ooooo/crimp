@@ -13,6 +13,7 @@ public record GymRecentActivityRow(
         long userId,
         String userExtId,
         String nickname,
+        boolean userDeleted,
         String gradeValue,
         AttemptResult result,
         Instant loggedAt
