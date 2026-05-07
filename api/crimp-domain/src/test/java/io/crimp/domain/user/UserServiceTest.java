@@ -8,10 +8,12 @@ import io.crimp.core.entity.enums.UserStatus;
 import io.crimp.core.entity.enums.GymStatus;
 import io.crimp.core.entity.gym.Gym;
 import io.crimp.core.entity.media.MediaAsset;
+import io.crimp.core.entity.media.MediaImageVariant;
 import io.crimp.core.entity.user.Profile;
 import io.crimp.core.entity.user.User;
 import io.crimp.core.repository.gym.GymRepository;
 import io.crimp.core.repository.media.MediaAssetRepository;
+import io.crimp.core.repository.media.MediaImageVariantRepository;
 import io.crimp.core.repository.user.ProfileRepository;
 import io.crimp.core.repository.user.UserRepository;
 import io.crimp.domain.auth.RefreshTokenStore;
@@ -37,6 +39,7 @@ class UserServiceTest {
     private GymRepository gymRepo;
     private RefreshTokenStore refreshTokenStore;
     private MediaAssetRepository mediaAssetRepo;
+    private MediaImageVariantRepository mediaImageVariantRepo;
     private UserService service;
 
     @BeforeEach
@@ -46,7 +49,8 @@ class UserServiceTest {
         gymRepo = mock(GymRepository.class);
         refreshTokenStore = mock(RefreshTokenStore.class);
         mediaAssetRepo = mock(MediaAssetRepository.class);
-        service = new UserService(userRepo, profileRepo, gymRepo, refreshTokenStore, mediaAssetRepo, appProps());
+        mediaImageVariantRepo = mock(MediaImageVariantRepository.class);
+        service = new UserService(userRepo, profileRepo, gymRepo, refreshTokenStore, mediaAssetRepo, mediaImageVariantRepo, appProps());
     }
 
     @Test
@@ -132,14 +136,17 @@ class UserServiceTest {
     }
 
     @Test
-    void updateMyProfile_avatarUrl_prefersWebpPath() {
+    void updateMyProfile_avatarUrl_prefersImageVariantPath() {
         User user = user(1L, "01HU");
         Profile profile = Profile.create(1L, "old_nick");
         MediaAsset avatar = readyAvatarImage(7L, 1L, "media/users/1/avatar/image/avatar.jpg");
-        avatar.assignWebpPath("media/users/1/avatar/image/avatar.webp");
+        MediaImageVariant variant = mock(MediaImageVariant.class);
         when(userRepo.findById(1L)).thenReturn(Optional.of(user));
         when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
         when(mediaAssetRepo.findById(7L)).thenReturn(Optional.of(avatar));
+        when(variant.getPath()).thenReturn("media/users/1/avatar/image/avatar.webp");
+        when(mediaImageVariantRepo.findFirstByMediaIdAndStatusAndPrimaryTrueOrderByIdDesc(7L, MediaStatus.READY))
+                .thenReturn(Optional.of(variant));
 
         var cmd = new UpdateProfileCommand(null, null, null, null, null, false, 7L);
         ProfileView view = service.updateMyProfile(1L, cmd);

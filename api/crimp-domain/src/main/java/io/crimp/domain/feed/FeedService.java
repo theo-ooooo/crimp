@@ -137,15 +137,14 @@ public class FeedService {
                 ? cdnBaseUrl.substring(0, cdnBaseUrl.length() - 1)
                 : cdnBaseUrl;
         for (FeedMediaRow r : rows) {
-            String mediaPath = displayPath(r.originalPath(), r.webpPath());
+            String mediaPath = displayPath(r.originalPath(), r.variantPath());
             if (mediaPath == null) {
                 continue;
             }
             String url = base + "/" + mediaPath;
             String thumb = null;
-            String posterPath = displayPath(r.posterOriginalPath(), r.posterWebpPath());
-            if (r.kind() == MediaKind.VIDEO && posterPath != null) {
-                thumb = base + "/" + posterPath;
+            if (r.kind() == MediaKind.VIDEO && r.thumbnailPath() != null && !r.thumbnailPath().isBlank()) {
+                thumb = base + "/" + r.thumbnailPath();
             }
             grouped
                     .computeIfAbsent(r.feedPostId(), k -> new ArrayList<>())
@@ -154,9 +153,9 @@ public class FeedService {
         return grouped;
     }
 
-    private static String displayPath(String originalPath, String webpPath) {
-        if (webpPath != null && !webpPath.isBlank()) {
-            return webpPath;
+    private static String displayPath(String originalPath, String variantPath) {
+        if (variantPath != null && !variantPath.isBlank()) {
+            return variantPath;
         }
         if (originalPath != null && !originalPath.isBlank()) {
             return originalPath;

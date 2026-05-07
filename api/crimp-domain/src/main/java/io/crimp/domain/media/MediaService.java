@@ -6,7 +6,17 @@ import io.crimp.core.entity.enums.MediaKind;
 import io.crimp.core.entity.enums.MediaStatus;
 import io.crimp.core.entity.enums.MediaUsage;
 import io.crimp.core.entity.media.MediaAsset;
+import io.crimp.core.entity.media.MediaImage;
+import io.crimp.core.entity.media.MediaImageVariant;
+import io.crimp.core.entity.media.MediaVideo;
+import io.crimp.core.entity.media.MediaVideoThumbnail;
+import io.crimp.core.entity.media.MediaVideoVariant;
 import io.crimp.core.repository.media.MediaAssetRepository;
+import io.crimp.core.repository.media.MediaImageRepository;
+import io.crimp.core.repository.media.MediaImageVariantRepository;
+import io.crimp.core.repository.media.MediaVideoRepository;
+import io.crimp.core.repository.media.MediaVideoThumbnailRepository;
+import io.crimp.core.repository.media.MediaVideoVariantRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -29,9 +39,8 @@ import java.util.Set;
  *       알림 + 메타데이터 (size/dim/duration). row 가 READY 로 전환되며 응답에 cdn URL 합성.</li>
  * </ol>
  *
- * <p>URL 정책: DB 에는 {@code original_path}/{@code webp_path} 만 저장하고, 응답 시점마다
- * {@code app.media.cdn-base-url} 과 합성해 절대 URL 을 구성한다. CDN 도메인이 바뀌어도
- * backfill 불필요.
+ * <p>URL 정책: DB 에는 원본 path 와 타입별 variant path 만 저장하고, 응답 시점마다
+ * {@code app.media.cdn-base-url} 과 합성해 절대 URL 을 구성한다. CDN 도메인이 바뀌어도 backfill 불필요.
  *
  * <p>Phase 1 단순화: 영상도 PROCESSING 단계 없이 UPLOADING → READY 직행. 트랜스코드(MediaConvert)
  * 는 별도 PR 에서 추가 (Phase 1.5).
@@ -56,13 +65,28 @@ public class MediaService {
     private static final long VIDEO_MAX_BYTES = 200L * 1024 * 1024;  // 200MB
 
     private final MediaAssetRepository mediaAssetRepository;
+    private final MediaImageRepository mediaImageRepository;
+    private final MediaImageVariantRepository mediaImageVariantRepository;
+    private final MediaVideoRepository mediaVideoRepository;
+    private final MediaVideoThumbnailRepository mediaVideoThumbnailRepository;
+    private final MediaVideoVariantRepository mediaVideoVariantRepository;
     private final MediaPresigner presigner;
     private final AppProperties appProperties;
 
     public MediaService(MediaAssetRepository mediaAssetRepository,
+                        MediaImageRepository mediaImageRepository,
+                        MediaImageVariantRepository mediaImageVariantRepository,
+                        MediaVideoRepository mediaVideoRepository,
+                        MediaVideoThumbnailRepository mediaVideoThumbnailRepository,
+                        MediaVideoVariantRepository mediaVideoVariantRepository,
                         MediaPresigner presigner,
                         AppProperties appProperties) {
         this.mediaAssetRepository = mediaAssetRepository;
+        this.mediaImageRepository = mediaImageRepository;
+        this.mediaImageVariantRepository = mediaImageVariantRepository;
+        this.mediaVideoRepository = mediaVideoRepository;
+        this.mediaVideoThumbnailRepository = mediaVideoThumbnailRepository;
+        this.mediaVideoVariantRepository = mediaVideoVariantRepository;
         this.presigner = presigner;
         this.appProperties = appProperties;
     }
@@ -105,7 +129,7 @@ public class MediaService {
 
     /**
      * 업로드 완료 — 클라가 S3 PUT 성공 후 호출. 메타 업데이트 + READY 전환.
-     * 응답의 cdnUrl 은 {@code cdn-base-url} 과 display path(WebP 우선, 없으면 원본) 합성.
+     * 응답의 cdnUrl 은 {@code cdn-base-url} 과 대표 variant path 우선, 없으면 원본 path 합성.
      *
      * @throws MediaException {@code MEDIA_NOT_FOUND}/{@code MEDIA_FORBIDDEN}/{@code MEDIA_INVALID_STATE}
      */
@@ -138,24 +162,34 @@ public class MediaService {
             validatePosterAttachTarget(attachAsPosterForVideoId, callerUserId);
         }
 
-        asset.applyUploadedMeta(byteSize, width, height, durationMs);
+        asset.applyUploadedMeta(byteSize);
         asset.markReady();
+        if (asset.getKind() == MediaKind.IMAGE) {
+            if (!mediaImageRepository.existsById(asset.getId())) {
+                mediaImageRepository.save(MediaImage.create(asset.getId(), width, height));
+            }
+        } else {
+            if (!mediaVideoRepository.existsById(asset.getId())) {
+                mediaVideoRepository.save(MediaVideo.create(asset.getId(), width, height, durationMs));
+            }
+        }
 
         if (attachAsPosterForVideoId != null) {
             linkPosterImageToVideo(attachAsPosterForVideoId, asset.getId(), callerUserId);
         }
 
-        String cdnUrl = buildCdnUrl(asset.displayPath());
+        String variantPath = primaryVariantPath(asset);
+        String cdnUrl = buildCdnUrl(displayPath(asset.getOriginalPath(), variantPath));
         String originalUrl = buildCdnUrl(asset.getOriginalPath());
-        String webpUrl = buildCdnUrl(asset.getWebpPath());
+        String variantUrl = buildCdnUrl(variantPath);
         log.info("[media] upload complete id={} extId={} owner={} byteSize={} dim={}x{} duration={}ms",
                 asset.getId(), asset.getExtId(), callerUserId, byteSize, width, height, durationMs);
         return new CompleteResult(
                 asset.getId(), asset.getExtId(), asset.getKind(), asset.getStatus(),
-                asset.getUsage(), asset.getMime(), asset.getByteSize(),
-                asset.getWidth(), asset.getHeight(), asset.getDurationMs(),
-                asset.getOriginalPath(), asset.getWebpPath(),
-                originalUrl, webpUrl, cdnUrl, null, asset.getCreatedAt());
+                asset.getUsage(), asset.getOriginalMime(), asset.getOriginalByteSize(),
+                width, height, durationMs,
+                asset.getOriginalPath(), variantPath,
+                originalUrl, variantUrl, cdnUrl, null, asset.getCreatedAt());
     }
 
     /**
@@ -175,6 +209,10 @@ public class MediaService {
         if (video.getStatus() != MediaStatus.READY) {
             throw new MediaException("MEDIA_POSTER_ATTACH_INVALID",
                     "Video must be READY before attaching a poster image");
+        }
+        if (!mediaVideoRepository.existsById(videoMediaId)) {
+            throw new MediaException("MEDIA_POSTER_ATTACH_INVALID",
+                    "attachAsPosterForVideoId must reference a completed VIDEO media");
         }
     }
 
@@ -197,8 +235,31 @@ public class MediaService {
             throw new MediaException("MEDIA_POSTER_ATTACH_INVALID",
                     "Video must be READY before attaching a poster image");
         }
-        video.assignPosterMedia(posterImageMediaId);
-        mediaAssetRepository.save(video);
+        mediaVideoThumbnailRepository.clearPrimaryByVideoMediaId(videoMediaId);
+        mediaVideoThumbnailRepository.save(MediaVideoThumbnail.userSelected(videoMediaId, posterImageMediaId));
+    }
+
+    private String primaryVariantPath(MediaAsset asset) {
+        if (asset.getKind() == MediaKind.IMAGE) {
+            return mediaImageVariantRepository
+                    .findFirstByMediaIdAndStatusAndPrimaryTrueOrderByIdDesc(asset.getId(), MediaStatus.READY)
+                    .map(MediaImageVariant::getPath)
+                    .orElse(null);
+        }
+        if (asset.getKind() == MediaKind.VIDEO) {
+            return mediaVideoVariantRepository
+                    .findFirstByMediaIdAndStatusAndPrimaryTrueOrderByIdDesc(asset.getId(), MediaStatus.READY)
+                    .map(MediaVideoVariant::getPath)
+                    .orElse(null);
+        }
+        return null;
+    }
+
+    private static String displayPath(String originalPath, String variantPath) {
+        if (variantPath != null && !variantPath.isBlank()) {
+            return variantPath;
+        }
+        return originalPath;
     }
 
     private void validateMime(MediaKind kind, String mime) {
@@ -296,8 +357,8 @@ public class MediaService {
     public record CompleteResult(
             long id, String extId, MediaKind kind, MediaStatus status, MediaUsage usage, String mime,
             Long byteSize, Integer width, Integer height, Integer durationMs,
-            String originalPath, String webpPath,
-            String originalUrl, String webpUrl, String cdnUrl, String thumbnailCdnUrl,
+            String originalPath, String variantPath,
+            String originalUrl, String variantUrl, String cdnUrl, String thumbnailCdnUrl,
             Instant createdAt
     ) {}
 }
