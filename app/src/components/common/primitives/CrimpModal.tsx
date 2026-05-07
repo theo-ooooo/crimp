@@ -4,6 +4,7 @@ import {
   BackHandler,
   Easing,
   Modal as RNModal,
+  Platform,
   Pressable,
   StyleSheet,
   View,
@@ -159,7 +160,11 @@ export function CrimpModal({
       }),
     ]).start(({ finished }) => {
       if (finished) {
-        pendingNativeDismissRef.current = true;
+        if (Platform.OS === 'ios') {
+          pendingNativeDismissRef.current = true;
+        } else {
+          onDismissedRef.current?.();
+        }
         setMounted(false);
       }
     });

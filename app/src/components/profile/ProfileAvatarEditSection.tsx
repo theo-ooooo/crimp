@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  InteractionManager,
   Pressable,
   StyleSheet,
   Text,
@@ -11,6 +12,7 @@ import {
   launchCamera,
   launchImageLibrary,
   type Asset,
+  type CameraOptions,
   type ImageLibraryOptions,
 } from 'react-native-image-picker';
 import RNFS from 'react-native-fs';
@@ -32,11 +34,18 @@ import {
 } from '@/lib/tokens';
 import { useTokens } from '@/lib/useTokens';
 
-const PICKER_OPTIONS: ImageLibraryOptions = {
+const LIBRARY_PICKER_OPTIONS: ImageLibraryOptions = {
   mediaType: 'photo',
   selectionLimit: 1,
   quality: 0.9,
   includeBase64: true,
+};
+
+const CAMERA_PICKER_OPTIONS: CameraOptions = {
+  mediaType: 'photo',
+  quality: 0.9,
+  includeBase64: true,
+  saveToPhotos: false,
 };
 
 type AvatarSource = 'camera' | 'library';
@@ -76,15 +85,30 @@ export function ProfileAvatarEditSection({
 
   const onChoose = async () => {
     if (blocked) {
+      logAvatarEvent('source-open-blocked', {
+        disabled,
+        busy,
+        phase,
+      });
       return;
     }
+    logAvatarEvent('source-open', {
+      hasAvatarUrl: Boolean(avatarUrl),
+    });
     setSourceModalVisible(true);
   };
 
   const onChooseSource = async (source: AvatarSource) => {
     if (blocked) {
+      logAvatarEvent('source-select-blocked', {
+        source,
+        disabled,
+        busy,
+        phase,
+      });
       return;
     }
+    logAvatarEvent('source-select', { source });
     pendingSourceRef.current = source;
     setSourceModalVisible(false);
   };
@@ -92,6 +116,10 @@ export function ProfileAvatarEditSection({
   const onSourceModalDismissed = () => {
     const source = pendingSourceRef.current;
     pendingSourceRef.current = null;
+    logAvatarEvent('source-modal-dismissed', {
+      hasPendingSource: Boolean(source),
+      source: source ?? null,
+    });
     if (source) {
       void chooseSourceAfterModalDismiss(source);
     }
@@ -99,16 +127,15 @@ export function ProfileAvatarEditSection({
 
   const chooseSourceAfterModalDismiss = async (source: AvatarSource) => {
     try {
-      const selected = await pickImage(source).catch((err) => {
-        logAvatarError('picker', err);
-        if (isCameraUnavailableError(err)) {
-          throw t('profile.edit.avatarCameraUnavailable');
-        }
-        throw err;
-      });
+      logAvatarEvent('picker-slot-wait-start', { source });
+      await waitForNativePickerSlot();
+      logAvatarEvent('picker-launch', { source });
+      const selected = await pickImageWithFallback(source);
       if (selected === null) {
+        logAvatarEvent('picker-cancelled', { source });
         return;
       }
+      logAvatarEvent('picker-selected', summarizeAsset(selected));
       const captured = await assetToCapturedMedia(selected).catch((err) => {
         logAvatarError('asset-prepare', err, summarizeAsset(selected));
         throw err;
@@ -134,6 +161,24 @@ export function ProfileAvatarEditSection({
       onError(err);
     } finally {
       setPhase(null);
+    }
+  };
+
+  const pickImageWithFallback = async (source: AvatarSource): Promise<Asset | null> => {
+    try {
+      return await pickImage(source);
+    } catch (err) {
+      logAvatarError('picker', err, { source });
+      if (source === 'camera' && isCameraUnavailableError(err)) {
+        logAvatarEvent('camera-fallback-library', { reason: describePickerError(err) });
+        try {
+          return await pickImage('library');
+        } catch (libraryErr) {
+          logAvatarError('picker-fallback-library', libraryErr, { source: 'library' });
+          throw libraryErr;
+        }
+      }
+      throw err;
     }
   };
 
@@ -219,13 +264,13 @@ export function ProfileAvatarEditSection({
 async function pickImage(source: AvatarSource): Promise<Asset | null> {
   const result =
     source === 'camera'
-      ? await launchCamera(PICKER_OPTIONS)
-      : await launchImageLibrary(PICKER_OPTIONS);
+      ? await launchCamera(CAMERA_PICKER_OPTIONS)
+      : await launchImageLibrary(LIBRARY_PICKER_OPTIONS);
   if (result.didCancel) {
     return null;
   }
   if (result.errorCode) {
-    throw new Error(result.errorMessage ?? result.errorCode);
+    throw new AvatarPickerError(result.errorCode, result.errorMessage);
   }
   const asset = result.assets?.[0];
   if (!asset?.uri) {
@@ -234,15 +279,44 @@ async function pickImage(source: AvatarSource): Promise<Asset | null> {
   return asset;
 }
 
+class AvatarPickerError extends Error {
+  readonly code: string;
+
+  constructor(code: string, message?: string) {
+    super(message ?? code);
+    this.name = 'AvatarPickerError';
+    this.code = code;
+  }
+}
+
 function isCameraUnavailableError(error: unknown): boolean {
+  if (error instanceof AvatarPickerError) {
+    return error.code === 'camera_unavailable';
+  }
   return error instanceof Error && error.message === 'camera_unavailable';
 }
 
-function logAvatarEvent(event: string, context: Record<string, unknown>): void {
-  if (!__DEV__) {
-    return;
+function describePickerError(error: unknown): string {
+  if (error instanceof AvatarPickerError) {
+    return error.code;
   }
-  console.warn('[profile/avatar]', {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+}
+
+async function waitForNativePickerSlot(): Promise<void> {
+  await new Promise<void>((resolve) => {
+    InteractionManager.runAfterInteractions(() => resolve());
+  });
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, 120);
+  });
+}
+
+function logAvatarEvent(event: string, context: Record<string, unknown>): void {
+  console.warn('[profile/avatar/trace]', {
     event,
     ...context,
   });
@@ -253,9 +327,6 @@ function logAvatarError(
   error: unknown,
   context: Record<string, unknown> = {},
 ): void {
-  if (!__DEV__) {
-    return;
-  }
   const errorInfo =
     error instanceof Error
       ? { name: error.name, message: error.message }
