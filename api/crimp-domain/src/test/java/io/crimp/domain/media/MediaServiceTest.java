@@ -74,6 +74,10 @@ class MediaServiceTest {
                 .thenAnswer(inv -> new MediaPresigner.PresignedUpload(
                         "https://s3.test/" + inv.getArgument(0) + "?signed",
                         Instant.parse("2026-04-28T14:00:00Z")));
+        when(imageVariantRepo.findFirstByMediaIdAndStatusAndPrimaryTrueOrderByIdDesc(anyLong(), any(MediaStatus.class)))
+                .thenReturn(Optional.empty());
+        when(videoVariantRepo.findFirstByMediaIdAndStatusAndPrimaryTrueOrderByIdDesc(anyLong(), any(MediaStatus.class)))
+                .thenReturn(Optional.empty());
     }
 
     @Test
@@ -177,8 +181,9 @@ class MediaServiceTest {
         assertThat(asset.getStatus()).isEqualTo(MediaStatus.READY);
         assertThat(asset.getOriginalByteSize()).isEqualTo(12345L);
         verify(imageRepo).save(any(MediaImage.class));
-        // 표시용 cdnUrl 은 variant 가 준비된 경우에만 내려간다. 원본은 originalUrl 로만 확인.
-        assertThat(result.cdnUrl()).isNull();
+        verify(imageVariantRepo).save(any(MediaImageVariant.class));
+        assertThat(result.variantPath()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
+        assertThat(result.cdnUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA.jpg");
         assertThat(result.originalPath()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
     }
 
@@ -194,6 +199,7 @@ class MediaServiceTest {
 
         assertThat(asset.getStatus()).isEqualTo(MediaStatus.READY);
         verify(imageRepo, never()).save(any(MediaImage.class));
+        verify(imageVariantRepo).save(any(MediaImageVariant.class));
     }
 
     @Test
@@ -249,6 +255,7 @@ class MediaServiceTest {
         var result = noCdnService.completeUpload(100L, 7L, 12345L, 1920, 1080, null, null);
 
         assertThat(result.cdnUrl()).isNull();
+        assertThat(result.variantPath()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
         assertThat(result.originalPath()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
         // entity 자체는 status 만 변경 — URL 은 DB 에 보존하지 않음.
         assertThat(asset.getStatus()).isEqualTo(MediaStatus.READY);

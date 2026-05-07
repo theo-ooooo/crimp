@@ -21,6 +21,8 @@ import static lombok.AccessLevel.PROTECTED;
 @NoArgsConstructor(access = PROTECTED)
 public class MediaVideoVariant {
 
+    public static final byte TYPE_COMPRESSED_MP4 = 1;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -58,4 +60,26 @@ public class MediaVideoVariant {
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
+
+    public static MediaVideoVariant readyPrimary(
+            Long mediaId,
+            String mime,
+            Long byteSize,
+            Integer width,
+            Integer height,
+            Integer durationMs,
+            String path) {
+        MediaVideoVariant variant = new MediaVideoVariant();
+        variant.mediaId = mediaId;
+        variant.variantType = TYPE_COMPRESSED_MP4;
+        variant.status = MediaStatus.READY;
+        variant.mime = mime;
+        variant.byteSize = byteSize;
+        variant.width = width;
+        variant.height = height;
+        variant.durationMs = durationMs;
+        variant.path = path;
+        variant.primary = true;
+        return variant;
+    }
 }

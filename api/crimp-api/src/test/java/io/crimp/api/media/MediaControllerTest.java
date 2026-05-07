@@ -74,9 +74,10 @@ class MediaControllerTest {
                         42L, "01HMEDIA", MediaKind.IMAGE, MediaStatus.READY,
                         MediaUsage.ATTEMPT, "image/jpeg", 12345L, 1920, 1080, null,
                         "media/2026-04-28/01HMEDIA.jpg",
-                        null,
+                        "media/2026-04-28/01HMEDIA.jpg",
+                        "https://cdn.test/media/2026-04-28/01HMEDIA.jpg",
+                        "https://cdn.test/media/2026-04-28/01HMEDIA.jpg",
                         "https://cdn.test/media/2026-04-28/01HMEDIA.jpg", null,
-                        null, null,
                         Instant.parse("2026-04-28T13:00:00Z")));
 
         CompleteResponse res = controller.complete(USER, 42L,
@@ -84,13 +85,13 @@ class MediaControllerTest {
 
         assertThat(res.id()).isEqualTo(42L);
         assertThat(res.status()).isEqualTo("READY");
-        assertThat(res.cdnUrl()).isNull();
+        assertThat(res.cdnUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA.jpg");
         // s3Key 는 기존 앱 호환 alias 로 유지, 신규 필드는 originalPath.
         assertThat(res.s3Key()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
         assertThat(res.originalPath()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
         assertThat(res.originalUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA.jpg");
-        assertThat(res.variantPath()).isNull();
-        assertThat(res.variantUrl()).isNull();
+        assertThat(res.variantPath()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
+        assertThat(res.variantUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA.jpg");
         verify(service).completeUpload(42L, 7L, 12345L, 1920, 1080, null, null);
     }
 

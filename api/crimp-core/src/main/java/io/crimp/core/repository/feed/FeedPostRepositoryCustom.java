@@ -47,4 +47,9 @@ public interface FeedPostRepositoryCustom {
      * @return seq 오름차순으로 정렬된 미디어 행. 동일 post 의 미디어가 연속으로 나옴.
      */
     List<FeedMediaRow> findFeedMediaForPosts(Collection<Long> feedPostIds);
+
+    /**
+     * 피드 페이지에 포함된 avatar media id 들의 대표 이미지 variant path 를 batch fetch 한다.
+     */
+    List<FeedAvatarRow> findAvatarVariantsForMediaIds(Collection<Long> mediaIds);
 }

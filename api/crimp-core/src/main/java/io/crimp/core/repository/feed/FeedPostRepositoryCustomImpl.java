@@ -63,9 +63,6 @@ public class FeedPostRepositoryCustomImpl implements FeedPostRepositoryCustom {
         QGym g = QGym.gym;
         QPostLike l = QPostLike.postLike;
         QFollow follow = QFollow.follow;
-        QMediaAsset avatar = new QMediaAsset("avatar");
-        QMediaImageVariant avatarVariant = new QMediaImageVariant("avatarVariant");
-        QMediaImageVariant avatarVariantCandidate = new QMediaImageVariant("avatarVariantCandidate");
 
         int pageSize = pageable.getPageSize();
 
@@ -108,8 +105,7 @@ public class FeedPostRepositoryCustomImpl implements FeedPostRepositoryCustom {
                         u.id,
                         u.extId,
                         p.nickname,
-                        avatar.originalPath,
-                        avatarVariant.path,
+                        p.avatarMediaId,
                         g.name,
                         a.result,
                         a.gradeValue,
@@ -130,17 +126,6 @@ public class FeedPostRepositoryCustomImpl implements FeedPostRepositoryCustom {
                 .leftJoin(a).on(fp.attemptId.eq(a.id))
                 .join(u).on(fp.userId.eq(u.id))
                 .leftJoin(p).on(p.userId.eq(u.id))
-                .leftJoin(avatar).on(p.avatarMediaId.eq(avatar.id)
-                        .and(avatar.status.eq(MediaStatus.READY)))
-                .leftJoin(avatarVariant).on(avatarVariant.mediaId.eq(avatar.id)
-                        .and(avatarVariant.status.eq(MediaStatus.READY))
-                        .and(avatarVariant.primary.isTrue())
-                        .and(avatarVariant.id.eq(JPAExpressions
-                                .select(avatarVariantCandidate.id.max())
-                                .from(avatarVariantCandidate)
-                                .where(avatarVariantCandidate.mediaId.eq(avatar.id)
-                                        .and(avatarVariantCandidate.status.eq(MediaStatus.READY))
-                                        .and(avatarVariantCandidate.primary.isTrue())))))
                 .leftJoin(g).on(fp.gymId.eq(g.id))
                 .leftJoin(l).on(l.id.postId.eq(fp.id).and(l.id.userId.eq(requesterUserId)))
                 .where(where)
@@ -175,7 +160,6 @@ public class FeedPostRepositoryCustomImpl implements FeedPostRepositoryCustom {
                         pm.id.postId,
                         pm.seq,
                         m.kind,
-                        m.originalPath,
                         Expressions.stringTemplate("coalesce({0}, {1})", imageVariant.path, videoVariant.path),
                         Expressions.stringTemplate("coalesce({0}, {1})",
                                 thumbnail.path, thumbnailImageVariant.path)))
@@ -222,6 +206,31 @@ public class FeedPostRepositoryCustomImpl implements FeedPostRepositoryCustom {
                 // status=READY 만 노출. UPLOADING / PROCESSING / FAILED 모두 클라에 흘리지 않음.
                 .where(pm.id.postId.in(feedPostIds).and(m.status.eq(MediaStatus.READY)))
                 .orderBy(pm.id.postId.asc(), pm.seq.asc())
+                .fetch();
+    }
+
+    @Override
+    public List<FeedAvatarRow> findAvatarVariantsForMediaIds(Collection<Long> mediaIds) {
+        if (mediaIds == null || mediaIds.isEmpty()) {
+            return List.of();
+        }
+        QMediaImageVariant variant = new QMediaImageVariant("avatarBatchVariant");
+        QMediaImageVariant candidate = new QMediaImageVariant("avatarBatchVariantCandidate");
+        return queryFactory
+                .select(Projections.constructor(
+                        FeedAvatarRow.class,
+                        variant.mediaId,
+                        variant.path))
+                .from(variant)
+                .where(variant.mediaId.in(mediaIds)
+                        .and(variant.status.eq(MediaStatus.READY))
+                        .and(variant.primary.isTrue())
+                        .and(variant.id.eq(JPAExpressions
+                                .select(candidate.id.max())
+                                .from(candidate)
+                                .where(candidate.mediaId.eq(variant.mediaId)
+                                        .and(candidate.status.eq(MediaStatus.READY))
+                                        .and(candidate.primary.isTrue())))))
                 .fetch();
     }
 }

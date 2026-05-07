@@ -179,7 +179,7 @@ public class MediaService {
             linkPosterImageToVideo(attachAsPosterForVideoId, asset.getId(), callerUserId);
         }
 
-        String variantPath = primaryVariantPath(asset);
+        String variantPath = ensurePrimaryVariant(asset, width, height, durationMs);
         String cdnUrl = buildCdnUrl(variantPath);
         String originalUrl = buildCdnUrl(asset.getOriginalPath());
         String variantUrl = buildCdnUrl(variantPath);
@@ -238,6 +238,32 @@ public class MediaService {
         }
         mediaVideoThumbnailRepository.clearPrimaryByVideoMediaId(videoMediaId);
         mediaVideoThumbnailRepository.save(MediaVideoThumbnail.userSelected(videoMediaId, posterImageMediaId));
+    }
+
+    private String ensurePrimaryVariant(MediaAsset asset, Integer width, Integer height, Integer durationMs) {
+        String existing = primaryVariantPath(asset);
+        if (existing != null && !existing.isBlank()) {
+            return existing;
+        }
+        if (asset.getKind() == MediaKind.IMAGE) {
+            mediaImageVariantRepository.save(MediaImageVariant.readyPrimary(
+                    asset.getId(),
+                    asset.getOriginalMime(),
+                    asset.getOriginalByteSize(),
+                    width,
+                    height,
+                    asset.getOriginalPath()));
+        } else {
+            mediaVideoVariantRepository.save(MediaVideoVariant.readyPrimary(
+                    asset.getId(),
+                    asset.getOriginalMime(),
+                    asset.getOriginalByteSize(),
+                    width,
+                    height,
+                    durationMs,
+                    asset.getOriginalPath()));
+        }
+        return asset.getOriginalPath();
     }
 
     private String primaryVariantPath(MediaAsset asset) {

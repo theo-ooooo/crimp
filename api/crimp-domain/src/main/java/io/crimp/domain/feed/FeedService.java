@@ -2,6 +2,7 @@ package io.crimp.domain.feed;
 
 import io.crimp.common.config.AppProperties;
 import io.crimp.core.entity.enums.MediaKind;
+import io.crimp.core.repository.feed.FeedAvatarRow;
 import io.crimp.core.repository.feed.FeedMediaRow;
 import io.crimp.core.repository.feed.FeedPostRepository;
 import io.crimp.core.repository.feed.FeedQueryMode;
@@ -102,6 +103,7 @@ public class FeedService {
         List<FeedMediaRow> mediaRows = feedRepository.findFeedMediaForPosts(postIds);
         String cdnBaseUrl = appProperties.media().cdnBaseUrl();
         if ((cdnBaseUrl == null || cdnBaseUrl.isBlank())
+                && mediaRows != null
                 && !mediaRows.isEmpty()
                 && warnedNoCdnBase.compareAndSet(false, true)) {
             // env 누락으로 응답에서 mediaUrls 가 모두 빈 배열로 떨어지는 사고가 무음으로
@@ -109,9 +111,20 @@ public class FeedService {
             log.warn("[feed] app.media.cdn-base-url not configured — mediaUrls will be empty in responses");
         }
         Map<Long, List<FeedMediaItem>> mediaByPost = groupMedia(mediaRows, cdnBaseUrl);
+        List<Long> avatarMediaIds = slice.getContent().stream()
+                .map(FeedRow::avatarMediaId)
+                .filter(id -> id != null)
+                .distinct()
+                .toList();
+        Map<Long, String> avatarVariantByMediaId = groupAvatarVariants(
+                feedRepository.findAvatarVariantsForMediaIds(avatarMediaIds));
 
         List<FeedItemView> items = slice.getContent().stream()
-                .map(row -> toView(row, mediaByPost.getOrDefault(row.feedPostId(), List.of()), cdnBaseUrl))
+                .map(row -> toView(
+                        row,
+                        mediaByPost.getOrDefault(row.feedPostId(), List.of()),
+                        row.avatarMediaId() == null ? null : avatarVariantByMediaId.get(row.avatarMediaId()),
+                        cdnBaseUrl))
                 .toList();
 
         Long nextCursor = slice.hasNext() && !slice.getContent().isEmpty()
@@ -130,7 +143,7 @@ public class FeedService {
      */
     static Map<Long, List<FeedMediaItem>> groupMedia(List<FeedMediaRow> rows, String cdnBaseUrl) {
         Map<Long, List<FeedMediaItem>> grouped = new LinkedHashMap<>();
-        if (cdnBaseUrl == null || cdnBaseUrl.isBlank()) {
+        if (cdnBaseUrl == null || cdnBaseUrl.isBlank() || rows == null || rows.isEmpty()) {
             return grouped;
         }
         String base = cdnBaseUrl.endsWith("/")
@@ -148,6 +161,19 @@ public class FeedService {
             grouped
                     .computeIfAbsent(r.feedPostId(), k -> new ArrayList<>())
                     .add(new FeedMediaItem(r.kind(), url, thumb));
+        }
+        return grouped;
+    }
+
+    private static Map<Long, String> groupAvatarVariants(List<FeedAvatarRow> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, String> grouped = new LinkedHashMap<>();
+        for (FeedAvatarRow row : rows) {
+            if (row.mediaId() != null && row.variantPath() != null && !row.variantPath().isBlank()) {
+                grouped.putIfAbsent(row.mediaId(), row.variantPath());
+            }
         }
         return grouped;
     }
@@ -199,13 +225,17 @@ public class FeedService {
         };
     }
 
-    private static FeedItemView toView(FeedRow row, List<FeedMediaItem> mediaUrls, String cdnBaseUrl) {
+    private static FeedItemView toView(
+            FeedRow row,
+            List<FeedMediaItem> mediaUrls,
+            String avatarVariantPath,
+            String cdnBaseUrl) {
         // FeedRow.userId 는 primitive long — INNER JOIN + NOT NULL PK 로 null 가능성 컴파일
         // 타임 제거. silent fallback (hue=180) 으로 회귀가 가려지는 위험 차단.
         // [PR #93, F5 PR-4 — 리뷰 B1] holdColor 1급 컬럼 우선, 미저장(legacy) 시 tagsJson 의
         // hold 키를 fallback 으로 추출해 hold 점 시각화 회귀 방지.
         String holdColor = row.holdColor() != null ? row.holdColor() : extractHoldColor(row.tagsJson());
-        String avatarUrl = buildCdnUrl(cdnBaseUrl, row.avatarVariantPath());
+        String avatarUrl = buildCdnUrl(cdnBaseUrl, avatarVariantPath);
         return new FeedItemView(
                 row.feedPostExtId(),
                 row.userExtId(),
