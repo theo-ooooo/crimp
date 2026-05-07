@@ -177,8 +177,8 @@ class MediaServiceTest {
         assertThat(asset.getStatus()).isEqualTo(MediaStatus.READY);
         assertThat(asset.getOriginalByteSize()).isEqualTo(12345L);
         verify(imageRepo).save(any(MediaImage.class));
-        // cdn URL 은 응답 시점에 base + originalPath 로 합성 — DB 에 저장하지 않음.
-        assertThat(result.cdnUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA.jpg");
+        // 표시용 cdnUrl 은 variant 가 준비된 경우에만 내려간다. 원본은 originalUrl 로만 확인.
+        assertThat(result.cdnUrl()).isNull();
         assertThat(result.originalPath()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
     }
 
@@ -236,7 +236,7 @@ class MediaServiceTest {
 
     @Test
     void completeUpload_cdnBaseUrlEmpty_returnsNullCdnUrl() {
-        // cdn-base-url 이 비어있으면 응답 cdnUrl=null. 클라는 s3Key 로 별도 처리.
+        // cdn-base-url 이 비어있으면 응답 cdnUrl=null.
         var noCdnProps = new AppProperties("Crimp", "test", null,
                 new AppProperties.Media("", 600));
         var noCdnService = new MediaService(repo, imageRepo, imageVariantRepo, videoRepo, videoThumbnailRepo, videoVariantRepo, presigner, noCdnProps);

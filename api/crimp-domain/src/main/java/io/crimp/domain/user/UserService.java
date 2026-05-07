@@ -249,7 +249,7 @@ public class UserService {
                 .findFirstByMediaIdAndStatusAndPrimaryTrueOrderByIdDesc(avatar.getId(), MediaStatus.READY)
                 .map(MediaImageVariant::getPath)
                 .orElse(null);
-        return joinUrl(cdnBaseUrl, variantPath == null ? avatar.getOriginalPath() : variantPath);
+        return variantPath == null ? null : joinUrl(cdnBaseUrl, variantPath);
     }
 
     private static String joinUrl(String baseUrl, String path) {

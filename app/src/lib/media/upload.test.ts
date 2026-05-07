@@ -61,7 +61,10 @@ function completeResponse(
     height: kind === 'VIDEO' ? 720 : 720,
     durationMs: kind === 'VIDEO' ? 8000 : null,
     s3Key: `media/k-${id}`,
-    cdnUrl: `https://cdn.test/media/k-${id}`,
+    variantPath: `media/k-${id}.webp`,
+    originalUrl: `https://cdn.test/media/k-${id}`,
+    variantUrl: `https://cdn.test/media/k-${id}.webp`,
+    cdnUrl: `https://cdn.test/media/k-${id}.webp`,
     thumbnailCdnUrl: null,
     createdAt: '2026-05-03T12:00:00Z',
     usage: kind === 'VIDEO' ? 'ATTEMPT' : 'ATTEMPT',
@@ -101,7 +104,10 @@ describe('uploadCapturedMedia', () => {
       height: 1080,
       durationMs: null,
       s3Key: 'media/2026-04-29/01HMEDIA.jpg',
-      cdnUrl: 'https://cdn.test/media/2026-04-29/01HMEDIA.jpg',
+      variantPath: 'media/2026-04-29/01HMEDIA.webp',
+      originalUrl: 'https://cdn.test/media/2026-04-29/01HMEDIA.jpg',
+      variantUrl: 'https://cdn.test/media/2026-04-29/01HMEDIA.webp',
+      cdnUrl: 'https://cdn.test/media/2026-04-29/01HMEDIA.webp',
       thumbnailCdnUrl: null,
       createdAt: '2026-04-29T13:59:00Z',
     });
@@ -116,7 +122,7 @@ describe('uploadCapturedMedia', () => {
     const result = await uploadCapturedMedia('access', captured);
 
     expect(result.id).toBe(42);
-    expect(result.cdnUrl).toBe('https://cdn.test/media/2026-04-29/01HMEDIA.jpg');
+    expect(result.cdnUrl).toBe('https://cdn.test/media/2026-04-29/01HMEDIA.webp');
     expect(mockedPresign).toHaveBeenCalledWith(
       'access',
       { kind: 'IMAGE', usage: 'ATTEMPT', mime: 'image/jpeg', byteSize: 1234 },

@@ -96,7 +96,7 @@ describe('useSessionDetailScreen', () => {
         extId: '01JMEDIA0000000000000001',
         kind: 'IMAGE',
         status: 'READY',
-        cdnUrl: 'https://cdn.example.com/photo.jpg',
+        cdnUrl: 'https://cdn.example.com/photo.webp',
       });
     const { latest } = await renderHook();
 

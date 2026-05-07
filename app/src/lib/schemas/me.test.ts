@@ -27,7 +27,7 @@ describe('MeSchema', () => {
       brand: '클라임파크',
     },
     avatarMediaId: 99,
-    avatarUrl: 'https://cdn.crimp.test/media/users/1/image/avatar.jpg',
+    avatarUrl: 'https://cdn.crimp.test/media/users/1/image/avatar.webp',
   };
 
   it('parses a fully-populated Me response', () => {

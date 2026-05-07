@@ -76,7 +76,7 @@ class MediaControllerTest {
                         "media/2026-04-28/01HMEDIA.jpg",
                         null,
                         "https://cdn.test/media/2026-04-28/01HMEDIA.jpg", null,
-                        "https://cdn.test/media/2026-04-28/01HMEDIA.jpg", null,
+                        null, null,
                         Instant.parse("2026-04-28T13:00:00Z")));
 
         CompleteResponse res = controller.complete(USER, 42L,
@@ -84,7 +84,7 @@ class MediaControllerTest {
 
         assertThat(res.id()).isEqualTo(42L);
         assertThat(res.status()).isEqualTo("READY");
-        assertThat(res.cdnUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA.jpg");
+        assertThat(res.cdnUrl()).isNull();
         // s3Key 는 기존 앱 호환 alias 로 유지, 신규 필드는 originalPath.
         assertThat(res.s3Key()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
         assertThat(res.originalPath()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");

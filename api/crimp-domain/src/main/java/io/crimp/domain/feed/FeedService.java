@@ -137,11 +137,10 @@ public class FeedService {
                 ? cdnBaseUrl.substring(0, cdnBaseUrl.length() - 1)
                 : cdnBaseUrl;
         for (FeedMediaRow r : rows) {
-            String mediaPath = displayPath(r.originalPath(), r.variantPath());
-            if (mediaPath == null) {
+            if (r.variantPath() == null || r.variantPath().isBlank()) {
                 continue;
             }
-            String url = base + "/" + mediaPath;
+            String url = base + "/" + r.variantPath();
             String thumb = null;
             if (r.kind() == MediaKind.VIDEO && r.thumbnailPath() != null && !r.thumbnailPath().isBlank()) {
                 thumb = base + "/" + r.thumbnailPath();
@@ -151,16 +150,6 @@ public class FeedService {
                     .add(new FeedMediaItem(r.kind(), url, thumb));
         }
         return grouped;
-    }
-
-    private static String displayPath(String originalPath, String variantPath) {
-        if (variantPath != null && !variantPath.isBlank()) {
-            return variantPath;
-        }
-        if (originalPath != null && !originalPath.isBlank()) {
-            return originalPath;
-        }
-        return null;
     }
 
     private static String buildCdnUrl(String cdnBaseUrl, String path) {

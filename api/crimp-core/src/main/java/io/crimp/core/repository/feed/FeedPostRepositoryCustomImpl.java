@@ -177,8 +177,8 @@ public class FeedPostRepositoryCustomImpl implements FeedPostRepositoryCustom {
                         m.kind,
                         m.originalPath,
                         Expressions.stringTemplate("coalesce({0}, {1})", imageVariant.path, videoVariant.path),
-                        Expressions.stringTemplate("coalesce({0}, {1}, {2})",
-                                thumbnail.path, thumbnailImageVariant.path, thumbnailImage.originalPath)))
+                        Expressions.stringTemplate("coalesce({0}, {1})",
+                                thumbnail.path, thumbnailImageVariant.path)))
                 .from(pm)
                 .join(m).on(pm.id.mediaId.eq(m.id))
                 .leftJoin(imageVariant).on(imageVariant.mediaId.eq(m.id)
