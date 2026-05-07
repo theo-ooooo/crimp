@@ -8,10 +8,12 @@ import io.crimp.core.entity.enums.GymStatus;
 import io.crimp.core.entity.enums.UserStatus;
 import io.crimp.core.entity.gym.Gym;
 import io.crimp.core.entity.media.MediaAsset;
+import io.crimp.core.entity.media.MediaImageVariant;
 import io.crimp.core.entity.user.Profile;
 import io.crimp.core.entity.user.User;
 import io.crimp.core.repository.gym.GymRepository;
 import io.crimp.core.repository.media.MediaAssetRepository;
+import io.crimp.core.repository.media.MediaImageVariantRepository;
 import io.crimp.core.repository.user.ProfileRepository;
 import io.crimp.core.repository.user.UserRepository;
 import io.crimp.domain.auth.RefreshTokenStore;
@@ -27,6 +29,7 @@ public class UserService {
     private final GymRepository gymRepo;
     private final RefreshTokenStore refreshTokenStore;
     private final MediaAssetRepository mediaAssetRepo;
+    private final MediaImageVariantRepository mediaImageVariantRepo;
     private final AppProperties appProperties;
 
     public UserService(
@@ -35,12 +38,14 @@ public class UserService {
             GymRepository gymRepo,
             RefreshTokenStore refreshTokenStore,
             MediaAssetRepository mediaAssetRepo,
+            MediaImageVariantRepository mediaImageVariantRepo,
             AppProperties appProperties) {
         this.userRepo = userRepo;
         this.profileRepo = profileRepo;
         this.gymRepo = gymRepo;
         this.refreshTokenStore = refreshTokenStore;
         this.mediaAssetRepo = mediaAssetRepo;
+        this.mediaImageVariantRepo = mediaImageVariantRepo;
         this.appProperties = appProperties;
     }
 
@@ -240,7 +245,11 @@ public class UserService {
         if (avatar == null) return null;
         String cdnBaseUrl = appProperties.media().cdnBaseUrl();
         if (cdnBaseUrl == null || cdnBaseUrl.isBlank()) return null;
-        return joinUrl(cdnBaseUrl, avatar.displayPath());
+        String variantPath = mediaImageVariantRepo
+                .findFirstByMediaIdAndStatusAndPrimaryTrueOrderByIdDesc(avatar.getId(), MediaStatus.READY)
+                .map(MediaImageVariant::getPath)
+                .orElse(null);
+        return joinUrl(cdnBaseUrl, variantPath == null ? avatar.getOriginalPath() : variantPath);
     }
 
     private static String joinUrl(String baseUrl, String path) {

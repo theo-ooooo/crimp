@@ -89,8 +89,8 @@ class MediaControllerTest {
         assertThat(res.s3Key()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
         assertThat(res.originalPath()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
         assertThat(res.originalUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA.jpg");
-        assertThat(res.webpPath()).isNull();
-        assertThat(res.webpUrl()).isNull();
+        assertThat(res.variantPath()).isNull();
+        assertThat(res.variantUrl()).isNull();
         verify(service).completeUpload(42L, 7L, 12345L, 1920, 1080, null, null);
     }
 

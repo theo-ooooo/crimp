@@ -91,8 +91,8 @@ public class MediaController {
                 result.id(), result.extId(), result.kind().name(), result.status().name(),
                 result.usage().name(), result.mime(), result.byteSize(),
                 result.width(), result.height(), result.durationMs(),
-                result.originalPath(), result.originalPath(), result.webpPath(),
-                result.originalUrl(), result.webpUrl(), result.cdnUrl(), result.thumbnailCdnUrl(),
+                result.originalPath(), result.originalPath(), result.variantPath(),
+                result.originalUrl(), result.variantUrl(), result.cdnUrl(), result.thumbnailCdnUrl(),
                 result.createdAt());
     }
 
@@ -162,8 +162,8 @@ public class MediaController {
             Long byteSize, Integer width, Integer height, Integer durationMs,
             // Deprecated API field kept as originalPath alias for existing app builds.
             String s3Key,
-            String originalPath, String webpPath,
-            String originalUrl, String webpUrl, String cdnUrl, String thumbnailCdnUrl,
+            String originalPath, String variantPath,
+            String originalUrl, String variantUrl, String cdnUrl, String thumbnailCdnUrl,
             Instant createdAt
     ) {}
 }

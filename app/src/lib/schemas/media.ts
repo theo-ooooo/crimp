@@ -38,9 +38,9 @@ export const CompleteResponseSchema = z.object({
   /** @deprecated originalPath 와 동일한 호환 필드 */
   s3Key: z.string(),
   originalPath: z.string().optional(),
-  webpPath: z.string().nullable().optional(),
+  variantPath: z.string().nullable().optional(),
   originalUrl: z.string().nullable().optional(),
-  webpUrl: z.string().nullable().optional(),
+  variantUrl: z.string().nullable().optional(),
   cdnUrl: z.string().nullable(),
   thumbnailCdnUrl: z.string().nullable(),
   createdAt: z.string(),

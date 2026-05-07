@@ -342,9 +342,9 @@ class FeedServiceTest {
         when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
                 .thenReturn(slice(List.of(r1, r2), false));
         when(feedRepository.findFeedMediaForPosts(any())).thenReturn(List.of(
-                new FeedMediaRow(100L, (short) 0, MediaKind.IMAGE, "media/100-0.jpg", null, null, null),
-                new FeedMediaRow(100L, (short) 1, MediaKind.VIDEO, "media/100-1.mp4", null, null, null),
-                new FeedMediaRow(50L, (short) 0, MediaKind.IMAGE, "media/50-0.jpg", null, null, null)
+                new FeedMediaRow(100L, (short) 0, MediaKind.IMAGE, "media/100-0.jpg", null, null),
+                new FeedMediaRow(100L, (short) 1, MediaKind.VIDEO, "media/100-1.mp4", null, null),
+                new FeedMediaRow(50L, (short) 0, MediaKind.IMAGE, "media/50-0.jpg", null, null)
         ));
 
         FeedPage page = service.listFeed(1L, FeedFilter.POPULAR, null, null);
@@ -371,7 +371,7 @@ class FeedServiceTest {
         when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
                 .thenReturn(slice(List.of(r1), false));
         when(feedRepository.findFeedMediaForPosts(any())).thenReturn(List.of(
-                new FeedMediaRow(100L, (short) 0, MediaKind.VIDEO, "media/v.mp4", null, "media/poster.jpg", null)
+                new FeedMediaRow(100L, (short) 0, MediaKind.VIDEO, "media/v.mp4", null, "media/poster.jpg")
         ));
 
         FeedPage page = service.listFeed(1L, FeedFilter.POPULAR, null, null);
@@ -382,14 +382,13 @@ class FeedServiceTest {
     }
 
     @Test
-    void media_urls_prefer_webp_paths_when_present() {
+    void media_urls_prefer_variant_and_thumbnail_paths_when_present() {
         FeedRow r1 = baseRow().withFeedPostId(100L).build();
         when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
                 .thenReturn(slice(List.of(r1), false));
         when(feedRepository.findFeedMediaForPosts(any())).thenReturn(List.of(
                 new FeedMediaRow(100L, (short) 0, MediaKind.VIDEO,
-                        "media/v.mp4", "media/v.webp",
-                        "media/poster.jpg", "media/poster.webp")
+                        "media/v.mp4", "media/v.webp", "media/poster.webp")
         ));
 
         FeedPage page = service.listFeed(1L, FeedFilter.POPULAR, null, null);
@@ -408,7 +407,7 @@ class FeedServiceTest {
         when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
                 .thenReturn(slice(List.of(row), false));
         when(feedRepository.findFeedMediaForPosts(any())).thenReturn(List.of(
-                new FeedMediaRow(100L, (short) 0, MediaKind.IMAGE, "media/100-0.jpg", null, null, null)
+                new FeedMediaRow(100L, (short) 0, MediaKind.IMAGE, "media/100-0.jpg", null, null)
         ));
 
         FeedPage page = noBase.listFeed(1L, FeedFilter.POPULAR, null, null);
@@ -424,7 +423,7 @@ class FeedServiceTest {
         when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
                 .thenReturn(slice(List.of(row), false));
         when(feedRepository.findFeedMediaForPosts(any())).thenReturn(List.of(
-                new FeedMediaRow(100L, (short) 0, MediaKind.IMAGE, "media/x.jpg", null, null, null)
+                new FeedMediaRow(100L, (short) 0, MediaKind.IMAGE, "media/x.jpg", null, null)
         ));
 
         FeedPage page = trailing.listFeed(1L, FeedFilter.POPULAR, null, null);
