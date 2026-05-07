@@ -57,6 +57,16 @@ export default function ProfileEditScreen(): JSX.Element {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!__DEV__) {
+      return;
+    }
+    console.warn('[profile/edit/trace]', {
+      event: 'screen-mounted',
+      hasAccessToken: Boolean(accessToken),
+    });
+  }, [accessToken]);
+
+  useEffect(() => {
     if (
       !me ||
       !shouldInitializeProfileEditDraft(initializedUserExtId, me.extId)

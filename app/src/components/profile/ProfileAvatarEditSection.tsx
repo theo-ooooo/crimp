@@ -17,7 +17,7 @@ import {
 } from 'react-native-image-picker';
 import RNFS from 'react-native-fs';
 
-import { SecondaryButton } from '@/components/common/primitives';
+import { CrimpIcon, SecondaryButton } from '@/components/common/primitives';
 import { ProfileAvatarSourceModal } from '@/components/profile/ProfileAvatarSourceModal';
 import type { CapturedMedia } from '@/lib/camera/types';
 import { readImageMeta, type DetectedImageMime } from '@/lib/camera/measure';
@@ -75,13 +75,19 @@ export function ProfileAvatarEditSection({
   const [phase, setPhase] = useState<UploadPhase | 'saving' | null>(null);
   const [imageFailed, setImageFailed] = useState(false);
   const [sourceModalVisible, setSourceModalVisible] = useState(false);
-  const pendingSourceRef = useRef<AvatarSource | null>(null);
+  const pickerLaunchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const busy = phase !== null;
   const blocked = disabled || busy;
 
   useEffect(() => {
     setImageFailed(false);
   }, [avatarUrl]);
+
+  useEffect(() => () => {
+    if (pickerLaunchTimeoutRef.current) {
+      clearTimeout(pickerLaunchTimeoutRef.current);
+    }
+  }, []);
 
   const onChoose = async () => {
     if (blocked) {
@@ -109,20 +115,25 @@ export function ProfileAvatarEditSection({
       return;
     }
     logAvatarEvent('source-select', { source });
-    pendingSourceRef.current = source;
     setSourceModalVisible(false);
+    schedulePickerLaunch(source);
   };
 
   const onSourceModalDismissed = () => {
-    const source = pendingSourceRef.current;
-    pendingSourceRef.current = null;
     logAvatarEvent('source-modal-dismissed', {
-      hasPendingSource: Boolean(source),
-      source: source ?? null,
+      hasPendingLaunch: pickerLaunchTimeoutRef.current !== null,
     });
-    if (source) {
-      void chooseSourceAfterModalDismiss(source);
+  };
+
+  const schedulePickerLaunch = (source: AvatarSource) => {
+    if (pickerLaunchTimeoutRef.current) {
+      clearTimeout(pickerLaunchTimeoutRef.current);
     }
+    logAvatarEvent('picker-launch-scheduled', { source });
+    pickerLaunchTimeoutRef.current = setTimeout(() => {
+      pickerLaunchTimeoutRef.current = null;
+      void chooseSourceAfterModalDismiss(source);
+    }, 350);
   };
 
   const chooseSourceAfterModalDismiss = async (source: AvatarSource) => {
@@ -211,26 +222,41 @@ export function ProfileAvatarEditSection({
         onDismissed={onSourceModalDismissed}
       />
       <View style={styles.avatarWrap}>
-        <View style={styles.avatar}>
-          {avatarUrl && !imageFailed ? (
-            <Image
-              source={{ uri: avatarUrl }}
-              style={styles.avatarImage}
-              accessibilityLabel={nickname}
-              onError={() => setImageFailed(true)}
-            />
-          ) : (
-            <Text style={styles.avatarText}>{initial}</Text>
-          )}
-          {busy ? (
-            <View style={styles.busyOverlay}>
-              <ActivityIndicator color={theme.accent.on} />
-            </View>
-          ) : null}
-        </View>
+        <Pressable
+          onPress={onChoose}
+          disabled={blocked}
+          accessibilityRole="button"
+          accessibilityLabel={t('profile.edit.avatarChoose')}
+          style={({ pressed }) => [
+            styles.avatarButton,
+            pressed ? styles.pressed : null,
+            blocked ? styles.disabled : null,
+          ]}
+        >
+          <View style={styles.avatar}>
+            {avatarUrl && !imageFailed ? (
+              <Image
+                source={{ uri: avatarUrl }}
+                style={styles.avatarImage}
+                accessibilityLabel={nickname}
+                onError={() => setImageFailed(true)}
+              />
+            ) : (
+              <Text style={styles.avatarText}>{initial}</Text>
+            )}
+            {busy ? (
+              <View style={styles.busyOverlay}>
+                <ActivityIndicator color={theme.accent.on} />
+              </View>
+            ) : null}
+          </View>
+          <View style={styles.editBadge}>
+            <CrimpIcon.edit size={16} color={theme.accent.ink} />
+          </View>
+        </Pressable>
         <View style={styles.copy}>
           <Text style={styles.label}>{t('profile.edit.avatarLabel')}</Text>
-          <Text style={styles.help}>{phaseLabel(phase)}</Text>
+          <Text style={styles.help} numberOfLines={2}>{phaseLabel(phase)}</Text>
         </View>
       </View>
       <View style={styles.actions}>
@@ -481,6 +507,10 @@ function makeStyles(theme: Theme) {
       alignItems: 'center',
       gap: space[4],
     },
+    avatarButton: {
+      width: 76,
+      height: 76,
+    },
     avatar: {
       width: 76,
       height: 76,
@@ -500,6 +530,19 @@ function makeStyles(theme: Theme) {
       fontWeight: fontWeight.extrabold,
       color: theme.accent.on,
       includeFontPadding: false,
+    },
+    editBadge: {
+      position: 'absolute',
+      right: -2,
+      bottom: -2,
+      width: 28,
+      height: 28,
+      borderRadius: radius.full,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.accent.base,
+      borderWidth: 2,
+      borderColor: theme.subtle2,
     },
     busyOverlay: {
       ...StyleSheet.absoluteFillObject,
