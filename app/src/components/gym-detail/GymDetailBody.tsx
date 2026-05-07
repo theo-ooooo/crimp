@@ -335,8 +335,11 @@ function RecentActivitySection({
         </View>
       ) : recentActivity && recentActivity.items.length > 0 ? (
         <View style={styles.activityList}>
-          {recentActivity.items.map((item) => (
-            <RecentActivityRow key={`${item.userExtId}-${item.loggedAt}`} item={item} />
+          {recentActivity.items.map((item, index) => (
+            <RecentActivityRow
+              key={`${item.userExtId ?? 'deleted'}-${item.loggedAt}-${index}`}
+              item={item}
+            />
           ))}
         </View>
       ) : (

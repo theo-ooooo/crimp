@@ -116,6 +116,20 @@ describe('FeedItemSchema', () => {
     expect(parsed.note).toBeNull();
   });
 
+  it('parses a deleted-user item with null author id', () => {
+    const parsed = FeedItemSchema.parse({
+      ...fullItem,
+      userExtId: null,
+      userNickname: '탈퇴사용자',
+      avatarColorHue: 0,
+      avatarUrl: null,
+    });
+
+    expect(parsed.userExtId).toBeNull();
+    expect(parsed.userNickname).toBe('탈퇴사용자');
+    expect(parsed.avatarUrl).toBeNull();
+  });
+
   it('rejects out-of-range avatarColorHue', () => {
     expect(() =>
       FeedItemSchema.parse({ ...fullItem, avatarColorHue: -1 }),
@@ -246,6 +260,18 @@ describe('CommentSchema', () => {
     const parsed = CommentSchema.parse(partial);
     expect(parsed.userNickname).toBeUndefined();
     expect(parsed.parentExtId).toBeUndefined();
+  });
+
+  it('parses a deleted-user comment with null author id', () => {
+    const parsed = CommentSchema.parse({
+      ...fullComment,
+      userExtId: null,
+      userNickname: '탈퇴사용자',
+      avatarColorHue: 0,
+    });
+
+    expect(parsed.userExtId).toBeNull();
+    expect(parsed.userNickname).toBe('탈퇴사용자');
   });
 
   it('rejects invalid avatarColorHue', () => {
