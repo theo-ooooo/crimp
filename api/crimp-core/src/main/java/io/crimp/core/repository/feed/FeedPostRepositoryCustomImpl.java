@@ -148,8 +148,10 @@ public class FeedPostRepositoryCustomImpl implements FeedPostRepositoryCustom {
                         pm.id.postId,
                         pm.seq,
                         m.kind,
-                        m.s3Key,
-                        poster.s3Key))
+                        m.originalPath,
+                        m.webpPath,
+                        poster.originalPath,
+                        poster.webpPath))
                 .from(pm)
                 .join(m).on(pm.id.mediaId.eq(m.id))
                 .leftJoin(poster).on(m.posterMediaId.eq(poster.id).and(poster.status.eq(MediaStatus.READY)))

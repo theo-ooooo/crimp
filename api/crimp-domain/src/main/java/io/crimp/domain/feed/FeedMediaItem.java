@@ -5,7 +5,8 @@ import io.crimp.core.entity.enums.MediaKind;
 /**
  * 피드 카드에 노출되는 미디어 1개.
  *
- * <p>{@code url} 은 {@code app.media.cdn-base-url} 과 {@code media_assets.s3_key} 를 응답
+ * <p>{@code url} 은 {@code app.media.cdn-base-url} 과 {@code media_assets.webp_path}
+ * 또는 {@code original_path} 를 응답
  * 시점에 합성한 절대 URL. base 가 미설정이면 미디어가 모두 응답에서 제외되어 클라가 깨진
  * 이미지를 표시하지 않는다.
  *
