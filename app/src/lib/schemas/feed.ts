@@ -32,7 +32,7 @@ export const DEFAULT_FEED_FILTER: FeedFilter = 'friends';
  * 피드 단일 아이템.
  *
  * - `extId`     : SessionAttempt 의 ULID (영구 식별자, FlatList key)
- * - `userExtId` : 작성자 ULID
+ * - `userExtId` : 작성자 ULID. 탈퇴 사용자면 null/누락 가능.
  * - `avatarColorHue` : 백엔드가 결정성 매핑(`(userId*70+180)%360`)으로 내려주는 0~359
  *   값. 모크는 i*70+180 였지만 실제로는 작성자 단위 결정성을 보장하기 위해 서버 값
  *   사용. RN StyleSheet 가 oklch 를 못 받으므로 화면 단에서 HSL 로 변환한다.
@@ -42,7 +42,7 @@ export const DEFAULT_FEED_FILTER: FeedFilter = 'friends';
  */
 export const FeedItemSchema = z.object({
   extId: z.string(),
-  userExtId: z.string(),
+  userExtId: z.string().nullable().optional(),
   userNickname: z.string(),
   avatarColorHue: z.number().int().min(0).max(359),
   avatarUrl: z.string().url().nullable().optional(),
@@ -114,7 +114,7 @@ export type LikeToggleResponse = z.infer<typeof LikeToggleResponseSchema>;
  */
 export const CommentSchema = z.object({
   extId: z.string(),
-  userExtId: z.string(),
+  userExtId: z.string().nullable().optional(),
   userNickname: z.string().nullable().optional(),
   avatarColorHue: z.number().int().min(0).max(359),
   content: z.string(),

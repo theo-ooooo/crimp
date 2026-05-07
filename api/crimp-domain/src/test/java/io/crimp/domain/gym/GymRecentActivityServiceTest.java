@@ -41,9 +41,9 @@ class GymRecentActivityServiceTest {
         Gym gym = gym(77L, "01HGYM", "오프더월", "오프더월클라이밍");
         when(gymRepo.findByExtIdAndStatus("01HGYM", GymStatus.ACTIVE)).thenReturn(Optional.of(gym));
         when(attemptRepo.findRecentActivityByGymId(eq(77L), eq(10))).thenReturn(List.of(
-                new GymRecentActivityRow(1L, "01HUSER01", "서지우", "V5", AttemptResult.SEND,
+                new GymRecentActivityRow(1L, "01HUSER01", "서지우", false, "V5", AttemptResult.SEND,
                         Instant.parse("2026-05-04T01:00:00Z")),
-                new GymRecentActivityRow(2L, "01HUSER02", "민준", "V3", AttemptResult.TRY,
+                new GymRecentActivityRow(2L, "01HUSER02", "민준", false, "V3", AttemptResult.TRY,
                         Instant.parse("2026-05-04T00:30:00Z"))));
 
         var items = service.list("01HGYM", null);
@@ -55,6 +55,23 @@ class GymRecentActivityServiceTest {
         assertThat(items.get(0).gradeValue()).isEqualTo("V5");
         assertThat(items.get(0).result()).isEqualTo(AttemptResult.SEND);
         verify(attemptRepo).findRecentActivityByGymId(77L, 10);
+    }
+
+    @Test
+    void list_anonymizes_deleted_user_activity() {
+        Gym gym = gym(77L, "01HGYM", "오프더월", "오프더월클라이밍");
+        when(gymRepo.findByExtIdAndStatus("01HGYM", GymStatus.ACTIVE)).thenReturn(Optional.of(gym));
+        when(attemptRepo.findRecentActivityByGymId(eq(77L), eq(10))).thenReturn(List.of(
+                new GymRecentActivityRow(9L, "01HDELETED", "삭제전닉네임", true, "V4", AttemptResult.SEND,
+                        Instant.parse("2026-05-04T01:00:00Z"))));
+
+        var items = service.list("01HGYM", null);
+
+        assertThat(items).hasSize(1);
+        assertThat(items.get(0).userExtId()).isNull();
+        assertThat(items.get(0).nickname()).isEqualTo("탈퇴사용자");
+        assertThat(items.get(0).avatarColorHue()).isZero();
+        assertThat(items.get(0).gradeValue()).isEqualTo("V4");
     }
 
     @Test

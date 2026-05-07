@@ -33,6 +33,7 @@ import java.time.Instant;
  * @param likeCount      FeedPost.like_count (디노멀 카운터)
  * @param commentCount   FeedPost.comment_count (디노멀 카운터)
  * @param liked          요청자 likes 테이블 LEFT JOIN 결과 — true=좋아요 누름
+ * @param userDeleted    작성자 계정 탈퇴 여부
  */
 public record FeedRow(
         long feedPostId,
@@ -53,5 +54,6 @@ public record FeedRow(
         Instant loggedAt,
         long likeCount,
         long commentCount,
-        boolean liked
+        boolean liked,
+        boolean userDeleted
 ) {}

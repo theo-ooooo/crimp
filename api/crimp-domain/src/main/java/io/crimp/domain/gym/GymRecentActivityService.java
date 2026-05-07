@@ -17,6 +17,8 @@ public class GymRecentActivityService {
 
     private static final int DEFAULT_PAGE_SIZE = 10;
     private static final int MAX_PAGE_SIZE = 50;
+    private static final String DELETED_USER_NICKNAME = "탈퇴사용자";
+    private static final int DELETED_USER_AVATAR_HUE = 0;
 
     private final GymRepository gymRepository;
     private final SessionAttemptRepository attemptRepository;
@@ -50,9 +52,9 @@ public class GymRecentActivityService {
 
     private static GymRecentActivityView toView(GymRecentActivityRow row) {
         return new GymRecentActivityView(
-                row.userExtId(),
-                row.nickname(),
-                avatarColorHue(row.userId()),
+                row.userDeleted() ? null : row.userExtId(),
+                row.userDeleted() ? DELETED_USER_NICKNAME : row.nickname(),
+                row.userDeleted() ? DELETED_USER_AVATAR_HUE : avatarColorHue(row.userId()),
                 row.gradeValue(),
                 row.result(),
                 row.loggedAt()

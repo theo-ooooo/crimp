@@ -110,7 +110,7 @@ export const GymActiveSessionsSchema = z.object({
 export type GymActiveSessions = z.infer<typeof GymActiveSessionsSchema>;
 
 export const GymRecentActivityItemSchema = z.object({
-  userExtId: z.string(),
+  userExtId: z.string().nullable().optional(),
   nickname: z.string(),
   avatarColorHue: z.number(),
   gradeValue: z.string(),

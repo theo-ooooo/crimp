@@ -4,6 +4,7 @@ import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.Projections;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import io.crimp.core.entity.enums.AttemptResult;
+import io.crimp.core.entity.enums.UserStatus;
 import io.crimp.core.entity.log.QClimbingSession;
 import io.crimp.core.entity.log.QSessionAttempt;
 import io.crimp.core.entity.user.QProfile;
@@ -84,6 +85,7 @@ public class SessionAttemptRepositoryImpl implements SessionAttemptRepositoryCus
                         u.id,
                         u.extId,
                         p.nickname,
+                        u.deletedAt.isNotNull().or(u.status.eq(UserStatus.DELETED)),
                         a.gradeValue,
                         a.result,
                         a.loggedAt))
@@ -92,7 +94,6 @@ public class SessionAttemptRepositoryImpl implements SessionAttemptRepositoryCus
                 .join(u).on(s.userId.eq(u.id))
                 .leftJoin(p).on(p.userId.eq(u.id))
                 .where(s.deletedAt.isNull()
-                        .and(u.deletedAt.isNull())
                         .and(a.gymId.eq(gymId).or(a.gymId.isNull().and(s.gymId.eq(gymId)))))
                 .orderBy(a.loggedAt.desc(), a.id.desc())
                 .limit(limit)
