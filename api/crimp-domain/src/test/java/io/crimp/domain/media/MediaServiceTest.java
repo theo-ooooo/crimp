@@ -74,6 +74,10 @@ class MediaServiceTest {
                 .thenAnswer(inv -> new MediaPresigner.PresignedUpload(
                         "https://s3.test/" + inv.getArgument(0) + "?signed",
                         Instant.parse("2026-04-28T14:00:00Z")));
+        when(imageVariantRepo.findFirstByMediaIdAndStatusAndPrimaryTrueOrderByIdDesc(anyLong(), any(MediaStatus.class)))
+                .thenReturn(Optional.empty());
+        when(videoVariantRepo.findFirstByMediaIdAndStatusAndPrimaryTrueOrderByIdDesc(anyLong(), any(MediaStatus.class)))
+                .thenReturn(Optional.empty());
     }
 
     @Test
@@ -177,7 +181,8 @@ class MediaServiceTest {
         assertThat(asset.getStatus()).isEqualTo(MediaStatus.READY);
         assertThat(asset.getOriginalByteSize()).isEqualTo(12345L);
         verify(imageRepo).save(any(MediaImage.class));
-        // cdn URL 은 응답 시점에 base + originalPath 로 합성 — DB 에 저장하지 않음.
+        verify(imageVariantRepo).save(any(MediaImageVariant.class));
+        assertThat(result.variantPath()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
         assertThat(result.cdnUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA.jpg");
         assertThat(result.originalPath()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
     }
@@ -194,6 +199,7 @@ class MediaServiceTest {
 
         assertThat(asset.getStatus()).isEqualTo(MediaStatus.READY);
         verify(imageRepo, never()).save(any(MediaImage.class));
+        verify(imageVariantRepo).save(any(MediaImageVariant.class));
     }
 
     @Test
@@ -236,7 +242,7 @@ class MediaServiceTest {
 
     @Test
     void completeUpload_cdnBaseUrlEmpty_returnsNullCdnUrl() {
-        // cdn-base-url 이 비어있으면 응답 cdnUrl=null. 클라는 s3Key 로 별도 처리.
+        // cdn-base-url 이 비어있으면 응답 cdnUrl=null.
         var noCdnProps = new AppProperties("Crimp", "test", null,
                 new AppProperties.Media("", 600));
         var noCdnService = new MediaService(repo, imageRepo, imageVariantRepo, videoRepo, videoThumbnailRepo, videoVariantRepo, presigner, noCdnProps);
@@ -249,6 +255,7 @@ class MediaServiceTest {
         var result = noCdnService.completeUpload(100L, 7L, 12345L, 1920, 1080, null, null);
 
         assertThat(result.cdnUrl()).isNull();
+        assertThat(result.variantPath()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
         assertThat(result.originalPath()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
         // entity 자체는 status 만 변경 — URL 은 DB 에 보존하지 않음.
         assertThat(asset.getStatus()).isEqualTo(MediaStatus.READY);

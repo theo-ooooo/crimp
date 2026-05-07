@@ -594,8 +594,8 @@ export function presignMedia(
 }
 
 /**
- * `POST /api/v1/media/{id}/complete` — S3 PUT 성공 후 호출. UPLOADING → READY 전환 +
- * cdnUrl 채워짐. 본인 소유 X 시 403, UPLOADING 외 상태에서 호출 시 409.
+ * `POST /api/v1/media/{id}/complete` — S3 PUT 성공 후 호출. UPLOADING → READY 전환.
+ * 대표 variant 가 준비된 경우에만 cdnUrl 이 채워짐. 본인 소유 X 시 403, UPLOADING 외 상태에서 호출 시 409.
  */
 export function completeMedia(
   accessToken: string,

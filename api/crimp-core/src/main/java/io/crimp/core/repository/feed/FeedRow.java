@@ -21,6 +21,7 @@ import java.time.Instant;
  *                       null 케이스 자체를 컴파일 타임에 제거.
  * @param userExtId      User.extId
  * @param nickname       Profile.nickname
+ * @param avatarMediaId    Profile.avatar_media_id. 대표 variant 는 page 단위 batch fetch.
  * @param gymName        Gym.name (LEFT JOIN — 자연 암장 등은 null)
  * @param result         AttemptResult (attempt 비종속 게시는 null)
  * @param gradeValue     SessionAttempt.gradeValue
@@ -41,6 +42,7 @@ public record FeedRow(
         long userId,
         String userExtId,
         String nickname,
+        Long avatarMediaId,
         String gymName,
         AttemptResult result,
         String gradeValue,

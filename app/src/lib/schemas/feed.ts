@@ -45,6 +45,7 @@ export const FeedItemSchema = z.object({
   userExtId: z.string(),
   userNickname: z.string(),
   avatarColorHue: z.number().int().min(0).max(359),
+  avatarUrl: z.string().url().nullable().optional(),
   gymName: z.string().nullable().optional(),
   result: AttemptResultSchema,
   gradeValue: z.string().nullable().optional(),

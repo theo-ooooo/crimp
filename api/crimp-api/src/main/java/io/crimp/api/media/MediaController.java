@@ -36,7 +36,7 @@ import java.time.Instant;
  * <ol>
  *   <li>{@code POST /presign} — 업로드 시작. presigned PUT URL + UPLOADING 상태 row 발급.</li>
  *   <li>(클라가 받은 URL 로 직접 S3 PUT 업로드)</li>
- *   <li>{@code POST /{id}/complete} — 업로드 완료 보고. READY 로 전환 + cdnUrl 채워짐.</li>
+ *   <li>{@code POST /{id}/complete} — 업로드 완료 보고. READY 로 전환 + 대표 variant cdnUrl 응답.</li>
  * </ol>
  *
  * <p>인증: {@link CrimpPrincipal} 필수. {@code complete} 는 본인 소유 미디어만 갱신 가능
@@ -76,7 +76,7 @@ public class MediaController {
             summary = "업로드 완료 보고",
             description = "S3 PUT 성공 후 호출. byteSize/width/height/durationMs 메타 + READY 전환. "
                     + "본인 소유가 아닌 미디어 호출 시 403 MEDIA_FORBIDDEN. UPLOADING 외 상태에서 호출 시 409. "
-                    + "응답의 cdnUrl 은 cdn-base-url 미설정 시 null — 그 경우 클라는 originalPath 를 통해 별도 처리."
+                    + "응답의 cdnUrl 은 대표 variant 가 준비된 경우에만 내려가며, originalPath 는 원본 확인용."
     )
     @PostMapping("/{id}/complete")
     public CompleteResponse complete(

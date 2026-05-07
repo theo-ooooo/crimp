@@ -8,6 +8,12 @@ spring:
     # 스테이징/운영은 기본(false) — 마이그레이션은 항상 시간순으로 배포한다.
     out-of-order: true
 
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
+    org.hibernate.orm.jdbc.extract: TRACE
+
 # 로컬 개발 편의 — 모든 오리진 허용 (ngrok / cloudflared 같은 임시 도메인 + iOS sim
 # 의 file:// 등). allowedOrigins=[] 로 비우고 allowedOriginPatterns=['*'] 사용 —
 # Spring 의 CorsConfiguration 이 wildcard origin + credentials=true 조합을

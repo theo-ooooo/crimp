@@ -130,7 +130,7 @@ class UserServiceTest {
         assertThat(view.levelSelf()).isEqualTo((byte) 4);
         assertThat(view.mainGymId()).isEqualTo(9L);
         assertThat(view.avatarMediaId()).isEqualTo(7L);
-        assertThat(view.avatarUrl()).isEqualTo("https://cdn.crimp.test/media/users/1/avatar/image/avatar.jpg");
+        assertThat(view.avatarUrl()).isNull();
         assertThat(view.mainGym()).isNotNull();
         assertThat(view.mainGym().extId()).isEqualTo("01HGYM_NEW");
     }
@@ -420,20 +420,24 @@ class UserServiceTest {
     }
 
     @Test
-    void updateMyProfile_avatarMediaId_requires_owned_ready_image() {
+    void updateMyProfile_avatarMediaId_requires_owned_ready_image_and_variant_for_url() {
         User user = user(1L, "01HU");
         Profile profile = Profile.create(1L, "kk");
         MediaAsset avatar = readyAvatarImage(10L, 1L, "media/users/1/avatar/image/a.png");
+        MediaImageVariant variant = mock(MediaImageVariant.class);
         when(userRepo.findById(1L)).thenReturn(Optional.of(user));
         when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
         when(mediaAssetRepo.findById(10L)).thenReturn(Optional.of(avatar));
+        when(variant.getPath()).thenReturn("media/users/1/avatar/image/a.webp");
+        when(mediaImageVariantRepo.findFirstByMediaIdAndStatusAndPrimaryTrueOrderByIdDesc(10L, MediaStatus.READY))
+                .thenReturn(Optional.of(variant));
 
         ProfileView view = service.updateMyProfile(
                 1L,
                 new UpdateProfileCommand(null, null, null, null, null, false, 10L));
 
         assertThat(view.avatarMediaId()).isEqualTo(10L);
-        assertThat(view.avatarUrl()).isEqualTo("https://cdn.crimp.test/media/users/1/avatar/image/a.png");
+        assertThat(view.avatarUrl()).isEqualTo("https://cdn.crimp.test/media/users/1/avatar/image/a.webp");
     }
 
     @Test

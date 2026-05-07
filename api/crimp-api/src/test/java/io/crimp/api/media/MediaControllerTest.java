@@ -74,8 +74,9 @@ class MediaControllerTest {
                         42L, "01HMEDIA", MediaKind.IMAGE, MediaStatus.READY,
                         MediaUsage.ATTEMPT, "image/jpeg", 12345L, 1920, 1080, null,
                         "media/2026-04-28/01HMEDIA.jpg",
-                        null,
-                        "https://cdn.test/media/2026-04-28/01HMEDIA.jpg", null,
+                        "media/2026-04-28/01HMEDIA.jpg",
+                        "https://cdn.test/media/2026-04-28/01HMEDIA.jpg",
+                        "https://cdn.test/media/2026-04-28/01HMEDIA.jpg",
                         "https://cdn.test/media/2026-04-28/01HMEDIA.jpg", null,
                         Instant.parse("2026-04-28T13:00:00Z")));
 
@@ -89,8 +90,8 @@ class MediaControllerTest {
         assertThat(res.s3Key()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
         assertThat(res.originalPath()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
         assertThat(res.originalUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA.jpg");
-        assertThat(res.variantPath()).isNull();
-        assertThat(res.variantUrl()).isNull();
+        assertThat(res.variantPath()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
+        assertThat(res.variantUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA.jpg");
         verify(service).completeUpload(42L, 7L, 12345L, 1920, 1080, null, null);
     }
 

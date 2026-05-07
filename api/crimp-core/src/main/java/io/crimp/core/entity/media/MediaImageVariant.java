@@ -21,6 +21,8 @@ import static lombok.AccessLevel.PROTECTED;
 @NoArgsConstructor(access = PROTECTED)
 public class MediaImageVariant {
 
+    public static final byte TYPE_WEBP = 1;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -55,4 +57,24 @@ public class MediaImageVariant {
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
+
+    public static MediaImageVariant readyPrimary(
+            Long mediaId,
+            String mime,
+            Long byteSize,
+            Integer width,
+            Integer height,
+            String path) {
+        MediaImageVariant variant = new MediaImageVariant();
+        variant.mediaId = mediaId;
+        variant.variantType = TYPE_WEBP;
+        variant.status = MediaStatus.READY;
+        variant.mime = mime;
+        variant.byteSize = byteSize;
+        variant.width = width;
+        variant.height = height;
+        variant.path = path;
+        variant.primary = true;
+        return variant;
+    }
 }

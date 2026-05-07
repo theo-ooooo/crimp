@@ -218,27 +218,92 @@ CREATE TABLE feed_posts (
 ### 3.9 media_assets
 ```sql
 CREATE TABLE media_assets (
+  id             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  ext_id         CHAR(26) NOT NULL,
+  owner_user_id  BIGINT UNSIGNED NOT NULL,
+  kind           TINYINT NOT NULL,             -- 1=IMAGE, 2=VIDEO
+  status         TINYINT NOT NULL DEFAULT 1,   -- 1=UPLOADING, 2=PROCESSING, 3=READY, 9=FAILED
+  usage_type     TINYINT NOT NULL DEFAULT 1,   -- 1=ATTEMPT, 2=AVATAR, 3=POSTER
+  mime           VARCHAR(80) NOT NULL,
+  byte_size      BIGINT UNSIGNED NULL,
+  original_path  VARCHAR(500) NOT NULL,
+  created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_media_ext_id (ext_id),
+  KEY idx_media_owner (owner_user_id, created_at DESC),
+  KEY idx_media_status (status, created_at)
+);
+```
+
+### 3.9.1 media_images / media_image_variants
+```sql
+CREATE TABLE media_images (
+  media_id BIGINT UNSIGNED NOT NULL,
+  width    INT UNSIGNED NULL,
+  height   INT UNSIGNED NULL,
+  PRIMARY KEY (media_id)
+);
+
+CREATE TABLE media_image_variants (
   id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  ext_id       CHAR(26) NOT NULL,
-  owner_user_id BIGINT UNSIGNED NOT NULL,
-  kind         TINYINT NOT NULL,             -- 1=IMAGE, 2=VIDEO
-  status       TINYINT NOT NULL DEFAULT 1,   -- 1=UPLOADING, 2=PROCESSING, 3=READY, 9=FAILED
-  usage_type   TINYINT NOT NULL DEFAULT 1,   -- 1=ATTEMPT, 2=AVATAR, 3=POSTER
+  media_id     BIGINT UNSIGNED NOT NULL,
+  variant_type TINYINT NOT NULL,              -- 1=WEBP, 2=AVIF, 3=THUMBNAIL
+  status       TINYINT NOT NULL DEFAULT 2,    -- 2=PROCESSING, 3=READY, 9=FAILED
+  mime         VARCHAR(80) NOT NULL,
+  byte_size    BIGINT UNSIGNED NULL,
+  width        INT UNSIGNED NULL,
+  height       INT UNSIGNED NULL,
+  path         VARCHAR(500) NOT NULL,
+  is_primary   BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_media_image_variants_media (media_id, status, is_primary)
+);
+```
+
+### 3.9.2 media_videos / media_video_variants / media_video_thumbnails
+```sql
+CREATE TABLE media_videos (
+  media_id    BIGINT UNSIGNED NOT NULL,
+  width       INT UNSIGNED NULL,
+  height      INT UNSIGNED NULL,
+  duration_ms INT UNSIGNED NULL,
+  PRIMARY KEY (media_id)
+);
+
+CREATE TABLE media_video_variants (
+  id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  media_id     BIGINT UNSIGNED NOT NULL,
+  variant_type TINYINT NOT NULL,              -- 1=COMPRESSED_MP4, 2=HLS
+  status       TINYINT NOT NULL DEFAULT 2,    -- 2=PROCESSING, 3=READY, 9=FAILED
   mime         VARCHAR(80) NOT NULL,
   byte_size    BIGINT UNSIGNED NULL,
   width        INT UNSIGNED NULL,
   height       INT UNSIGNED NULL,
   duration_ms  INT UNSIGNED NULL,
-  poster_media_id BIGINT UNSIGNED NULL,  -- VIDEO 전용: 사용자 지정 대표 이미지(media_assets.id), V202605031000
-  s3_key       VARCHAR(500) NOT NULL,
-  cdn_url      VARCHAR(500) NULL,
-  thumbnail_cdn_url VARCHAR(500) NULL,
-  variants     JSON NULL,                    -- [{'h':720,'url':'...'},{'h':1080,'url':'...'}]
+  path         VARCHAR(500) NOT NULL,
+  is_primary   BOOLEAN NOT NULL DEFAULT FALSE,
   created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  UNIQUE KEY uk_media_ext_id (ext_id),
-  KEY idx_media_owner (owner_user_id, created_at DESC),
-  KEY idx_media_status (status, created_at)
+  KEY idx_media_video_variants_media (media_id, status, is_primary)
+);
+
+CREATE TABLE media_video_thumbnails (
+  id             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  video_media_id BIGINT UNSIGNED NOT NULL,
+  image_media_id BIGINT UNSIGNED NULL,
+  path           VARCHAR(500) NULL,
+  mime           VARCHAR(80) NULL,
+  byte_size      BIGINT UNSIGNED NULL,
+  width          INT UNSIGNED NULL,
+  height         INT UNSIGNED NULL,
+  source_type    TINYINT NOT NULL,            -- 1=GENERATED, 2=USER_SELECTED
+  status         TINYINT NOT NULL DEFAULT 2,  -- 2=PROCESSING, 3=READY, 9=FAILED
+  is_primary     BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_media_video_thumbnails_video (video_media_id, status, is_primary),
+  KEY idx_media_video_thumbnails_image (image_media_id)
 );
 ```
 
@@ -321,6 +386,8 @@ CREATE TABLE follows (
 | V202605010907 | `V202605010907__add_attempt_ext_id.sql` | session_attempts.ext_id 추가 |
 | V202605010908 | `V202605010908__feed_post_attempt_link.sql` | feed_posts ↔ attempt 연결 |
 | V202605010920 | `V202605010920__seed_gyms_seoul.sql` | 수도권 검증된 암장 11곳(더클라임 9 + 클라이밍파크 신논현 + 볼더프렌즈 홍대) 1차 seed. 도로명+상세 주소는 검색 결과로 검증, 좌표는 영역 중심값(±100~300m). 더클라임 논현·사당점 및 추가 매장은 후속 검수 PR. ON DUPLICATE KEY UPDATE 로 좌표 보강 친화 |
+| V202605071100 | `V202605071100__media_type_tables.sql` | 이미지/비디오 전용 메타, variant, 비디오 썸네일 테이블 분리 |
+| V202605071200 | `V202605071200__media_asset_base_cleanup.sql` | media_assets 를 공통 원본 자산 컬럼만 남기도록 정리 |
 
 ## 7. 오픈 이슈
 

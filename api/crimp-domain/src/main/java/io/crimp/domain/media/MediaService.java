@@ -129,7 +129,8 @@ public class MediaService {
 
     /**
      * 업로드 완료 — 클라가 S3 PUT 성공 후 호출. 메타 업데이트 + READY 전환.
-     * 응답의 cdnUrl 은 {@code cdn-base-url} 과 대표 variant path 우선, 없으면 원본 path 합성.
+     * 응답의 cdnUrl 은 {@code cdn-base-url} 과 대표 variant path 로만 합성한다.
+     * originalUrl 은 원본 확인용으로 별도 제공한다.
      *
      * @throws MediaException {@code MEDIA_NOT_FOUND}/{@code MEDIA_FORBIDDEN}/{@code MEDIA_INVALID_STATE}
      */
@@ -178,8 +179,8 @@ public class MediaService {
             linkPosterImageToVideo(attachAsPosterForVideoId, asset.getId(), callerUserId);
         }
 
-        String variantPath = primaryVariantPath(asset);
-        String cdnUrl = buildCdnUrl(displayPath(asset.getOriginalPath(), variantPath));
+        String variantPath = ensurePrimaryVariant(asset, width, height, durationMs);
+        String cdnUrl = buildCdnUrl(variantPath);
         String originalUrl = buildCdnUrl(asset.getOriginalPath());
         String variantUrl = buildCdnUrl(variantPath);
         log.info("[media] upload complete id={} extId={} owner={} byteSize={} dim={}x{} duration={}ms",
@@ -239,6 +240,32 @@ public class MediaService {
         mediaVideoThumbnailRepository.save(MediaVideoThumbnail.userSelected(videoMediaId, posterImageMediaId));
     }
 
+    private String ensurePrimaryVariant(MediaAsset asset, Integer width, Integer height, Integer durationMs) {
+        String existing = primaryVariantPath(asset);
+        if (existing != null && !existing.isBlank()) {
+            return existing;
+        }
+        if (asset.getKind() == MediaKind.IMAGE) {
+            mediaImageVariantRepository.save(MediaImageVariant.readyPrimary(
+                    asset.getId(),
+                    asset.getOriginalMime(),
+                    asset.getOriginalByteSize(),
+                    width,
+                    height,
+                    asset.getOriginalPath()));
+        } else {
+            mediaVideoVariantRepository.save(MediaVideoVariant.readyPrimary(
+                    asset.getId(),
+                    asset.getOriginalMime(),
+                    asset.getOriginalByteSize(),
+                    width,
+                    height,
+                    durationMs,
+                    asset.getOriginalPath()));
+        }
+        return asset.getOriginalPath();
+    }
+
     private String primaryVariantPath(MediaAsset asset) {
         if (asset.getKind() == MediaKind.IMAGE) {
             return mediaImageVariantRepository
@@ -253,13 +280,6 @@ public class MediaService {
                     .orElse(null);
         }
         return null;
-    }
-
-    private static String displayPath(String originalPath, String variantPath) {
-        if (variantPath != null && !variantPath.isBlank()) {
-            return variantPath;
-        }
-        return originalPath;
     }
 
     private void validateMime(MediaKind kind, String mime) {
