@@ -21,6 +21,8 @@ import java.time.Instant;
  *                       null 케이스 자체를 컴파일 타임에 제거.
  * @param userExtId      User.extId
  * @param nickname       Profile.nickname
+ * @param avatarOriginalPath Profile.avatar_media_id 의 media_assets.original_path
+ * @param avatarVariantPath  Profile.avatar_media_id 의 대표 이미지 variant path
  * @param gymName        Gym.name (LEFT JOIN — 자연 암장 등은 null)
  * @param result         AttemptResult (attempt 비종속 게시는 null)
  * @param gradeValue     SessionAttempt.gradeValue
@@ -41,6 +43,8 @@ public record FeedRow(
         long userId,
         String userExtId,
         String nickname,
+        String avatarOriginalPath,
+        String avatarVariantPath,
         String gymName,
         AttemptResult result,
         String gradeValue,

@@ -13,7 +13,7 @@ import io.crimp.core.entity.enums.MediaKind;
  * @param feedPostId feed_posts.id (그룹 키)
  * @param seq        post_media.seq — 표시 순서 (이 record 자체는 seq 오름차순으로 도착)
  * @param kind       media_assets.kind (IMAGE / VIDEO)
- * @param originalPath  media_assets.s3_key — 원본 CDN URL 합성의 경로 부분
+ * @param originalPath  media_assets.original_path — 원본 CDN URL 합성의 경로 부분
  * @param variantPath   대표 이미지/비디오 variant 경로 (없으면 null)
  * @param thumbnailPath VIDEO 전용 대표 썸네일 경로 (없으면 null)
  */

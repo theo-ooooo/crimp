@@ -63,6 +63,9 @@ public class FeedPostRepositoryCustomImpl implements FeedPostRepositoryCustom {
         QGym g = QGym.gym;
         QPostLike l = QPostLike.postLike;
         QFollow follow = QFollow.follow;
+        QMediaAsset avatar = new QMediaAsset("avatar");
+        QMediaImageVariant avatarVariant = new QMediaImageVariant("avatarVariant");
+        QMediaImageVariant avatarVariantCandidate = new QMediaImageVariant("avatarVariantCandidate");
 
         int pageSize = pageable.getPageSize();
 
@@ -105,6 +108,8 @@ public class FeedPostRepositoryCustomImpl implements FeedPostRepositoryCustom {
                         u.id,
                         u.extId,
                         p.nickname,
+                        avatar.originalPath,
+                        avatarVariant.path,
                         g.name,
                         a.result,
                         a.gradeValue,
@@ -125,6 +130,17 @@ public class FeedPostRepositoryCustomImpl implements FeedPostRepositoryCustom {
                 .leftJoin(a).on(fp.attemptId.eq(a.id))
                 .join(u).on(fp.userId.eq(u.id))
                 .leftJoin(p).on(p.userId.eq(u.id))
+                .leftJoin(avatar).on(p.avatarMediaId.eq(avatar.id)
+                        .and(avatar.status.eq(MediaStatus.READY)))
+                .leftJoin(avatarVariant).on(avatarVariant.mediaId.eq(avatar.id)
+                        .and(avatarVariant.status.eq(MediaStatus.READY))
+                        .and(avatarVariant.primary.isTrue())
+                        .and(avatarVariant.id.eq(JPAExpressions
+                                .select(avatarVariantCandidate.id.max())
+                                .from(avatarVariantCandidate)
+                                .where(avatarVariantCandidate.mediaId.eq(avatar.id)
+                                        .and(avatarVariantCandidate.status.eq(MediaStatus.READY))
+                                        .and(avatarVariantCandidate.primary.isTrue())))))
                 .leftJoin(g).on(fp.gymId.eq(g.id))
                 .leftJoin(l).on(l.id.postId.eq(fp.id).and(l.id.userId.eq(requesterUserId)))
                 .where(where)

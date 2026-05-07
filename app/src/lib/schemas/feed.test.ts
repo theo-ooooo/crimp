@@ -47,6 +47,7 @@ describe('FeedItemSchema', () => {
     userExtId: '01J9ZX5K8000ABCDEFGHIJKLMN',
     userNickname: '서지우',
     avatarColorHue: 250,
+    avatarUrl: 'https://cdn.crimp.test/media/users/1/avatar/image/avatar.webp',
     gymName: '서울볼더스 성수',
     result: 'SEND',
     gradeValue: 'V5',
@@ -64,6 +65,7 @@ describe('FeedItemSchema', () => {
     const parsed = FeedItemSchema.parse(fullItem);
     expect(parsed.extId).toBe(fullItem.extId);
     expect(parsed.avatarColorHue).toBe(250);
+    expect(parsed.avatarUrl).toBe(fullItem.avatarUrl);
     expect(parsed.gymName).toBe('서울볼더스 성수');
     expect(parsed.gradeNumeric).toBe(5);
     expect(parsed.liked).toBe(false);

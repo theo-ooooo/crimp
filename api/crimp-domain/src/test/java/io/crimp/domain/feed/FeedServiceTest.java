@@ -224,6 +224,35 @@ class FeedServiceTest {
         assertThat(page.items().get(0).avatarColorHue()).isEqualTo(250);
     }
 
+    @Test
+    void avatar_url_prefers_image_variant_path() {
+        FeedRow row = baseRow()
+                .withAvatarOriginalPath("media/users/1/avatar/image/avatar.jpg")
+                .withAvatarVariantPath("media/users/1/avatar/image/avatar.webp")
+                .build();
+        when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
+                .thenReturn(slice(List.of(row), false));
+
+        FeedPage page = service.listFeed(7L, FeedFilter.POPULAR, null, null);
+
+        assertThat(page.items().get(0).avatarUrl())
+                .isEqualTo("https://cdn.test/media/users/1/avatar/image/avatar.webp");
+    }
+
+    @Test
+    void avatar_url_falls_back_to_original_path() {
+        FeedRow row = baseRow()
+                .withAvatarOriginalPath("media/users/1/avatar/image/avatar.jpg")
+                .build();
+        when(feedRepository.findFeed(anyLong(), any(), any(), any(), any()))
+                .thenReturn(slice(List.of(row), false));
+
+        FeedPage page = service.listFeed(7L, FeedFilter.POPULAR, null, null);
+
+        assertThat(page.items().get(0).avatarUrl())
+                .isEqualTo("https://cdn.test/media/users/1/avatar/image/avatar.jpg");
+    }
+
     // --- nextCursor / hasNext ---
 
     @Test
@@ -488,6 +517,8 @@ class FeedServiceTest {
         private long userId = 1L;
         private String userExtId = "01HUSER0000000000000000001";
         private String nickname = "서지우";
+        private String avatarOriginalPath = null;
+        private String avatarVariantPath = null;
         private String gymName = "서울볼더스 성수";
         private AttemptResult result = AttemptResult.SEND;
         private String gradeValue = "V5";
@@ -504,6 +535,8 @@ class FeedServiceTest {
         FeedRowBuilder withFeedPostExtId(String v) { this.feedPostExtId = v; return this; }
         FeedRowBuilder withAttemptExtId(String v) { this.attemptExtId = v; return this; }
         FeedRowBuilder withUserId(long v) { this.userId = v; return this; }
+        FeedRowBuilder withAvatarOriginalPath(String v) { this.avatarOriginalPath = v; return this; }
+        FeedRowBuilder withAvatarVariantPath(String v) { this.avatarVariantPath = v; return this; }
         FeedRowBuilder withTagsJson(String v) { this.tagsJson = v; return this; }
         FeedRowBuilder withHoldColor(String v) { this.holdColor = v; return this; }
         FeedRowBuilder withLikeCount(long v) { this.likeCount = v; return this; }
@@ -512,7 +545,7 @@ class FeedServiceTest {
 
         FeedRow build() {
             return new FeedRow(feedPostId, feedPostExtId, attemptId, attemptExtId,
-                    userId, userExtId, nickname, gymName,
+                    userId, userExtId, nickname, avatarOriginalPath, avatarVariantPath, gymName,
                     result, gradeValue, gradeNumeric, tagsJson, holdColor, note, loggedAt,
                     likeCount, commentCount, liked);
         }

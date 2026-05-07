@@ -17,6 +17,7 @@ import java.util.List;
  * @param userExtId     User.extId (ULID)
  * @param userNickname  Profile.nickname
  * @param avatarColorHue 0..359 — userId 결정적 해시. {@link FeedService} 에서 계산
+ * @param avatarUrl     프로필 이미지 CDN URL. 미설정 또는 CDN base URL 미설정이면 null
  * @param gymName       Gym.name (시도가 암장에 묶이지 않으면 null)
  * @param result        AttemptResult enum (자유 글 게시는 null)
  * @param gradeValue    grade 표기(예: "V5")
@@ -35,6 +36,7 @@ public record FeedItemView(
         String userExtId,
         String userNickname,
         int avatarColorHue,
+        String avatarUrl,
         String gymName,
         AttemptResult result,
         String gradeValue,

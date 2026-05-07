@@ -111,7 +111,7 @@ public class FeedService {
         Map<Long, List<FeedMediaItem>> mediaByPost = groupMedia(mediaRows, cdnBaseUrl);
 
         List<FeedItemView> items = slice.getContent().stream()
-                .map(row -> toView(row, mediaByPost.getOrDefault(row.feedPostId(), List.of())))
+                .map(row -> toView(row, mediaByPost.getOrDefault(row.feedPostId(), List.of()), cdnBaseUrl))
                 .toList();
 
         Long nextCursor = slice.hasNext() && !slice.getContent().isEmpty()
@@ -163,6 +163,16 @@ public class FeedService {
         return null;
     }
 
+    private static String buildCdnUrl(String cdnBaseUrl, String path) {
+        if (cdnBaseUrl == null || cdnBaseUrl.isBlank() || path == null || path.isBlank()) {
+            return null;
+        }
+        String base = cdnBaseUrl.endsWith("/")
+                ? cdnBaseUrl.substring(0, cdnBaseUrl.length() - 1)
+                : cdnBaseUrl;
+        return base + "/" + path;
+    }
+
     /**
      * userId 결정적 hue 계산: {@code (userId * 70 + 180) mod 360}.
      *
@@ -200,17 +210,19 @@ public class FeedService {
         };
     }
 
-    private static FeedItemView toView(FeedRow row, List<FeedMediaItem> mediaUrls) {
+    private static FeedItemView toView(FeedRow row, List<FeedMediaItem> mediaUrls, String cdnBaseUrl) {
         // FeedRow.userId 는 primitive long — INNER JOIN + NOT NULL PK 로 null 가능성 컴파일
         // 타임 제거. silent fallback (hue=180) 으로 회귀가 가려지는 위험 차단.
         // [PR #93, F5 PR-4 — 리뷰 B1] holdColor 1급 컬럼 우선, 미저장(legacy) 시 tagsJson 의
         // hold 키를 fallback 으로 추출해 hold 점 시각화 회귀 방지.
         String holdColor = row.holdColor() != null ? row.holdColor() : extractHoldColor(row.tagsJson());
+        String avatarUrl = buildCdnUrl(cdnBaseUrl, displayPath(row.avatarOriginalPath(), row.avatarVariantPath()));
         return new FeedItemView(
                 row.feedPostExtId(),
                 row.userExtId(),
                 row.nickname(),
                 avatarColorHue(row.userId()),
+                avatarUrl,
                 row.gymName(),
                 row.result(),
                 row.gradeValue(),

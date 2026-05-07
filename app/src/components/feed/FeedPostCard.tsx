@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -134,6 +134,7 @@ export function FeedPostCard({
   const theme = useTokens();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const likeMutation = useLikeToggleMutation(accessToken ?? null);
+  const [avatarFailed, setAvatarFailed] = useState(false);
 
   const avatarBg = hueToBg(item.avatarColorHue);
   // F4: surrogate pair (예: 이모지 닉네임) 를 안전하게 첫 글리프 추출.
@@ -183,6 +184,10 @@ export function FeedPostCard({
 
   const heartColor = item.liked ? theme.semantic.danger : theme.text2;
 
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [item.avatarUrl]);
+
   return (
     <View
       style={styles.card}
@@ -191,9 +196,18 @@ export function FeedPostCard({
       {/* 헤더: 아바타 · 닉네임/메타 · ResultMark */}
       <View style={styles.header}>
         <View style={[styles.avatar, { backgroundColor: avatarBg }]}>
-          <Text style={styles.avatarChar} allowFontScaling={false}>
-            {avatarChar}
-          </Text>
+          {item.avatarUrl && !avatarFailed ? (
+            <Image
+              source={{ uri: item.avatarUrl }}
+              style={styles.avatarImage}
+              onError={() => setAvatarFailed(true)}
+              accessibilityIgnoresInvertColors
+            />
+          ) : (
+            <Text style={styles.avatarChar} allowFontScaling={false}>
+              {avatarChar}
+            </Text>
+          )}
         </View>
         <View style={styles.headerBody}>
           <Text style={styles.nickname} numberOfLines={1}>
@@ -467,6 +481,11 @@ function makeStyles(theme: Theme) {
       borderRadius: radius.full,
       alignItems: 'center',
       justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    avatarImage: {
+      width: '100%',
+      height: '100%',
     },
     avatarChar: {
       fontFamily,
