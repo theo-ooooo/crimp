@@ -228,7 +228,7 @@
 
 ### 크루 (`/api/v1/crews`) — Phase 1.5
 
-현재 구현된 read API:
+현재 구현된 API:
 
 | Method | Path | 설명 |
 | --- | --- | --- |
@@ -236,6 +236,11 @@
 | POST | `/api/v1/crews` | 크루 생성. 생성자는 `OWNER` 멤버가 된다. v0.1 은 `visibility=PUBLIC`, `joinPolicy=APPROVAL` 만 생성 |
 | GET | `/api/v1/crews/{extId}` | 크루 상세. 기본 정보, 대표 암장, owner, 내 가입 상태 |
 | PATCH | `/api/v1/crews/{extId}` | 크루 기본 정보 수정 (`OWNER`/`ADMIN`) |
+| POST | `/api/v1/crews/{extId}/join-requests` | 가입 요청 생성. 같은 사용자는 여러 크루에 가입 요청 가능, 같은 크루의 대기 요청은 1개 |
+| DELETE | `/api/v1/crews/{extId}/join-requests/me` | 내 대기 가입 요청 취소 |
+| GET | `/api/v1/crews/{extId}/join-requests?status=PENDING&cursor=&size=` | 가입 요청 목록 (`OWNER`/`ADMIN`) |
+| POST | `/api/v1/crews/{extId}/join-requests/{requestExtId}:approve` | 가입 요청 승인. 승인 시 ACTIVE 멤버 추가 |
+| POST | `/api/v1/crews/{extId}/join-requests/{requestExtId}:reject` | 가입 요청 거절 |
 
 후속 예정 API:
 
@@ -243,11 +248,6 @@
 | --- | --- | --- |
 | GET | `/api/v1/crews/{extId}/members?cursor=&size=` | 멤버 목록 |
 | DELETE | `/api/v1/crews/{extId}/members/me` | 크루 탈퇴. 마지막 `OWNER` 는 탈퇴 불가 |
-| POST | `/api/v1/crews/{extId}/join-requests` | 가입 요청 생성 |
-| DELETE | `/api/v1/crews/{extId}/join-requests/me` | 내 대기 가입 요청 취소 |
-| GET | `/api/v1/crews/{extId}/join-requests?status=PENDING&cursor=&size=` | 가입 요청 목록 (`OWNER`/`ADMIN`) |
-| POST | `/api/v1/crews/{extId}/join-requests/{requestExtId}:approve` | 가입 요청 승인 |
-| POST | `/api/v1/crews/{extId}/join-requests/{requestExtId}:reject` | 가입 요청 거절 |
 
 상세 설계: [../기획/crew.md](../기획/crew.md), [sequence/crew.md](./sequence/crew.md).
 

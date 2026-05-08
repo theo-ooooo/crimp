@@ -5,11 +5,14 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.crimp.api.common.GlobalResponseWrapper;
 import io.crimp.api.security.CrimpPrincipal;
 import io.crimp.core.entity.enums.CrewJoinPolicy;
+import io.crimp.core.entity.enums.CrewJoinRequestStatus;
 import io.crimp.core.entity.enums.CrewLevelBand;
 import io.crimp.core.entity.enums.CrewStyle;
 import io.crimp.domain.crew.CreateCrewCommand;
+import io.crimp.domain.crew.CreateCrewJoinRequestCommand;
 import io.crimp.domain.crew.CrewException;
 import io.crimp.domain.crew.CrewHomeGymView;
+import io.crimp.domain.crew.CrewJoinRequestView;
 import io.crimp.domain.crew.CrewOwnerView;
 import io.crimp.domain.crew.CrewService;
 import io.crimp.domain.crew.CrewView;
@@ -36,6 +39,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -132,6 +137,56 @@ class CrewControllerTest {
     }
 
     @Test
+    void requestJoin_http_maps_request_and_wraps_response() throws Exception {
+        when(crewService.requestJoin(eq(7L), eq("01JCREW"), any(CreateCrewJoinRequestCommand.class)))
+                .thenReturn(joinRequestView("01JREQ", CrewJoinRequestStatus.PENDING));
+
+        mockMvc.perform(post("/api/v1/crews/01JCREW/join-requests")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new CrewController.CreateJoinRequest("가입하고 싶어요"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(true))
+                .andExpect(jsonPath("$.data.extId").value("01JREQ"))
+                .andExpect(jsonPath("$.data.status").value("PENDING"))
+                .andExpect(jsonPath("$.data.applicant.extId").value("01JUSER"));
+    }
+
+    @Test
+    void listJoinRequests_http_maps_result() throws Exception {
+        when(crewService.listJoinRequests(7L, "01JCREW", "PENDING", null, 20))
+                .thenReturn(new CrewService.CrewJoinRequestSearchResult(
+                        List.of(joinRequestView("01JREQ", CrewJoinRequestStatus.PENDING)), null, 20));
+
+        mockMvc.perform(get("/api/v1/crews/01JCREW/join-requests")
+                        .param("status", "PENDING")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].extId").value("01JREQ"))
+                .andExpect(jsonPath("$.data.items[0].applicant.nickname").value("신청자"))
+                .andExpect(jsonPath("$.data.page.size").value(20));
+    }
+
+    @Test
+    void approveJoinRequest_http_maps_conflict() throws Exception {
+        when(crewService.approveJoinRequest(7L, "01JCREW", "01JREQ"))
+                .thenThrow(new CrewException("CREW_CAPACITY_FULL", "Crew capacity is full"));
+
+        mockMvc.perform(post("/api/v1/crews/01JCREW/join-requests/01JREQ:approve"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CREW_CAPACITY_FULL"));
+    }
+
+    @Test
+    void cancelMyJoinRequest_http_maps_result() throws Exception {
+        when(crewService.cancelMyJoinRequest(7L, "01JCREW"))
+                .thenReturn(joinRequestView("01JREQ", CrewJoinRequestStatus.CANCELED));
+
+        mockMvc.perform(delete("/api/v1/crews/01JCREW/join-requests/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("CANCELED"));
+    }
+
+    @Test
     void list_maps_domain_result() {
         when(crewService.search(7L, null, "강남", null, null, null, null, 20))
                 .thenReturn(new CrewService.CrewSearchResult(List.of(view("01JCREW", "MEMBER")), 10L, 20));
@@ -190,6 +245,19 @@ class CrewControllerTest {
                 CrewJoinPolicy.APPROVAL,
                 myStatus,
                 new CrewOwnerView("01JOWNER", "크루장"),
+                Instant.parse("2026-05-08T00:00:00Z"));
+    }
+
+    private static CrewJoinRequestView joinRequestView(String extId, CrewJoinRequestStatus status) {
+        return new CrewJoinRequestView(
+                extId,
+                "01JCREW",
+                "01JUSER",
+                "신청자",
+                "가입하고 싶어요",
+                status,
+                null,
+                null,
                 Instant.parse("2026-05-08T00:00:00Z"));
     }
 

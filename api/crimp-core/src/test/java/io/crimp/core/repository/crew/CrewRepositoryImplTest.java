@@ -40,6 +40,9 @@ class CrewRepositoryImplTest {
     @jakarta.annotation.Resource
     private CrewRepository crewRepository;
 
+    @jakarta.annotation.Resource
+    private CrewJoinRequestRepository crewJoinRequestRepository;
+
     @Test
     void searchPublic_mapsHomeGymOwnerAndMemberStatus() {
         User owner = persistUser("01JOWNER0000000000000001", "owner");
@@ -87,6 +90,33 @@ class CrewRepositoryImplTest {
         CrewSearchRow row = result.getContent().get(0);
         assertThat(row.myRole()).isNull();
         assertThat(row.pendingRequestExtId().trim()).isEqualTo("01JREQ000000000000000001");
+    }
+
+    @Test
+    void searchJoinRequests_mapsApplicantAndDeciderExtId() {
+        User owner = persistUser("01JOWNER0000000000000001", "owner");
+        User applicant = persistUser("01JUSER00000000000000001", "applicant");
+        Crew crew = persistCrew("01JCREW00000000000000001", owner.getId(), null, "강남 퇴근볼더");
+        CrewJoinRequest request = CrewJoinRequest.builder()
+                .extId("01JREQ000000000000000001")
+                .crewId(crew.getId())
+                .userId(applicant.getId())
+                .message("가입하고 싶어요")
+                .build();
+        request.approve(owner.getId());
+        em.persist(request);
+        em.flush();
+        em.clear();
+
+        var result = crewJoinRequestRepository.searchByCrew(
+                crew.getId(), io.crimp.core.entity.enums.CrewJoinRequestStatus.APPROVED, null, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).hasSize(1);
+        CrewJoinRequestRow row = result.getContent().get(0);
+        assertThat(row.extId().trim()).isEqualTo("01JREQ000000000000000001");
+        assertThat(row.userExtId().trim()).isEqualTo("01JUSER00000000000000001");
+        assertThat(row.userNickname()).isEqualTo("applicant");
+        assertThat(row.decidedByExtId().trim()).isEqualTo("01JOWNER0000000000000001");
     }
 
     private User persistUser(String extId, String nickname) {

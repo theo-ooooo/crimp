@@ -4,11 +4,14 @@ import io.crimp.api.security.CrimpPrincipal;
 import io.crimp.common.response.ApiResponse;
 import io.crimp.common.response.ErrorBody;
 import io.crimp.core.entity.enums.CrewJoinPolicy;
+import io.crimp.core.entity.enums.CrewJoinRequestStatus;
 import io.crimp.core.entity.enums.CrewLevelBand;
 import io.crimp.core.entity.enums.CrewStyle;
 import io.crimp.domain.crew.CreateCrewCommand;
+import io.crimp.domain.crew.CreateCrewJoinRequestCommand;
 import io.crimp.domain.crew.CrewException;
 import io.crimp.domain.crew.CrewHomeGymView;
+import io.crimp.domain.crew.CrewJoinRequestView;
 import io.crimp.domain.crew.CrewOwnerView;
 import io.crimp.domain.crew.CrewService;
 import io.crimp.domain.crew.CrewView;
@@ -31,6 +34,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
@@ -103,12 +107,79 @@ public class CrewController {
         return CrewDetailResponse.of(crewService.update(principal.userId(), extId, req.toCommand()));
     }
 
+    @Operation(
+            summary = "크루 가입 요청",
+            description = "비멤버가 승인제 크루에 가입 요청을 보낸다."
+    )
+    @PostMapping("/{extId}/join-requests")
+    public CrewJoinRequestResponse requestJoin(
+            @AuthenticationPrincipal CrimpPrincipal principal,
+            @PathVariable String extId,
+            @Valid @RequestBody CreateJoinRequest req) {
+        return CrewJoinRequestResponse.of(crewService.requestJoin(principal.userId(), extId, req.toCommand()));
+    }
+
+    @Operation(
+            summary = "내 크루 가입 요청 취소",
+            description = "인증 사용자의 대기 중인 가입 요청을 취소한다."
+    )
+    @DeleteMapping("/{extId}/join-requests/me")
+    public CrewJoinRequestResponse cancelMyJoinRequest(
+            @AuthenticationPrincipal CrimpPrincipal principal,
+            @PathVariable String extId) {
+        return CrewJoinRequestResponse.of(crewService.cancelMyJoinRequest(principal.userId(), extId));
+    }
+
+    @Operation(
+            summary = "크루 가입 요청 목록",
+            description = "OWNER/ADMIN 이 크루 가입 요청 목록을 조회한다. status 기본값은 PENDING 이다."
+    )
+    @GetMapping("/{extId}/join-requests")
+    public CrewJoinRequestListResponse listJoinRequests(
+            @AuthenticationPrincipal CrimpPrincipal principal,
+            @PathVariable String extId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(required = false) Integer size) {
+        var result = crewService.listJoinRequests(principal.userId(), extId, status, cursor, size);
+        return new CrewJoinRequestListResponse(
+                result.items().stream().map(CrewJoinRequestItem::of).toList(),
+                new Page(result.nextCursor(), result.size()));
+    }
+
+    @Operation(
+            summary = "크루 가입 요청 승인",
+            description = "OWNER/ADMIN 이 대기 중인 가입 요청을 승인하고 멤버를 추가한다."
+    )
+    @PostMapping("/{extId}/join-requests/{requestExtId}:approve")
+    public CrewJoinRequestResponse approveJoinRequest(
+            @AuthenticationPrincipal CrimpPrincipal principal,
+            @PathVariable String extId,
+            @PathVariable String requestExtId) {
+        return CrewJoinRequestResponse.of(
+                crewService.approveJoinRequest(principal.userId(), extId, requestExtId));
+    }
+
+    @Operation(
+            summary = "크루 가입 요청 거절",
+            description = "OWNER/ADMIN 이 대기 중인 가입 요청을 거절한다."
+    )
+    @PostMapping("/{extId}/join-requests/{requestExtId}:reject")
+    public CrewJoinRequestResponse rejectJoinRequest(
+            @AuthenticationPrincipal CrimpPrincipal principal,
+            @PathVariable String extId,
+            @PathVariable String requestExtId) {
+        return CrewJoinRequestResponse.of(
+                crewService.rejectJoinRequest(principal.userId(), extId, requestExtId));
+    }
+
     @ExceptionHandler(CrewException.class)
     public ResponseEntity<ApiResponse<Void>> handleCrew(CrewException e) {
         HttpStatus status = switch (e.code()) {
-            case "CREW_NOT_FOUND", "CREW_HOME_GYM_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+            case "CREW_NOT_FOUND", "CREW_HOME_GYM_NOT_FOUND", "CREW_JOIN_REQUEST_NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "CREW_FORBIDDEN" -> HttpStatus.FORBIDDEN;
-            case "CREW_NAME_TAKEN", "CREW_LIMIT_EXCEEDED" -> HttpStatus.CONFLICT;
+            case "CREW_NAME_TAKEN", "CREW_LIMIT_EXCEEDED", "CREW_ALREADY_MEMBER",
+                    "CREW_JOIN_REQUEST_PENDING", "CREW_CAPACITY_FULL" -> HttpStatus.CONFLICT;
             default -> HttpStatus.BAD_REQUEST;
         };
         return ResponseEntity.status(status).body(ApiResponse.failure(ErrorBody.of(e.code(), e.getMessage())));
@@ -149,9 +220,63 @@ public class CrewController {
         }
     }
 
+    public record CreateJoinRequest(@Size(max = 500) String message) {
+        CreateCrewJoinRequestCommand toCommand() {
+            return new CreateCrewJoinRequestCommand(message);
+        }
+    }
+
     public record CrewListResponse(List<CrewItem> items, Page page) {}
 
+    public record CrewJoinRequestListResponse(List<CrewJoinRequestItem> items, Page page) {}
+
     public record Page(Long nextCursor, int size) {}
+
+    public record CrewJoinRequestItem(
+            String extId,
+            Applicant applicant,
+            String message,
+            CrewJoinRequestStatus status,
+            String decidedBy,
+            Instant decidedAt,
+            Instant createdAt
+    ) {
+        static CrewJoinRequestItem of(CrewJoinRequestView v) {
+            return new CrewJoinRequestItem(
+                    v.extId(),
+                    new Applicant(v.userExtId(), v.userNickname()),
+                    v.message(),
+                    v.status(),
+                    v.decidedBy(),
+                    v.decidedAt(),
+                    v.createdAt());
+        }
+    }
+
+    public record CrewJoinRequestResponse(
+            String extId,
+            String crewExtId,
+            Applicant applicant,
+            String message,
+            CrewJoinRequestStatus status,
+            String decidedBy,
+            Instant decidedAt,
+            Instant createdAt
+    ) {
+        static CrewJoinRequestResponse of(CrewJoinRequestView v) {
+            return new CrewJoinRequestResponse(
+                    v.extId(),
+                    v.crewExtId(),
+                    new Applicant(v.userExtId(), v.userNickname()),
+                    v.message(),
+                    v.status(),
+                    v.decidedBy(),
+                    v.decidedAt(),
+                    v.createdAt());
+        }
+    }
+
+    public record Applicant(String extId, String nickname) {}
 
     public record CrewItem(
             String extId,
