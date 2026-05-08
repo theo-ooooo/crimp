@@ -241,13 +241,14 @@
 | GET | `/api/v1/crews/{extId}/join-requests?status=PENDING&cursor=&size=` | 가입 요청 목록 (`OWNER`/`ADMIN`) |
 | POST | `/api/v1/crews/{extId}/join-requests/{requestExtId}:approve` | 가입 요청 승인. 승인 시 ACTIVE 멤버 추가 |
 | POST | `/api/v1/crews/{extId}/join-requests/{requestExtId}:reject` | 가입 요청 거절 |
+| GET | `/api/v1/crews/{extId}/members?cursor=&size=` | ACTIVE 멤버 목록. userExtId, nickname, role, joinedAt 포함 |
+| DELETE | `/api/v1/crews/{extId}/members/me` | 크루 탈퇴. `crew_members.status=LEFT`, 마지막 `OWNER` 는 탈퇴 불가 |
 
 후속 예정 API:
 
 | Method | Path | 설명 |
 | --- | --- | --- |
-| GET | `/api/v1/crews/{extId}/members?cursor=&size=` | 멤버 목록 |
-| DELETE | `/api/v1/crews/{extId}/members/me` | 크루 탈퇴. 마지막 `OWNER` 는 탈퇴 불가 |
+| DELETE | `/api/v1/crews/{extId}/members/{userExtId}` | 멤버 강제 내보내기 (`OWNER`/`ADMIN`) |
 
 상세 설계: [../기획/crew.md](../기획/crew.md), [sequence/crew.md](./sequence/crew.md).
 

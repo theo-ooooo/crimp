@@ -58,6 +58,23 @@ public class CrewMember {
         this.updatedAt = updatedAt == null ? this.joinedAt : updatedAt;
     }
 
+    public static CrewMember create(Long crewId, Long userId, CrewMemberRole role, CrewMemberStatus status) {
+        return new CrewMember(crewId, userId, role, status, null, null);
+    }
+
+    public void leave() {
+        this.status = CrewMemberStatus.LEFT;
+        this.updatedAt = Instant.now();
+    }
+
+    public void reactivateAsMember() {
+        Instant now = Instant.now();
+        this.role = CrewMemberRole.MEMBER;
+        this.status = CrewMemberStatus.ACTIVE;
+        this.joinedAt = now;
+        this.updatedAt = now;
+    }
+
     public static final class Id implements Serializable {
         private Long crewId;
         private Long userId;

@@ -43,17 +43,17 @@ class CrewRepositoryImplTest {
     @jakarta.annotation.Resource
     private CrewJoinRequestRepository crewJoinRequestRepository;
 
+    @jakarta.annotation.Resource
+    private CrewMemberRepository crewMemberRepository;
+
     @Test
     void searchPublic_mapsHomeGymOwnerAndMemberStatus() {
         User owner = persistUser("01JOWNER0000000000000001", "owner");
         User viewer = persistUser("01JVIEWER000000000000001", "viewer");
         Gym gym = persistGym("01JGYM000000000000000001", "더클라임 강남점");
         Crew crew = persistCrew("01JCREW00000000000000001", owner.getId(), gym.getId(), "강남 퇴근볼더");
-        em.persist(CrewMember.builder()
-                .crewId(crew.getId())
-                .userId(viewer.getId())
-                .role(OWNER)
-                .build());
+        em.persist(CrewMember.create(crew.getId(), viewer.getId(), OWNER,
+                io.crimp.core.entity.enums.CrewMemberStatus.ACTIVE));
         em.flush();
         em.clear();
 
@@ -117,6 +117,31 @@ class CrewRepositoryImplTest {
         assertThat(row.userExtId().trim()).isEqualTo("01JUSER00000000000000001");
         assertThat(row.userNickname()).isEqualTo("applicant");
         assertThat(row.decidedByExtId().trim()).isEqualTo("01JOWNER0000000000000001");
+    }
+
+    @Test
+    void searchActiveMembers_mapsProfileAndFiltersLeftMembers() {
+        User owner = persistUser("01JOWNER0000000000000001", "owner");
+        User member = persistUser("01JUSER00000000000000001", "member");
+        User left = persistUser("01JLEFT00000000000000001", "left");
+        Crew crew = persistCrew("01JCREW00000000000000001", owner.getId(), null, "강남 퇴근볼더");
+        em.persist(CrewMember.create(crew.getId(), member.getId(),
+                io.crimp.core.entity.enums.CrewMemberRole.MEMBER,
+                io.crimp.core.entity.enums.CrewMemberStatus.ACTIVE));
+        em.persist(CrewMember.create(crew.getId(), left.getId(),
+                io.crimp.core.entity.enums.CrewMemberRole.MEMBER,
+                io.crimp.core.entity.enums.CrewMemberStatus.LEFT));
+        em.flush();
+        em.clear();
+
+        var result = crewMemberRepository.searchActiveByCrew(crew.getId(), null, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).hasSize(1);
+        CrewMemberRow row = result.getContent().get(0);
+        assertThat(row.crewExtId().trim()).isEqualTo("01JCREW00000000000000001");
+        assertThat(row.userExtId().trim()).isEqualTo("01JUSER00000000000000001");
+        assertThat(row.nickname()).isEqualTo("member");
+        assertThat(row.status()).isEqualTo(io.crimp.core.entity.enums.CrewMemberStatus.ACTIVE);
     }
 
     private User persistUser(String extId, String nickname) {

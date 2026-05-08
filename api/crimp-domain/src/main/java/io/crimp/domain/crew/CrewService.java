@@ -15,6 +15,7 @@ import io.crimp.core.entity.gym.Gym;
 import io.crimp.core.repository.crew.CrewJoinRequestRepository;
 import io.crimp.core.repository.crew.CrewJoinRequestRow;
 import io.crimp.core.repository.crew.CrewMemberRepository;
+import io.crimp.core.repository.crew.CrewMemberRow;
 import io.crimp.core.repository.crew.CrewRepository;
 import io.crimp.core.repository.crew.CrewSearchRow;
 import io.crimp.core.repository.gym.GymRepository;
@@ -78,11 +79,8 @@ public class CrewService {
                 .capacity(capacity)
                 .build();
         crewRepository.save(crew);
-        crewMemberRepository.save(CrewMember.builder()
-                .crewId(crew.getId())
-                .userId(ownerUserId)
-                .role(CrewMemberRole.OWNER)
-                .build());
+        crewMemberRepository.save(CrewMember.create(
+                crew.getId(), ownerUserId, CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE));
         crewRepository.flush();
         return getByExtId(ownerUserId, crew.getExtId());
     }
@@ -187,11 +185,11 @@ public class CrewService {
             throw new CrewException("CREW_CAPACITY_FULL", "Crew capacity is full");
         }
 
-        crewMemberRepository.save(CrewMember.builder()
-                .crewId(crew.getId())
-                .userId(request.getUserId())
-                .role(CrewMemberRole.MEMBER)
-                .build());
+        crewMemberRepository.findByCrewIdAndUserId(crew.getId(), request.getUserId())
+                .ifPresentOrElse(
+                        CrewMember::reactivateAsMember,
+                        () -> crewMemberRepository.save(CrewMember.create(
+                                crew.getId(), request.getUserId(), CrewMemberRole.MEMBER, CrewMemberStatus.ACTIVE)));
         crew.incrementMemberCount();
         request.approve(actorUserId);
         crewRepository.flush();
@@ -206,6 +204,36 @@ public class CrewService {
         request.reject(actorUserId);
         crewJoinRequestRepository.flush();
         return getJoinRequestView(request.getExtId());
+    }
+
+    @Transactional(readOnly = true)
+    public CrewMemberSearchResult listMembers(Long viewerUserId, String crewExtId, Long cursorUserId, Integer size) {
+        Crew crew = findActiveCrew(crewExtId);
+        int pageSize = capSize(size);
+        Slice<CrewMemberRow> slice = crewMemberRepository.searchActiveByCrew(
+                crew.getId(), cursorUserId, PageRequest.of(0, pageSize));
+        List<CrewMemberView> items = slice.getContent().stream().map(CrewService::toMemberView).toList();
+        Long nextCursor = slice.hasNext() && !slice.getContent().isEmpty()
+                ? slice.getContent().get(slice.getContent().size() - 1).userId()
+                : null;
+        return new CrewMemberSearchResult(items, nextCursor, pageSize);
+    }
+
+    @Transactional
+    public void leaveCrew(Long userId, String crewExtId) {
+        Crew crew = findActiveCrewForUpdate(crewExtId);
+        CrewMember member = crewMemberRepository.findByCrewIdAndUserIdAndStatus(
+                        crew.getId(), userId, CrewMemberStatus.ACTIVE)
+                .orElseThrow(() -> new CrewException("CREW_MEMBER_NOT_FOUND", "Active crew member not found"));
+        if (member.getRole() == CrewMemberRole.OWNER
+                && crewMemberRepository.countByCrewIdAndRoleAndStatus(
+                crew.getId(), CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE) <= 1) {
+            throw new CrewException("CREW_OWNER_LEAVE_BLOCKED", "Last crew owner cannot leave");
+        }
+
+        member.leave();
+        crew.decrementMemberCount();
+        crewRepository.flush();
     }
 
     @Transactional(readOnly = true)
@@ -326,6 +354,15 @@ public class CrewService {
                 row.createdAt());
     }
 
+    private static CrewMemberView toMemberView(CrewMemberRow row) {
+        return new CrewMemberView(
+                row.crewExtId(),
+                row.userExtId(),
+                row.nickname(),
+                row.role(),
+                row.joinedAt());
+    }
+
     private static String myStatus(CrewSearchRow row) {
         if (row.myMemberStatus() == CrewMemberStatus.ACTIVE && row.myRole() != null) {
             return row.myRole().name();
@@ -384,4 +421,6 @@ public class CrewService {
     public record CrewSearchResult(List<CrewView> items, Long nextCursor, int size) {}
 
     public record CrewJoinRequestSearchResult(List<CrewJoinRequestView> items, Long nextCursor, int size) {}
+
+    public record CrewMemberSearchResult(List<CrewMemberView> items, Long nextCursor, int size) {}
 }
