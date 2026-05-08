@@ -91,4 +91,17 @@ public class Crew extends SoftDeletableEntity {
         this.capacity = capacity;
         this.memberCount = memberCount == null ? 1 : memberCount;
     }
+
+    public void updateBasic(String name, String summary, String description, String region,
+                            Long homeGymId, CrewLevelBand levelBand, CrewStyle style,
+                            Short capacity) {
+        this.name = name;
+        this.summary = summary;
+        this.description = description;
+        this.region = region;
+        this.homeGymId = homeGymId;
+        this.levelBand = levelBand;
+        this.style = style;
+        this.capacity = capacity;
+    }
 }
