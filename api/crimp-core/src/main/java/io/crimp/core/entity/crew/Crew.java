@@ -112,4 +112,10 @@ public class Crew extends SoftDeletableEntity {
     public void incrementMemberCount() {
         this.memberCount = this.memberCount + 1;
     }
+
+    public void decrementMemberCount() {
+        if (this.memberCount > 0) {
+            this.memberCount = this.memberCount - 1;
+        }
+    }
 }

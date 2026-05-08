@@ -14,6 +14,7 @@ import io.crimp.core.entity.gym.Gym;
 import io.crimp.core.repository.crew.CrewJoinRequestRepository;
 import io.crimp.core.repository.crew.CrewJoinRequestRow;
 import io.crimp.core.repository.crew.CrewMemberRepository;
+import io.crimp.core.repository.crew.CrewMemberRow;
 import io.crimp.core.repository.crew.CrewRepository;
 import io.crimp.core.repository.crew.CrewSearchRow;
 import io.crimp.core.repository.gym.GymRepository;
@@ -333,6 +334,59 @@ class CrewServiceTest {
     }
 
     @Test
+    void listMembers_mapsActiveMembers() {
+        Crew crew = crew(55L, "01JCREW", 7L, null, "기존 크루");
+        when(crewRepository.findByExtId("01JCREW")).thenReturn(Optional.of(crew));
+        when(crewMemberRepository.searchActiveByCrew(eq(55L), eq(null), any()))
+                .thenReturn(new SliceImpl<>(List.of(memberRow(55L, "01JCREW", 8L, "01JUSER", CrewMemberRole.MEMBER)),
+                        Pageable.ofSize(20), false));
+
+        var result = service.listMembers(7L, "01JCREW", null, 20);
+
+        assertThat(result.items()).hasSize(1);
+        assertThat(result.items().get(0).userExtId()).isEqualTo("01JUSER");
+        assertThat(result.items().get(0).role()).isEqualTo(CrewMemberRole.MEMBER);
+        assertThat(result.size()).isEqualTo(20);
+    }
+
+    @Test
+    void leaveCrew_marksMemberLeftAndDecrementsMemberCount() {
+        Crew crew = crew(55L, "01JCREW", 7L, null, "기존 크루");
+        CrewMember member = CrewMember.builder()
+                .crewId(55L)
+                .userId(8L)
+                .role(CrewMemberRole.MEMBER)
+                .build();
+        when(crewRepository.findByExtIdForUpdate("01JCREW")).thenReturn(Optional.of(crew));
+        when(crewMemberRepository.findByCrewIdAndUserIdAndStatus(55L, 8L, CrewMemberStatus.ACTIVE))
+                .thenReturn(Optional.of(member));
+
+        service.leaveCrew(8L, "01JCREW");
+
+        assertThat(member.getStatus()).isEqualTo(CrewMemberStatus.LEFT);
+        assertThat(crew.getMemberCount()).isEqualTo(0);
+    }
+
+    @Test
+    void leaveCrew_blocksLastOwner() {
+        Crew crew = crew(55L, "01JCREW", 7L, null, "기존 크루");
+        CrewMember member = CrewMember.builder()
+                .crewId(55L)
+                .userId(7L)
+                .role(CrewMemberRole.OWNER)
+                .build();
+        when(crewRepository.findByExtIdForUpdate("01JCREW")).thenReturn(Optional.of(crew));
+        when(crewMemberRepository.findByCrewIdAndUserIdAndStatus(55L, 7L, CrewMemberStatus.ACTIVE))
+                .thenReturn(Optional.of(member));
+        when(crewMemberRepository.countByCrewIdAndRoleAndStatus(55L, CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE))
+                .thenReturn(1L);
+
+        assertThatThrownBy(() -> service.leaveCrew(7L, "01JCREW"))
+                .isInstanceOf(CrewException.class)
+                .satisfies(e -> assertThat(((CrewException) e).code()).isEqualTo("CREW_OWNER_LEAVE_BLOCKED"));
+    }
+
+    @Test
     void search_maps_rows_and_next_cursor() {
         CrewSearchRow row1 = row(20L, "01JCREW1", CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE, null);
         CrewSearchRow row2 = row(10L, "01JCREW2", null, null, "01JREQ");
@@ -404,6 +458,19 @@ class CrewServiceTest {
                 status,
                 null,
                 null,
+                Instant.parse("2026-05-08T00:00:00Z"));
+    }
+
+    private static CrewMemberRow memberRow(Long crewId, String crewExtId, Long userId, String userExtId,
+                                           CrewMemberRole role) {
+        return new CrewMemberRow(
+                crewId,
+                crewExtId,
+                userId,
+                userExtId,
+                "멤버",
+                role,
+                CrewMemberStatus.ACTIVE,
                 Instant.parse("2026-05-08T00:00:00Z"));
     }
 

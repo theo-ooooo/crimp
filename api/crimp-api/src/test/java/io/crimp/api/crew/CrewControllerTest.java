@@ -13,6 +13,7 @@ import io.crimp.domain.crew.CreateCrewJoinRequestCommand;
 import io.crimp.domain.crew.CrewException;
 import io.crimp.domain.crew.CrewHomeGymView;
 import io.crimp.domain.crew.CrewJoinRequestView;
+import io.crimp.domain.crew.CrewMemberView;
 import io.crimp.domain.crew.CrewOwnerView;
 import io.crimp.domain.crew.CrewService;
 import io.crimp.domain.crew.CrewView;
@@ -187,6 +188,37 @@ class CrewControllerTest {
     }
 
     @Test
+    void listMembers_http_maps_result() throws Exception {
+        when(crewService.listMembers(7L, "01JCREW", null, 20))
+                .thenReturn(new CrewService.CrewMemberSearchResult(
+                        List.of(memberView("01JUSER", "MEMBER")), null, 20));
+
+        mockMvc.perform(get("/api/v1/crews/01JCREW/members")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].userExtId").value("01JUSER"))
+                .andExpect(jsonPath("$.data.items[0].nickname").value("멤버"))
+                .andExpect(jsonPath("$.data.items[0].role").value("MEMBER"))
+                .andExpect(jsonPath("$.data.page.size").value(20));
+    }
+
+    @Test
+    void leaveCrew_http_returnsNoContent() throws Exception {
+        mockMvc.perform(delete("/api/v1/crews/01JCREW/members/me"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void leaveCrew_http_mapsOwnerLeaveBlocked() throws Exception {
+        org.mockito.Mockito.doThrow(new CrewException("CREW_OWNER_LEAVE_BLOCKED", "Last crew owner cannot leave"))
+                .when(crewService).leaveCrew(7L, "01JCREW");
+
+        mockMvc.perform(delete("/api/v1/crews/01JCREW/members/me"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error.code").value("CREW_OWNER_LEAVE_BLOCKED"));
+    }
+
+    @Test
     void list_maps_domain_result() {
         when(crewService.search(7L, null, "강남", null, null, null, null, 20))
                 .thenReturn(new CrewService.CrewSearchResult(List.of(view("01JCREW", "MEMBER")), 10L, 20));
@@ -258,6 +290,15 @@ class CrewControllerTest {
                 status,
                 null,
                 null,
+                Instant.parse("2026-05-08T00:00:00Z"));
+    }
+
+    private static CrewMemberView memberView(String userExtId, String role) {
+        return new CrewMemberView(
+                "01JCREW",
+                userExtId,
+                "멤버",
+                io.crimp.core.entity.enums.CrewMemberRole.valueOf(role),
                 Instant.parse("2026-05-08T00:00:00Z"));
     }
 

@@ -58,6 +58,11 @@ public class CrewMember {
         this.updatedAt = updatedAt == null ? this.joinedAt : updatedAt;
     }
 
+    public void leave() {
+        this.status = CrewMemberStatus.LEFT;
+        this.updatedAt = Instant.now();
+    }
+
     public static final class Id implements Serializable {
         private Long crewId;
         private Long userId;

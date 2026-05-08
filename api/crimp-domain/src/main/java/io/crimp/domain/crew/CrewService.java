@@ -15,6 +15,7 @@ import io.crimp.core.entity.gym.Gym;
 import io.crimp.core.repository.crew.CrewJoinRequestRepository;
 import io.crimp.core.repository.crew.CrewJoinRequestRow;
 import io.crimp.core.repository.crew.CrewMemberRepository;
+import io.crimp.core.repository.crew.CrewMemberRow;
 import io.crimp.core.repository.crew.CrewRepository;
 import io.crimp.core.repository.crew.CrewSearchRow;
 import io.crimp.core.repository.gym.GymRepository;
@@ -209,6 +210,36 @@ public class CrewService {
     }
 
     @Transactional(readOnly = true)
+    public CrewMemberSearchResult listMembers(Long viewerUserId, String crewExtId, Long cursorUserId, Integer size) {
+        Crew crew = findActiveCrew(crewExtId);
+        int pageSize = capSize(size);
+        Slice<CrewMemberRow> slice = crewMemberRepository.searchActiveByCrew(
+                crew.getId(), cursorUserId, PageRequest.of(0, pageSize));
+        List<CrewMemberView> items = slice.getContent().stream().map(CrewService::toMemberView).toList();
+        Long nextCursor = slice.hasNext() && !slice.getContent().isEmpty()
+                ? slice.getContent().get(slice.getContent().size() - 1).userId()
+                : null;
+        return new CrewMemberSearchResult(items, nextCursor, pageSize);
+    }
+
+    @Transactional
+    public void leaveCrew(Long userId, String crewExtId) {
+        Crew crew = findActiveCrewForUpdate(crewExtId);
+        CrewMember member = crewMemberRepository.findByCrewIdAndUserIdAndStatus(
+                        crew.getId(), userId, CrewMemberStatus.ACTIVE)
+                .orElseThrow(() -> new CrewException("CREW_MEMBER_NOT_FOUND", "Active crew member not found"));
+        if (member.getRole() == CrewMemberRole.OWNER
+                && crewMemberRepository.countByCrewIdAndRoleAndStatus(
+                crew.getId(), CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE) <= 1) {
+            throw new CrewException("CREW_OWNER_LEAVE_BLOCKED", "Last crew owner cannot leave");
+        }
+
+        member.leave();
+        crew.decrementMemberCount();
+        crewRepository.flush();
+    }
+
+    @Transactional(readOnly = true)
     public CrewSearchResult search(Long viewerUserId, Long cursorId, String keyword, String region,
                                    String gymExtId, String levelBand, String style, Integer size) {
         int pageSize = capSize(size);
@@ -326,6 +357,15 @@ public class CrewService {
                 row.createdAt());
     }
 
+    private static CrewMemberView toMemberView(CrewMemberRow row) {
+        return new CrewMemberView(
+                row.crewExtId(),
+                row.userExtId(),
+                row.nickname(),
+                row.role(),
+                row.joinedAt());
+    }
+
     private static String myStatus(CrewSearchRow row) {
         if (row.myMemberStatus() == CrewMemberStatus.ACTIVE && row.myRole() != null) {
             return row.myRole().name();
@@ -384,4 +424,6 @@ public class CrewService {
     public record CrewSearchResult(List<CrewView> items, Long nextCursor, int size) {}
 
     public record CrewJoinRequestSearchResult(List<CrewJoinRequestView> items, Long nextCursor, int size) {}
+
+    public record CrewMemberSearchResult(List<CrewMemberView> items, Long nextCursor, int size) {}
 }

@@ -12,6 +12,7 @@ import io.crimp.domain.crew.CreateCrewJoinRequestCommand;
 import io.crimp.domain.crew.CrewException;
 import io.crimp.domain.crew.CrewHomeGymView;
 import io.crimp.domain.crew.CrewJoinRequestView;
+import io.crimp.domain.crew.CrewMemberView;
 import io.crimp.domain.crew.CrewOwnerView;
 import io.crimp.domain.crew.CrewService;
 import io.crimp.domain.crew.CrewView;
@@ -173,13 +174,43 @@ public class CrewController {
                 crewService.rejectJoinRequest(principal.userId(), extId, requestExtId));
     }
 
+    @Operation(
+            summary = "크루 멤버 목록",
+            description = "ACTIVE 크루 멤버 목록을 커서 페이지네이션으로 조회한다."
+    )
+    @GetMapping("/{extId}/members")
+    public CrewMemberListResponse listMembers(
+            @AuthenticationPrincipal CrimpPrincipal principal,
+            @PathVariable String extId,
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(required = false) Integer size) {
+        var result = crewService.listMembers(principal.userId(), extId, cursor, size);
+        return new CrewMemberListResponse(
+                result.items().stream().map(CrewMemberItem::of).toList(),
+                new Page(result.nextCursor(), result.size()));
+    }
+
+    @Operation(
+            summary = "내 크루 탈퇴",
+            description = "인증 사용자가 크루에서 탈퇴한다. 마지막 OWNER 는 탈퇴할 수 없다."
+    )
+    @DeleteMapping("/{extId}/members/me")
+    public ResponseEntity<Void> leaveCrew(
+            @AuthenticationPrincipal CrimpPrincipal principal,
+            @PathVariable String extId) {
+        crewService.leaveCrew(principal.userId(), extId);
+        return ResponseEntity.noContent().build();
+    }
+
     @ExceptionHandler(CrewException.class)
     public ResponseEntity<ApiResponse<Void>> handleCrew(CrewException e) {
         HttpStatus status = switch (e.code()) {
-            case "CREW_NOT_FOUND", "CREW_HOME_GYM_NOT_FOUND", "CREW_JOIN_REQUEST_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+            case "CREW_NOT_FOUND", "CREW_HOME_GYM_NOT_FOUND", "CREW_JOIN_REQUEST_NOT_FOUND",
+                    "CREW_MEMBER_NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "CREW_FORBIDDEN" -> HttpStatus.FORBIDDEN;
             case "CREW_NAME_TAKEN", "CREW_LIMIT_EXCEEDED", "CREW_ALREADY_MEMBER",
                     "CREW_JOIN_REQUEST_PENDING", "CREW_CAPACITY_FULL" -> HttpStatus.CONFLICT;
+            case "CREW_OWNER_LEAVE_BLOCKED" -> HttpStatus.UNPROCESSABLE_ENTITY;
             default -> HttpStatus.BAD_REQUEST;
         };
         return ResponseEntity.status(status).body(ApiResponse.failure(ErrorBody.of(e.code(), e.getMessage())));
@@ -230,7 +261,20 @@ public class CrewController {
 
     public record CrewJoinRequestListResponse(List<CrewJoinRequestItem> items, Page page) {}
 
+    public record CrewMemberListResponse(List<CrewMemberItem> items, Page page) {}
+
     public record Page(Long nextCursor, int size) {}
+
+    public record CrewMemberItem(
+            String userExtId,
+            String nickname,
+            String role,
+            Instant joinedAt
+    ) {
+        static CrewMemberItem of(CrewMemberView v) {
+            return new CrewMemberItem(v.userExtId(), v.nickname(), v.role().name(), v.joinedAt());
+        }
+    }
 
     public record CrewJoinRequestItem(
             String extId,
