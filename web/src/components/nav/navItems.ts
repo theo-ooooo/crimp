@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react';
+import type { Route } from 'next';
 
 import { CrimpIcon, type IconProps } from '@/components/primitives';
 import type { MessageKey } from '@/lib/i18n';
@@ -13,7 +14,7 @@ import type { MessageKey } from '@/lib/i18n';
 
 export interface NavItem {
   /** typed routes 와 호환되는 경로 (`as const` 로 리터럴 유지). */
-  readonly href: '/' | '/feed' | '/sessions' | '/gyms' | '/me';
+  readonly href: Route;
   /** 활성 prefix (해당 경로 + 하위). */
   readonly prefix: string;
   /** i18n 라벨 키. */
@@ -29,6 +30,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: '/sessions', prefix: '/sessions', labelKey: 'nav.sessions', Icon: CrimpIcon.clock },
   // 암장은 위치 핀.
   { href: '/gyms', prefix: '/gyms', labelKey: 'nav.gyms', Icon: CrimpIcon.pin },
+  { href: '/crews' as Route, prefix: '/crews', labelKey: 'nav.crews', Icon: CrimpIcon.target },
   { href: '/me', prefix: '/me', labelKey: 'nav.profile', Icon: CrimpIcon.profile },
 ] as const;
 
