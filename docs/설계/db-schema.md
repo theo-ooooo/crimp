@@ -36,6 +36,12 @@ erDiagram
     users ||--o{ likes : likes
     users ||--o{ comments : writes
     media_assets ||--o{ post_media : referenced
+    gyms ||--o{ crews : "home gym"
+    users ||--o{ crews : owns
+    crews ||--o{ crew_members : has
+    users ||--o{ crew_members : joins
+    crews ||--o{ crew_join_requests : receives
+    users ||--o{ crew_join_requests : requests
 ```
 
 ## 3. 테이블 정의
@@ -360,6 +366,81 @@ CREATE TABLE follows (
 );
 ```
 
+### 3.14 crews (Phase 1.5)
+```sql
+CREATE TABLE crews (
+  id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  ext_id        CHAR(26) NOT NULL,
+  owner_user_id BIGINT UNSIGNED NOT NULL,
+  home_gym_id   BIGINT UNSIGNED NULL,
+  name          VARCHAR(30) NOT NULL,
+  summary       VARCHAR(120) NULL,
+  description   VARCHAR(500) NULL,
+  region        VARCHAR(50) NULL,
+  level_band    VARCHAR(20) NOT NULL DEFAULT 'ALL',       -- BEGINNER, INTERMEDIATE, ADVANCED, ALL
+  style         VARCHAR(20) NOT NULL DEFAULT 'BOULDERING', -- BOULDERING, LEAD, BOTH
+  visibility    VARCHAR(20) NOT NULL DEFAULT 'PUBLIC',    -- v0.1 생성은 PUBLIC 만
+  join_policy   VARCHAR(20) NOT NULL DEFAULT 'APPROVAL',  -- v0.1 은 APPROVAL 만
+  capacity      SMALLINT UNSIGNED NULL,
+  member_count  INT UNSIGNED NOT NULL DEFAULT 1,
+  created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at    TIMESTAMP NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_crews_ext_id (ext_id),
+  UNIQUE KEY uk_crews_name (name),
+  KEY idx_crews_list (visibility, deleted_at, id DESC),
+  KEY idx_crews_filters (region, level_band, style),
+  KEY idx_crews_home_gym (home_gym_id),
+  KEY idx_crews_owner (owner_user_id),
+  CONSTRAINT fk_crews_owner FOREIGN KEY (owner_user_id) REFERENCES users(id),
+  CONSTRAINT fk_crews_home_gym FOREIGN KEY (home_gym_id) REFERENCES gyms(id),
+  CONSTRAINT chk_crews_capacity CHECK (capacity IS NULL OR capacity BETWEEN 2 AND 200)
+);
+```
+
+### 3.15 crew_members (Phase 1.5)
+```sql
+CREATE TABLE crew_members (
+  crew_id    BIGINT UNSIGNED NOT NULL,
+  user_id    BIGINT UNSIGNED NOT NULL,
+  role       VARCHAR(20) NOT NULL DEFAULT 'MEMBER', -- OWNER, ADMIN, MEMBER
+  status     VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', -- ACTIVE, LEFT, REMOVED
+  joined_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (crew_id, user_id),
+  KEY idx_crew_members_user (user_id, status, joined_at DESC),
+  KEY idx_crew_members_crew_role (crew_id, role, status),
+  CONSTRAINT fk_crew_members_crew FOREIGN KEY (crew_id) REFERENCES crews(id),
+  CONSTRAINT fk_crew_members_user FOREIGN KEY (user_id) REFERENCES users(id)
+);
+```
+
+### 3.16 crew_join_requests (Phase 1.5)
+```sql
+CREATE TABLE crew_join_requests (
+  id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  ext_id        CHAR(26) NOT NULL,
+  crew_id       BIGINT UNSIGNED NOT NULL,
+  user_id       BIGINT UNSIGNED NOT NULL,
+  message       VARCHAR(500) NULL,
+  status        VARCHAR(20) NOT NULL DEFAULT 'PENDING', -- PENDING, APPROVED, REJECTED, CANCELED
+  decided_by    BIGINT UNSIGNED NULL,
+  decided_at    TIMESTAMP NULL,
+  created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_crew_join_requests_ext_id (ext_id),
+  KEY idx_crew_join_requests_crew_status (crew_id, status, created_at DESC),
+  KEY idx_crew_join_requests_user_status (user_id, status, created_at DESC),
+  CONSTRAINT fk_crew_join_requests_crew FOREIGN KEY (crew_id) REFERENCES crews(id),
+  CONSTRAINT fk_crew_join_requests_user FOREIGN KEY (user_id) REFERENCES users(id),
+  CONSTRAINT fk_crew_join_requests_decider FOREIGN KEY (decided_by) REFERENCES users(id)
+);
+```
+
+> MySQL 은 `status='PENDING'` 조건부 unique 를 직접 지원하지 않으므로, "크루별 사용자 pending 요청 1개" 정책은 서비스 트랜잭션에서 검증한다. 필요 시 `pending_key` generated column 으로 보강한다.
+
 ## 4. 비정규화·카운터 정책
 
 - `feed_posts.like_count / comment_count`: Redis `post:{id}:likes` / `post:{id}:comments` 증감 → 1분 주기 DB flush
@@ -388,10 +469,11 @@ CREATE TABLE follows (
 | V202605010920 | `V202605010920__seed_gyms_seoul.sql` | 수도권 검증된 암장 11곳(더클라임 9 + 클라이밍파크 신논현 + 볼더프렌즈 홍대) 1차 seed. 도로명+상세 주소는 검색 결과로 검증, 좌표는 영역 중심값(±100~300m). 더클라임 논현·사당점 및 추가 매장은 후속 검수 PR. ON DUPLICATE KEY UPDATE 로 좌표 보강 친화 |
 | V202605071100 | `V202605071100__media_type_tables.sql` | 이미지/비디오 전용 메타, variant, 비디오 썸네일 테이블 분리 |
 | V202605071200 | `V202605071200__media_asset_base_cleanup.sql` | media_assets 를 공통 원본 자산 컬럼만 남기도록 정리 |
+| V202605081000 | `V202605081000__init_crews.sql` | crews, crew_members, crew_join_requests |
 
 ## 7. 오픈 이슈
 
 - [ ] `grade_numeric` 정규화 규칙 표 확정 (V-scale, Font, YDS 매핑)
-- [ ] 크루 테이블 설계 (Phase 1.5)
+- [x] 크루 테이블 설계 (Phase 1.5) — [../기획/crew.md](../기획/crew.md), [sequence/crew.md](./sequence/crew.md)
 - [ ] 알림(notifications) 테이블 포함 시점
 - [ ] 게시물 신고·차단 테이블 추가 시점 (운영 이슈에 따라)

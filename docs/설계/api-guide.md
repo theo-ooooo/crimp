@@ -226,6 +226,23 @@
 > `탈퇴사용자`, `avatarColorHue=0`, 프로필 이미지 URL 은 `null/누락` 으로 응답한다. 앱/웹 스키마는
 > 작성자 extId nullable 을 허용해야 한다.
 
+### 크루 (`/api/v1/crews`) — Phase 1.5
+| Method | Path | 설명 |
+| --- | --- | --- |
+| GET | `/api/v1/crews?q=&region=&gymExtId=&levelBand=&style=&cursor=&size=` | 공개 크루 목록. 지역·대표 암장·레벨·스타일 필터, 커서 페이지네이션. 응답에는 `memberCount`, `capacity`, `joinPolicy`, `myStatus` 포함 |
+| POST | `/api/v1/crews` | 크루 생성. 생성자는 `OWNER` 멤버가 된다. v0.1 은 `visibility=PUBLIC`, `joinPolicy=APPROVAL` 만 생성 |
+| GET | `/api/v1/crews/{extId}` | 크루 상세. 기본 정보, 대표 암장, owner, 내 가입 상태 |
+| PATCH | `/api/v1/crews/{extId}` | 크루 기본 정보 수정 (`OWNER`/`ADMIN`) |
+| GET | `/api/v1/crews/{extId}/members?cursor=&size=` | 멤버 목록 |
+| DELETE | `/api/v1/crews/{extId}/members/me` | 크루 탈퇴. 마지막 `OWNER` 는 탈퇴 불가 |
+| POST | `/api/v1/crews/{extId}/join-requests` | 가입 요청 생성 |
+| DELETE | `/api/v1/crews/{extId}/join-requests/me` | 내 대기 가입 요청 취소 |
+| GET | `/api/v1/crews/{extId}/join-requests?status=PENDING&cursor=&size=` | 가입 요청 목록 (`OWNER`/`ADMIN`) |
+| POST | `/api/v1/crews/{extId}/join-requests/{requestExtId}:approve` | 가입 요청 승인 |
+| POST | `/api/v1/crews/{extId}/join-requests/{requestExtId}:reject` | 가입 요청 거절 |
+
+상세 설계: [../기획/crew.md](../기획/crew.md), [sequence/crew.md](./sequence/crew.md).
+
 ### 미디어 (`/api/v1/media`)
 | Method | Path | 설명 |
 | --- | --- | --- |
