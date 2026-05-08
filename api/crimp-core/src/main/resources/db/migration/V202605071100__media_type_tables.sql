@@ -98,23 +98,6 @@ FROM media_assets
 WHERE kind = 2
   AND status = 3;
 
-INSERT INTO media_image_variants (
-  media_id, variant_type, status, mime, byte_size, width, height, path, is_primary
-)
-SELECT id, 1, 3, 'image/webp', original_byte_size, width, height, webp_path, TRUE
-FROM media_assets
-WHERE kind = 1
-  AND status = 3
-  AND webp_path IS NOT NULL;
-
-INSERT INTO media_video_variants (
-  media_id, variant_type, status, mime, byte_size, width, height, duration_ms, path, is_primary
-)
-SELECT id, 1, 3, original_mime, original_byte_size, width, height, duration_ms, original_path, TRUE
-FROM media_assets
-WHERE kind = 2
-  AND status = 3;
-
 INSERT INTO media_video_thumbnails (
   video_media_id, image_media_id, source_type, status, is_primary
 )
