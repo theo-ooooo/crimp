@@ -188,11 +188,14 @@ public class CrewService {
             throw new CrewException("CREW_CAPACITY_FULL", "Crew capacity is full");
         }
 
-        crewMemberRepository.save(CrewMember.builder()
-                .crewId(crew.getId())
-                .userId(request.getUserId())
-                .role(CrewMemberRole.MEMBER)
-                .build());
+        crewMemberRepository.findByCrewIdAndUserId(crew.getId(), request.getUserId())
+                .ifPresentOrElse(
+                        CrewMember::reactivateAsMember,
+                        () -> crewMemberRepository.save(CrewMember.builder()
+                                .crewId(crew.getId())
+                                .userId(request.getUserId())
+                                .role(CrewMemberRole.MEMBER)
+                                .build()));
         crew.incrementMemberCount();
         request.approve(actorUserId);
         crewRepository.flush();
