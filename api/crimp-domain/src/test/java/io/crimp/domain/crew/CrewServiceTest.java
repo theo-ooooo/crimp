@@ -81,7 +81,7 @@ class CrewServiceTest {
                 CrewLevelBand.INTERMEDIATE,
                 CrewStyle.BOULDERING,
                 CrewJoinPolicy.APPROVAL,
-                30,
+                (short) 30,
                 18,
                 Instant.parse("2026-05-08T00:00:00Z"),
                 "01JGYM",

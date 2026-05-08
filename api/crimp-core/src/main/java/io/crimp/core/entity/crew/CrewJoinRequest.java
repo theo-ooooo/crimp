@@ -10,6 +10,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -49,15 +50,15 @@ public class CrewJoinRequest extends BaseEntity {
     @Column(name = "decided_at")
     private Instant decidedAt;
 
-    private CrewJoinRequest(String extId, Long crewId, Long userId, String message) {
+    @Builder
+    private CrewJoinRequest(String extId, Long crewId, Long userId, String message,
+                            CrewJoinRequestStatus status, Long decidedBy, Instant decidedAt) {
         this.extId = extId;
         this.crewId = crewId;
         this.userId = userId;
         this.message = message;
-        this.status = CrewJoinRequestStatus.PENDING;
-    }
-
-    public static CrewJoinRequest pending(String extId, Long crewId, Long userId, String message) {
-        return new CrewJoinRequest(extId, crewId, userId, message);
+        this.status = status == null ? CrewJoinRequestStatus.PENDING : status;
+        this.decidedBy = decidedBy;
+        this.decidedAt = decidedAt;
     }
 }

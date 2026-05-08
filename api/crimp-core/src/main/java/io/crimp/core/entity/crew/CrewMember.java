@@ -8,6 +8,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.IdClass;
 import jakarta.persistence.Table;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -46,17 +47,15 @@ public class CrewMember {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    private CrewMember(Long crewId, Long userId, CrewMemberRole role) {
+    @Builder
+    private CrewMember(Long crewId, Long userId, CrewMemberRole role, CrewMemberStatus status,
+                       Instant joinedAt, Instant updatedAt) {
         this.crewId = crewId;
         this.userId = userId;
-        this.role = role;
-        this.status = CrewMemberStatus.ACTIVE;
-        this.joinedAt = Instant.now();
-        this.updatedAt = this.joinedAt;
-    }
-
-    public static CrewMember owner(Long crewId, Long userId) {
-        return new CrewMember(crewId, userId, CrewMemberRole.OWNER);
+        this.role = role == null ? CrewMemberRole.MEMBER : role;
+        this.status = status == null ? CrewMemberStatus.ACTIVE : status;
+        this.joinedAt = joinedAt == null ? Instant.now() : joinedAt;
+        this.updatedAt = updatedAt == null ? this.joinedAt : updatedAt;
     }
 
     public static final class Id implements Serializable {

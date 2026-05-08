@@ -13,6 +13,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -66,14 +67,16 @@ public class Crew extends SoftDeletableEntity {
     private CrewJoinPolicy joinPolicy;
 
     @Column(name = "capacity")
-    private Integer capacity;
+    private Short capacity;
 
     @Column(name = "member_count", nullable = false)
     private Integer memberCount;
 
+    @Builder
     private Crew(String extId, Long ownerUserId, Long homeGymId, String name, String summary,
                  String description, String region, CrewLevelBand levelBand, CrewStyle style,
-                 Integer capacity) {
+                 CrewVisibility visibility, CrewJoinPolicy joinPolicy, Short capacity,
+                 Integer memberCount) {
         this.extId = extId;
         this.ownerUserId = ownerUserId;
         this.homeGymId = homeGymId;
@@ -83,17 +86,9 @@ public class Crew extends SoftDeletableEntity {
         this.region = region;
         this.levelBand = levelBand == null ? CrewLevelBand.ALL : levelBand;
         this.style = style == null ? CrewStyle.BOULDERING : style;
-        this.visibility = CrewVisibility.PUBLIC;
-        this.joinPolicy = CrewJoinPolicy.APPROVAL;
+        this.visibility = visibility == null ? CrewVisibility.PUBLIC : visibility;
+        this.joinPolicy = joinPolicy == null ? CrewJoinPolicy.APPROVAL : joinPolicy;
         this.capacity = capacity;
-        this.memberCount = 1;
-    }
-
-    public static Crew createPublicApproval(String extId, Long ownerUserId, Long homeGymId,
-                                            String name, String summary, String description,
-                                            String region, CrewLevelBand levelBand,
-                                            CrewStyle style, Integer capacity) {
-        return new Crew(extId, ownerUserId, homeGymId, name, summary, description, region,
-                levelBand, style, capacity);
+        this.memberCount = memberCount == null ? 1 : memberCount;
     }
 }

@@ -71,7 +71,7 @@ public class CrewService {
                 row.levelBand(),
                 row.style(),
                 row.memberCount() == null ? 0 : row.memberCount(),
-                row.capacity(),
+                row.capacity() == null ? null : row.capacity().intValue(),
                 row.joinPolicy(),
                 myStatus(row),
                 owner,

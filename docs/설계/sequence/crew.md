@@ -135,6 +135,11 @@ sequenceDiagram
 
 `myStatus`: `NONE`, `PENDING`, `MEMBER`, `OWNER`, `ADMIN`. 비로그인 목록을 열 경우 `NONE` 으로 고정하거나 인증 필요로 막는다. v0.1 은 인증 필요.
 
+검색 정책:
+- v0.1 은 베타 초기 데이터셋(수십~수백 crew)을 전제로 `name`/`summary`/`region` 부분 일치 검색을 사용한다.
+- 데이터 증가로 응답 시간이 1초를 넘기면 `FULLTEXT` 인덱스 또는 별도 검색 인프라로 전환한다.
+- 현재 정렬은 `id DESC` 커서 페이지네이션이며, 추천 랭킹은 후속 PR 에서 별도 설계한다.
+
 ### 4.2 상세
 
 `GET /api/v1/crews/{extId}`

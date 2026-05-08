@@ -227,11 +227,19 @@
 > 작성자 extId nullable 을 허용해야 한다.
 
 ### 크루 (`/api/v1/crews`) — Phase 1.5
+
+현재 구현된 read API:
+
 | Method | Path | 설명 |
 | --- | --- | --- |
 | GET | `/api/v1/crews?q=&region=&gymExtId=&levelBand=&style=&cursor=&size=` | 공개 크루 목록. 지역·대표 암장·레벨·스타일 필터, 커서 페이지네이션. 응답에는 `memberCount`, `capacity`, `joinPolicy`, `myStatus` 포함 |
-| POST | `/api/v1/crews` | 크루 생성. 생성자는 `OWNER` 멤버가 된다. v0.1 은 `visibility=PUBLIC`, `joinPolicy=APPROVAL` 만 생성 |
 | GET | `/api/v1/crews/{extId}` | 크루 상세. 기본 정보, 대표 암장, owner, 내 가입 상태 |
+
+후속 예정 API:
+
+| Method | Path | 설명 |
+| --- | --- | --- |
+| POST | `/api/v1/crews` | 크루 생성. 생성자는 `OWNER` 멤버가 된다. v0.1 은 `visibility=PUBLIC`, `joinPolicy=APPROVAL` 만 생성 |
 | PATCH | `/api/v1/crews/{extId}` | 크루 기본 정보 수정 (`OWNER`/`ADMIN`) |
 | GET | `/api/v1/crews/{extId}/members?cursor=&size=` | 멤버 목록 |
 | DELETE | `/api/v1/crews/{extId}/members/me` | 크루 탈퇴. 마지막 `OWNER` 는 탈퇴 불가 |

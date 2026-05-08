@@ -11,6 +11,8 @@ import io.crimp.domain.crew.CrewHomeGymView;
 import io.crimp.domain.crew.CrewOwnerView;
 import io.crimp.domain.crew.CrewService;
 import io.crimp.domain.crew.CrewView;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -27,6 +29,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/crews")
 @Profile("!test")
+@Tag(name = "Crews", description = "크루 탐색과 상세 조회 (Phase 1.5)")
 public class CrewController {
 
     private final CrewService crewService;
@@ -35,6 +38,11 @@ public class CrewController {
         this.crewService = crewService;
     }
 
+    @Operation(
+            summary = "공개 크루 목록 조회",
+            description = "인증 사용자 기준 공개 크루 목록을 커서 페이지네이션으로 조회한다. "
+                    + "지역, 대표 암장, 레벨, 스타일 필터를 지원하며 응답에는 myStatus 를 포함한다."
+    )
     @GetMapping
     public CrewListResponse list(
             @AuthenticationPrincipal CrimpPrincipal principal,
@@ -51,6 +59,10 @@ public class CrewController {
                 new Page(result.nextCursor(), result.size()));
     }
 
+    @Operation(
+            summary = "공개 크루 상세 조회",
+            description = "인증 사용자 기준 공개 크루 상세와 대표 암장, owner, myStatus 를 조회한다."
+    )
     @GetMapping("/{extId}")
     public CrewDetailResponse detail(
             @AuthenticationPrincipal CrimpPrincipal principal,

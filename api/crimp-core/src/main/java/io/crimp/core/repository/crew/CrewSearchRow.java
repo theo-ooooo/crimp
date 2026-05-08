@@ -18,7 +18,7 @@ public record CrewSearchRow(
         CrewLevelBand levelBand,
         CrewStyle style,
         CrewJoinPolicy joinPolicy,
-        Integer capacity,
+        Short capacity,
         Integer memberCount,
         Instant createdAt,
         String homeGymExtId,
