@@ -25,6 +25,7 @@
     "feed": "피드",
     "sessions": "세션",
     "gyms": "암장",
+    "crews": "크루",
     "profile": "프로필"
   },
   "auth": {

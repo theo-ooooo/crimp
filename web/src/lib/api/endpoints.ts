@@ -25,6 +25,15 @@ import {
   type LikeToggleResponse,
 } from '@/lib/schemas/feed';
 import {
+  CrewDetailSchema,
+  CrewListSchema,
+  type CreateCrewJoinRequestBody,
+  type CrewDetail,
+  type CrewLevelBand,
+  type CrewList,
+  type CrewStyle,
+} from '@/lib/schemas/crew';
+import {
   GymDetailSchema,
   GymListSchema,
   RouteListSchema,
@@ -447,6 +456,101 @@ export function fetchGym(
     schema: GymDetailSchema,
     signal,
   });
+}
+
+// ===== Crews =====
+
+export type CrewListFilters = {
+  q?: string | null;
+  region?: string | null;
+  gymExtId?: string | null;
+  levelBand?: CrewLevelBand | null;
+  style?: CrewStyle | null;
+};
+
+/**
+ * `GET /api/v1/crews` — 공개 크루 목록 (Bearer 필요, 커서 페이지네이션).
+ */
+export function fetchCrews(
+  accessToken: string,
+  cursor?: number | null,
+  filters: CrewListFilters = {},
+  size?: number,
+  signal?: AbortSignal,
+): Promise<CrewList> {
+  const params = new URLSearchParams();
+  if (cursor !== undefined && cursor !== null) {
+    params.set('cursor', String(cursor));
+  }
+  if (filters.q) params.set('q', filters.q);
+  if (filters.region) params.set('region', filters.region);
+  if (filters.gymExtId) params.set('gymExtId', filters.gymExtId);
+  if (filters.levelBand) params.set('levelBand', filters.levelBand);
+  if (filters.style) params.set('style', filters.style);
+  if (size !== undefined) {
+    params.set('size', String(size));
+  }
+  const qs = params.toString();
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/crews${qs ? `?${qs}` : ''}`,
+    accessToken,
+    schema: CrewListSchema,
+    signal,
+  });
+}
+
+/**
+ * `GET /api/v1/crews/{extId}` — 크루 상세.
+ */
+export function fetchCrew(
+  accessToken: string,
+  extId: string,
+  signal?: AbortSignal,
+): Promise<CrewDetail> {
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/crews/${encodeURIComponent(extId)}`,
+    accessToken,
+    schema: CrewDetailSchema,
+    signal,
+  });
+}
+
+/**
+ * `POST /api/v1/crews/{extId}/join-requests` — 가입 요청 생성.
+ */
+export function requestCrewJoin(
+  accessToken: string,
+  crewExtId: string,
+  body: CreateCrewJoinRequestBody,
+  signal?: AbortSignal,
+): Promise<void> {
+  return apiRequest({
+    method: 'POST',
+    path: `/api/v1/crews/${encodeURIComponent(crewExtId)}/join-requests`,
+    accessToken,
+    body,
+    schema: z.unknown(),
+    signal,
+  }).then(() => undefined);
+}
+
+/**
+ * `DELETE /api/v1/crews/{extId}/join-requests/me` — 내 대기 가입 요청 취소.
+ */
+export function cancelMyCrewJoinRequest(
+  accessToken: string,
+  crewExtId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  return apiRequest({
+    method: 'DELETE',
+    path: `/api/v1/crews/${encodeURIComponent(crewExtId)}/join-requests/me`,
+    accessToken,
+    schema: z.unknown(),
+    signal,
+  }).then(() => undefined);
 }
 
 // ===== Feed =====

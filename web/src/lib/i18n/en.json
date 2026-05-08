@@ -25,6 +25,7 @@
     "feed": "Feed",
     "sessions": "Sessions",
     "gyms": "Gyms",
+    "crews": "Crews",
     "profile": "Profile"
   },
   "auth": {
