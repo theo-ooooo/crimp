@@ -31,8 +31,8 @@ export const FEED_FILTERS: readonly FeedFilter[] = [
 export const FeedItemSchema = z.object({
   /** 피드 포스트 extId (ULID) — list key 및 좋아요/댓글 API 의 `{extId}` 경로. */
   extId: z.string(),
-  /** 작성자 extId (ULID) — 프로필 라우팅용. */
-  userExtId: z.string(),
+  /** 작성자 extId (ULID) — 프로필 라우팅용. 탈퇴 사용자면 null/누락 가능. */
+  userExtId: z.string().nullable().optional(),
   userNickname: z.string(),
   /**
    * 아바타 색상 결정용 hue (0~359). 백엔드가 사용자 ID 기반으로 결정성 있게 산출.
@@ -112,7 +112,7 @@ export type LikeToggleResponse = z.infer<typeof LikeToggleResponseSchema>;
  */
 export const CommentSchema = z.object({
   extId: z.string(),
-  userExtId: z.string(),
+  userExtId: z.string().nullable().optional(),
   userNickname: z.string().nullable(),
   avatarColorHue: z.number().int(),
   content: z.string(),

@@ -56,7 +56,7 @@ PRD §M3 "암장 검색·상세" 의 화면·기능 정식화. mock (`docs/desig
 | --- | --- | --- | --- |
 | `GET /api/v1/gyms` | `q`, `near=lat,lng`, `cursor`, `size` | `{ items: [GymItem], nextCursor }` | 검색 + 거리 정렬. 거리는 `ST_Distance_Sphere` (MySQL 8) 또는 haversine. |
 | `GET /api/v1/gyms/{extId}/active-sessions` | — | `{ activeUsers: number, gradeBuckets: [{ grade: 'V0', count: 3 }, ...] }` | `climbing_sessions WHERE ended_at IS NULL` JOIN attempts grade count. |
-| `GET /api/v1/gyms/{extId}/recent-activity` | `size?=10` | `{ items: [{ userExtId, nickname, avatarColorHue, gradeValue, result, loggedAt }] }` | 최근 attempt N건. 피드와 별도, gym 한정. |
+| `GET /api/v1/gyms/{extId}/recent-activity` | `size?=10` | `{ items: [{ userExtId?, nickname, avatarColorHue, gradeValue, result, loggedAt }] }` | 최근 attempt N건. 피드와 별도, gym 한정. 탈퇴 사용자는 `userExtId=null/누락`, `nickname=탈퇴사용자`, `avatarColorHue=0`. |
 
 ### 3.2 메타데이터 보강
 
