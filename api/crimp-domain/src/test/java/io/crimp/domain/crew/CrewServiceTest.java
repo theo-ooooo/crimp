@@ -179,7 +179,7 @@ class CrewServiceTest {
     @Test
     void requestJoin_createsPendingRequest() {
         Crew crew = crew(55L, "01JCREW", 7L, null, "기존 크루");
-        when(crewRepository.findByExtId("01JCREW")).thenReturn(Optional.of(crew));
+        when(crewRepository.findByExtIdForUpdate("01JCREW")).thenReturn(Optional.of(crew));
         when(crewMemberRepository.existsByCrewIdAndUserIdAndStatus(55L, 8L, CrewMemberStatus.ACTIVE))
                 .thenReturn(false);
         when(crewJoinRequestRepository.existsByCrewIdAndUserIdAndStatus(55L, 8L, CrewJoinRequestStatus.PENDING))
@@ -205,7 +205,7 @@ class CrewServiceTest {
     @Test
     void requestJoin_rejectsExistingMember() {
         Crew crew = crew(55L, "01JCREW", 7L, null, "기존 크루");
-        when(crewRepository.findByExtId("01JCREW")).thenReturn(Optional.of(crew));
+        when(crewRepository.findByExtIdForUpdate("01JCREW")).thenReturn(Optional.of(crew));
         when(crewMemberRepository.existsByCrewIdAndUserIdAndStatus(55L, 8L, CrewMemberStatus.ACTIVE))
                 .thenReturn(true);
 
@@ -213,6 +213,44 @@ class CrewServiceTest {
                 new CreateCrewJoinRequestCommand(null)))
                 .isInstanceOf(CrewException.class)
                 .satisfies(e -> assertThat(((CrewException) e).code()).isEqualTo("CREW_ALREADY_MEMBER"));
+    }
+
+    @Test
+    void requestJoin_rejectsDuplicatePendingRequestInSameCrew() {
+        Crew crew = crew(55L, "01JCREW", 7L, null, "기존 크루");
+        when(crewRepository.findByExtIdForUpdate("01JCREW")).thenReturn(Optional.of(crew));
+        when(crewMemberRepository.existsByCrewIdAndUserIdAndStatus(55L, 8L, CrewMemberStatus.ACTIVE))
+                .thenReturn(false);
+        when(crewJoinRequestRepository.existsByCrewIdAndUserIdAndStatus(55L, 8L, CrewJoinRequestStatus.PENDING))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> service.requestJoin(8L, "01JCREW",
+                new CreateCrewJoinRequestCommand(null)))
+                .isInstanceOf(CrewException.class)
+                .satisfies(e -> assertThat(((CrewException) e).code()).isEqualTo("CREW_JOIN_REQUEST_PENDING"));
+    }
+
+    @Test
+    void requestJoin_checksPendingRequestWithinRequestedCrewOnly() {
+        Crew crew = crew(66L, "01JCREW2", 7L, null, "다른 크루");
+        when(crewRepository.findByExtIdForUpdate("01JCREW2")).thenReturn(Optional.of(crew));
+        when(crewMemberRepository.existsByCrewIdAndUserIdAndStatus(66L, 8L, CrewMemberStatus.ACTIVE))
+                .thenReturn(false);
+        when(crewJoinRequestRepository.existsByCrewIdAndUserIdAndStatus(66L, 8L, CrewJoinRequestStatus.PENDING))
+                .thenReturn(false);
+        when(crewJoinRequestRepository.saveAndFlush(any(CrewJoinRequest.class))).thenAnswer(invocation -> {
+            CrewJoinRequest request = invocation.getArgument(0);
+            setField(request, "id", 91L);
+            setField(request, "extId", "01JREQ2");
+            return request;
+        });
+        when(crewJoinRequestRepository.findRowByExtId(any()))
+                .thenReturn(Optional.of(requestRow(91L, "01JREQ2", CrewJoinRequestStatus.PENDING)));
+
+        service.requestJoin(8L, "01JCREW2", new CreateCrewJoinRequestCommand(null));
+
+        verify(crewJoinRequestRepository)
+                .existsByCrewIdAndUserIdAndStatus(66L, 8L, CrewJoinRequestStatus.PENDING);
     }
 
     @Test
@@ -224,7 +262,7 @@ class CrewServiceTest {
                 .userId(8L)
                 .message("가입하고 싶어요")
                 .build();
-        when(crewRepository.findByExtId("01JCREW")).thenReturn(Optional.of(crew));
+        when(crewRepository.findByExtIdForUpdate("01JCREW")).thenReturn(Optional.of(crew));
         when(crewMemberRepository.findByCrewIdAndUserIdAndStatus(55L, 7L, CrewMemberStatus.ACTIVE))
                 .thenReturn(Optional.of(CrewMember.builder()
                         .crewId(55L)
@@ -244,6 +282,33 @@ class CrewServiceTest {
         assertThat(request.getStatus()).isEqualTo(CrewJoinRequestStatus.APPROVED);
         assertThat(crew.getMemberCount()).isEqualTo(2);
         verify(crewMemberRepository).save(any(CrewMember.class));
+    }
+
+    @Test
+    void approveJoinRequest_rejectsFullCapacityBeforeAddingMember() {
+        Crew crew = crew(55L, "01JCREW", 7L, null, "기존 크루");
+        crew.updateBasic(crew.getName(), crew.getSummary(), crew.getDescription(), crew.getRegion(),
+                crew.getHomeGymId(), crew.getLevelBand(), crew.getStyle(), (short) 1);
+        CrewJoinRequest request = CrewJoinRequest.builder()
+                .extId("01JREQ")
+                .crewId(55L)
+                .userId(8L)
+                .build();
+        when(crewRepository.findByExtIdForUpdate("01JCREW")).thenReturn(Optional.of(crew));
+        when(crewMemberRepository.findByCrewIdAndUserIdAndStatus(55L, 7L, CrewMemberStatus.ACTIVE))
+                .thenReturn(Optional.of(CrewMember.builder()
+                        .crewId(55L)
+                        .userId(7L)
+                        .role(CrewMemberRole.OWNER)
+                        .build()));
+        when(crewJoinRequestRepository.findByCrewIdAndExtIdAndStatus(55L, "01JREQ", CrewJoinRequestStatus.PENDING))
+                .thenReturn(Optional.of(request));
+        when(crewMemberRepository.existsByCrewIdAndUserIdAndStatus(55L, 8L, CrewMemberStatus.ACTIVE))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> service.approveJoinRequest(7L, "01JCREW", "01JREQ"))
+                .isInstanceOf(CrewException.class)
+                .satisfies(e -> assertThat(((CrewException) e).code()).isEqualTo("CREW_CAPACITY_FULL"));
     }
 
     @Test

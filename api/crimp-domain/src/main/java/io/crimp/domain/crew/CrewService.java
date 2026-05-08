@@ -121,7 +121,7 @@ public class CrewService {
 
     @Transactional
     public CrewJoinRequestView requestJoin(Long userId, String crewExtId, CreateCrewJoinRequestCommand command) {
-        Crew crew = findActiveCrew(crewExtId);
+        Crew crew = findActiveCrewForUpdate(crewExtId);
         if (crew.getJoinPolicy() != CrewJoinPolicy.APPROVAL) {
             throw new CrewException("CREW_FORBIDDEN", "Crew does not accept join requests");
         }
@@ -176,7 +176,7 @@ public class CrewService {
 
     @Transactional
     public CrewJoinRequestView approveJoinRequest(Long actorUserId, String crewExtId, String requestExtId) {
-        Crew crew = findActiveCrew(crewExtId);
+        Crew crew = findActiveCrewForUpdate(crewExtId);
         requireAdmin(crew.getId(), actorUserId);
         CrewJoinRequest request = findPendingJoinRequestForUpdate(crew.getId(), requestExtId);
         if (crewMemberRepository.existsByCrewIdAndUserIdAndStatus(crew.getId(), request.getUserId(), CrewMemberStatus.ACTIVE)) {
@@ -241,6 +241,12 @@ public class CrewService {
 
     private Crew findActiveCrew(String crewExtId) {
         return crewRepository.findByExtId(crewExtId)
+                .filter(c -> !c.isDeleted())
+                .orElseThrow(() -> new CrewException("CREW_NOT_FOUND", "Crew " + crewExtId + " not found"));
+    }
+
+    private Crew findActiveCrewForUpdate(String crewExtId) {
+        return crewRepository.findByExtIdForUpdate(crewExtId)
                 .filter(c -> !c.isDeleted())
                 .orElseThrow(() -> new CrewException("CREW_NOT_FOUND", "Crew " + crewExtId + " not found"));
     }
