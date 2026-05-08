@@ -1,14 +1,18 @@
 package io.crimp.domain.crew;
 
 import io.crimp.core.entity.crew.Crew;
+import io.crimp.core.entity.crew.CrewJoinRequest;
 import io.crimp.core.entity.crew.CrewMember;
 import io.crimp.core.entity.enums.CrewJoinPolicy;
+import io.crimp.core.entity.enums.CrewJoinRequestStatus;
 import io.crimp.core.entity.enums.CrewLevelBand;
 import io.crimp.core.entity.enums.CrewMemberRole;
 import io.crimp.core.entity.enums.CrewMemberStatus;
 import io.crimp.core.entity.enums.CrewStyle;
 import io.crimp.core.entity.enums.GymStatus;
 import io.crimp.core.entity.gym.Gym;
+import io.crimp.core.repository.crew.CrewJoinRequestRepository;
+import io.crimp.core.repository.crew.CrewJoinRequestRow;
 import io.crimp.core.repository.crew.CrewMemberRepository;
 import io.crimp.core.repository.crew.CrewRepository;
 import io.crimp.core.repository.crew.CrewSearchRow;
@@ -35,6 +39,7 @@ import static org.mockito.Mockito.when;
 class CrewServiceTest {
 
     private CrewRepository crewRepository;
+    private CrewJoinRequestRepository crewJoinRequestRepository;
     private CrewMemberRepository crewMemberRepository;
     private GymRepository gymRepository;
     private CrewService service;
@@ -42,9 +47,10 @@ class CrewServiceTest {
     @BeforeEach
     void setUp() {
         crewRepository = mock(CrewRepository.class);
+        crewJoinRequestRepository = mock(CrewJoinRequestRepository.class);
         crewMemberRepository = mock(CrewMemberRepository.class);
         gymRepository = mock(GymRepository.class);
-        service = new CrewService(crewRepository, crewMemberRepository, gymRepository);
+        service = new CrewService(crewRepository, crewJoinRequestRepository, crewMemberRepository, gymRepository);
     }
 
     @Test
@@ -171,6 +177,97 @@ class CrewServiceTest {
     }
 
     @Test
+    void requestJoin_createsPendingRequest() {
+        Crew crew = crew(55L, "01JCREW", 7L, null, "기존 크루");
+        when(crewRepository.findByExtId("01JCREW")).thenReturn(Optional.of(crew));
+        when(crewMemberRepository.existsByCrewIdAndUserIdAndStatus(55L, 8L, CrewMemberStatus.ACTIVE))
+                .thenReturn(false);
+        when(crewJoinRequestRepository.existsByCrewIdAndUserIdAndStatus(55L, 8L, CrewJoinRequestStatus.PENDING))
+                .thenReturn(false);
+        when(crewJoinRequestRepository.saveAndFlush(any(CrewJoinRequest.class))).thenAnswer(invocation -> {
+            CrewJoinRequest request = invocation.getArgument(0);
+            setField(request, "id", 90L);
+            setField(request, "extId", "01JREQ");
+            return request;
+        });
+        when(crewJoinRequestRepository.findRowByExtId(any()))
+                .thenReturn(Optional.of(requestRow(90L, "01JREQ", CrewJoinRequestStatus.PENDING)));
+
+        CrewJoinRequestView view = service.requestJoin(8L, "01JCREW",
+                new CreateCrewJoinRequestCommand(" 가입하고 싶어요 "));
+
+        assertThat(view.extId()).isEqualTo("01JREQ");
+        assertThat(view.status()).isEqualTo(CrewJoinRequestStatus.PENDING);
+        verify(crewJoinRequestRepository).saveAndFlush(org.mockito.ArgumentMatchers.argThat(
+                request -> request.getMessage().equals("가입하고 싶어요")));
+    }
+
+    @Test
+    void requestJoin_rejectsExistingMember() {
+        Crew crew = crew(55L, "01JCREW", 7L, null, "기존 크루");
+        when(crewRepository.findByExtId("01JCREW")).thenReturn(Optional.of(crew));
+        when(crewMemberRepository.existsByCrewIdAndUserIdAndStatus(55L, 8L, CrewMemberStatus.ACTIVE))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> service.requestJoin(8L, "01JCREW",
+                new CreateCrewJoinRequestCommand(null)))
+                .isInstanceOf(CrewException.class)
+                .satisfies(e -> assertThat(((CrewException) e).code()).isEqualTo("CREW_ALREADY_MEMBER"));
+    }
+
+    @Test
+    void approveJoinRequest_addsMemberAndApprovesRequest() {
+        Crew crew = crew(55L, "01JCREW", 7L, null, "기존 크루");
+        CrewJoinRequest request = CrewJoinRequest.builder()
+                .extId("01JREQ")
+                .crewId(55L)
+                .userId(8L)
+                .message("가입하고 싶어요")
+                .build();
+        when(crewRepository.findByExtId("01JCREW")).thenReturn(Optional.of(crew));
+        when(crewMemberRepository.findByCrewIdAndUserIdAndStatus(55L, 7L, CrewMemberStatus.ACTIVE))
+                .thenReturn(Optional.of(CrewMember.builder()
+                        .crewId(55L)
+                        .userId(7L)
+                        .role(CrewMemberRole.OWNER)
+                        .build()));
+        when(crewJoinRequestRepository.findByCrewIdAndExtIdAndStatus(55L, "01JREQ", CrewJoinRequestStatus.PENDING))
+                .thenReturn(Optional.of(request));
+        when(crewMemberRepository.existsByCrewIdAndUserIdAndStatus(55L, 8L, CrewMemberStatus.ACTIVE))
+                .thenReturn(false);
+        when(crewJoinRequestRepository.findRowByExtId("01JREQ"))
+                .thenReturn(Optional.of(requestRow(90L, "01JREQ", CrewJoinRequestStatus.APPROVED)));
+
+        CrewJoinRequestView view = service.approveJoinRequest(7L, "01JCREW", "01JREQ");
+
+        assertThat(view.status()).isEqualTo(CrewJoinRequestStatus.APPROVED);
+        assertThat(request.getStatus()).isEqualTo(CrewJoinRequestStatus.APPROVED);
+        assertThat(crew.getMemberCount()).isEqualTo(2);
+        verify(crewMemberRepository).save(any(CrewMember.class));
+    }
+
+    @Test
+    void listJoinRequests_requiresAdminAndMapsRows() {
+        Crew crew = crew(55L, "01JCREW", 7L, null, "기존 크루");
+        when(crewRepository.findByExtId("01JCREW")).thenReturn(Optional.of(crew));
+        when(crewMemberRepository.findByCrewIdAndUserIdAndStatus(55L, 7L, CrewMemberStatus.ACTIVE))
+                .thenReturn(Optional.of(CrewMember.builder()
+                        .crewId(55L)
+                        .userId(7L)
+                        .role(CrewMemberRole.ADMIN)
+                        .build()));
+        when(crewJoinRequestRepository.searchByCrew(eq(55L), eq(CrewJoinRequestStatus.PENDING), eq(null), any()))
+                .thenReturn(new SliceImpl<>(List.of(requestRow(90L, "01JREQ", CrewJoinRequestStatus.PENDING)),
+                        Pageable.ofSize(20), false));
+
+        var result = service.listJoinRequests(7L, "01JCREW", null, null, 20);
+
+        assertThat(result.items()).hasSize(1);
+        assertThat(result.items().get(0).userExtId()).isEqualTo("01JUSER");
+        assertThat(result.size()).isEqualTo(20);
+    }
+
+    @Test
     void search_maps_rows_and_next_cursor() {
         CrewSearchRow row1 = row(20L, "01JCREW1", CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE, null);
         CrewSearchRow row2 = row(10L, "01JCREW2", null, null, "01JREQ");
@@ -227,6 +324,22 @@ class CrewServiceTest {
                 myRole,
                 myStatus,
                 pendingRequestExtId);
+    }
+
+    private static CrewJoinRequestRow requestRow(Long id, String extId, CrewJoinRequestStatus status) {
+        return new CrewJoinRequestRow(
+                id,
+                extId,
+                55L,
+                "01JCREW",
+                8L,
+                "01JUSER",
+                "신청자",
+                "가입하고 싶어요",
+                status,
+                null,
+                null,
+                Instant.parse("2026-05-08T00:00:00Z"));
     }
 
     private static Crew crew(Long id, String extId, Long ownerUserId, Long homeGymId, String name) {

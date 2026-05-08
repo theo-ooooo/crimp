@@ -104,4 +104,12 @@ public class Crew extends SoftDeletableEntity {
         this.style = style;
         this.capacity = capacity;
     }
+
+    public boolean isCapacityFull() {
+        return capacity != null && memberCount >= capacity;
+    }
+
+    public void incrementMemberCount() {
+        this.memberCount = this.memberCount + 1;
+    }
 }

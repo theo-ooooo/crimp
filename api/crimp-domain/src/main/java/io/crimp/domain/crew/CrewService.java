@@ -2,13 +2,18 @@ package io.crimp.domain.crew;
 
 import io.crimp.common.id.UlidGenerator;
 import io.crimp.core.entity.crew.Crew;
+import io.crimp.core.entity.crew.CrewJoinRequest;
 import io.crimp.core.entity.crew.CrewMember;
+import io.crimp.core.entity.enums.CrewJoinPolicy;
+import io.crimp.core.entity.enums.CrewJoinRequestStatus;
 import io.crimp.core.entity.enums.CrewMemberRole;
 import io.crimp.core.entity.enums.CrewLevelBand;
 import io.crimp.core.entity.enums.CrewMemberStatus;
 import io.crimp.core.entity.enums.CrewStyle;
 import io.crimp.core.entity.enums.GymStatus;
 import io.crimp.core.entity.gym.Gym;
+import io.crimp.core.repository.crew.CrewJoinRequestRepository;
+import io.crimp.core.repository.crew.CrewJoinRequestRow;
 import io.crimp.core.repository.crew.CrewMemberRepository;
 import io.crimp.core.repository.crew.CrewRepository;
 import io.crimp.core.repository.crew.CrewSearchRow;
@@ -29,12 +34,15 @@ public class CrewService {
     private static final int MAX_CREWS_PER_OWNER = 10;
 
     private final CrewRepository crewRepository;
+    private final CrewJoinRequestRepository crewJoinRequestRepository;
     private final CrewMemberRepository crewMemberRepository;
     private final GymRepository gymRepository;
 
-    public CrewService(CrewRepository crewRepository, CrewMemberRepository crewMemberRepository,
+    public CrewService(CrewRepository crewRepository, CrewJoinRequestRepository crewJoinRequestRepository,
+                       CrewMemberRepository crewMemberRepository,
                        GymRepository gymRepository) {
         this.crewRepository = crewRepository;
+        this.crewJoinRequestRepository = crewJoinRequestRepository;
         this.crewMemberRepository = crewMemberRepository;
         this.gymRepository = gymRepository;
     }
@@ -111,6 +119,95 @@ public class CrewService {
         return getByExtId(actorUserId, crew.getExtId());
     }
 
+    @Transactional
+    public CrewJoinRequestView requestJoin(Long userId, String crewExtId, CreateCrewJoinRequestCommand command) {
+        Crew crew = findActiveCrew(crewExtId);
+        if (crew.getJoinPolicy() != CrewJoinPolicy.APPROVAL) {
+            throw new CrewException("CREW_FORBIDDEN", "Crew does not accept join requests");
+        }
+        if (crewMemberRepository.existsByCrewIdAndUserIdAndStatus(crew.getId(), userId, CrewMemberStatus.ACTIVE)) {
+            throw new CrewException("CREW_ALREADY_MEMBER", "User is already a crew member");
+        }
+        if (crewJoinRequestRepository.existsByCrewIdAndUserIdAndStatus(crew.getId(), userId, CrewJoinRequestStatus.PENDING)) {
+            throw new CrewException("CREW_JOIN_REQUEST_PENDING", "Crew join request already pending");
+        }
+        if (crew.isCapacityFull()) {
+            throw new CrewException("CREW_CAPACITY_FULL", "Crew capacity is full");
+        }
+
+        CrewJoinRequest request = CrewJoinRequest.builder()
+                .extId(UlidGenerator.next())
+                .crewId(crew.getId())
+                .userId(userId)
+                .message(trimOptional(command == null ? null : command.message(), 500, "message"))
+                .build();
+        crewJoinRequestRepository.saveAndFlush(request);
+        return getJoinRequestView(request.getExtId());
+    }
+
+    @Transactional
+    public CrewJoinRequestView cancelMyJoinRequest(Long userId, String crewExtId) {
+        Crew crew = findActiveCrew(crewExtId);
+        CrewJoinRequest request = crewJoinRequestRepository
+                .findByCrewIdAndUserIdAndStatus(crew.getId(), userId, CrewJoinRequestStatus.PENDING)
+                .orElseThrow(() -> new CrewException("CREW_JOIN_REQUEST_NOT_FOUND", "Pending crew join request not found"));
+        request.cancel(userId);
+        crewJoinRequestRepository.flush();
+        return getJoinRequestView(request.getExtId());
+    }
+
+    @Transactional(readOnly = true)
+    public CrewJoinRequestSearchResult listJoinRequests(Long actorUserId, String crewExtId, String status,
+                                                        Long cursorId, Integer size) {
+        Crew crew = findActiveCrew(crewExtId);
+        requireAdmin(crew.getId(), actorUserId);
+        CrewJoinRequestStatus parsedStatus = status == null
+                ? CrewJoinRequestStatus.PENDING
+                : parseEnum(CrewJoinRequestStatus.class, status, "INVALID_CREW_REQUEST");
+        int pageSize = capSize(size);
+        Slice<CrewJoinRequestRow> slice = crewJoinRequestRepository.searchByCrew(
+                crew.getId(), parsedStatus, cursorId, PageRequest.of(0, pageSize));
+        List<CrewJoinRequestView> items = slice.getContent().stream().map(CrewService::toJoinRequestView).toList();
+        Long nextCursor = slice.hasNext() && !slice.getContent().isEmpty()
+                ? slice.getContent().get(slice.getContent().size() - 1).id()
+                : null;
+        return new CrewJoinRequestSearchResult(items, nextCursor, pageSize);
+    }
+
+    @Transactional
+    public CrewJoinRequestView approveJoinRequest(Long actorUserId, String crewExtId, String requestExtId) {
+        Crew crew = findActiveCrew(crewExtId);
+        requireAdmin(crew.getId(), actorUserId);
+        CrewJoinRequest request = findPendingJoinRequestForUpdate(crew.getId(), requestExtId);
+        if (crewMemberRepository.existsByCrewIdAndUserIdAndStatus(crew.getId(), request.getUserId(), CrewMemberStatus.ACTIVE)) {
+            throw new CrewException("CREW_ALREADY_MEMBER", "User is already a crew member");
+        }
+        if (crew.isCapacityFull() || (crew.getCapacity() != null
+                && crewMemberRepository.countByCrewIdAndStatus(crew.getId(), CrewMemberStatus.ACTIVE) >= crew.getCapacity())) {
+            throw new CrewException("CREW_CAPACITY_FULL", "Crew capacity is full");
+        }
+
+        crewMemberRepository.save(CrewMember.builder()
+                .crewId(crew.getId())
+                .userId(request.getUserId())
+                .role(CrewMemberRole.MEMBER)
+                .build());
+        crew.incrementMemberCount();
+        request.approve(actorUserId);
+        crewRepository.flush();
+        return getJoinRequestView(request.getExtId());
+    }
+
+    @Transactional
+    public CrewJoinRequestView rejectJoinRequest(Long actorUserId, String crewExtId, String requestExtId) {
+        Crew crew = findActiveCrew(crewExtId);
+        requireAdmin(crew.getId(), actorUserId);
+        CrewJoinRequest request = findPendingJoinRequestForUpdate(crew.getId(), requestExtId);
+        request.reject(actorUserId);
+        crewJoinRequestRepository.flush();
+        return getJoinRequestView(request.getExtId());
+    }
+
     @Transactional(readOnly = true)
     public CrewSearchResult search(Long viewerUserId, Long cursorId, String keyword, String region,
                                    String gymExtId, String levelBand, String style, Integer size) {
@@ -140,6 +237,24 @@ public class CrewService {
         CrewSearchRow row = crewRepository.findPublicDetail(extId, viewerUserId)
                 .orElseThrow(() -> new CrewException("CREW_NOT_FOUND", "Crew " + extId + " not found"));
         return toView(row);
+    }
+
+    private Crew findActiveCrew(String crewExtId) {
+        return crewRepository.findByExtId(crewExtId)
+                .filter(c -> !c.isDeleted())
+                .orElseThrow(() -> new CrewException("CREW_NOT_FOUND", "Crew " + crewExtId + " not found"));
+    }
+
+    private CrewJoinRequest findPendingJoinRequestForUpdate(Long crewId, String requestExtId) {
+        return crewJoinRequestRepository
+                .findByCrewIdAndExtIdAndStatus(crewId, requestExtId, CrewJoinRequestStatus.PENDING)
+                .orElseThrow(() -> new CrewException("CREW_JOIN_REQUEST_NOT_FOUND", "Pending crew join request not found"));
+    }
+
+    private CrewJoinRequestView getJoinRequestView(String requestExtId) {
+        return crewJoinRequestRepository.findRowByExtId(requestExtId)
+                .map(CrewService::toJoinRequestView)
+                .orElseThrow(() -> new CrewException("CREW_JOIN_REQUEST_NOT_FOUND", "Crew join request not found"));
     }
 
     private Long resolveUpdatedHomeGymId(UpdateCrewCommand command, Crew crew) {
@@ -189,6 +304,19 @@ public class CrewService {
                 row.joinPolicy(),
                 myStatus(row),
                 owner,
+                row.createdAt());
+    }
+
+    private static CrewJoinRequestView toJoinRequestView(CrewJoinRequestRow row) {
+        return new CrewJoinRequestView(
+                row.extId(),
+                row.crewExtId(),
+                row.userExtId(),
+                row.userNickname(),
+                row.message(),
+                row.status(),
+                row.decidedByExtId(),
+                row.decidedAt(),
                 row.createdAt());
     }
 
@@ -248,4 +376,6 @@ public class CrewService {
     }
 
     public record CrewSearchResult(List<CrewView> items, Long nextCursor, int size) {}
+
+    public record CrewJoinRequestSearchResult(List<CrewJoinRequestView> items, Long nextCursor, int size) {}
 }

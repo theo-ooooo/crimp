@@ -61,4 +61,22 @@ public class CrewJoinRequest extends BaseEntity {
         this.decidedBy = decidedBy;
         this.decidedAt = decidedAt;
     }
+
+    public void approve(Long decidedBy) {
+        this.status = CrewJoinRequestStatus.APPROVED;
+        this.decidedBy = decidedBy;
+        this.decidedAt = Instant.now();
+    }
+
+    public void reject(Long decidedBy) {
+        this.status = CrewJoinRequestStatus.REJECTED;
+        this.decidedBy = decidedBy;
+        this.decidedAt = Instant.now();
+    }
+
+    public void cancel(Long decidedBy) {
+        this.status = CrewJoinRequestStatus.CANCELED;
+        this.decidedBy = decidedBy;
+        this.decidedAt = Instant.now();
+    }
 }
