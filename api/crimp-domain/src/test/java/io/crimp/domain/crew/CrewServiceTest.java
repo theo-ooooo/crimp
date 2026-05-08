@@ -123,11 +123,7 @@ class CrewServiceTest {
         Crew crew = crew(55L, "01JCREW", 7L, null, "기존 크루");
         when(crewRepository.findByExtId("01JCREW")).thenReturn(Optional.of(crew));
         when(crewMemberRepository.findByCrewIdAndUserIdAndStatus(55L, 7L, CrewMemberStatus.ACTIVE))
-                .thenReturn(Optional.of(CrewMember.builder()
-                        .crewId(55L)
-                        .userId(7L)
-                        .role(CrewMemberRole.OWNER)
-                        .build()));
+                .thenReturn(Optional.of(CrewMember.create(55L, 7L, CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE)));
         when(crewRepository.existsByName("새 크루")).thenReturn(false);
         when(crewRepository.findPublicDetail("01JCREW", 7L))
                 .thenReturn(Optional.of(row(55L, "01JCREW", CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE, null)));
@@ -148,11 +144,7 @@ class CrewServiceTest {
         Crew crew = crew(55L, "01JCREW", 7L, null, "기존 크루");
         when(crewRepository.findByExtId("01JCREW")).thenReturn(Optional.of(crew));
         when(crewMemberRepository.findByCrewIdAndUserIdAndStatus(55L, 8L, CrewMemberStatus.ACTIVE))
-                .thenReturn(Optional.of(CrewMember.builder()
-                        .crewId(55L)
-                        .userId(8L)
-                        .role(CrewMemberRole.MEMBER)
-                        .build()));
+                .thenReturn(Optional.of(CrewMember.create(55L, 8L, CrewMemberRole.MEMBER, CrewMemberStatus.ACTIVE)));
 
         assertThatThrownBy(() -> service.update(8L, "01JCREW", new UpdateCrewCommand(
                 "새 크루", null, null, null, null, false, null, null, null, false)))
@@ -165,11 +157,7 @@ class CrewServiceTest {
         Crew crew = crew(55L, "01JCREW", 7L, null, "기존 크루");
         when(crewRepository.findByExtId("01JCREW")).thenReturn(Optional.of(crew));
         when(crewMemberRepository.findByCrewIdAndUserIdAndStatus(55L, 7L, CrewMemberStatus.ACTIVE))
-                .thenReturn(Optional.of(CrewMember.builder()
-                        .crewId(55L)
-                        .userId(7L)
-                        .role(CrewMemberRole.OWNER)
-                        .build()));
+                .thenReturn(Optional.of(CrewMember.create(55L, 7L, CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE)));
 
         assertThatThrownBy(() -> service.update(7L, "01JCREW", new UpdateCrewCommand(
                 null, null, null, null, null, false, null, null, 20, true)))
@@ -265,11 +253,7 @@ class CrewServiceTest {
                 .build();
         when(crewRepository.findByExtIdForUpdate("01JCREW")).thenReturn(Optional.of(crew));
         when(crewMemberRepository.findByCrewIdAndUserIdAndStatus(55L, 7L, CrewMemberStatus.ACTIVE))
-                .thenReturn(Optional.of(CrewMember.builder()
-                        .crewId(55L)
-                        .userId(7L)
-                        .role(CrewMemberRole.OWNER)
-                        .build()));
+                .thenReturn(Optional.of(CrewMember.create(55L, 7L, CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE)));
         when(crewJoinRequestRepository.findByCrewIdAndExtIdAndStatus(55L, "01JREQ", CrewJoinRequestStatus.PENDING))
                 .thenReturn(Optional.of(request));
         when(crewMemberRepository.existsByCrewIdAndUserIdAndStatus(55L, 8L, CrewMemberStatus.ACTIVE))
@@ -289,12 +273,7 @@ class CrewServiceTest {
     @Test
     void approveJoinRequest_reactivatesLeftMember() {
         Crew crew = crew(55L, "01JCREW", 7L, null, "기존 크루");
-        CrewMember leftMember = CrewMember.builder()
-                .crewId(55L)
-                .userId(8L)
-                .role(CrewMemberRole.MEMBER)
-                .status(CrewMemberStatus.LEFT)
-                .build();
+        CrewMember leftMember = CrewMember.create(55L, 8L, CrewMemberRole.MEMBER, CrewMemberStatus.LEFT);
         CrewJoinRequest request = CrewJoinRequest.builder()
                 .extId("01JREQ")
                 .crewId(55L)
@@ -302,11 +281,7 @@ class CrewServiceTest {
                 .build();
         when(crewRepository.findByExtIdForUpdate("01JCREW")).thenReturn(Optional.of(crew));
         when(crewMemberRepository.findByCrewIdAndUserIdAndStatus(55L, 7L, CrewMemberStatus.ACTIVE))
-                .thenReturn(Optional.of(CrewMember.builder()
-                        .crewId(55L)
-                        .userId(7L)
-                        .role(CrewMemberRole.OWNER)
-                        .build()));
+                .thenReturn(Optional.of(CrewMember.create(55L, 7L, CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE)));
         when(crewJoinRequestRepository.findByCrewIdAndExtIdAndStatus(55L, "01JREQ", CrewJoinRequestStatus.PENDING))
                 .thenReturn(Optional.of(request));
         when(crewMemberRepository.existsByCrewIdAndUserIdAndStatus(55L, 8L, CrewMemberStatus.ACTIVE))
@@ -333,11 +308,7 @@ class CrewServiceTest {
                 .build();
         when(crewRepository.findByExtIdForUpdate("01JCREW")).thenReturn(Optional.of(crew));
         when(crewMemberRepository.findByCrewIdAndUserIdAndStatus(55L, 7L, CrewMemberStatus.ACTIVE))
-                .thenReturn(Optional.of(CrewMember.builder()
-                        .crewId(55L)
-                        .userId(7L)
-                        .role(CrewMemberRole.OWNER)
-                        .build()));
+                .thenReturn(Optional.of(CrewMember.create(55L, 7L, CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE)));
         when(crewJoinRequestRepository.findByCrewIdAndExtIdAndStatus(55L, "01JREQ", CrewJoinRequestStatus.PENDING))
                 .thenReturn(Optional.of(request));
         when(crewMemberRepository.existsByCrewIdAndUserIdAndStatus(55L, 8L, CrewMemberStatus.ACTIVE))
@@ -353,11 +324,7 @@ class CrewServiceTest {
         Crew crew = crew(55L, "01JCREW", 7L, null, "기존 크루");
         when(crewRepository.findByExtId("01JCREW")).thenReturn(Optional.of(crew));
         when(crewMemberRepository.findByCrewIdAndUserIdAndStatus(55L, 7L, CrewMemberStatus.ACTIVE))
-                .thenReturn(Optional.of(CrewMember.builder()
-                        .crewId(55L)
-                        .userId(7L)
-                        .role(CrewMemberRole.ADMIN)
-                        .build()));
+                .thenReturn(Optional.of(CrewMember.create(55L, 7L, CrewMemberRole.ADMIN, CrewMemberStatus.ACTIVE)));
         when(crewJoinRequestRepository.searchByCrew(eq(55L), eq(CrewJoinRequestStatus.PENDING), eq(null), any()))
                 .thenReturn(new SliceImpl<>(List.of(requestRow(90L, "01JREQ", CrewJoinRequestStatus.PENDING)),
                         Pageable.ofSize(20), false));
@@ -388,11 +355,7 @@ class CrewServiceTest {
     @Test
     void leaveCrew_marksMemberLeftAndDecrementsMemberCount() {
         Crew crew = crew(55L, "01JCREW", 7L, null, "기존 크루");
-        CrewMember member = CrewMember.builder()
-                .crewId(55L)
-                .userId(8L)
-                .role(CrewMemberRole.MEMBER)
-                .build();
+        CrewMember member = CrewMember.create(55L, 8L, CrewMemberRole.MEMBER, CrewMemberStatus.ACTIVE);
         when(crewRepository.findByExtIdForUpdate("01JCREW")).thenReturn(Optional.of(crew));
         when(crewMemberRepository.findByCrewIdAndUserIdAndStatus(55L, 8L, CrewMemberStatus.ACTIVE))
                 .thenReturn(Optional.of(member));
@@ -406,11 +369,7 @@ class CrewServiceTest {
     @Test
     void leaveCrew_isScopedToRequestedCrew() {
         Crew crew = crew(55L, "01JCREW", 7L, null, "기존 크루");
-        CrewMember member = CrewMember.builder()
-                .crewId(55L)
-                .userId(8L)
-                .role(CrewMemberRole.MEMBER)
-                .build();
+        CrewMember member = CrewMember.create(55L, 8L, CrewMemberRole.MEMBER, CrewMemberStatus.ACTIVE);
         when(crewRepository.findByExtIdForUpdate("01JCREW")).thenReturn(Optional.of(crew));
         when(crewMemberRepository.findByCrewIdAndUserIdAndStatus(55L, 8L, CrewMemberStatus.ACTIVE))
                 .thenReturn(Optional.of(member));
@@ -423,11 +382,7 @@ class CrewServiceTest {
     @Test
     void leaveCrew_blocksLastOwner() {
         Crew crew = crew(55L, "01JCREW", 7L, null, "기존 크루");
-        CrewMember member = CrewMember.builder()
-                .crewId(55L)
-                .userId(7L)
-                .role(CrewMemberRole.OWNER)
-                .build();
+        CrewMember member = CrewMember.create(55L, 7L, CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE);
         when(crewRepository.findByExtIdForUpdate("01JCREW")).thenReturn(Optional.of(crew));
         when(crewMemberRepository.findByCrewIdAndUserIdAndStatus(55L, 7L, CrewMemberStatus.ACTIVE))
                 .thenReturn(Optional.of(member));

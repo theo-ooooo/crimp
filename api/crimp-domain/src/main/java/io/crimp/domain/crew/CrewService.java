@@ -79,11 +79,8 @@ public class CrewService {
                 .capacity(capacity)
                 .build();
         crewRepository.save(crew);
-        crewMemberRepository.save(CrewMember.builder()
-                .crewId(crew.getId())
-                .userId(ownerUserId)
-                .role(CrewMemberRole.OWNER)
-                .build());
+        crewMemberRepository.save(CrewMember.create(
+                crew.getId(), ownerUserId, CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE));
         crewRepository.flush();
         return getByExtId(ownerUserId, crew.getExtId());
     }
@@ -191,11 +188,8 @@ public class CrewService {
         crewMemberRepository.findByCrewIdAndUserId(crew.getId(), request.getUserId())
                 .ifPresentOrElse(
                         CrewMember::reactivateAsMember,
-                        () -> crewMemberRepository.save(CrewMember.builder()
-                                .crewId(crew.getId())
-                                .userId(request.getUserId())
-                                .role(CrewMemberRole.MEMBER)
-                                .build()));
+                        () -> crewMemberRepository.save(CrewMember.create(
+                                crew.getId(), request.getUserId(), CrewMemberRole.MEMBER, CrewMemberStatus.ACTIVE)));
         crew.incrementMemberCount();
         request.approve(actorUserId);
         crewRepository.flush();

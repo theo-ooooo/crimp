@@ -52,11 +52,8 @@ class CrewRepositoryImplTest {
         User viewer = persistUser("01JVIEWER000000000000001", "viewer");
         Gym gym = persistGym("01JGYM000000000000000001", "더클라임 강남점");
         Crew crew = persistCrew("01JCREW00000000000000001", owner.getId(), gym.getId(), "강남 퇴근볼더");
-        em.persist(CrewMember.builder()
-                .crewId(crew.getId())
-                .userId(viewer.getId())
-                .role(OWNER)
-                .build());
+        em.persist(CrewMember.create(crew.getId(), viewer.getId(), OWNER,
+                io.crimp.core.entity.enums.CrewMemberStatus.ACTIVE));
         em.flush();
         em.clear();
 
@@ -128,16 +125,12 @@ class CrewRepositoryImplTest {
         User member = persistUser("01JUSER00000000000000001", "member");
         User left = persistUser("01JLEFT00000000000000001", "left");
         Crew crew = persistCrew("01JCREW00000000000000001", owner.getId(), null, "강남 퇴근볼더");
-        em.persist(CrewMember.builder()
-                .crewId(crew.getId())
-                .userId(member.getId())
-                .role(io.crimp.core.entity.enums.CrewMemberRole.MEMBER)
-                .build());
-        em.persist(CrewMember.builder()
-                .crewId(crew.getId())
-                .userId(left.getId())
-                .status(io.crimp.core.entity.enums.CrewMemberStatus.LEFT)
-                .build());
+        em.persist(CrewMember.create(crew.getId(), member.getId(),
+                io.crimp.core.entity.enums.CrewMemberRole.MEMBER,
+                io.crimp.core.entity.enums.CrewMemberStatus.ACTIVE));
+        em.persist(CrewMember.create(crew.getId(), left.getId(),
+                io.crimp.core.entity.enums.CrewMemberRole.MEMBER,
+                io.crimp.core.entity.enums.CrewMemberStatus.LEFT));
         em.flush();
         em.clear();
 

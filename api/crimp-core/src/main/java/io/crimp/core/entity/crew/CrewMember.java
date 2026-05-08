@@ -58,6 +58,10 @@ public class CrewMember {
         this.updatedAt = updatedAt == null ? this.joinedAt : updatedAt;
     }
 
+    public static CrewMember create(Long crewId, Long userId, CrewMemberRole role, CrewMemberStatus status) {
+        return new CrewMember(crewId, userId, role, status, null, null);
+    }
+
     public void leave() {
         this.status = CrewMemberStatus.LEFT;
         this.updatedAt = Instant.now();
