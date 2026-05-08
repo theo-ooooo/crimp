@@ -7,6 +7,7 @@ import io.crimp.core.entity.enums.CrewLevelBand;
 import io.crimp.core.entity.enums.CrewMemberRole;
 import io.crimp.core.entity.enums.CrewMemberStatus;
 import io.crimp.core.entity.enums.CrewStyle;
+import io.crimp.core.entity.enums.GymStatus;
 import io.crimp.core.entity.gym.Gym;
 import io.crimp.core.repository.crew.CrewMemberRepository;
 import io.crimp.core.repository.crew.CrewRepository;
@@ -65,6 +66,39 @@ class CrewServiceTest {
         assertThat(view.name()).isEqualTo("강남 퇴근볼더");
         verify(crewRepository).save(any(Crew.class));
         verify(crewMemberRepository).save(any(CrewMember.class));
+    }
+
+    @Test
+    void create_resolvesActiveHomeGym() {
+        when(gymRepository.findByExtIdAndStatus("01JGYM00000000000000000000", GymStatus.ACTIVE))
+                .thenReturn(Optional.of(gym(33L, "01JGYM00000000000000000000")));
+        when(crewRepository.existsByName("강남 퇴근볼더")).thenReturn(false);
+        when(crewRepository.countByOwnerUserIdAndDeletedAtIsNull(7L)).thenReturn(0L);
+        when(crewRepository.save(any(Crew.class))).thenAnswer(invocation -> {
+            Crew crew = invocation.getArgument(0);
+            setField(crew, "id", 55L);
+            return crew;
+        });
+        when(crewRepository.findPublicDetail(any(), eq(7L)))
+                .thenReturn(Optional.of(row(55L, "01JCREW", CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE, null)));
+
+        service.create(7L, new CreateCrewCommand(
+                "강남 퇴근볼더", null, null, null,
+                "01JGYM00000000000000000000", null, null, null));
+
+        verify(crewRepository).save(org.mockito.ArgumentMatchers.argThat(crew -> crew.getHomeGymId().equals(33L)));
+    }
+
+    @Test
+    void create_rejectsInactiveOrMissingHomeGym() {
+        when(gymRepository.findByExtIdAndStatus("01JGYM00000000000000000000", GymStatus.ACTIVE))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.create(7L, new CreateCrewCommand(
+                "강남 퇴근볼더", null, null, null,
+                "01JGYM00000000000000000000", null, null, null)))
+                .isInstanceOf(CrewException.class)
+                .satisfies(e -> assertThat(((CrewException) e).code()).isEqualTo("CREW_HOME_GYM_NOT_FOUND"));
     }
 
     @Test

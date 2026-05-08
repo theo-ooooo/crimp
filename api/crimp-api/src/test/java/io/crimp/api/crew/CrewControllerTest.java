@@ -1,15 +1,29 @@
 package io.crimp.api.crew;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import io.crimp.api.common.GlobalResponseWrapper;
 import io.crimp.api.security.CrimpPrincipal;
 import io.crimp.core.entity.enums.CrewJoinPolicy;
 import io.crimp.core.entity.enums.CrewLevelBand;
 import io.crimp.core.entity.enums.CrewStyle;
 import io.crimp.domain.crew.CreateCrewCommand;
+import io.crimp.domain.crew.CrewException;
 import io.crimp.domain.crew.CrewHomeGymView;
 import io.crimp.domain.crew.CrewOwnerView;
 import io.crimp.domain.crew.CrewService;
 import io.crimp.domain.crew.CrewView;
 import io.crimp.domain.crew.UpdateCrewCommand;
+import org.springframework.core.MethodParameter;
+import org.springframework.http.MediaType;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.support.WebDataBinderFactory;
+import org.springframework.web.context.request.NativeWebRequest;
+import org.springframework.web.method.support.HandlerMethodArgumentResolver;
+import org.springframework.web.method.support.ModelAndViewContainer;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -20,17 +34,30 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class CrewControllerTest {
 
     private CrewService crewService;
     private CrewController controller;
+    private MockMvc mockMvc;
+    private ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() {
         crewService = mock(CrewService.class);
         controller = new CrewController(crewService);
+        objectMapper = JsonMapper.builder().findAndAddModules().build();
+        mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .setCustomArgumentResolvers(authPrincipalResolver())
+                .setControllerAdvice(new GlobalResponseWrapper())
+                .setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))
+                .build();
     }
 
     @Test
@@ -46,6 +73,62 @@ class CrewControllerTest {
 
         assertThat(res.extId()).isEqualTo("01JCREW");
         assertThat(res.myStatus()).isEqualTo("OWNER");
+    }
+
+    @Test
+    void create_http_maps_request_and_wraps_response() throws Exception {
+        when(crewService.create(eq(7L), any(CreateCrewCommand.class)))
+                .thenReturn(view("01JCREW", "OWNER"));
+
+        mockMvc.perform(post("/api/v1/crews")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new CrewController.CreateCrewRequest(
+                                "강남 퇴근볼더", "평일 저녁", "V3~V6 중심", "서울 강남",
+                                null, "INTERMEDIATE", "BOULDERING", 30))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(true))
+                .andExpect(jsonPath("$.data.extId").value("01JCREW"))
+                .andExpect(jsonPath("$.data.myStatus").value("OWNER"));
+    }
+
+    @Test
+    void create_http_rejectsInvalidCapacity() throws Exception {
+        mockMvc.perform(post("/api/v1/crews")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new CrewController.CreateCrewRequest(
+                                "강남 퇴근볼더", null, null, null, null, null, null, 1))))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(crewService);
+    }
+
+    @Test
+    void create_http_mapsCrewExceptionToConflict() throws Exception {
+        when(crewService.create(eq(7L), any(CreateCrewCommand.class)))
+                .thenThrow(new CrewException("CREW_NAME_TAKEN", "Crew name already taken"));
+
+        mockMvc.perform(post("/api/v1/crews")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new CrewController.CreateCrewRequest(
+                                "강남 퇴근볼더", null, null, null, null, null, null, null))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(false))
+                .andExpect(jsonPath("$.error.code").value("CREW_NAME_TAKEN"));
+    }
+
+    @Test
+    void update_http_mapsCrewExceptionToForbidden() throws Exception {
+        when(crewService.update(eq(7L), eq("01JCREW"), any(UpdateCrewCommand.class)))
+                .thenThrow(new CrewException("CREW_FORBIDDEN", "Crew admin permission required"));
+
+        mockMvc.perform(patch("/api/v1/crews/01JCREW")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new CrewController.UpdateCrewRequest(
+                                "새 크루", null, null, null, null, false,
+                                null, null, null, false))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(false))
+                .andExpect(jsonPath("$.error.code").value("CREW_FORBIDDEN"));
     }
 
     @Test
@@ -108,5 +191,21 @@ class CrewControllerTest {
                 myStatus,
                 new CrewOwnerView("01JOWNER", "크루장"),
                 Instant.parse("2026-05-08T00:00:00Z"));
+    }
+
+    private static HandlerMethodArgumentResolver authPrincipalResolver() {
+        return new HandlerMethodArgumentResolver() {
+            @Override
+            public boolean supportsParameter(MethodParameter parameter) {
+                return parameter.hasParameterAnnotation(AuthenticationPrincipal.class)
+                        && parameter.getParameterType().equals(CrimpPrincipal.class);
+            }
+
+            @Override
+            public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer,
+                                          NativeWebRequest webRequest, WebDataBinderFactory binderFactory) {
+                return new CrimpPrincipal(7L, "01JUSER");
+            }
+        };
     }
 }
