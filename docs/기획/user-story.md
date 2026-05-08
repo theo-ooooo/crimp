@@ -251,6 +251,53 @@
 
 ---
 
+## 크루 (Phase 1.5)
+
+### US-CREW-01: 공개 크루 탐색
+
+> **As a** 현우, 지수
+> **I want** 지역·암장·레벨·스타일로 크루를 찾아보고
+> **So that** 나와 맞는 등반 모임에 안전하게 합류할 수 있다.
+
+**Acceptance Criteria**
+- [ ] `GET /api/v1/crews` 목록은 필터(`q`, `region`, `gymExtId`, `levelBand`, `style`)와 커서 페이지네이션을 지원한다.
+- [ ] 목록/상세는 멤버 수, 정원, 대표 암장, 레벨, 스타일, 내 상태(`NONE/PENDING/MEMBER/OWNER/ADMIN`)를 표시한다.
+- [ ] App/Web 에 크루 목록과 상세 화면을 제공한다.
+- [ ] 비공개/초대제 크루는 v0.1 에서 생성·노출하지 않는다.
+
+**기획/설계**: [crew.md](./crew.md), [../설계/sequence/crew.md](../설계/sequence/crew.md)
+
+---
+
+### US-CREW-02: 크루 개설·수정
+
+> **As a** 크루장
+> **I want** 크루 이름, 소개, 대표 암장, 레벨, 스타일, 정원을 설정하고
+> **So that** 우리 크루와 맞는 사람을 받을 수 있다.
+
+**Acceptance Criteria**
+- [ ] 로그인 사용자는 `POST /api/v1/crews` 로 공개 크루를 생성할 수 있다.
+- [ ] 생성자는 자동으로 `OWNER` 멤버가 된다.
+- [ ] `OWNER`/`ADMIN` 만 `PATCH /api/v1/crews/{extId}` 로 기본 정보를 수정할 수 있다.
+- [ ] `homeGymExtId` 는 ACTIVE 암장만 허용한다.
+
+---
+
+### US-CREW-03: 가입 요청 승인제
+
+> **As a** 클라이머
+> **I want** 크루에 가입 요청을 보내고 승인을 기다릴 수 있고
+> **So that** 크루장이 멤버 구성을 관리할 수 있다.
+
+**Acceptance Criteria**
+- [ ] 비멤버는 `POST /api/v1/crews/{extId}/join-requests` 로 가입 요청을 만들 수 있다.
+- [ ] 같은 크루에 동시 `PENDING` 요청은 1개만 허용한다.
+- [ ] 크루장/관리자는 요청 목록을 보고 승인/거절할 수 있다.
+- [ ] 승인 시 `crew_members` 에 `MEMBER` 로 추가되고 요청은 `APPROVED` 가 된다.
+- [ ] 정원이 찬 크루는 가입 요청 또는 승인 시 `CREW_CAPACITY_FULL` 로 막는다.
+
+---
+
 ## 비기능 (Cross-cutting)
 
 ### US-NFR-01: 토큰 보안
@@ -284,9 +331,10 @@
 
 ## Phase 1.5 후속 백로그 요약
 
-스토리는 별도 추가하지 않고 PRD §6.2 항목으로 관리.
+크루는 `US-CREW-01`~`03` 으로 기초 스토리를 추가했고, 나머지는 PRD §6.2 항목으로 관리.
 
-- 크루 / 파트너 매칭
+- 크루 개설/가입 — [crew.md](./crew.md), `US-CREW-01`~`03`
+- 파트너 매칭
 - 영상 타임라인 주석
 - BottomTabs 정식 (web)
 - 크루 가입률·D30 KPI 측정 인프라
