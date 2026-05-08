@@ -20,7 +20,7 @@ import type {
 } from '@/lib/schemas/crew';
 
 const LEVEL_OPTIONS: Array<{ value: CrewLevelBand; label: string }> = [
-  { value: 'ALL', label: '전체' },
+  { value: 'ALL', label: '레벨 무관' },
   { value: 'BEGINNER', label: '입문' },
   { value: 'INTERMEDIATE', label: '중급' },
   { value: 'ADVANCED', label: '고급' },

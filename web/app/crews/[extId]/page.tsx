@@ -100,10 +100,11 @@ export default function CrewDetailPage(): JSX.Element {
       <section className="flex flex-col gap-3 rounded-2xl border border-hairline bg-bg p-4">
         <h2 className="text-title font-extrabold text-text">가입</h2>
         <p className="text-body font-medium text-text-2">
-          승인제 크루입니다. 요청을 보내면 크루장 또는 관리자가 확인합니다.
+          {joinHelpText(crew.joinPolicy)}
         </p>
         <JoinAction
           status={crew.myStatus}
+          joinPolicy={crew.joinPolicy}
           disabled={pending}
           onRequest={() => {
             requestJoin.mutate({ crewExtId: crew.extId, body: { message: null } });
@@ -136,11 +137,13 @@ function BackLink(): JSX.Element {
 
 function JoinAction({
   status,
+  joinPolicy,
   disabled,
   onRequest,
   onCancel,
 }: {
   status: CrewMyStatus;
+  joinPolicy: CrewDetail['joinPolicy'];
   disabled: boolean;
   onRequest: () => void;
   onCancel: () => void;
@@ -154,6 +157,12 @@ function JoinAction({
   }
   if (status === 'MEMBER' || status === 'OWNER' || status === 'ADMIN') {
     return <SecondaryButton disabled>이미 가입한 크루</SecondaryButton>;
+  }
+  if (joinPolicy === 'OPEN') {
+    return <SecondaryButton disabled>즉시 가입 준비 중</SecondaryButton>;
+  }
+  if (joinPolicy === 'INVITE_ONLY') {
+    return <SecondaryButton disabled>초대 전용 크루</SecondaryButton>;
   }
   return (
     <PrimaryButton onClick={onRequest} disabled={disabled}>
@@ -236,5 +245,13 @@ function joinPolicyLabel(v: CrewDetail['joinPolicy']): string {
     APPROVAL: '승인제',
     OPEN: '즉시 가입',
     INVITE_ONLY: '초대 전용',
+  }[v];
+}
+
+function joinHelpText(v: CrewDetail['joinPolicy']): string {
+  return {
+    APPROVAL: '승인제 크루입니다. 요청을 보내면 크루장 또는 관리자가 확인합니다.',
+    OPEN: '즉시 가입 크루입니다. 웹 즉시 가입 동작은 후속 화면에서 연결합니다.',
+    INVITE_ONLY: '초대 전용 크루입니다. 공개 화면에서는 가입 요청을 보낼 수 없습니다.',
   }[v];
 }
