@@ -81,14 +81,14 @@ export const CrewDetailSchema = CrewItemSchema.extend({
 export type CrewDetail = z.infer<typeof CrewDetailSchema>;
 
 export const CreateCrewBodySchema = z.object({
-  name: z.string(),
-  summary: z.string().nullable().optional(),
-  description: z.string().nullable().optional(),
-  region: z.string().nullable().optional(),
-  homeGymExtId: z.string().nullable().optional(),
+  name: z.string().min(2).max(30),
+  summary: z.string().max(120).nullable().optional(),
+  description: z.string().max(500).nullable().optional(),
+  region: z.string().max(50).nullable().optional(),
+  homeGymExtId: z.string().length(26).nullable().optional(),
   levelBand: CrewLevelBandSchema.nullable().optional(),
   style: CrewStyleSchema.nullable().optional(),
-  capacity: z.number().int().nullable().optional(),
+  capacity: z.number().int().min(2).max(200).nullable().optional(),
 });
 
 export type CreateCrewBody = z.infer<typeof CreateCrewBodySchema>;
@@ -101,7 +101,7 @@ export const UpdateCrewBodySchema = CreateCrewBodySchema.partial().extend({
 export type UpdateCrewBody = z.infer<typeof UpdateCrewBodySchema>;
 
 export const CreateCrewJoinRequestBodySchema = z.object({
-  message: z.string().nullable().optional(),
+  message: z.string().max(500).nullable().optional(),
 });
 
 export type CreateCrewJoinRequestBody = z.infer<typeof CreateCrewJoinRequestBodySchema>;

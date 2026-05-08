@@ -1,4 +1,6 @@
 import {
+  CreateCrewBodySchema,
+  CreateCrewJoinRequestBodySchema,
   CrewDetailSchema,
   CrewJoinRequestListSchema,
   CrewListSchema,
@@ -81,5 +83,33 @@ describe('crew schemas', () => {
       }],
       page: { nextCursor: null, size: 20 },
     })).toThrow();
+  });
+
+  it('validates crew write body constraints', () => {
+    expect(CreateCrewBodySchema.parse({
+      name: '강남 퇴근볼더',
+      summary: '평일 저녁',
+      description: 'V3~V6 중심',
+      region: '서울 강남',
+      homeGymExtId: `01J${'0'.repeat(23)}`,
+      levelBand: 'INTERMEDIATE',
+      style: 'BOULDERING',
+      capacity: 30,
+    }).capacity).toBe(30);
+
+    expect(() => CreateCrewBodySchema.parse({
+      name: '가',
+      capacity: 1,
+    })).toThrow();
+
+    expect(() => CreateCrewBodySchema.parse({
+      name: '강남 퇴근볼더',
+      homeGymExtId: 'short',
+    })).toThrow();
+  });
+
+  it('validates join request message length', () => {
+    expect(CreateCrewJoinRequestBodySchema.parse({ message: null }).message).toBeNull();
+    expect(() => CreateCrewJoinRequestBodySchema.parse({ message: 'a'.repeat(501) })).toThrow();
   });
 });
