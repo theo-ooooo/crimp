@@ -19,12 +19,14 @@
     "feed": "Feed",
     "sessions": "Sessions",
     "gyms": "Gyms",
+    "crews": "Crews",
     "profile": "Profile",
     "a11y": {
       "home": "Home tab",
       "feed": "Feed tab",
       "sessions": "Sessions tab",
       "gyms": "Gyms tab",
+      "crews": "Crews tab",
       "profile": "Profile tab"
     }
   },
@@ -281,6 +283,73 @@
       "routeSetterUnknown": "Unknown",
       "startSessionCta": "Start a session here",
       "errorTitle": "Failed to load gym"
+    }
+  },
+  "crew": {
+    "loginRequiredTitle": "Login required",
+    "loginRequiredDescription": "Sign in to view crews.",
+    "common": {
+      "summaryFallback": "No summary yet.",
+      "regionFallback": "Region not set",
+      "homeGymFallback": "No home gym",
+      "memberCount": "{{count}} members",
+      "capacityCount": "{{count}} capacity"
+    },
+    "level": {
+      "ALL": "Any level",
+      "BEGINNER": "Beginner",
+      "INTERMEDIATE": "Intermediate",
+      "ADVANCED": "Advanced"
+    },
+    "style": {
+      "BOULDERING": "Bouldering",
+      "LEAD": "Lead",
+      "BOTH": "Bouldering · Lead"
+    },
+    "status": {
+      "NONE": "Not joined",
+      "PENDING": "Pending",
+      "MEMBER": "Member",
+      "OWNER": "Owner",
+      "ADMIN": "Admin"
+    },
+    "joinPolicy": {
+      "APPROVAL": "Approval",
+      "OPEN": "Open",
+      "INVITE_ONLY": "Invite only"
+    },
+    "list": {
+      "title": "Find crews",
+      "subtitle": "Find climbing groups that fit your area, level and style.",
+      "searchPlaceholder": "Search crew names or summaries",
+      "searchAccessibilityLabel": "Search crews",
+      "searchClearLabel": "Clear search",
+      "regionPlaceholder": "Region filter e.g. Seoul Gangnam",
+      "levelFilterLabel": "Level",
+      "styleFilterLabel": "Style",
+      "emptyTitle": "No crews to show yet",
+      "emptyBody": "Try different filters or wait for the first public crews.",
+      "errorTitle": "Failed to load crews"
+    },
+    "detail": {
+      "title": "Crew detail",
+      "errorTitle": "Failed to load crew",
+      "memberLabel": "Members",
+      "ownerLabel": "Owner",
+      "infoTitle": "Info",
+      "descriptionFallback": "No detailed introduction yet.",
+      "joinTitle": "Join",
+      "requestJoinCta": "Request to join",
+      "cancelRequestCta": "Cancel request",
+      "alreadyMemberCta": "Already joined",
+      "openDisabledCta": "Open join coming soon",
+      "inviteOnlyCta": "Invite only",
+      "processing": "Processing...",
+      "joinHelp": {
+        "APPROVAL": "This crew requires approval. Owners or admins will review your request.",
+        "OPEN": "This crew is open join. App open-join support will be connected later.",
+        "INVITE_ONLY": "This crew is invite-only. Public screens cannot send join requests."
+      }
     }
   },
   "profile": {

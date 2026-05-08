@@ -72,6 +72,11 @@ export type RootStackParamList = {
    */
   Feed: undefined;
   /**
+   * 크루 목록/상세. 인증 필수 — 화면 내부에서 gate 처리.
+   */
+  CrewList: undefined;
+  CrewDetail: { extId: string };
+  /**
    * 프로필 화면. 닉네임·레벨 표시(읽기 전용) + 내 암장 설정/변경/해제.
    * 인증 필수 — 화면 내부에서 gate 처리. BottomTabs `ProfileTab` 의 루트 화면.
    */
@@ -97,6 +102,7 @@ export type MainTabsParamList = {
   FeedTab: undefined;
   SessionsTab: undefined;
   GymsTab: undefined;
+  CrewsTab: undefined;
   ProfileTab: undefined;
 };
 
