@@ -4,10 +4,12 @@ import io.crimp.api.security.CrimpPrincipal;
 import io.crimp.core.entity.enums.CrewJoinPolicy;
 import io.crimp.core.entity.enums.CrewLevelBand;
 import io.crimp.core.entity.enums.CrewStyle;
+import io.crimp.domain.crew.CreateCrewCommand;
 import io.crimp.domain.crew.CrewHomeGymView;
 import io.crimp.domain.crew.CrewOwnerView;
 import io.crimp.domain.crew.CrewService;
 import io.crimp.domain.crew.CrewView;
+import io.crimp.domain.crew.UpdateCrewCommand;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -15,6 +17,8 @@ import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -27,6 +31,21 @@ class CrewControllerTest {
     void setUp() {
         crewService = mock(CrewService.class);
         controller = new CrewController(crewService);
+    }
+
+    @Test
+    void create_maps_request_to_command() {
+        when(crewService.create(eq(7L), any(CreateCrewCommand.class)))
+                .thenReturn(view("01JCREW", "OWNER"));
+
+        CrewController.CrewDetailResponse res = controller.create(
+                new CrimpPrincipal(7L, "01JUSER"),
+                new CrewController.CreateCrewRequest(
+                        "강남 퇴근볼더", "평일 저녁", "V3~V6 중심", "서울 강남",
+                        null, "INTERMEDIATE", "BOULDERING", 30));
+
+        assertThat(res.extId()).isEqualTo("01JCREW");
+        assertThat(res.myStatus()).isEqualTo("OWNER");
     }
 
     @Test
@@ -55,6 +74,23 @@ class CrewControllerTest {
         assertThat(res.owner().extId()).isEqualTo("01JOWNER");
         assertThat(res.createdAt()).isEqualTo(Instant.parse("2026-05-08T00:00:00Z"));
     }
+
+    @Test
+    void update_maps_request_to_command() {
+        when(crewService.update(eq(7L), eq("01JCREW"), any(UpdateCrewCommand.class)))
+                .thenReturn(view("01JCREW", "OWNER"));
+
+        CrewController.CrewDetailResponse res = controller.update(
+                new CrimpPrincipal(7L, "01JUSER"),
+                "01JCREW",
+                new CrewController.UpdateCrewRequest(
+                        "새 크루", null, null, null, null, false,
+                        "ADVANCED", "LEAD", null, true));
+
+        assertThat(res.extId()).isEqualTo("01JCREW");
+        assertThat(res.owner().nickname()).isEqualTo("크루장");
+    }
+
 
     private static CrewView view(String extId, String myStatus) {
         return new CrewView(

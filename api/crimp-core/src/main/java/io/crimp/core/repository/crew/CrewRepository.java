@@ -7,4 +7,6 @@ import java.util.Optional;
 
 public interface CrewRepository extends JpaRepository<Crew, Long>, CrewRepositoryCustom {
     Optional<Crew> findByExtId(String extId);
+    boolean existsByName(String name);
+    long countByOwnerUserIdAndDeletedAtIsNull(Long ownerUserId);
 }
