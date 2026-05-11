@@ -1,7 +1,9 @@
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -31,7 +33,6 @@ import type { RootStackNavigationProp, RootStackParamList } from '@/navigation/t
 import { useTokenStore } from '@/store/tokenStore';
 
 type Step = 'basic' | 'time' | 'place' | 'confirm';
-type TimeSelectKind = 'hour' | 'minute';
 
 export default function CrewMeetupFormScreen(): JSX.Element {
   const theme = useTokens();
@@ -92,7 +93,6 @@ function MeetupFormContent({
   const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(addDays(new Date(), 1)));
   const [selectedHour, setSelectedHour] = useState(19);
   const [selectedMinute, setSelectedMinute] = useState(30);
-  const [openTimeSelect, setOpenTimeSelect] = useState<TimeSelectKind | null>(null);
   const [manualLocation, setManualLocation] = useState('');
   const [capacityText, setCapacityText] = useState('');
   const [joinPolicy, setJoinPolicy] = useState<'OPEN' | 'APPROVAL'>('OPEN');
@@ -225,36 +225,20 @@ function MeetupFormContent({
               onNext={() => setVisibleMonth(addMonths(visibleMonth, 1))}
               onSelect={setSelectedDate}
             />
-            <View style={styles.timeSelectRow}>
-              <TimeSelectBox
+            <View style={styles.timeWheelRow}>
+              <TimeWheel
                 label={t('crew.meetup.hourLabel')}
-                value={formatHour(selectedHour)}
-                open={openTimeSelect === 'hour'}
-                options={HOUR_OPTIONS.map((hour) => ({
-                  key: String(hour),
-                  label: formatHour(hour),
-                  active: hour === selectedHour,
-                  onPress: () => {
-                    setSelectedHour(hour);
-                    setOpenTimeSelect(null);
-                  },
-                }))}
-                onToggle={() => setOpenTimeSelect(openTimeSelect === 'hour' ? null : 'hour')}
+                options={HOUR_OPTIONS}
+                value={selectedHour}
+                formatValue={formatHour}
+                onChange={setSelectedHour}
               />
-              <TimeSelectBox
+              <TimeWheel
                 label={t('crew.meetup.minuteLabel')}
-                value={formatMinute(selectedMinute)}
-                open={openTimeSelect === 'minute'}
-                options={MINUTE_OPTIONS.map((minute) => ({
-                  key: String(minute),
-                  label: formatMinute(minute),
-                  active: minute === selectedMinute,
-                  onPress: () => {
-                    setSelectedMinute(minute);
-                    setOpenTimeSelect(null);
-                  },
-                }))}
-                onToggle={() => setOpenTimeSelect(openTimeSelect === 'minute' ? null : 'minute')}
+                options={MINUTE_OPTIONS}
+                value={selectedMinute}
+                formatValue={formatMinute}
+                onChange={setSelectedMinute}
               />
             </View>
             <View style={styles.timeGrid}>
@@ -424,63 +408,81 @@ function ConfirmRow({ label, value }: { label: string; value: string }): JSX.Ele
   );
 }
 
-function TimeSelectBox({
+function TimeWheel({
   label,
   value,
-  open,
   options,
-  onToggle,
+  formatValue,
+  onChange,
 }: {
   label: string;
-  value: string;
-  open: boolean;
-  options: Array<{
-    key: string;
-    label: string;
-    active: boolean;
-    onPress: () => void;
-  }>;
-  onToggle: () => void;
+  value: number;
+  options: number[];
+  formatValue: (value: number) => string;
+  onChange: (value: number) => void;
 }): JSX.Element {
   const theme = useTokens();
   const styles = useMemo(() => makeStyles(theme), [theme]);
+  const scrollRef = useRef<ScrollView>(null);
+  const selectedIndex = Math.max(0, options.indexOf(value));
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({
+      y: selectedIndex * TIME_WHEEL_ITEM_HEIGHT,
+      animated: false,
+    });
+  }, [selectedIndex]);
+
+  const settle = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const rawIndex = Math.round(event.nativeEvent.contentOffset.y / TIME_WHEEL_ITEM_HEIGHT);
+    const nextIndex = Math.min(Math.max(rawIndex, 0), options.length - 1);
+    const nextValue = options[nextIndex] ?? value;
+    scrollRef.current?.scrollTo({
+      y: nextIndex * TIME_WHEEL_ITEM_HEIGHT,
+      animated: true,
+    });
+    if (nextValue !== value) {
+      onChange(nextValue);
+    }
+  };
+
   return (
-    <View style={styles.timeSelectBox}>
-      <Text style={styles.timeSelectLabel}>{label}</Text>
-      <Pressable
-        onPress={onToggle}
-        accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
-        style={({ pressed }) => [styles.timeSelectTrigger, pressed ? styles.pressed : null]}
-      >
-        <Text style={styles.timeSelectValue}>{value}</Text>
-        <Text style={styles.timeSelectChevron}>{open ? '⌃' : '⌄'}</Text>
-      </Pressable>
-      {open ? (
-        <View style={styles.timeSelectOptions}>
-          {options.map((option) => (
-            <Pressable
-              key={option.key}
-              onPress={option.onPress}
-              accessibilityRole="button"
-              accessibilityState={{ selected: option.active }}
-              style={({ pressed }) => [
-                styles.timeSelectOption,
-                option.active ? styles.timeSelectOptionActive : null,
-                pressed ? styles.pressed : null,
-              ]}
-            >
-              <Text style={[
-                styles.timeSelectOptionText,
-                option.active ? styles.timeSelectOptionTextActive : null,
-              ]}
+    <View style={styles.timeWheelBox}>
+      <Text style={styles.timeWheelLabel}>{label}</Text>
+      <View style={styles.timeWheelFrame}>
+        <View pointerEvents="none" style={styles.timeWheelSelection} />
+        <ScrollView
+          ref={scrollRef}
+          nestedScrollEnabled
+          showsVerticalScrollIndicator={false}
+          snapToInterval={TIME_WHEEL_ITEM_HEIGHT}
+          decelerationRate="fast"
+          contentContainerStyle={styles.timeWheelContent}
+          onMomentumScrollEnd={settle}
+          onScrollEndDrag={settle}
+          scrollEventThrottle={16}
+        >
+          {options.map((option) => {
+            const active = option === value;
+            return (
+              <View
+                key={option}
+                style={styles.timeWheelItem}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
               >
-                {option.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
+                <Text style={[
+                  styles.timeWheelItemText,
+                  active ? styles.timeWheelItemTextActive : null,
+                ]}
+                >
+                  {formatValue(option)}
+                </Text>
+              </View>
+            );
+          })}
+        </ScrollView>
+      </View>
     </View>
   );
 }
@@ -556,6 +558,7 @@ function CalendarPicker({
 
 const STEPS: Step[] = ['basic', 'time', 'place', 'confirm'];
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+const TIME_WHEEL_ITEM_HEIGHT = 44;
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, hour) => hour);
 const MINUTE_OPTIONS = Array.from({ length: 12 }, (_, index) => index * 5);
 const TIME_SLOTS = [
@@ -765,72 +768,57 @@ function makeStyles(theme: Theme) {
     },
     dayTextMuted: { color: theme.text4 },
     dayTextActive: { color: theme.accent.on },
-    timeSelectRow: {
+    timeWheelRow: {
       flexDirection: 'row',
       alignItems: 'flex-start',
       gap: space[3],
-      zIndex: 2,
     },
-    timeSelectBox: {
+    timeWheelBox: {
       flex: 1,
       gap: space[1],
     },
-    timeSelectLabel: {
+    timeWheelLabel: {
       fontFamily,
       fontSize: fontSize.caption,
       fontWeight: fontWeight.bold,
       color: theme.text3,
     },
-    timeSelectTrigger: {
-      minHeight: 48,
+    timeWheelFrame: {
+      height: TIME_WHEEL_ITEM_HEIGHT * 5,
       borderRadius: radius.lg,
       backgroundColor: theme.bg,
-      paddingHorizontal: space[4],
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: space[2],
+      overflow: 'hidden',
     },
-    timeSelectValue: {
+    timeWheelContent: {
+      paddingVertical: TIME_WHEEL_ITEM_HEIGHT * 2,
+    },
+    timeWheelSelection: {
+      position: 'absolute',
+      left: space[2],
+      right: space[2],
+      top: TIME_WHEEL_ITEM_HEIGHT * 2,
+      height: TIME_WHEEL_ITEM_HEIGHT,
+      borderRadius: radius.md,
+      backgroundColor: theme.accent.soft,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.accent.base,
+    },
+    timeWheelItem: {
+      height: TIME_WHEEL_ITEM_HEIGHT,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    timeWheelItemText: {
       fontFamily,
+      fontSize: fontSize.body,
+      fontWeight: fontWeight.bold,
+      color: theme.text3,
+    },
+    timeWheelItemTextActive: {
       fontSize: fontSize.title,
       fontWeight: fontWeight.extrabold,
       color: theme.text,
       letterSpacing: letterSpacing.title,
-    },
-    timeSelectChevron: {
-      fontFamily,
-      fontSize: fontSize.body,
-      fontWeight: fontWeight.extrabold,
-      color: theme.text3,
-    },
-    timeSelectOptions: {
-      borderRadius: radius.lg,
-      backgroundColor: theme.bg,
-      padding: space[2],
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: space[1],
-    },
-    timeSelectOption: {
-      width: '23.5%',
-      minHeight: 36,
-      borderRadius: radius.md,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.subtle,
-    },
-    timeSelectOptionActive: {
-      backgroundColor: theme.accent.base,
-    },
-    timeSelectOptionText: {
-      fontFamily,
-      fontSize: fontSize.caption,
-      fontWeight: fontWeight.bold,
-      color: theme.text2,
-    },
-    timeSelectOptionTextActive: {
-      color: theme.accent.on,
     },
     timeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
     timeChip: {
