@@ -55,6 +55,13 @@ export const CrewOwnerSchema = z.object({
 
 export type CrewOwner = z.infer<typeof CrewOwnerSchema>;
 
+export const MeetupHostSchema = z.object({
+  extId: z.string().nullable(),
+  nickname: z.string().nullable(),
+});
+
+export type MeetupHost = z.infer<typeof MeetupHostSchema>;
+
 export const CrewMeetupSchema = z.object({
   extId: z.string(),
   title: z.string(),
@@ -70,6 +77,8 @@ export const CrewMeetupSchema = z.object({
   joinPolicy: z.preprocess((value) => value ?? 'OPEN', MeetupJoinPolicySchema),
   participantCount: z.preprocess((value) => value ?? 0, z.number().int()),
   myParticipation: z.preprocess((value) => value ?? 'NONE', MeetupParticipationSchema),
+  host: MeetupHostSchema.nullable().optional(),
+  canManage: z.preprocess((value) => value ?? false, z.boolean()),
   createdAt: z.string(),
 });
 

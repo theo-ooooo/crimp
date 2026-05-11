@@ -17,5 +17,7 @@ public record CrewMeetupView(
         String joinPolicy,
         Integer participantCount,
         String myParticipation,
+        MeetupHostView host,
+        boolean canManage,
         Instant createdAt
 ) {}

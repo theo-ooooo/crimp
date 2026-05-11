@@ -8,6 +8,7 @@ import io.crimp.domain.crew.CreateCrewMeetupCommand;
 import io.crimp.domain.crew.CrewException;
 import io.crimp.domain.crew.CrewMeetupView;
 import io.crimp.domain.crew.CrewService;
+import io.crimp.domain.crew.MeetupHostView;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
@@ -27,7 +28,9 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -105,6 +108,14 @@ class MeetupControllerTest {
                 .andExpect(jsonPath("$.error.code").value("INVALID_CREW_MEETUP_REQUEST"));
     }
 
+    @Test
+    void delete_http_mapsHostDelete() throws Exception {
+        mockMvc.perform(delete("/api/v1/meetups/01JMEETUP"))
+                .andExpect(status().isNoContent());
+
+        verify(crewService).deleteMeetup(7L, "01JMEETUP");
+    }
+
     private static CrewMeetupView meetupView() {
         return new CrewMeetupView(
                 "01JMEETUP",
@@ -121,6 +132,8 @@ class MeetupControllerTest {
                 "OPEN",
                 0,
                 "NONE",
+                new MeetupHostView("01JUSER", "방장"),
+                true,
                 Instant.parse("2026-05-11T00:00:00Z"));
     }
 

@@ -11,6 +11,7 @@ import {
   createCrew,
   createMeetup,
   createCrewMeetup,
+  deleteMeetup,
   decideCrewJoinRequest,
   fetchCrew,
   fetchCrewJoinRequests,
@@ -388,6 +389,27 @@ export function useLeaveMeetup(accessToken: string | null) {
       return leaveMeetupApi(accessToken, extId);
     },
     onSuccess: (updated) => invalidateMeetupCaches(qc, updated),
+  });
+}
+
+export function useDeleteMeetup(accessToken: string | null) {
+  const qc = useQueryClient();
+  return useMutation<void, Error, { extId: string; crewExtId?: string | null }>({
+    mutationFn: ({ extId }) => {
+      if (!accessToken) {
+        return Promise.reject(new Error('access token is required'));
+      }
+      return deleteMeetup(accessToken, extId);
+    },
+    onSuccess: (_, { extId, crewExtId }) => {
+      qc.removeQueries({ queryKey: meetupQueryKey(extId) });
+      qc.invalidateQueries({ queryKey: meetupsQueryKey() });
+      qc.invalidateQueries({ queryKey: CREWS_QUERY_KEY_ROOT });
+      if (crewExtId) {
+        qc.invalidateQueries({ queryKey: crewMeetupsQueryKey(crewExtId) });
+        qc.invalidateQueries({ queryKey: crewQueryKey(crewExtId) });
+      }
+    },
   });
 }
 

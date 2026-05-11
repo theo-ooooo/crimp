@@ -1,16 +1,16 @@
-import { useRoute, type RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PrimaryButton, SecondaryButton, Skeleton } from '@/components/common/primitives';
 import { AuthHydrationGate } from '@/components/common/screen/AuthHydrationGate';
-import { useJoinMeetup, useLeaveMeetup, useMeetupQuery } from '@/hooks/queries/useCrews';
+import { useDeleteMeetup, useJoinMeetup, useLeaveMeetup, useMeetupQuery } from '@/hooks/queries/useCrews';
 import { toUserMessage } from '@/lib/api/errorMessage';
 import { t, type MessageKey } from '@/lib/i18n';
 import { fontFamily, fontSize, fontWeight, letterSpacing, radius, space, type Theme } from '@/lib/tokens';
 import { useTokens } from '@/lib/useTokens';
-import type { RootStackParamList } from '@/navigation/types';
+import type { RootStackNavigationProp, RootStackParamList } from '@/navigation/types';
 import { useTokenStore } from '@/store/tokenStore';
 
 export default function MeetupDetailScreen(): JSX.Element {
@@ -39,13 +39,15 @@ export default function MeetupDetailScreen(): JSX.Element {
 function MeetupDetailContent({ accessToken, extId }: { accessToken: string; extId: string }): JSX.Element {
   const theme = useTokens();
   const styles = useMemo(() => makeStyles(theme), [theme]);
+  const navigation = useNavigation<RootStackNavigationProp<'MeetupDetail'>>();
   const meetupQuery = useMeetupQuery(accessToken, extId);
   const joinMeetup = useJoinMeetup(accessToken);
   const leaveMeetup = useLeaveMeetup(accessToken);
+  const deleteMeetup = useDeleteMeetup(accessToken);
   const [requestMessage, setRequestMessage] = useState('');
   const meetup = meetupQuery.data;
-  const busy = joinMeetup.isPending || leaveMeetup.isPending;
-  const error = meetupQuery.error ?? joinMeetup.error ?? leaveMeetup.error;
+  const busy = joinMeetup.isPending || leaveMeetup.isPending || deleteMeetup.isPending;
+  const error = meetupQuery.error ?? joinMeetup.error ?? leaveMeetup.error ?? deleteMeetup.error;
 
   if (meetupQuery.isLoading) {
     return (
@@ -99,6 +101,7 @@ function MeetupDetailContent({ accessToken, extId }: { accessToken: string; extI
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{t('meetup.detail.infoTitle')}</Text>
         <InfoRow label={t('meetup.detail.participantsLabel')} value={participantValue(meetup.participantCount, meetup.capacity)} />
+        {meetup.host ? <InfoRow label={t('meetup.detail.hostLabel')} value={meetup.host.nickname ?? t('home.nicknameFallback')} /> : null}
         {meetup.crewName ? <InfoRow label={t('meetup.detail.crewLabel')} value={meetup.crewName} /> : null}
         <Text style={styles.bodyText}>{meetup.description ?? t('meetup.detail.descriptionFallback')}</Text>
       </View>
@@ -144,6 +147,26 @@ function MeetupDetailContent({ accessToken, extId }: { accessToken: string; extI
           {busy ? t('crew.detail.processing') : primaryText}
         </PrimaryButton>
       )}
+      {meetup.canManage ? (
+        <SecondaryButton
+          disabled={busy}
+          onPress={() => {
+            Alert.alert(t('meetup.detail.deleteConfirmTitle'), t('meetup.detail.deleteConfirmBody'), [
+              { text: t('common.cancel'), style: 'cancel' },
+              {
+                text: t('meetup.detail.deleteCta'),
+                style: 'destructive',
+                onPress: () => deleteMeetup.mutate(
+                  { extId: meetup.extId, crewExtId: meetup.crewExtId ?? null },
+                  { onSuccess: () => navigation.goBack() },
+                ),
+              },
+            ]);
+          }}
+        >
+          {t('meetup.detail.deleteCta')}
+        </SecondaryButton>
+      ) : null}
       {busy ? <ActivityIndicator color={theme.accent.base} /> : null}
     </ScrollView>
   );

@@ -450,6 +450,7 @@
       "joinPolicyLabel": "Join policy",
       "participantsLabel": "Participants",
       "participantCount": "{{count}} joined",
+      "hostLabel": "Host",
       "crewLabel": "Crew",
       "descriptionFallback": "No details yet.",
       "joinCta": "Join",
@@ -459,7 +460,10 @@
       "leaveCta": "Cancel participation",
       "cancelRequestCta": "Cancel request",
       "leaveConfirmTitle": "Cancel participation?",
-      "leaveConfirmBody": "You can join or request again later."
+      "leaveConfirmBody": "You can join or request again later.",
+      "deleteCta": "Delete meetup",
+      "deleteConfirmTitle": "Delete this meetup?",
+      "deleteConfirmBody": "Deleted meetups will no longer appear in lists or detail views."
     }
   },
   "profile": {

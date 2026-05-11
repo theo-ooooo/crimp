@@ -19,6 +19,7 @@ import io.crimp.domain.crew.CrewMeetupView;
 import io.crimp.domain.crew.CrewOwnerView;
 import io.crimp.domain.crew.CrewService;
 import io.crimp.domain.crew.CrewView;
+import io.crimp.domain.crew.MeetupHostView;
 import io.crimp.domain.crew.UpdateCrewCommand;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -331,6 +332,8 @@ public class CrewController {
             String joinPolicy,
             Integer participantCount,
             String myParticipation,
+            MeetupHost host,
+            boolean canManage,
             Instant createdAt
     ) {
         static CrewMeetupItem of(CrewMeetupView v) {
@@ -340,7 +343,13 @@ public class CrewController {
             return new CrewMeetupItem(v.extId(), v.title(), v.description(), v.startsAt(), v.endsAt(),
                     v.crewExtId(), v.crewName(), v.gymExtId(), v.gymName(),
                     v.location(), v.capacity(), v.joinPolicy(), v.participantCount(), v.myParticipation(),
-                    v.createdAt());
+                    MeetupHost.of(v.host()), v.canManage(), v.createdAt());
+        }
+    }
+
+    public record MeetupHost(String extId, String nickname) {
+        static MeetupHost of(MeetupHostView v) {
+            return v == null ? null : new MeetupHost(v.extId(), v.nickname());
         }
     }
 

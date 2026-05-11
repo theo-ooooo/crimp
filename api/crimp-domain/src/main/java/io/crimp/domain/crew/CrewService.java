@@ -22,6 +22,8 @@ import io.crimp.core.entity.enums.MeetupParticipantStatus;
 import io.crimp.core.entity.gym.Gym;
 import io.crimp.core.entity.media.MediaAsset;
 import io.crimp.core.entity.media.MediaImageVariant;
+import io.crimp.core.entity.user.Profile;
+import io.crimp.core.entity.user.User;
 import io.crimp.core.repository.crew.CrewJoinRequestRepository;
 import io.crimp.core.repository.crew.CrewJoinRequestRow;
 import io.crimp.core.repository.crew.CrewMemberRepository;
@@ -33,6 +35,8 @@ import io.crimp.core.repository.crew.MeetupParticipantRepository;
 import io.crimp.core.repository.gym.GymRepository;
 import io.crimp.core.repository.media.MediaAssetRepository;
 import io.crimp.core.repository.media.MediaImageVariantRepository;
+import io.crimp.core.repository.user.ProfileRepository;
+import io.crimp.core.repository.user.UserRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
@@ -58,6 +62,8 @@ public class CrewService {
     private final GymRepository gymRepository;
     private final MediaAssetRepository mediaAssetRepository;
     private final MediaImageVariantRepository mediaImageVariantRepository;
+    private final UserRepository userRepository;
+    private final ProfileRepository profileRepository;
     private final AppProperties appProperties;
 
     public CrewService(CrewRepository crewRepository, CrewJoinRequestRepository crewJoinRequestRepository,
@@ -67,6 +73,8 @@ public class CrewService {
                        GymRepository gymRepository,
                        MediaAssetRepository mediaAssetRepository,
                        MediaImageVariantRepository mediaImageVariantRepository,
+                       UserRepository userRepository,
+                       ProfileRepository profileRepository,
                        AppProperties appProperties) {
         this.crewRepository = crewRepository;
         this.crewJoinRequestRepository = crewJoinRequestRepository;
@@ -76,6 +84,8 @@ public class CrewService {
         this.gymRepository = gymRepository;
         this.mediaAssetRepository = mediaAssetRepository;
         this.mediaImageVariantRepository = mediaImageVariantRepository;
+        this.userRepository = userRepository;
+        this.profileRepository = profileRepository;
         this.appProperties = appProperties;
     }
 
@@ -264,6 +274,16 @@ public class CrewService {
         participant.cancel();
         meetupParticipantRepository.flush();
         return toMeetupView(meetup, actorUserId);
+    }
+
+    @Transactional
+    public void deleteMeetup(Long actorUserId, String meetupExtId) {
+        CrewMeetup meetup = findActiveMeetup(meetupExtId);
+        if (!meetup.getCreatedBy().equals(actorUserId)) {
+            throw new CrewException("MEETUP_FORBIDDEN", "Only meetup host can delete meetup");
+        }
+        meetup.softDelete();
+        crewMeetupRepository.flush();
     }
 
     @Transactional
@@ -575,6 +595,7 @@ public class CrewService {
                         meetup.getId(), viewerUserId, MeetupParticipantStatus.ACTIVE) ? "JOINED"
                 : meetupParticipantRepository.existsByMeetupIdAndUserIdAndStatus(
                         meetup.getId(), viewerUserId, MeetupParticipantStatus.PENDING) ? "PENDING" : "NONE";
+        MeetupHostView host = resolveMeetupHost(meetup.getCreatedBy());
         return new CrewMeetupView(
                 meetup.getExtId(),
                 meetup.getTitle(),
@@ -590,7 +611,19 @@ public class CrewService {
                 meetup.getJoinPolicy().name(),
                 participantCount,
                 myParticipation,
+                host,
+                viewerUserId != null && meetup.getCreatedBy().equals(viewerUserId),
                 meetup.getCreatedAt());
+    }
+
+    private MeetupHostView resolveMeetupHost(Long userId) {
+        String extId = userRepository.findById(userId)
+                .map(User::getExtId)
+                .orElse(null);
+        String nickname = profileRepository.findById(userId)
+                .map(Profile::getNickname)
+                .orElse("탈퇴사용자");
+        return new MeetupHostView(extId, nickname);
     }
 
     private static String joinUrl(String base, String path) {

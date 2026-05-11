@@ -450,6 +450,7 @@
       "joinPolicyLabel": "참여 방식",
       "participantsLabel": "참여",
       "participantCount": "참여 {{count}}명",
+      "hostLabel": "방장",
       "crewLabel": "크루",
       "descriptionFallback": "아직 상세 내용이 없습니다.",
       "joinCta": "참여하기",
@@ -459,7 +460,10 @@
       "leaveCta": "참여 취소",
       "cancelRequestCta": "요청 취소",
       "leaveConfirmTitle": "참여를 취소할까요?",
-      "leaveConfirmBody": "다시 참여하거나 요청할 수 있습니다."
+      "leaveConfirmBody": "다시 참여하거나 요청할 수 있습니다.",
+      "deleteCta": "모임 삭제",
+      "deleteConfirmTitle": "모임을 삭제할까요?",
+      "deleteConfirmBody": "삭제한 모임은 목록과 상세에서 더 이상 보이지 않습니다."
     }
   },
   "profile": {

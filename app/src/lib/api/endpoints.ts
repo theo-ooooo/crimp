@@ -811,6 +811,21 @@ export function leaveMeetup(
   });
 }
 
+/** `DELETE /api/v1/meetups/{extId}` — 모임 삭제. */
+export function deleteMeetup(
+  accessToken: string,
+  extId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  return apiRequest({
+    method: 'DELETE',
+    path: `/api/v1/meetups/${encodeURIComponent(extId)}`,
+    accessToken,
+    schema: z.void(),
+    signal,
+  });
+}
+
 // ===== Social (좋아요·댓글) =====
 
 /**

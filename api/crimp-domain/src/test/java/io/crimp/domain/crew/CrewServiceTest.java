@@ -23,6 +23,8 @@ import io.crimp.core.repository.crew.MeetupParticipantRepository;
 import io.crimp.core.repository.gym.GymRepository;
 import io.crimp.core.repository.media.MediaAssetRepository;
 import io.crimp.core.repository.media.MediaImageVariantRepository;
+import io.crimp.core.repository.user.ProfileRepository;
+import io.crimp.core.repository.user.UserRepository;
 import io.crimp.common.config.AppProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,6 +55,8 @@ class CrewServiceTest {
     private GymRepository gymRepository;
     private MediaAssetRepository mediaAssetRepository;
     private MediaImageVariantRepository mediaImageVariantRepository;
+    private UserRepository userRepository;
+    private ProfileRepository profileRepository;
     private CrewService service;
 
     @BeforeEach
@@ -65,6 +69,8 @@ class CrewServiceTest {
         gymRepository = mock(GymRepository.class);
         mediaAssetRepository = mock(MediaAssetRepository.class);
         mediaImageVariantRepository = mock(MediaImageVariantRepository.class);
+        userRepository = mock(UserRepository.class);
+        profileRepository = mock(ProfileRepository.class);
         service = new CrewService(
                 crewRepository,
                 crewJoinRequestRepository,
@@ -74,6 +80,8 @@ class CrewServiceTest {
                 gymRepository,
                 mediaAssetRepository,
                 mediaImageVariantRepository,
+                userRepository,
+                profileRepository,
                 new AppProperties("Crimp", "test", null, new AppProperties.Media(null, 300)));
     }
 
@@ -432,6 +440,38 @@ class CrewServiceTest {
         assertThat(result.get(0).extId()).isEqualTo("01JMEETUP");
         verify(crewMeetupRepository).findByDeletedAtIsNullAndStartsAtGreaterThanEqualOrderByStartsAtAscIdAsc(
                 any(Instant.class), any(Pageable.class));
+    }
+
+    @Test
+    void deleteMeetup_softDeletesWhenActorIsHost() {
+        CrewMeetup meetup = CrewMeetup.builder()
+                .extId("01JMEETUP")
+                .createdBy(7L)
+                .title("퇴근 볼더링")
+                .startsAt(Instant.now().plusSeconds(3600))
+                .build();
+        when(crewMeetupRepository.findByExtIdAndDeletedAtIsNull("01JMEETUP")).thenReturn(Optional.of(meetup));
+
+        service.deleteMeetup(7L, "01JMEETUP");
+
+        assertThat(meetup.isDeleted()).isTrue();
+        verify(crewMeetupRepository).flush();
+    }
+
+    @Test
+    void deleteMeetup_rejectsNonHost() {
+        CrewMeetup meetup = CrewMeetup.builder()
+                .extId("01JMEETUP")
+                .createdBy(7L)
+                .title("퇴근 볼더링")
+                .startsAt(Instant.now().plusSeconds(3600))
+                .build();
+        when(crewMeetupRepository.findByExtIdAndDeletedAtIsNull("01JMEETUP")).thenReturn(Optional.of(meetup));
+
+        assertThatThrownBy(() -> service.deleteMeetup(8L, "01JMEETUP"))
+                .isInstanceOf(CrewException.class)
+                .satisfies(e -> assertThat(((CrewException) e).code()).isEqualTo("MEETUP_FORBIDDEN"));
+        assertThat(meetup.isDeleted()).isFalse();
     }
 
     @Test
