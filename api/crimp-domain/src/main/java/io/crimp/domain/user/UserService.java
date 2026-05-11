@@ -1,12 +1,18 @@
 package io.crimp.domain.user;
 
 import io.crimp.common.config.AppProperties;
+import io.crimp.core.entity.crew.Crew;
+import io.crimp.core.entity.crew.CrewMember;
 import io.crimp.core.entity.enums.MediaKind;
 import io.crimp.core.entity.enums.MediaStatus;
 import io.crimp.core.entity.enums.MediaUsage;
 import io.crimp.core.entity.enums.CrewJoinRequestStatus;
+import io.crimp.core.entity.enums.CrewMemberRole;
+import io.crimp.core.entity.enums.CrewMemberStatus;
 import io.crimp.core.entity.enums.GymStatus;
 import io.crimp.core.entity.enums.UserStatus;
+import io.crimp.core.repository.crew.CrewMemberRepository;
+import io.crimp.core.repository.crew.CrewRepository;
 import io.crimp.core.repository.crew.CrewJoinRequestRepository;
 import io.crimp.core.entity.gym.Gym;
 import io.crimp.core.entity.media.MediaAsset;
@@ -22,6 +28,10 @@ import io.crimp.domain.auth.RefreshTokenStore;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
 @Service
 @org.springframework.context.annotation.Profile("!test")
 public class UserService {
@@ -31,6 +41,8 @@ public class UserService {
     private final GymRepository gymRepo;
     private final RefreshTokenStore refreshTokenStore;
     private final CrewJoinRequestRepository crewJoinRequestRepo;
+    private final CrewMemberRepository crewMemberRepo;
+    private final CrewRepository crewRepo;
     private final MediaAssetRepository mediaAssetRepo;
     private final MediaImageVariantRepository mediaImageVariantRepo;
     private final AppProperties appProperties;
@@ -41,6 +53,8 @@ public class UserService {
             GymRepository gymRepo,
             RefreshTokenStore refreshTokenStore,
             CrewJoinRequestRepository crewJoinRequestRepo,
+            CrewMemberRepository crewMemberRepo,
+            CrewRepository crewRepo,
             MediaAssetRepository mediaAssetRepo,
             MediaImageVariantRepository mediaImageVariantRepo,
             AppProperties appProperties) {
@@ -49,6 +63,8 @@ public class UserService {
         this.gymRepo = gymRepo;
         this.refreshTokenStore = refreshTokenStore;
         this.crewJoinRequestRepo = crewJoinRequestRepo;
+        this.crewMemberRepo = crewMemberRepo;
+        this.crewRepo = crewRepo;
         this.mediaAssetRepo = mediaAssetRepo;
         this.mediaImageVariantRepo = mediaImageVariantRepo;
         this.appProperties = appProperties;
@@ -131,7 +147,7 @@ public class UserService {
 
     @Transactional
     public void deleteMe(long userId) {
-        User user = userRepo.findById(userId)
+        User user = userRepo.findByIdForUpdate(userId)
                 .orElseThrow(() -> new UserException("USER_NOT_FOUND", "User " + userId + " not found"));
         if (user.getStatus() == UserStatus.DELETED || user.isDeleted()) {
             refreshTokenStore.deleteAllForUser(userId);
@@ -139,8 +155,34 @@ public class UserService {
         }
         crewJoinRequestRepo.findAllByUserIdAndStatus(userId, CrewJoinRequestStatus.PENDING)
                 .forEach(request -> request.cancel(userId));
+        leaveActiveCrewMemberships(userId);
         user.deleteAccount();
         refreshTokenStore.deleteAllForUser(userId);
+    }
+
+    private void leaveActiveCrewMemberships(long userId) {
+        var crewIds = crewMemberRepo.findCrewIdsByUserIdAndStatus(userId, CrewMemberStatus.ACTIVE);
+        if (crewIds.isEmpty()) {
+            return;
+        }
+        Map<Long, Crew> crewsById = crewRepo.findAllByIdInForUpdate(crewIds)
+                .stream()
+                .collect(Collectors.toMap(Crew::getId, Function.identity()));
+        var memberships = crewMemberRepo.findAllByUserIdAndStatus(userId, CrewMemberStatus.ACTIVE);
+        for (CrewMember member : memberships) {
+            Crew crew = crewsById.get(member.getCrewId());
+            boolean archiveCrew = crew != null
+                    && member.getRole() == CrewMemberRole.OWNER
+                    && crewMemberRepo.countByCrewIdAndRoleAndStatus(
+                    member.getCrewId(), CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE) <= 1;
+            member.leave();
+            if (crew != null) {
+                crew.decrementMemberCount();
+                if (archiveCrew) {
+                    crew.softDelete();
+                }
+            }
+        }
     }
 
     private static void requireActive(User user) {

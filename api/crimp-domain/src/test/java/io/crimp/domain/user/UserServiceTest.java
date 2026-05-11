@@ -1,8 +1,14 @@
 package io.crimp.domain.user;
 
 import io.crimp.common.config.AppProperties;
+import io.crimp.core.entity.crew.Crew;
 import io.crimp.core.entity.crew.CrewJoinRequest;
+import io.crimp.core.entity.crew.CrewMember;
 import io.crimp.core.entity.enums.CrewJoinRequestStatus;
+import io.crimp.core.entity.enums.CrewLevelBand;
+import io.crimp.core.entity.enums.CrewMemberRole;
+import io.crimp.core.entity.enums.CrewMemberStatus;
+import io.crimp.core.entity.enums.CrewStyle;
 import io.crimp.core.entity.enums.MediaKind;
 import io.crimp.core.entity.enums.MediaStatus;
 import io.crimp.core.entity.enums.MediaUsage;
@@ -14,6 +20,8 @@ import io.crimp.core.entity.media.MediaImageVariant;
 import io.crimp.core.entity.user.Profile;
 import io.crimp.core.entity.user.User;
 import io.crimp.core.repository.crew.CrewJoinRequestRepository;
+import io.crimp.core.repository.crew.CrewMemberRepository;
+import io.crimp.core.repository.crew.CrewRepository;
 import io.crimp.core.repository.gym.GymRepository;
 import io.crimp.core.repository.media.MediaAssetRepository;
 import io.crimp.core.repository.media.MediaImageVariantRepository;
@@ -25,6 +33,7 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -42,6 +51,8 @@ class UserServiceTest {
     private GymRepository gymRepo;
     private RefreshTokenStore refreshTokenStore;
     private CrewJoinRequestRepository crewJoinRequestRepo;
+    private CrewMemberRepository crewMemberRepo;
+    private CrewRepository crewRepo;
     private MediaAssetRepository mediaAssetRepo;
     private MediaImageVariantRepository mediaImageVariantRepo;
     private UserService service;
@@ -53,10 +64,13 @@ class UserServiceTest {
         gymRepo = mock(GymRepository.class);
         refreshTokenStore = mock(RefreshTokenStore.class);
         crewJoinRequestRepo = mock(CrewJoinRequestRepository.class);
+        crewMemberRepo = mock(CrewMemberRepository.class);
+        crewRepo = mock(CrewRepository.class);
         mediaAssetRepo = mock(MediaAssetRepository.class);
         mediaImageVariantRepo = mock(MediaImageVariantRepository.class);
         service = new UserService(userRepo, profileRepo, gymRepo, refreshTokenStore,
-                crewJoinRequestRepo, mediaAssetRepo, mediaImageVariantRepo, appProps());
+                crewJoinRequestRepo, crewMemberRepo, crewRepo,
+                mediaAssetRepo, mediaImageVariantRepo, appProps());
     }
 
     @Test
@@ -529,9 +543,9 @@ class UserServiceTest {
                 .crewId(55L)
                 .userId(1L)
                 .build();
-        when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepo.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(crewJoinRequestRepo.findAllByUserIdAndStatus(1L, CrewJoinRequestStatus.PENDING))
-                .thenReturn(java.util.List.of(request));
+                .thenReturn(List.of(request));
 
         service.deleteMe(1L);
 
@@ -544,10 +558,74 @@ class UserServiceTest {
     }
 
     @Test
+    void deleteMe_marksActiveCrewMembershipsLeft_andDecrementsCrewCounts() {
+        User user = user(1L, "01HDELETE__");
+        CrewMember member = CrewMember.create(55L, 1L, CrewMemberRole.MEMBER, CrewMemberStatus.ACTIVE);
+        Crew crew = crew(55L, "01JCREW", 12);
+        when(userRepo.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(crewJoinRequestRepo.findAllByUserIdAndStatus(1L, CrewJoinRequestStatus.PENDING))
+                .thenReturn(List.of());
+        when(crewMemberRepo.findCrewIdsByUserIdAndStatus(1L, CrewMemberStatus.ACTIVE))
+                .thenReturn(List.of(55L));
+        when(crewRepo.findAllByIdInForUpdate(List.of(55L))).thenReturn(List.of(crew));
+        when(crewMemberRepo.findAllByUserIdAndStatus(1L, CrewMemberStatus.ACTIVE))
+                .thenReturn(List.of(member));
+
+        service.deleteMe(1L);
+
+        assertThat(member.getStatus()).isEqualTo(CrewMemberStatus.LEFT);
+        assertThat(crew.getMemberCount()).isEqualTo(11);
+        assertThat(user.getStatus()).isEqualTo(UserStatus.DELETED);
+    }
+
+    @Test
+    void deleteMe_rechecksActiveMembershipsAfterCrewLock_beforeDecrementingCounts() {
+        User user = user(1L, "01HDELETE__");
+        Crew crew = crew(55L, "01JCREW", 12);
+        when(userRepo.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(crewJoinRequestRepo.findAllByUserIdAndStatus(1L, CrewJoinRequestStatus.PENDING))
+                .thenReturn(List.of());
+        when(crewMemberRepo.findCrewIdsByUserIdAndStatus(1L, CrewMemberStatus.ACTIVE))
+                .thenReturn(List.of(55L));
+        when(crewRepo.findAllByIdInForUpdate(List.of(55L))).thenReturn(List.of(crew));
+        when(crewMemberRepo.findAllByUserIdAndStatus(1L, CrewMemberStatus.ACTIVE))
+                .thenReturn(List.of());
+
+        service.deleteMe(1L);
+
+        assertThat(crew.getMemberCount()).isEqualTo(12);
+        assertThat(user.getStatus()).isEqualTo(UserStatus.DELETED);
+    }
+
+    @Test
+    void deleteMe_softDeletesCrew_whenLeavingSoleOwnerMembership() {
+        User user = user(1L, "01HDELETE__");
+        CrewMember member = CrewMember.create(55L, 1L, CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE);
+        Crew crew = crew(55L, "01JCREW", 12);
+        when(userRepo.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(crewJoinRequestRepo.findAllByUserIdAndStatus(1L, CrewJoinRequestStatus.PENDING))
+                .thenReturn(List.of());
+        when(crewMemberRepo.findCrewIdsByUserIdAndStatus(1L, CrewMemberStatus.ACTIVE))
+                .thenReturn(List.of(55L));
+        when(crewRepo.findAllByIdInForUpdate(List.of(55L))).thenReturn(List.of(crew));
+        when(crewMemberRepo.findAllByUserIdAndStatus(1L, CrewMemberStatus.ACTIVE))
+                .thenReturn(List.of(member));
+        when(crewMemberRepo.countByCrewIdAndRoleAndStatus(55L, CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE))
+                .thenReturn(1L);
+
+        service.deleteMe(1L);
+
+        assertThat(member.getStatus()).isEqualTo(CrewMemberStatus.LEFT);
+        assertThat(crew.getMemberCount()).isEqualTo(11);
+        assertThat(crew.isDeleted()).isTrue();
+        assertThat(user.getStatus()).isEqualTo(UserStatus.DELETED);
+    }
+
+    @Test
     void deleteMe_alreadyDeleted_isIdempotent_andClearsRefreshTokens() {
         User user = user(1L, "01HDELETE__");
         user.deleteAccount();
-        when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepo.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
 
         service.deleteMe(1L);
 
@@ -561,6 +639,22 @@ class UserServiceTest {
         User u = User.create(extId, null, null);
         setField(u, "id", id);
         return u;
+    }
+
+    private static Crew crew(long id, String extId, int memberCount) {
+        Crew crew = Crew.builder()
+                .extId(extId)
+                .ownerUserId(7L)
+                .name("크루")
+                .summary("요약")
+                .description("설명")
+                .region("서울")
+                .levelBand(CrewLevelBand.ALL)
+                .style(CrewStyle.BOULDERING)
+                .memberCount(memberCount)
+                .build();
+        setField(crew, "id", id);
+        return crew;
     }
 
     private static Gym gym(long id, String extId, String name, String brand) {

@@ -2,6 +2,8 @@ package io.crimp.core.repository.crew;
 
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.Projections;
+import com.querydsl.core.types.dsl.CaseBuilder;
+import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import io.crimp.core.entity.crew.QCrew;
 import io.crimp.core.entity.crew.QCrewJoinRequest;
@@ -9,6 +11,7 @@ import io.crimp.core.entity.crew.QCrewMember;
 import io.crimp.core.entity.enums.CrewJoinRequestStatus;
 import io.crimp.core.entity.enums.CrewMemberStatus;
 import io.crimp.core.entity.enums.CrewVisibility;
+import io.crimp.core.entity.enums.UserStatus;
 import io.crimp.core.entity.gym.QGym;
 import io.crimp.core.entity.user.QProfile;
 import io.crimp.core.entity.user.QUser;
@@ -64,6 +67,9 @@ public class CrewRepositoryImpl implements CrewRepositoryCustom {
         QProfile ownerProfile = new QProfile("crewOwnerProfile");
         QCrewMember myMember = new QCrewMember("myCrewMember");
         QCrewJoinRequest myRequest = new QCrewJoinRequest("myCrewJoinRequest");
+        BooleanBuilder ownerDeleted = new BooleanBuilder()
+                .or(owner.deletedAt.isNotNull())
+                .or(owner.status.eq(UserStatus.DELETED));
 
         return jpaQueryFactory
                 .select(Projections.constructor(CrewSearchRow.class,
@@ -82,8 +88,8 @@ public class CrewRepositoryImpl implements CrewRepositoryCustom {
                         crew.createdAt,
                         gym.extId,
                         gym.name,
-                        owner.extId,
-                        ownerProfile.nickname,
+                        new CaseBuilder().when(ownerDeleted).then(Expressions.nullExpression(String.class)).otherwise(owner.extId),
+                        new CaseBuilder().when(ownerDeleted).then("탈퇴사용자").otherwise(ownerProfile.nickname),
                         myMember.role,
                         myMember.status,
                         myRequest.extId
