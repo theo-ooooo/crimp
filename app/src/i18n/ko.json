@@ -354,6 +354,8 @@
       "requestJoinCta": "가입 요청",
       "cancelRequestCta": "가입 요청 취소",
       "manageRequestsCta": "가입 요청 관리",
+      "manageMembersCta": "멤버 관리",
+      "joinMessagePlaceholder": "크루장에게 전달할 가입 요청 내용을 적어주세요.",
       "leaveCrewCta": "크루 탈퇴",
       "leaveConfirmTitle": "크루에서 탈퇴할까요?",
       "leaveConfirmBody": "탈퇴 후에도 다시 가입 요청을 보낼 수 있습니다.",
@@ -381,11 +383,34 @@
       "approveConfirmTitle": "가입 요청을 승인할까요?",
       "rejectConfirmTitle": "가입 요청을 거절할까요?"
     },
+    "members": {
+      "title": "멤버 관리",
+      "subtitle": "크루 멤버를 확인하고 필요한 경우 탈퇴 처리합니다.",
+      "crewFallback": "크루",
+      "emptyTitle": "아직 멤버가 없어요",
+      "emptyBody": "가입 요청을 승인하면 멤버가 표시됩니다.",
+      "errorTitle": "멤버 목록을 불러오지 못했어요",
+      "nicknameFallback": "탈퇴사용자",
+      "removeCta": "내보내기",
+      "ownerLocked": "오너",
+      "removeConfirmTitle": "멤버를 내보낼까요?",
+      "removeConfirmBody": "{{nickname}} 님을 크루에서 탈퇴 처리합니다.",
+      "role": {
+        "OWNER": "오너",
+        "ADMIN": "관리자",
+        "MEMBER": "멤버"
+      }
+    },
     "form": {
       "title": "크루 만들기",
       "editTitle": "크루 수정",
       "subtitle": "공개 크루의 기본 정보를 설정합니다.",
       "editSubtitle": "크루 이름은 변경할 수 없고 소개와 운영 정보는 수정할 수 있습니다.",
+      "stepBasic": "어떤 크루를 만들까요?",
+      "stepBasicEdit": "대표 정보부터 확인합니다.",
+      "stepProfile": "소개와 지역을 정리합니다.",
+      "stepRules": "레벨, 스타일, 정원을 설정합니다.",
+      "stepConfirm": "마지막으로 내용을 확인합니다.",
       "createCta": "크루 만들기",
       "saveCta": "변경 저장",
       "creating": "만드는 중...",

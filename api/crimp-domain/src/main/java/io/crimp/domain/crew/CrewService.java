@@ -489,6 +489,27 @@ public class CrewService {
         crewRepository.flush();
     }
 
+    @Transactional
+    public void removeMember(Long actorUserId, String crewExtId, String memberUserExtId) {
+        Crew crew = findActiveCrewForUpdate(crewExtId);
+        CrewMember actor = requireAdminMember(crew.getId(), actorUserId);
+        Long memberUserId = userRepository.findByExtId(memberUserExtId)
+                .map(User::getId)
+                .orElseThrow(() -> new CrewException("CREW_MEMBER_NOT_FOUND", "Crew member not found"));
+        CrewMember member = crewMemberRepository.findByCrewIdAndUserIdAndStatus(
+                        crew.getId(), memberUserId, CrewMemberStatus.ACTIVE)
+                .orElseThrow(() -> new CrewException("CREW_MEMBER_NOT_FOUND", "Active crew member not found"));
+        if (member.getRole() == CrewMemberRole.OWNER) {
+            throw new CrewException("CREW_OWNER_LEAVE_BLOCKED", "Crew owner cannot be removed");
+        }
+        if (actor.getRole() == CrewMemberRole.ADMIN && member.getRole() == CrewMemberRole.ADMIN) {
+            throw new CrewException("CREW_FORBIDDEN", "Admin cannot remove another admin");
+        }
+        member.leave();
+        crew.decrementMemberCount();
+        crewRepository.flush();
+    }
+
     @Transactional(readOnly = true)
     public CrewSearchResult search(Long viewerUserId, Long cursorId, String keyword, String region,
                                    String gymExtId, String levelBand, String style, Integer size) {
@@ -596,11 +617,16 @@ public class CrewService {
     }
 
     private void requireAdmin(Long crewId, Long actorUserId) {
+        requireAdminMember(crewId, actorUserId);
+    }
+
+    private CrewMember requireAdminMember(Long crewId, Long actorUserId) {
         CrewMember member = crewMemberRepository.findByCrewIdAndUserIdAndStatus(crewId, actorUserId, CrewMemberStatus.ACTIVE)
                 .orElseThrow(() -> new CrewException("CREW_FORBIDDEN", "Crew admin permission required"));
         if (member.getRole() != CrewMemberRole.OWNER && member.getRole() != CrewMemberRole.ADMIN) {
             throw new CrewException("CREW_FORBIDDEN", "Crew admin permission required");
         }
+        return member;
     }
 
     private CrewView toView(CrewSearchRow row) {

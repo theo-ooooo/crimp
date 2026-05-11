@@ -14,7 +14,7 @@ import { launchImageLibrary, type Asset } from 'react-native-image-picker';
 import RNFS from 'react-native-fs';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Chip, PrimaryButton } from '@/components/common/primitives';
+import { Chip, PrimaryButton, SecondaryButton } from '@/components/common/primitives';
 import { AuthHydrationGate } from '@/components/common/screen/AuthHydrationGate';
 import { useCreateCrew, useCrewQuery, useUpdateCrew } from '@/hooks/queries/useCrews';
 import type { CapturedMedia } from '@/lib/camera/types';
@@ -40,6 +40,8 @@ import type { CreateCrewBody, CrewLevelBand, CrewStyle } from '@/lib/schemas/cre
 import { uploadCrewImage, type UploadPhase } from '@/lib/media/upload';
 import type { RootStackNavigationProp, RootStackParamList } from '@/navigation/types';
 import { useTokenStore } from '@/store/tokenStore';
+
+type CrewFormStep = 'basic' | 'profile' | 'rules' | 'confirm';
 
 export default function CrewFormScreen(): JSX.Element {
   const theme = useTokens();
@@ -72,6 +74,7 @@ function CrewFormContent({ accessToken, extId }: { accessToken: string; extId?: 
   const updateCrew = useUpdateCrew(accessToken);
   const crewQuery = useCrewQuery(accessToken, extId);
   const editing = Boolean(extId);
+  const [step, setStep] = useState<CrewFormStep>('basic');
   const [name, setName] = useState('');
   const [summary, setSummary] = useState('');
   const [description, setDescription] = useState('');
@@ -102,13 +105,17 @@ function CrewFormContent({ accessToken, extId }: { accessToken: string; extId?: 
     setInitialized(true);
   }, [crewQuery.data, initialized]);
 
-  const submit = () => {
+  const validateBasics = () => {
     const trimmedName = name.trim();
     if (trimmedName.length < 2 || trimmedName.length > 30) {
       setValidation(t('crew.form.nameValidation'));
-      return;
+      return false;
     }
+    setValidation(null);
+    return true;
+  };
 
+  const validateRules = () => {
     const capacity = capacityText.trim().length > 0
       ? Number(capacityText.trim())
       : null;
@@ -117,12 +124,40 @@ function CrewFormContent({ accessToken, extId }: { accessToken: string; extId?: 
       && (!Number.isInteger(capacity) || capacity < 2 || capacity > 200)
     ) {
       setValidation(t('crew.form.capacityValidation'));
+      return false;
+    }
+    setValidation(null);
+    return true;
+  };
+
+  const goNext = () => {
+    if (step === 'basic') {
+      if (validateBasics()) {
+        setStep('profile');
+      }
       return;
     }
+    if (step === 'profile') {
+      setStep('rules');
+      return;
+    }
+    if (step === 'rules') {
+      if (validateRules()) {
+        setStep('confirm');
+      }
+    }
+  };
 
+  const submit = () => {
+    if (!validateBasics() || !validateRules()) {
+      return;
+    }
+    const capacity = capacityText.trim().length > 0
+      ? Number(capacityText.trim())
+      : null;
     setValidation(null);
     const body: CreateCrewBody = {
-      name: trimmedName,
+      name: name.trim(),
       summary: toNullable(summary),
       description: toNullable(description),
       region: toNullable(region),
@@ -181,102 +216,140 @@ function CrewFormContent({ accessToken, extId }: { accessToken: string; extId?: 
     >
       <View style={styles.titleBlock}>
         <Text style={styles.title}>{editing ? t('crew.form.editTitle') : t('crew.form.title')}</Text>
-        <Text style={styles.subtitle}>{editing ? t('crew.form.editSubtitle') : t('crew.form.subtitle')}</Text>
+        <Text style={styles.subtitle}>{stepLabel(step, editing)}</Text>
       </View>
 
-      <View style={styles.card}>
-        <CrewImagePicker
-          accessToken={accessToken}
-          previewUrl={imagePreviewUrl}
-          disabled={busy}
-          phase={uploadPhase}
-          onPhase={setUploadPhase}
-          onUploaded={(mediaId, url) => {
-            setImageMediaId(mediaId);
-            setImagePreviewUrl(url);
-            setValidation(null);
-          }}
-          onError={(err) => setValidation(toUserMessage(err))}
-        />
+      <StepIndicator step={step} />
 
-        <FieldLabel label={t('crew.form.nameLabel')} />
-        <TextInput
-          value={name}
-          onChangeText={setName}
-          placeholder={t('crew.form.namePlaceholder')}
-          placeholderTextColor={theme.text4}
-          style={styles.input}
-          autoCapitalize="none"
-          autoCorrect={false}
-          maxLength={30}
-          editable={!busy && !editing}
-          selectTextOnFocus={!editing}
-        />
-        {editing ? (
-          <Text style={styles.help}>{t('crew.form.nameLockedHelp')}</Text>
+      <View style={styles.card}>
+        {step === 'basic' ? (
+          <>
+            <CrewImagePicker
+              accessToken={accessToken}
+              previewUrl={imagePreviewUrl}
+              disabled={busy}
+              phase={uploadPhase}
+              onPhase={setUploadPhase}
+              onUploaded={(mediaId, url) => {
+                setImageMediaId(mediaId);
+                setImagePreviewUrl(url);
+                setValidation(null);
+              }}
+              onError={(err) => setValidation(toUserMessage(err))}
+            />
+
+            <FieldLabel label={t('crew.form.nameLabel')} />
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              placeholder={t('crew.form.namePlaceholder')}
+              placeholderTextColor={theme.text4}
+              style={styles.input}
+              autoCapitalize="none"
+              autoCorrect={false}
+              maxLength={30}
+              editable={!busy && !editing}
+              selectTextOnFocus={!editing}
+            />
+            {editing ? (
+              <Text style={styles.help}>{t('crew.form.nameLockedHelp')}</Text>
+            ) : null}
+
+            <FieldLabel label={t('crew.form.summaryLabel')} />
+            <TextInput
+              value={summary}
+              onChangeText={setSummary}
+              placeholder={t('crew.form.summaryPlaceholder')}
+              placeholderTextColor={theme.text4}
+              style={styles.input}
+              maxLength={120}
+              editable={!busy}
+            />
+          </>
         ) : null}
 
-        <FieldLabel label={t('crew.form.summaryLabel')} />
-        <TextInput
-          value={summary}
-          onChangeText={setSummary}
-          placeholder={t('crew.form.summaryPlaceholder')}
-          placeholderTextColor={theme.text4}
-          style={styles.input}
-          maxLength={120}
-          editable={!busy}
-        />
+        {step === 'profile' ? (
+          <>
+            <FieldLabel label={t('crew.form.descriptionLabel')} />
+            <TextInput
+              value={description}
+              onChangeText={setDescription}
+              placeholder={t('crew.form.descriptionPlaceholder')}
+              placeholderTextColor={theme.text4}
+              style={[styles.input, styles.textArea]}
+              multiline
+              maxLength={500}
+              editable={!busy}
+            />
 
-        <FieldLabel label={t('crew.form.descriptionLabel')} />
-        <TextInput
-          value={description}
-          onChangeText={setDescription}
-          placeholder={t('crew.form.descriptionPlaceholder')}
-          placeholderTextColor={theme.text4}
-          style={[styles.input, styles.textArea]}
-          multiline
-          maxLength={500}
-          editable={!busy}
-        />
+            <FieldLabel label={t('crew.form.regionLabel')} />
+            <OptionRow
+              options={CREW_REGION_OPTIONS.filter((opt) => opt.key.length > 0)}
+              active={region}
+              onSelect={(next) => setRegion(region === next ? '' : next)}
+            />
+          </>
+        ) : null}
 
-        <FieldLabel label={t('crew.form.regionLabel')} />
-        <OptionRow
-          options={CREW_REGION_OPTIONS.filter((opt) => opt.key.length > 0)}
-          active={region}
-          onSelect={(next) => setRegion(region === next ? '' : next)}
-        />
+        {step === 'rules' ? (
+          <>
+            <FieldLabel label={t('crew.form.levelLabel')} />
+            <OptionRow
+              options={CREW_LEVEL_OPTIONS}
+              active={levelBand}
+              onSelect={(next) => setLevelBand(next as CrewLevelBand)}
+            />
 
-        <FieldLabel label={t('crew.form.levelLabel')} />
-        <OptionRow
-          options={CREW_LEVEL_OPTIONS}
-          active={levelBand}
-          onSelect={(next) => setLevelBand(next as CrewLevelBand)}
-        />
+            <FieldLabel label={t('crew.form.styleLabel')} />
+            <OptionRow
+              options={CREW_STYLE_OPTIONS}
+              active={style}
+              onSelect={(next) => setStyle(next as CrewStyle)}
+            />
 
-        <FieldLabel label={t('crew.form.styleLabel')} />
-        <OptionRow
-          options={CREW_STYLE_OPTIONS}
-          active={style}
-          onSelect={(next) => setStyle(next as CrewStyle)}
-        />
+            <FieldLabel label={t('crew.form.capacityLabel')} />
+            <TextInput
+              value={capacityText}
+              onChangeText={setCapacityText}
+              placeholder={t('crew.form.capacityPlaceholder')}
+              placeholderTextColor={theme.text4}
+              style={styles.input}
+              keyboardType="number-pad"
+              editable={!busy}
+            />
+          </>
+        ) : null}
 
-        <FieldLabel label={t('crew.form.capacityLabel')} />
-        <TextInput
-          value={capacityText}
-          onChangeText={setCapacityText}
-          placeholder={t('crew.form.capacityPlaceholder')}
-          placeholderTextColor={theme.text4}
-          style={styles.input}
-          keyboardType="number-pad"
-          editable={!busy}
-        />
+        {step === 'confirm' ? (
+          <View style={styles.confirmList}>
+            <ConfirmRow label={t('crew.form.nameLabel')} value={name.trim()} />
+            <ConfirmRow label={t('crew.form.summaryLabel')} value={summary.trim() || t('crew.common.summaryFallback')} />
+            <ConfirmRow label={t('crew.form.regionLabel')} value={region || t('crew.common.regionFallback')} />
+            <ConfirmRow label={t('crew.form.levelLabel')} value={t(`crew.level.${levelBand}` as MessageKey)} />
+            <ConfirmRow label={t('crew.form.styleLabel')} value={t(`crew.style.${style}` as MessageKey)} />
+            <ConfirmRow label={t('crew.form.capacityLabel')} value={capacityText.trim() || t('crew.form.capacityPlaceholder')} />
+          </View>
+        ) : null}
       </View>
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-      <PrimaryButton onPress={submit} disabled={busy}>
-        {busy ? t('crew.form.creating') : editing ? t('crew.form.saveCta') : t('crew.form.createCta')}
-      </PrimaryButton>
+      <View style={styles.actionRow}>
+        {step !== 'basic' ? (
+          <SecondaryButton onPress={() => setStep(previousStep(step))} disabled={busy}>
+            {t('common.back')}
+          </SecondaryButton>
+        ) : null}
+        <View style={styles.primaryAction}>
+          <PrimaryButton onPress={step === 'confirm' ? submit : goNext} disabled={busy}>
+            {busy
+              ? t('crew.form.creating')
+              : step === 'confirm'
+                ? editing ? t('crew.form.saveCta') : t('crew.form.createCta')
+                : t('common.next')}
+          </PrimaryButton>
+        </View>
+      </View>
       {busy ? (
         <View style={styles.pendingRow}>
           <ActivityIndicator color={theme.accent.base} />
@@ -290,6 +363,30 @@ function FieldLabel({ label }: { label: string }): JSX.Element {
   const theme = useTokens();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   return <Text style={styles.label}>{label}</Text>;
+}
+
+function StepIndicator({ step }: { step: CrewFormStep }): JSX.Element {
+  const theme = useTokens();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const current = CREW_FORM_STEPS.indexOf(step);
+  return (
+    <View style={styles.stepRow}>
+      {CREW_FORM_STEPS.map((item, index) => (
+        <View key={item} style={[styles.stepDot, index <= current ? styles.stepDotActive : null]} />
+      ))}
+    </View>
+  );
+}
+
+function ConfirmRow({ label, value }: { label: string; value: string }): JSX.Element {
+  const theme = useTokens();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
+  return (
+    <View style={styles.confirmRow}>
+      <Text style={styles.confirmLabel}>{label}</Text>
+      <Text style={styles.confirmValue}>{value}</Text>
+    </View>
+  );
 }
 
 function OptionRow<T extends string>({
@@ -317,6 +414,26 @@ function OptionRow<T extends string>({
       ))}
     </ScrollView>
   );
+}
+
+const CREW_FORM_STEPS: CrewFormStep[] = ['basic', 'profile', 'rules', 'confirm'];
+
+function previousStep(step: CrewFormStep): CrewFormStep {
+  const index = Math.max(0, CREW_FORM_STEPS.indexOf(step) - 1);
+  return CREW_FORM_STEPS[index] ?? 'basic';
+}
+
+function stepLabel(step: CrewFormStep, editing: boolean): string {
+  if (step === 'basic') {
+    return editing ? t('crew.form.stepBasicEdit') : t('crew.form.stepBasic');
+  }
+  if (step === 'profile') {
+    return t('crew.form.stepProfile');
+  }
+  if (step === 'rules') {
+    return t('crew.form.stepRules');
+  }
+  return t('crew.form.stepConfirm');
 }
 
 function toNullable(value: string): string | null {
@@ -493,6 +610,19 @@ function makeStyles(theme: Theme) {
       fontWeight: fontWeight.medium,
       color: theme.text3,
     },
+    stepRow: {
+      flexDirection: 'row',
+      gap: space[2],
+    },
+    stepDot: {
+      flex: 1,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: theme.hairline,
+    },
+    stepDotActive: {
+      backgroundColor: theme.accent.base,
+    },
     card: {
       borderRadius: radius.xl,
       backgroundColor: theme.subtle,
@@ -571,6 +701,32 @@ function makeStyles(theme: Theme) {
     textArea: {
       minHeight: 112,
       textAlignVertical: 'top',
+    },
+    confirmList: {
+      gap: space[3],
+    },
+    confirmRow: {
+      gap: space[1],
+    },
+    confirmLabel: {
+      fontFamily,
+      fontSize: fontSize.caption,
+      fontWeight: fontWeight.bold,
+      color: theme.text3,
+    },
+    confirmValue: {
+      fontFamily,
+      fontSize: fontSize.body,
+      fontWeight: fontWeight.bold,
+      color: theme.text,
+    },
+    actionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space[3],
+    },
+    primaryAction: {
+      flex: 1,
     },
     errorText: {
       fontFamily,

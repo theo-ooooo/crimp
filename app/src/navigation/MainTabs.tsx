@@ -19,6 +19,7 @@ import CrewDetailScreen from '@/screens/CrewDetailScreen';
 import CrewFormScreen from '@/screens/CrewFormScreen';
 import CrewJoinRequestsScreen from '@/screens/CrewJoinRequestsScreen';
 import CrewListScreen from '@/screens/CrewListScreen';
+import CrewMembersScreen from '@/screens/CrewMembersScreen';
 import CrewMeetupFormScreen from '@/screens/CrewMeetupFormScreen';
 import FeedScreen from '@/screens/FeedScreen';
 import GymDetailScreen from '@/screens/GymDetailScreen';
@@ -194,6 +195,11 @@ function CrewsTabStack(): JSX.Element {
         name="CrewJoinRequests"
         component={CrewJoinRequestsScreen}
         options={{ title: t('crew.requests.title') }}
+      />
+      <CrewsStack.Screen
+        name="CrewMembers"
+        component={CrewMembersScreen}
+        options={{ title: t('crew.members.title') }}
       />
       <CrewsStack.Screen
         name="MeetupForm"

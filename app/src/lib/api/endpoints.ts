@@ -703,6 +703,22 @@ export function leaveCrew(
   });
 }
 
+/** `DELETE /api/v1/crews/{extId}/members/{userExtId}` — 관리자 멤버 탈퇴 처리. */
+export function removeCrewMember(
+  accessToken: string,
+  crewExtId: string,
+  userExtId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  return apiRequest({
+    method: 'DELETE',
+    path: `/api/v1/crews/${encodeURIComponent(crewExtId)}/members/${encodeURIComponent(userExtId)}`,
+    accessToken,
+    schema: z.void(),
+    signal,
+  });
+}
+
 /** `GET /api/v1/crews/{extId}/meetups` — 크루 모임 목록. */
 export function fetchCrewMeetups(
   accessToken: string,

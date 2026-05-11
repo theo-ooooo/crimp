@@ -354,6 +354,8 @@
       "requestJoinCta": "Request to join",
       "cancelRequestCta": "Cancel request",
       "manageRequestsCta": "Manage requests",
+      "manageMembersCta": "Manage members",
+      "joinMessagePlaceholder": "Add a note for the crew owner.",
       "leaveCrewCta": "Leave crew",
       "leaveConfirmTitle": "Leave this crew?",
       "leaveConfirmBody": "You can request to join again after leaving.",
@@ -381,11 +383,34 @@
       "approveConfirmTitle": "Approve this join request?",
       "rejectConfirmTitle": "Reject this join request?"
     },
+    "members": {
+      "title": "Manage members",
+      "subtitle": "Review crew members and remove members when needed.",
+      "crewFallback": "Crew",
+      "emptyTitle": "No members yet",
+      "emptyBody": "Approved join requests will appear here.",
+      "errorTitle": "Failed to load members",
+      "nicknameFallback": "Deleted user",
+      "removeCta": "Remove",
+      "ownerLocked": "Owner",
+      "removeConfirmTitle": "Remove this member?",
+      "removeConfirmBody": "Remove {{nickname}} from this crew.",
+      "role": {
+        "OWNER": "Owner",
+        "ADMIN": "Admin",
+        "MEMBER": "Member"
+      }
+    },
     "form": {
       "title": "Create crew",
       "editTitle": "Edit crew",
       "subtitle": "Set up the basics for a public crew.",
       "editSubtitle": "Crew names cannot be changed. You can update the summary and details.",
+      "stepBasic": "What crew are you creating?",
+      "stepBasicEdit": "Start with the main profile.",
+      "stepProfile": "Add the intro and region.",
+      "stepRules": "Set level, style and capacity.",
+      "stepConfirm": "Review before saving.",
       "createCta": "Create crew",
       "saveCta": "Save changes",
       "creating": "Creating...",

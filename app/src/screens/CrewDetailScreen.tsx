@@ -1,5 +1,5 @@
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   Pressable,
   View,
 } from 'react-native';
@@ -81,6 +82,7 @@ function CrewDetailContent({
   const cancelJoin = useCancelMyCrewJoinRequest(accessToken);
   const leaveCrew = useLeaveCrew(accessToken);
   const navigation = useNavigation<RootStackNavigationProp<'CrewDetail'>>();
+  const [joinMessage, setJoinMessage] = useState('');
 
   if (crewQuery.isLoading) {
     return (
@@ -156,10 +158,25 @@ function CrewDetailContent({
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{t('crew.detail.joinTitle')}</Text>
         <Text style={styles.bodyText}>{joinHelpText(crew.joinPolicy)}</Text>
+        {crew.myStatus === 'NONE' && crew.joinPolicy === 'APPROVAL' ? (
+          <TextInput
+            value={joinMessage}
+            onChangeText={setJoinMessage}
+            placeholder={t('crew.detail.joinMessagePlaceholder')}
+            placeholderTextColor={theme.text4}
+            style={[styles.input, styles.textAreaSmall]}
+            multiline
+            maxLength={500}
+            editable={!pending}
+          />
+        ) : null}
         <JoinAction
           crew={crew}
           disabled={pending}
-          onRequest={() => requestJoin.mutate({ crewExtId: crew.extId, body: { message: null } })}
+          onRequest={() => requestJoin.mutate({
+            crewExtId: crew.extId,
+            body: { message: joinMessage.trim().length > 0 ? joinMessage.trim() : null },
+          })}
           onCancel={() => cancelJoin.mutate(crew.extId)}
           onLeave={() => {
             Alert.alert(
@@ -176,6 +193,10 @@ function CrewDetailContent({
             );
           }}
           onManageRequests={() => navigation.navigate('CrewJoinRequests', {
+            crewExtId: crew.extId,
+            crewName: crew.name,
+          })}
+          onManageMembers={() => navigation.navigate('CrewMembers', {
             crewExtId: crew.extId,
             crewName: crew.name,
           })}
@@ -241,6 +262,7 @@ function JoinAction({
   onCancel,
   onLeave,
   onManageRequests,
+  onManageMembers,
 }: {
   crew: CrewDetail;
   disabled: boolean;
@@ -248,12 +270,21 @@ function JoinAction({
   onCancel: () => void;
   onLeave: () => void;
   onManageRequests: () => void;
+  onManageMembers: () => void;
 }): JSX.Element {
+  const theme = useTokens();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
+
   if (crew.myStatus === 'OWNER' || crew.myStatus === 'ADMIN') {
     return (
-      <SecondaryButton onPress={onManageRequests}>
-        {t('crew.detail.manageRequestsCta')}
-      </SecondaryButton>
+      <View style={styles.adminActionColumn}>
+        <SecondaryButton onPress={onManageRequests}>
+          {t('crew.detail.manageRequestsCta')}
+        </SecondaryButton>
+        <SecondaryButton onPress={onManageMembers}>
+          {t('crew.detail.manageMembersCta')}
+        </SecondaryButton>
+      </View>
     );
   }
   if (crew.myStatus === 'PENDING') {
@@ -483,6 +514,25 @@ function makeStyles(theme: Theme) {
       fontWeight: fontWeight.medium,
       color: theme.text2,
       lineHeight: fontSize.body * 1.5,
+    },
+    input: {
+      minHeight: 48,
+      borderRadius: radius.lg,
+      backgroundColor: theme.bg,
+      color: theme.text,
+      fontFamily,
+      fontSize: fontSize.body,
+      fontWeight: fontWeight.medium,
+      letterSpacing: letterSpacing.body,
+      paddingHorizontal: space[4],
+      paddingVertical: space[3],
+    },
+    textAreaSmall: {
+      minHeight: 92,
+      textAlignVertical: 'top',
+    },
+    adminActionColumn: {
+      gap: space[2],
     },
     metaWrap: {
       flexDirection: 'row',

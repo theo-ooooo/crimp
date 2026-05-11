@@ -177,6 +177,7 @@ sequenceDiagram
 | POST | `/api/v1/crews/{extId}/join-requests/{requestExtId}:reject` | 가입 거절 |
 | GET | `/api/v1/crews/{extId}/members` | 멤버 목록 |
 | DELETE | `/api/v1/crews/{extId}/members/me` | 크루 탈퇴 |
+| DELETE | `/api/v1/crews/{extId}/members/{userExtId}` | 크루장/관리자 멤버 탈퇴 처리 |
 
 ---
 

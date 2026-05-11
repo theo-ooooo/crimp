@@ -207,6 +207,19 @@ public class CrewController {
     }
 
     @Operation(
+            summary = "크루 멤버 탈퇴 처리",
+            description = "OWNER/ADMIN 이 크루 멤버를 탈퇴 처리한다. OWNER 는 제거할 수 없다."
+    )
+    @DeleteMapping("/{extId}/members/{userExtId}")
+    public ResponseEntity<Void> removeMember(
+            @AuthenticationPrincipal CrimpPrincipal principal,
+            @PathVariable String extId,
+            @PathVariable String userExtId) {
+        crewService.removeMember(principal.userId(), extId, userExtId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(
             summary = "크루 모임 목록",
             description = "크루 상세의 예정 모임을 시작일 오름차순으로 조회한다."
     )

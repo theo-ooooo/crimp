@@ -25,6 +25,7 @@ import {
   joinMeetup,
   leaveMeetup as leaveMeetupApi,
   leaveCrew,
+  removeCrewMember,
   requestCrewJoin,
   updateMeetup,
   updateCrew,
@@ -283,6 +284,23 @@ export function useLeaveCrew(accessToken: string | null) {
       return leaveCrew(accessToken, crewExtId);
     },
     onSuccess: (_, crewExtId) => {
+      qc.invalidateQueries({ queryKey: CREWS_QUERY_KEY_ROOT });
+      qc.invalidateQueries({ queryKey: crewQueryKey(crewExtId) });
+      qc.invalidateQueries({ queryKey: crewMembersQueryKey(crewExtId) });
+    },
+  });
+}
+
+export function useRemoveCrewMember(accessToken: string | null) {
+  const qc = useQueryClient();
+  return useMutation<void, Error, { crewExtId: string; userExtId: string }>({
+    mutationFn: ({ crewExtId, userExtId }) => {
+      if (!accessToken) {
+        return Promise.reject(new Error('access token is required'));
+      }
+      return removeCrewMember(accessToken, crewExtId, userExtId);
+    },
+    onSuccess: (_, { crewExtId }) => {
       qc.invalidateQueries({ queryKey: CREWS_QUERY_KEY_ROOT });
       qc.invalidateQueries({ queryKey: crewQueryKey(crewExtId) });
       qc.invalidateQueries({ queryKey: crewMembersQueryKey(crewExtId) });

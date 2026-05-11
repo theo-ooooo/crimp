@@ -255,12 +255,7 @@
 | POST | `/api/v1/crews/{extId}/join-requests/{requestExtId}:reject` | 가입 요청 거절 |
 | GET | `/api/v1/crews/{extId}/members?cursor=&size=` | ACTIVE 멤버 목록. userExtId, nickname, role, joinedAt 포함 |
 | DELETE | `/api/v1/crews/{extId}/members/me` | 크루 탈퇴. `crew_members.status=LEFT`, 마지막 `OWNER` 는 탈퇴 불가 |
-
-후속 예정 API:
-
-| Method | Path | 설명 |
-| --- | --- | --- |
-| DELETE | `/api/v1/crews/{extId}/members/{userExtId}` | 멤버 강제 내보내기 (`OWNER`/`ADMIN`) |
+| DELETE | `/api/v1/crews/{extId}/members/{userExtId}` | 멤버 탈퇴 처리 (`OWNER`/`ADMIN`). `OWNER` 는 제거 불가, `ADMIN` 은 다른 `ADMIN` 제거 불가 |
 
 상세 설계: [../기획/crew.md](../기획/crew.md), [sequence/crew.md](./sequence/crew.md).
 
