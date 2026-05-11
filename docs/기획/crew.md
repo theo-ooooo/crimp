@@ -81,7 +81,8 @@ PRD §6.2 "크루 개설/가입 (지역·수준·스타일별)" 의 Phase 1.5 �
 - 모임 만들기는 한 화면 입력폼이 아니라 `기본 정보 → 날짜/시간 → 장소 → 확인` 단계형 플로우로 진행한다.
 - 장소는 암장 검색 화면에서 선택하는 것을 기본으로 하고, 암장 외 장소는 텍스트 위치로 보완한다.
 - 모임 상세에서는 장소·일시·소속 크루·참여 현황을 확인하고 바로 참여 또는 승인 요청을 보낸다.
-- 모임 참여 방식은 `OPEN`(바로참여) 과 `APPROVAL`(승인제) 두 가지다. 승인제 모임은 요청 상태를 `PENDING` 으로 보관한다.
+- 모임 참여 방식은 `OPEN`(바로참여) 과 `APPROVAL`(승인제) 두 가지다. 승인제 모임은 요청 메시지를 함께 받아 `PENDING` 으로 보관한다.
+- 모임 생성자는 생성과 동시에 `ACTIVE` 참여자로 자동 등록된다.
 
 ---
 
@@ -111,7 +112,7 @@ PRD §6.2 "크루 개설/가입 (지역·수준·스타일별)" 의 Phase 1.5 �
 - 대표 이미지는 기존 미디어 업로드 플로우로 `usage=CREW` READY IMAGE 를 만든 뒤 `crews.image_media_id` 에 연결한다.
 - 목록/상세 응답은 `imageMediaId`, `imageUrl` 을 포함한다. CDN base URL 이 없거나 variant 가 없으면 `imageUrl=null` 로 내려간다.
 - 모임 v0.1 은 `title`, `startsAt`, `joinPolicy`, 선택 `description/crew/gym/location/capacity` 를 저장한다.
-- 모임 참여는 `meetup_participants` 로 관리한다. `OPEN` 은 즉시 `ACTIVE`, `APPROVAL` 은 `PENDING` 이며 사용자는 본인 참여/요청을 취소할 수 있다.
+- 모임 참여는 `meetup_participants` 로 관리한다. `OPEN` 은 즉시 `ACTIVE`, `APPROVAL` 은 요청 메시지와 함께 `PENDING` 이며 사용자는 본인 참여/요청을 취소할 수 있다.
 - 승인제 모임의 요청 승인/거절 관리 UI, 댓글, 알림은 후속 범위다.
 
 ---

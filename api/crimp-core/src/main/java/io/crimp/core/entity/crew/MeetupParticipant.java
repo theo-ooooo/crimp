@@ -36,6 +36,9 @@ public class MeetupParticipant {
     @Column(name = "status", nullable = false, length = 20)
     private MeetupParticipantStatus status;
 
+    @Column(name = "message", length = 500)
+    private String message;
+
     @Column(name = "joined_at", nullable = false)
     private Instant joinedAt;
 
@@ -44,22 +47,24 @@ public class MeetupParticipant {
 
     @Builder
     private MeetupParticipant(Long meetupId, Long userId, MeetupParticipantStatus status,
-                              Instant joinedAt, Instant updatedAt) {
+                              String message, Instant joinedAt, Instant updatedAt) {
         Instant now = Instant.now();
         this.meetupId = meetupId;
         this.userId = userId;
         this.status = status == null ? MeetupParticipantStatus.ACTIVE : status;
+        this.message = message;
         this.joinedAt = joinedAt == null ? now : joinedAt;
         this.updatedAt = updatedAt == null ? this.joinedAt : updatedAt;
     }
 
-    public static MeetupParticipant join(Long meetupId, Long userId, MeetupParticipantStatus status) {
-        return new MeetupParticipant(meetupId, userId, status, null, null);
+    public static MeetupParticipant join(Long meetupId, Long userId, MeetupParticipantStatus status, String message) {
+        return new MeetupParticipant(meetupId, userId, status, message, null, null);
     }
 
-    public void reactivate(MeetupParticipantStatus status) {
+    public void reactivate(MeetupParticipantStatus status, String message) {
         Instant now = Instant.now();
         this.status = status;
+        this.message = message;
         this.joinedAt = now;
         this.updatedAt = now;
     }

@@ -1,6 +1,6 @@
 import { useRoute, type RouteProp } from '@react-navigation/native';
-import React, { useMemo } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PrimaryButton, SecondaryButton, Skeleton } from '@/components/common/primitives';
@@ -42,6 +42,7 @@ function MeetupDetailContent({ accessToken, extId }: { accessToken: string; extI
   const meetupQuery = useMeetupQuery(accessToken, extId);
   const joinMeetup = useJoinMeetup(accessToken);
   const leaveMeetup = useLeaveMeetup(accessToken);
+  const [requestMessage, setRequestMessage] = useState('');
   const meetup = meetupQuery.data;
   const busy = joinMeetup.isPending || leaveMeetup.isPending;
   const error = meetupQuery.error ?? joinMeetup.error ?? leaveMeetup.error;
@@ -104,6 +105,22 @@ function MeetupDetailContent({ accessToken, extId }: { accessToken: string; extI
 
       {error ? <Text style={styles.errorText}>{toUserMessage(error)}</Text> : null}
 
+      {meetup.joinPolicy === 'APPROVAL' && meetup.myParticipation === 'NONE' ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('meetup.detail.requestMessageTitle')}</Text>
+          <TextInput
+            value={requestMessage}
+            onChangeText={setRequestMessage}
+            placeholder={t('meetup.detail.requestMessagePlaceholder')}
+            placeholderTextColor={theme.text4}
+            style={[styles.input, styles.textArea]}
+            multiline
+            maxLength={500}
+            editable={!busy}
+          />
+        </View>
+      ) : null}
+
       {meetup.myParticipation === 'JOINED' || meetup.myParticipation === 'PENDING' ? (
         <SecondaryButton
           disabled={busy}
@@ -117,7 +134,13 @@ function MeetupDetailContent({ accessToken, extId }: { accessToken: string; extI
           {busy ? t('crew.detail.processing') : primaryText}
         </SecondaryButton>
       ) : (
-        <PrimaryButton onPress={() => joinMeetup.mutate(meetup.extId)} disabled={busy}>
+        <PrimaryButton
+          onPress={() => joinMeetup.mutate({
+            extId: meetup.extId,
+            body: { message: requestMessage.trim().length > 0 ? requestMessage.trim() : null },
+          })}
+          disabled={busy}
+        >
           {busy ? t('crew.detail.processing') : primaryText}
         </PrimaryButton>
       )}
@@ -262,6 +285,22 @@ function makeStyles(theme: Theme) {
       fontSize: fontSize.caption,
       fontWeight: fontWeight.semibold,
       color: theme.semantic.danger,
+    },
+    input: {
+      minHeight: 48,
+      borderRadius: radius.lg,
+      backgroundColor: theme.bg,
+      color: theme.text,
+      fontFamily,
+      fontSize: fontSize.body,
+      fontWeight: fontWeight.medium,
+      letterSpacing: letterSpacing.body,
+      paddingHorizontal: space[4],
+      paddingVertical: space[3],
+    },
+    textArea: {
+      minHeight: 96,
+      textAlignVertical: 'top',
     },
   });
 }

@@ -232,14 +232,14 @@
 
 | Method | Path | 설명 |
 | --- | --- | --- |
-| GET | `/api/v1/crews?q=&region=&gymExtId=&levelBand=&style=&cursor=&size=` | 공개 크루 목록. 지역·대표 암장·레벨·스타일 필터, 커서 페이지네이션. 응답에는 `imageMediaId`, `imageUrl`, `memberCount`, `capacity`, `joinPolicy`, `myStatus` 포함 |
+| GET | `/api/v1/crews?q=&region=&gymExtId=&levelBand=&style=&cursor=&size=` | 공개 크루 목록. 지역·대표 암장·레벨·스타일 필터, 커서 페이지네이션. 응답에는 `imageMediaId`, `imageUrl`, `memberCount`, `capacity`, `joinPolicy`, `myStatus`, `nextMeetup`, `memberPreview` 포함 |
 | POST | `/api/v1/crews` | 크루 생성. 생성자는 `OWNER` 멤버가 된다. `imageMediaId` 전달 시 호출자 소유 READY CREW IMAGE 만 연결 |
 | GET | `/api/v1/crews/{extId}` | 크루 상세. 기본 정보, 대표 이미지, 대표 암장, owner, 내 가입 상태 |
 | PATCH | `/api/v1/crews/{extId}` | 크루 기본 정보/대표 이미지 수정 (`OWNER`/`ADMIN`). `clearImage=true` 로 대표 이미지 해제 |
 | GET | `/api/v1/meetups?size=` | 전체 예정 모임 목록. 크루 소속 여부와 무관하게 시작 시각 오름차순 |
-| POST | `/api/v1/meetups` | 독립 모임 또는 크루 모임 생성. Body: `{ title, description?, startsAt, endsAt?, crewExtId?, gymExtId?, location?, capacity?, joinPolicy? }` |
+| POST | `/api/v1/meetups` | 독립 모임 또는 크루 모임 생성. Body: `{ title, description?, startsAt, endsAt?, crewExtId?, gymExtId?, location?, capacity?, joinPolicy? }`. 생성자는 자동 참여 |
 | GET | `/api/v1/meetups/{extId}` | 모임 상세. 장소, 크루, 참여 방식, 참여 인원, 내 참여 상태 포함 |
-| POST | `/api/v1/meetups/{extId}/participants/me` | 내 모임 참여. `joinPolicy=OPEN` 은 즉시 `JOINED`, `APPROVAL` 은 `PENDING` 요청 상태 |
+| POST | `/api/v1/meetups/{extId}/participants/me` | 내 모임 참여. Body: `{ message? }`. `joinPolicy=OPEN` 은 즉시 `JOINED`, `APPROVAL` 은 요청 메시지와 함께 `PENDING` 요청 상태 |
 | DELETE | `/api/v1/meetups/{extId}/participants/me` | 내 모임 참여/요청 취소 |
 | GET | `/api/v1/crews/{extId}/meetups?size=` | 크루 예정 모임 목록. 시작 시각 오름차순 |
 | POST | `/api/v1/crews/{extId}/meetups` | 크루 모임 생성 (`OWNER`/`ADMIN`). Body: `{ title, description?, startsAt, endsAt?, gymExtId?, location?, capacity?, joinPolicy? }` |

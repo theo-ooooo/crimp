@@ -72,8 +72,9 @@ public class MeetupController {
     @PostMapping("/{extId}/participants/me")
     public MeetupItem join(
             @AuthenticationPrincipal CrimpPrincipal principal,
-            @PathVariable String extId) {
-        return MeetupItem.of(crewService.joinMeetup(principal.userId(), extId));
+            @PathVariable String extId,
+            @RequestBody(required = false) JoinMeetupRequest req) {
+        return MeetupItem.of(crewService.joinMeetup(principal.userId(), extId, req == null ? null : req.message()));
     }
 
     @Operation(summary = "모임 참여 취소", description = "내 모임 참여 또는 참여 요청을 취소한다.")
@@ -115,6 +116,8 @@ public class MeetupController {
                     joinPolicy);
         }
     }
+
+    public record JoinMeetupRequest(@Size(max = 500) String message) {}
 
     public record MeetupListResponse(List<MeetupItem> items) {}
 

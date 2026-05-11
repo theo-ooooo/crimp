@@ -186,6 +186,9 @@ public class CrewService {
                 .joinPolicy(joinPolicy)
                 .build();
         crewMeetupRepository.saveAndFlush(meetup);
+        meetupParticipantRepository.save(MeetupParticipant.join(
+                meetup.getId(), actorUserId, MeetupParticipantStatus.ACTIVE, null));
+        meetupParticipantRepository.flush();
         return toMeetupView(meetup, actorUserId);
     }
 
@@ -218,7 +221,7 @@ public class CrewService {
     }
 
     @Transactional
-    public CrewMeetupView joinMeetup(Long actorUserId, String meetupExtId) {
+    public CrewMeetupView joinMeetup(Long actorUserId, String meetupExtId, String message) {
         CrewMeetup meetup = findActiveMeetup(meetupExtId);
         if (meetup.getStartsAt().isBefore(Instant.now().minusSeconds(MEETUP_START_CLOCK_SKEW_SECONDS))) {
             throw new CrewException("MEETUP_CLOSED", "Meetup already started");
@@ -232,6 +235,9 @@ public class CrewService {
         MeetupParticipantStatus nextStatus = meetup.getJoinPolicy() == MeetupJoinPolicy.APPROVAL
                 ? MeetupParticipantStatus.PENDING
                 : MeetupParticipantStatus.ACTIVE;
+        String requestMessage = nextStatus == MeetupParticipantStatus.PENDING
+                ? trimOptional(message, 500, "message")
+                : null;
         if (meetup.getCapacity() != null
                 && meetupParticipantRepository.countByMeetupIdAndStatus(
                         meetup.getId(), MeetupParticipantStatus.ACTIVE) >= meetup.getCapacity()) {
@@ -241,9 +247,9 @@ public class CrewService {
                 .findByMeetupIdAndUserId(meetup.getId(), actorUserId)
                 .orElse(null);
         if (participant == null) {
-            meetupParticipantRepository.save(MeetupParticipant.join(meetup.getId(), actorUserId, nextStatus));
+            meetupParticipantRepository.save(MeetupParticipant.join(meetup.getId(), actorUserId, nextStatus, requestMessage));
         } else {
-            participant.reactivate(nextStatus);
+            participant.reactivate(nextStatus, requestMessage);
         }
         meetupParticipantRepository.flush();
         return toMeetupView(meetup, actorUserId);
@@ -513,8 +519,34 @@ public class CrewService {
                 row.capacity() == null ? null : row.capacity().intValue(),
                 row.joinPolicy(),
                 myStatus(row),
+                resolveNextMeetup(row.id()),
+                resolveMemberPreview(row.id()),
                 owner,
                 row.createdAt());
+    }
+
+    private CrewMeetupView resolveNextMeetup(Long crewId) {
+        List<CrewMeetup> meetups = crewMeetupRepository
+                .findByCrewIdAndDeletedAtIsNullAndStartsAtGreaterThanEqualOrderByStartsAtAscIdAsc(
+                        crewId, Instant.now(), PageRequest.of(0, 1));
+        if (meetups == null) {
+            return null;
+        }
+        return meetups.stream()
+                .findFirst()
+                .map(meetup -> toMeetupView(meetup, null))
+                .orElse(null);
+    }
+
+    private List<CrewMemberView> resolveMemberPreview(Long crewId) {
+        Slice<CrewMemberRow> slice = crewMemberRepository.searchActiveByCrew(crewId, null, PageRequest.of(0, 5));
+        if (slice == null) {
+            return List.of();
+        }
+        return slice.getContent()
+                .stream()
+                .map(CrewService::toMemberView)
+                .toList();
     }
 
     private String resolveCrewImageUrl(Long imageMediaId) {
@@ -538,8 +570,9 @@ public class CrewService {
         Gym gym = meetup.getGymId() == null ? null : gymRepository.findById(meetup.getGymId()).orElse(null);
         int participantCount = (int) meetupParticipantRepository.countByMeetupIdAndStatus(
                 meetup.getId(), MeetupParticipantStatus.ACTIVE);
-        String myParticipation = meetupParticipantRepository.existsByMeetupIdAndUserIdAndStatus(
-                meetup.getId(), viewerUserId, MeetupParticipantStatus.ACTIVE) ? "JOINED"
+        String myParticipation = viewerUserId == null ? "NONE"
+                : meetupParticipantRepository.existsByMeetupIdAndUserIdAndStatus(
+                        meetup.getId(), viewerUserId, MeetupParticipantStatus.ACTIVE) ? "JOINED"
                 : meetupParticipantRepository.existsByMeetupIdAndUserIdAndStatus(
                         meetup.getId(), viewerUserId, MeetupParticipantStatus.PENDING) ? "PENDING" : "NONE";
         return new CrewMeetupView(

@@ -38,6 +38,7 @@ import type {
   CrewMemberList,
   CrewMeetup,
   CrewMeetupList,
+  JoinMeetupBody,
   UpdateCrewBody,
 } from '@/lib/schemas/crew';
 
@@ -366,12 +367,12 @@ export function useCreateMeetup(accessToken: string | null) {
 
 export function useJoinMeetup(accessToken: string | null) {
   const qc = useQueryClient();
-  return useMutation<CrewMeetup, Error, string>({
-    mutationFn: (extId) => {
+  return useMutation<CrewMeetup, Error, { extId: string; body?: JoinMeetupBody }>({
+    mutationFn: ({ extId, body }) => {
       if (!accessToken) {
         return Promise.reject(new Error('access token is required'));
       }
-      return joinMeetup(accessToken, extId);
+      return joinMeetup(accessToken, extId, body);
     },
     onSuccess: (updated) => invalidateMeetupCaches(qc, updated),
   });

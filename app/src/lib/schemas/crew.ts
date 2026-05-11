@@ -55,6 +55,34 @@ export const CrewOwnerSchema = z.object({
 
 export type CrewOwner = z.infer<typeof CrewOwnerSchema>;
 
+export const CrewMeetupSchema = z.object({
+  extId: z.string(),
+  title: z.string(),
+  description: z.string().nullable(),
+  startsAt: z.string(),
+  endsAt: z.string().nullable(),
+  crewExtId: z.string().nullable().optional(),
+  crewName: z.string().nullable().optional(),
+  gymExtId: z.string().nullable().optional(),
+  gymName: z.string().nullable().optional(),
+  location: z.string().nullable(),
+  capacity: z.number().int().nullable(),
+  joinPolicy: z.preprocess((value) => value ?? 'OPEN', MeetupJoinPolicySchema),
+  participantCount: z.preprocess((value) => value ?? 0, z.number().int()),
+  myParticipation: z.preprocess((value) => value ?? 'NONE', MeetupParticipationSchema),
+  createdAt: z.string(),
+});
+
+export type CrewMeetup = z.infer<typeof CrewMeetupSchema>;
+
+export const CrewMemberPreviewSchema = z.object({
+  extId: z.string(),
+  nickname: z.string().nullable(),
+  role: CrewMemberRoleSchema,
+});
+
+export type CrewMemberPreview = z.infer<typeof CrewMemberPreviewSchema>;
+
 export const CrewItemSchema = z.object({
   extId: z.string(),
   name: z.string(),
@@ -69,6 +97,8 @@ export const CrewItemSchema = z.object({
   capacity: z.number().int().nullable(),
   joinPolicy: CrewJoinPolicySchema,
   myStatus: CrewMyStatusSchema,
+  nextMeetup: CrewMeetupSchema.nullable().optional(),
+  memberPreview: z.array(CrewMemberPreviewSchema).optional(),
 });
 
 export type CrewItem = z.infer<typeof CrewItemSchema>;
@@ -163,26 +193,6 @@ export const CrewMemberListSchema = z.object({
 
 export type CrewMemberList = z.infer<typeof CrewMemberListSchema>;
 
-export const CrewMeetupSchema = z.object({
-  extId: z.string(),
-  title: z.string(),
-  description: z.string().nullable(),
-  startsAt: z.string(),
-  endsAt: z.string().nullable(),
-  crewExtId: z.string().nullable().optional(),
-  crewName: z.string().nullable().optional(),
-  gymExtId: z.string().nullable().optional(),
-  gymName: z.string().nullable().optional(),
-  location: z.string().nullable(),
-  capacity: z.number().int().nullable(),
-  joinPolicy: z.preprocess((value) => value ?? 'OPEN', MeetupJoinPolicySchema),
-  participantCount: z.preprocess((value) => value ?? 0, z.number().int()),
-  myParticipation: z.preprocess((value) => value ?? 'NONE', MeetupParticipationSchema),
-  createdAt: z.string(),
-});
-
-export type CrewMeetup = z.infer<typeof CrewMeetupSchema>;
-
 export const CrewMeetupListSchema = z.object({
   items: z.array(CrewMeetupSchema),
 });
@@ -202,3 +212,9 @@ export const CreateCrewMeetupBodySchema = z.object({
 });
 
 export type CreateCrewMeetupBody = z.infer<typeof CreateCrewMeetupBodySchema>;
+
+export const JoinMeetupBodySchema = z.object({
+  message: z.string().max(500).nullable().optional(),
+});
+
+export type JoinMeetupBody = z.infer<typeof JoinMeetupBodySchema>;

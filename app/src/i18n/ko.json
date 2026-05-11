@@ -454,6 +454,8 @@
       "descriptionFallback": "아직 상세 내용이 없습니다.",
       "joinCta": "참여하기",
       "requestCta": "참여 요청",
+      "requestMessageTitle": "요청 내용",
+      "requestMessagePlaceholder": "주최자에게 전달할 내용을 적어주세요.",
       "leaveCta": "참여 취소",
       "cancelRequestCta": "요청 취소",
       "leaveConfirmTitle": "참여를 취소할까요?",

@@ -278,6 +278,8 @@ class CrewControllerTest {
                 30,
                 CrewJoinPolicy.APPROVAL,
                 myStatus,
+                null,
+                List.of(),
                 new CrewOwnerView("01JOWNER", "크루장"),
                 Instant.parse("2026-05-08T00:00:00Z"));
     }

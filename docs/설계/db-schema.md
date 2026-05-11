@@ -485,6 +485,7 @@ CREATE TABLE meetup_participants (
   meetup_id  BIGINT UNSIGNED NOT NULL,
   user_id    BIGINT UNSIGNED NOT NULL,
   status     VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', -- PENDING, ACTIVE, CANCELED
+  message    VARCHAR(500) NULL,                     -- APPROVAL 요청 메시지
   joined_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (meetup_id, user_id),
@@ -527,6 +528,7 @@ CREATE TABLE meetup_participants (
 | V202605111100 | `V202605111100__crew_images_and_meetups.sql` | crews.image_media_id, meetups |
 | V202605111200 | `V202605111200__meetup_participants.sql` | meetup_participants |
 | V202605111210 | `V202605111210__meetup_join_policy.sql` | meetups.join_policy |
+| V202605111220 | `V202605111220__meetup_participant_message.sql` | meetup_participants.message |
 
 ## 7. 오픈 이슈
 

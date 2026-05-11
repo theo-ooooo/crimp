@@ -45,6 +45,7 @@ import {
   type CrewMeetupList,
   type CrewLevelBand,
   type CrewStyle,
+  type JoinMeetupBody,
   type UpdateCrewBody,
 } from '@/lib/schemas/crew';
 import {
@@ -537,7 +538,7 @@ export function fetchCrews(
     method: 'GET',
     path: `/api/v1/crews${qs ? `?${qs}` : ''}`,
     accessToken,
-    schema: CrewListSchema,
+    schema: CrewListSchema as z.ZodType<CrewList>,
     signal,
   });
 }
@@ -552,7 +553,7 @@ export function fetchCrew(
     method: 'GET',
     path: `/api/v1/crews/${encodeURIComponent(extId)}`,
     accessToken,
-    schema: CrewDetailSchema,
+    schema: CrewDetailSchema as z.ZodType<CrewDetail>,
     signal,
   });
 }
@@ -568,7 +569,7 @@ export function createCrew(
     path: '/api/v1/crews',
     accessToken,
     body,
-    schema: CrewDetailSchema,
+    schema: CrewDetailSchema as z.ZodType<CrewDetail>,
     signal,
   });
 }
@@ -585,7 +586,7 @@ export function updateCrew(
     path: `/api/v1/crews/${encodeURIComponent(extId)}`,
     accessToken,
     body,
-    schema: CrewDetailSchema,
+    schema: CrewDetailSchema as z.ZodType<CrewDetail>,
     signal,
   });
 }
@@ -782,12 +783,14 @@ export function createMeetup(
 export function joinMeetup(
   accessToken: string,
   extId: string,
+  body?: JoinMeetupBody,
   signal?: AbortSignal,
 ): Promise<CrewMeetup> {
   return apiRequest({
     method: 'POST',
     path: `/api/v1/meetups/${encodeURIComponent(extId)}/participants/me`,
     accessToken,
+    body: body ?? {},
     schema: CrewMeetupSchema as z.ZodType<CrewMeetup>,
     signal,
   });

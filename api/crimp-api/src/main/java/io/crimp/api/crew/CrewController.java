@@ -6,6 +6,7 @@ import io.crimp.common.response.ErrorBody;
 import io.crimp.core.entity.enums.CrewJoinPolicy;
 import io.crimp.core.entity.enums.CrewJoinRequestStatus;
 import io.crimp.core.entity.enums.CrewLevelBand;
+import io.crimp.core.entity.enums.CrewMemberRole;
 import io.crimp.core.entity.enums.CrewStyle;
 import io.crimp.domain.crew.CreateCrewCommand;
 import io.crimp.domain.crew.CreateCrewJoinRequestCommand;
@@ -333,6 +334,9 @@ public class CrewController {
             Instant createdAt
     ) {
         static CrewMeetupItem of(CrewMeetupView v) {
+            if (v == null) {
+                return null;
+            }
             return new CrewMeetupItem(v.extId(), v.title(), v.description(), v.startsAt(), v.endsAt(),
                     v.crewExtId(), v.crewName(), v.gymExtId(), v.gymName(),
                     v.location(), v.capacity(), v.joinPolicy(), v.participantCount(), v.myParticipation(),
@@ -412,7 +416,9 @@ public class CrewController {
             int memberCount,
             Integer capacity,
             CrewJoinPolicy joinPolicy,
-            String myStatus
+            String myStatus,
+            CrewMeetupItem nextMeetup,
+            List<CrewMemberPreview> memberPreview
     ) {
         static CrewItem of(CrewView v) {
             return new CrewItem(
@@ -428,7 +434,15 @@ public class CrewController {
                     v.memberCount(),
                     v.capacity(),
                     v.joinPolicy(),
-                    v.myStatus());
+                    v.myStatus(),
+                    CrewMeetupItem.of(v.nextMeetup()),
+                    v.memberPreview().stream().map(CrewMemberPreview::of).toList());
+        }
+    }
+
+    public record CrewMemberPreview(String extId, String nickname, CrewMemberRole role) {
+        static CrewMemberPreview of(CrewMemberView v) {
+            return new CrewMemberPreview(v.userExtId(), v.nickname(), v.role());
         }
     }
 
@@ -447,6 +461,8 @@ public class CrewController {
             Integer capacity,
             CrewJoinPolicy joinPolicy,
             String myStatus,
+            CrewMeetupItem nextMeetup,
+            List<CrewMemberPreview> memberPreview,
             Owner owner,
             Instant createdAt
     ) {
@@ -466,6 +482,8 @@ public class CrewController {
                     v.capacity(),
                     v.joinPolicy(),
                     v.myStatus(),
+                    CrewMeetupItem.of(v.nextMeetup()),
+                    v.memberPreview().stream().map(CrewMemberPreview::of).toList(),
                     Owner.of(v.owner()),
                     v.createdAt());
         }

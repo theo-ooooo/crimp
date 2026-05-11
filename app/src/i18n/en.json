@@ -454,6 +454,8 @@
       "descriptionFallback": "No details yet.",
       "joinCta": "Join",
       "requestCta": "Request to join",
+      "requestMessageTitle": "Request message",
+      "requestMessagePlaceholder": "Add a note for the host.",
       "leaveCta": "Cancel participation",
       "cancelRequestCta": "Cancel request",
       "leaveConfirmTitle": "Cancel participation?",

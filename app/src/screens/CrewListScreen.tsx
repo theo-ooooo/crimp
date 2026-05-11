@@ -9,14 +9,18 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
   type ListRenderItem,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AuthHydrationGate } from '@/components/common/screen/AuthHydrationGate';
-import { CrimpIcon, Skeleton } from '@/components/common/primitives';
+import { Chip, CrimpIcon, Skeleton } from '@/components/common/primitives';
 import {
+  CREW_LEVEL_OPTIONS,
+  CREW_REGION_OPTIONS,
+  CREW_STYLE_OPTIONS,
   useCrewListScreen,
 } from '@/hooks/screens/useCrewListScreen';
 import { toUserMessage } from '@/lib/api/errorMessage';
@@ -98,21 +102,52 @@ function CrewListContent({ accessToken }: { accessToken: string }): JSX.Element 
             </Pressable>
           </View>
         </View>
-        <View style={styles.quickTabs}>
-          <View style={[styles.quickTab, styles.quickTabActive]}>
-            <Text style={[styles.quickTabText, styles.quickTabTextActive]}>내 크루</Text>
-          </View>
-          <View style={styles.quickTab}>
-            <Text style={styles.quickTabText}>추천</Text>
-          </View>
-          <View style={styles.quickTab}>
-            <Text style={styles.quickTabText}>주변</Text>
-          </View>
-          <View style={styles.quickTab}>
-            <Text style={styles.quickTabText}>전체</Text>
-          </View>
+
+        <View style={styles.searchField}>
+          <CrimpIcon.search size={18} color={theme.text3} />
+          <TextInput
+            value={state.searchText}
+            onChangeText={state.setSearchText}
+            placeholder={t('crew.list.searchPlaceholder')}
+            placeholderTextColor={theme.text4}
+            style={styles.searchInput}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="search"
+            clearButtonMode="while-editing"
+            accessibilityLabel={t('crew.list.searchAccessibilityLabel')}
+          />
+          {state.searchText.length > 0 ? (
+            <Pressable
+              onPress={() => state.setSearchText('')}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t('crew.list.searchClearLabel')}
+              style={styles.searchClear}
+            >
+              <CrimpIcon.close size={16} color={theme.text3} />
+            </Pressable>
+          ) : null}
         </View>
       </View>
+      <FilterRow
+        label={t('crew.list.regionFilterLabel')}
+        options={CREW_REGION_OPTIONS}
+        active={state.region}
+        onSelect={(next) => state.setRegion(next)}
+      />
+      <FilterRow
+        label={t('crew.list.levelFilterLabel')}
+        options={CREW_LEVEL_OPTIONS}
+        active={state.levelBand}
+        onSelect={(next) => state.setLevelBand(state.levelBand === next ? null : next)}
+      />
+      <FilterRow
+        label={t('crew.list.styleFilterLabel')}
+        options={CREW_STYLE_OPTIONS}
+        active={state.style}
+        onSelect={(next) => state.setStyle(state.style === next ? null : next)}
+      />
     </View>
   );
 
@@ -181,6 +216,40 @@ function CrewListContent({ accessToken }: { accessToken: string }): JSX.Element 
   );
 }
 
+function FilterRow<T extends string>({
+  label,
+  options,
+  active,
+  onSelect,
+}: {
+  label: string;
+  options: Array<{ key: T; labelKey: string }>;
+  active: T | null;
+  onSelect: (next: T) => void;
+}): JSX.Element {
+  const theme = useTokens();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
+  return (
+    <View style={filterStyles.block}>
+      <Text style={styles.filterLabel}>{label}</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={filterStyles.row}
+      >
+        {options.map((opt) => (
+          <Chip
+            key={opt.key}
+            label={t(opt.labelKey as MessageKey)}
+            active={active === opt.key}
+            onPress={() => onSelect(opt.key)}
+          />
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
 function CrewCard({ crew, onPress }: { crew: CrewItem; onPress: () => void }): JSX.Element {
   const theme = useTokens();
   const styles = useMemo(() => makeStyles(theme), [theme]);
@@ -214,19 +283,21 @@ function CrewCard({ crew, onPress }: { crew: CrewItem; onPress: () => void }): J
           <CrimpIcon.clock size={14} color={theme.text} />
           <Text style={styles.nextMeetupLabel}>다음 모임</Text>
           <Text style={styles.nextMeetupText} numberOfLines={1}>
-            {crew.homeGym?.name ?? crew.region ?? t('crew.common.homeGymFallback')}
+            {crew.nextMeetup ? formatNextMeetup(crew.nextMeetup) : t('crew.meetup.emptyBody')}
           </Text>
         </View>
         <View style={styles.memberRow}>
           <View style={styles.memberAvatarGroup}>
-            {['민', '지', '수', '준'].map((label, index) => (
-              <View key={label} style={[styles.memberAvatar, index > 0 ? styles.memberAvatarOverlap : null]}>
-                <Text style={styles.memberAvatarText}>{label}</Text>
+            {(crew.memberPreview ?? []).slice(0, 5).map((member, index) => (
+              <View key={member.extId} style={[styles.memberAvatar, index > 0 ? styles.memberAvatarOverlap : null]}>
+                <Text style={styles.memberAvatarText}>{memberInitial(member.nickname)}</Text>
               </View>
             ))}
-            <View style={[styles.memberAvatar, styles.memberAvatarMore, styles.memberAvatarOverlap]}>
-              <Text style={styles.memberAvatarMoreText}>+{Math.max(0, crew.memberCount - 4)}</Text>
-            </View>
+            {crew.memberCount > (crew.memberPreview?.length ?? 0) ? (
+              <View style={[styles.memberAvatar, styles.memberAvatarMore, styles.memberAvatarOverlap]}>
+                <Text style={styles.memberAvatarMoreText}>+{crew.memberCount - (crew.memberPreview?.length ?? 0)}</Text>
+              </View>
+            ) : null}
           </View>
           <Text style={styles.enterText}>들어가기 →</Text>
         </View>
@@ -272,6 +343,21 @@ function formatMemberCount(memberCount: number, capacity: number | null): string
   return capacity
     ? `${base} / ${t('crew.common.capacityCount').replace('{{count}}', String(capacity))}`
     : base;
+}
+
+function formatNextMeetup(meetup: NonNullable<CrewItem['nextMeetup']>): string {
+  const when = new Intl.DateTimeFormat('ko-KR', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(meetup.startsAt));
+  const where = meetup.gymName ?? meetup.location ?? t('crew.meetup.noGymSelected');
+  return `${when} · ${where}`;
+}
+
+function memberInitial(nickname: string | null): string {
+  return Array.from(nickname ?? t('home.nicknameFallback'))[0] ?? '?';
 }
 
 function makeStyles(theme: Theme) {
@@ -351,37 +437,27 @@ function makeStyles(theme: Theme) {
       color: theme.text,
       letterSpacing: letterSpacing.h1,
     },
-    subtitle: {
-      fontFamily,
-      fontSize: 13,
-      fontWeight: fontWeight.medium,
-      color: theme.text3,
-    },
-    quickTabs: {
+    searchField: {
+      borderRadius: radius.lg,
+      backgroundColor: theme.subtle,
       flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: space[2],
-      marginTop: space[2],
-    },
-    quickTab: {
-      minHeight: 34,
-      borderRadius: radius.full,
-      backgroundColor: theme.chip,
       alignItems: 'center',
-      justifyContent: 'center',
       paddingHorizontal: space[4],
+      paddingVertical: space[3],
+      gap: space[2],
+      marginTop: space[3],
     },
-    quickTabActive: {
-      backgroundColor: theme.text,
-    },
-    quickTabText: {
+    searchInput: {
+      flex: 1,
+      color: theme.text,
       fontFamily,
-      fontSize: fontSize.caption,
-      fontWeight: fontWeight.extrabold,
-      color: theme.text2,
+      fontSize: fontSize.body,
+      fontWeight: fontWeight.medium,
+      letterSpacing: letterSpacing.body,
+      padding: 0,
     },
-    quickTabTextActive: {
-      color: theme.bg,
+    searchClear: {
+      padding: space[1],
     },
     card: {
       borderRadius: radius.xl,
@@ -544,3 +620,13 @@ function makeStyles(theme: Theme) {
     },
   });
 }
+
+const filterStyles = StyleSheet.create({
+  block: {
+    gap: space[1],
+  },
+  row: {
+    gap: space[2],
+    paddingRight: space[5],
+  },
+});
