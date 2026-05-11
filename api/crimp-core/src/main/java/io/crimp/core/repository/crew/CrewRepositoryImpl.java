@@ -2,6 +2,7 @@ package io.crimp.core.repository.crew;
 
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.dsl.CaseBuilder;
+import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.core.types.Projections;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import io.crimp.core.entity.crew.QCrew;
@@ -87,7 +88,7 @@ public class CrewRepositoryImpl implements CrewRepositoryCustom {
                         crew.createdAt,
                         gym.extId,
                         gym.name,
-                        new CaseBuilder().when(ownerDeleted).then((String) null).otherwise(owner.extId),
+                        new CaseBuilder().when(ownerDeleted).then(Expressions.nullExpression(String.class)).otherwise(owner.extId),
                         new CaseBuilder().when(ownerDeleted).then("탈퇴사용자").otherwise(ownerProfile.nickname),
                         myMember.role,
                         myMember.status,
