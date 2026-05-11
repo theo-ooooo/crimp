@@ -76,6 +76,8 @@ export type RootStackParamList = {
    */
   CrewList: undefined;
   CrewDetail: { extId: string };
+  CrewForm: undefined;
+  CrewJoinRequests: { crewExtId: string; crewName?: string };
   /**
    * 프로필 화면. 닉네임·레벨 표시(읽기 전용) + 내 암장 설정/변경/해제.
    * 인증 필수 — 화면 내부에서 gate 처리. BottomTabs `ProfileTab` 의 루트 화면.

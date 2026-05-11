@@ -4,8 +4,10 @@ import io.crimp.common.config.AppProperties;
 import io.crimp.core.entity.enums.MediaKind;
 import io.crimp.core.entity.enums.MediaStatus;
 import io.crimp.core.entity.enums.MediaUsage;
+import io.crimp.core.entity.enums.CrewJoinRequestStatus;
 import io.crimp.core.entity.enums.GymStatus;
 import io.crimp.core.entity.enums.UserStatus;
+import io.crimp.core.repository.crew.CrewJoinRequestRepository;
 import io.crimp.core.entity.gym.Gym;
 import io.crimp.core.entity.media.MediaAsset;
 import io.crimp.core.entity.media.MediaImageVariant;
@@ -28,6 +30,7 @@ public class UserService {
     private final ProfileRepository profileRepo;
     private final GymRepository gymRepo;
     private final RefreshTokenStore refreshTokenStore;
+    private final CrewJoinRequestRepository crewJoinRequestRepo;
     private final MediaAssetRepository mediaAssetRepo;
     private final MediaImageVariantRepository mediaImageVariantRepo;
     private final AppProperties appProperties;
@@ -37,6 +40,7 @@ public class UserService {
             ProfileRepository profileRepo,
             GymRepository gymRepo,
             RefreshTokenStore refreshTokenStore,
+            CrewJoinRequestRepository crewJoinRequestRepo,
             MediaAssetRepository mediaAssetRepo,
             MediaImageVariantRepository mediaImageVariantRepo,
             AppProperties appProperties) {
@@ -44,6 +48,7 @@ public class UserService {
         this.profileRepo = profileRepo;
         this.gymRepo = gymRepo;
         this.refreshTokenStore = refreshTokenStore;
+        this.crewJoinRequestRepo = crewJoinRequestRepo;
         this.mediaAssetRepo = mediaAssetRepo;
         this.mediaImageVariantRepo = mediaImageVariantRepo;
         this.appProperties = appProperties;
@@ -132,6 +137,8 @@ public class UserService {
             refreshTokenStore.deleteAllForUser(userId);
             return;
         }
+        crewJoinRequestRepo.findAllByUserIdAndStatus(userId, CrewJoinRequestStatus.PENDING)
+                .forEach(request -> request.cancel(userId));
         user.deleteAccount();
         refreshTokenStore.deleteAllForUser(userId);
     }

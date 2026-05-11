@@ -1,6 +1,8 @@
 package io.crimp.domain.user;
 
 import io.crimp.common.config.AppProperties;
+import io.crimp.core.entity.crew.CrewJoinRequest;
+import io.crimp.core.entity.enums.CrewJoinRequestStatus;
 import io.crimp.core.entity.enums.MediaKind;
 import io.crimp.core.entity.enums.MediaStatus;
 import io.crimp.core.entity.enums.MediaUsage;
@@ -11,6 +13,7 @@ import io.crimp.core.entity.media.MediaAsset;
 import io.crimp.core.entity.media.MediaImageVariant;
 import io.crimp.core.entity.user.Profile;
 import io.crimp.core.entity.user.User;
+import io.crimp.core.repository.crew.CrewJoinRequestRepository;
 import io.crimp.core.repository.gym.GymRepository;
 import io.crimp.core.repository.media.MediaAssetRepository;
 import io.crimp.core.repository.media.MediaImageVariantRepository;
@@ -38,6 +41,7 @@ class UserServiceTest {
     private ProfileRepository profileRepo;
     private GymRepository gymRepo;
     private RefreshTokenStore refreshTokenStore;
+    private CrewJoinRequestRepository crewJoinRequestRepo;
     private MediaAssetRepository mediaAssetRepo;
     private MediaImageVariantRepository mediaImageVariantRepo;
     private UserService service;
@@ -48,9 +52,11 @@ class UserServiceTest {
         profileRepo = mock(ProfileRepository.class);
         gymRepo = mock(GymRepository.class);
         refreshTokenStore = mock(RefreshTokenStore.class);
+        crewJoinRequestRepo = mock(CrewJoinRequestRepository.class);
         mediaAssetRepo = mock(MediaAssetRepository.class);
         mediaImageVariantRepo = mock(MediaImageVariantRepository.class);
-        service = new UserService(userRepo, profileRepo, gymRepo, refreshTokenStore, mediaAssetRepo, mediaImageVariantRepo, appProps());
+        service = new UserService(userRepo, profileRepo, gymRepo, refreshTokenStore,
+                crewJoinRequestRepo, mediaAssetRepo, mediaImageVariantRepo, appProps());
     }
 
     @Test
@@ -516,12 +522,24 @@ class UserServiceTest {
     @Test
     void deleteMe_marksDeleted_andClearsRefreshTokens() {
         User user = user(1L, "01HDELETE__");
+        setField(user, "emailHash", "hash");
+        setField(user, "email", "a@b.com".getBytes());
+        CrewJoinRequest request = CrewJoinRequest.builder()
+                .extId("01JREQ")
+                .crewId(55L)
+                .userId(1L)
+                .build();
         when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+        when(crewJoinRequestRepo.findAllByUserIdAndStatus(1L, CrewJoinRequestStatus.PENDING))
+                .thenReturn(java.util.List.of(request));
 
         service.deleteMe(1L);
 
         assertThat(user.getStatus()).isEqualTo(UserStatus.DELETED);
         assertThat(user.isDeleted()).isTrue();
+        assertThat(user.getEmail()).isNull();
+        assertThat(user.getEmailHash()).isNull();
+        assertThat(request.getStatus()).isEqualTo(CrewJoinRequestStatus.CANCELED);
         verify(refreshTokenStore).deleteAllForUser(1L);
     }
 

@@ -318,13 +318,20 @@
       "OPEN": "Open",
       "INVITE_ONLY": "Invite only"
     },
+    "region": {
+      "ALL": "All",
+      "SEOUL": "Seoul",
+      "GYEONGGI": "Gyeonggi",
+      "INCHEON": "Incheon",
+      "BUSAN": "Busan"
+    },
     "list": {
       "title": "Find crews",
       "subtitle": "Find climbing groups that fit your area, level and style.",
       "searchPlaceholder": "Search crew names or summaries",
       "searchAccessibilityLabel": "Search crews",
       "searchClearLabel": "Clear search",
-      "regionPlaceholder": "Region filter e.g. Seoul Gangnam",
+      "regionFilterLabel": "Region",
       "levelFilterLabel": "Level",
       "styleFilterLabel": "Style",
       "emptyTitle": "No crews to show yet",
@@ -341,6 +348,10 @@
       "joinTitle": "Join",
       "requestJoinCta": "Request to join",
       "cancelRequestCta": "Cancel request",
+      "manageRequestsCta": "Manage requests",
+      "leaveCrewCta": "Leave crew",
+      "leaveConfirmTitle": "Leave this crew?",
+      "leaveConfirmBody": "You can request to join again after leaving.",
       "alreadyMemberCta": "Already joined",
       "openDisabledCta": "Open join coming soon",
       "inviteOnlyCta": "Invite only",
@@ -350,6 +361,39 @@
         "OPEN": "This crew is open join. App open-join support will be connected later.",
         "INVITE_ONLY": "This crew is invite-only. Public screens cannot send join requests."
       }
+    },
+    "requests": {
+      "title": "Join requests",
+      "subtitle": "Review pending requests and approve or reject them.",
+      "crewFallback": "Crew",
+      "emptyTitle": "No pending requests",
+      "emptyBody": "New join requests will appear here.",
+      "errorTitle": "Failed to load join requests",
+      "messageFallback": "No join message.",
+      "nicknameFallback": "Deleted user",
+      "approveCta": "Approve",
+      "rejectCta": "Reject",
+      "approveConfirmTitle": "Approve this join request?",
+      "rejectConfirmTitle": "Reject this join request?"
+    },
+    "form": {
+      "title": "Create crew",
+      "subtitle": "Set up the basics for a public crew.",
+      "createCta": "Create crew",
+      "creating": "Creating...",
+      "nameLabel": "Crew name",
+      "namePlaceholder": "e.g. Gangnam after-work boulder",
+      "nameValidation": "Crew name must be 2-30 characters.",
+      "summaryLabel": "Short summary",
+      "summaryPlaceholder": "e.g. Weekday evenings, V3-V6",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Add the crew vibe, schedule, and who should join.",
+      "regionLabel": "Region",
+      "levelLabel": "Level",
+      "styleLabel": "Style",
+      "capacityLabel": "Capacity",
+      "capacityPlaceholder": "Leave empty for no limit",
+      "capacityValidation": "Capacity must be a number from 2 to 200."
     }
   },
   "profile": {

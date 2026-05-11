@@ -100,8 +100,7 @@ public class AuthService {
 
         User user = oauthIdentityRepository
                 .findByProviderAndProviderUid(info.provider(), info.providerUid())
-                .map(id -> userRepository.findById(id.getUserId())
-                        .orElseThrow(() -> new AuthException("AUTH_USER_MISSING", "Linked user not found")))
+                .map(id -> resolveLinkedUserOrCreateFresh(info, id))
                 .orElseGet(() -> createUser(info));
         requireActive(user);
         user.markLoggedIn();
@@ -192,13 +191,30 @@ public class AuthService {
     }
 
     private User createUser(OauthUserInfo info) {
+        User user = createUserRecord(info);
+        oauthIdentityRepository.save(
+                OauthIdentity.link(user.getId(), info.provider(), info.providerUid()));
+        return user;
+    }
+
+    private User resolveLinkedUserOrCreateFresh(OauthUserInfo info, OauthIdentity identity) {
+        User linked = userRepository.findById(identity.getUserId())
+                .orElseThrow(() -> new AuthException("AUTH_USER_MISSING", "Linked user not found"));
+        if (linked.getStatus() != UserStatus.DELETED && !linked.isDeleted()) {
+            return linked;
+        }
+        User fresh = createUserRecord(info);
+        identity.relinkTo(fresh.getId());
+        oauthIdentityRepository.save(identity);
+        return fresh;
+    }
+
+    private User createUserRecord(OauthUserInfo info) {
         String extId = UlidGenerator.next();
         byte[] emailBytes = info.email() != null ? info.email().getBytes(StandardCharsets.UTF_8) : null;
         String emailHash = info.email() != null ? hash(info.email().toLowerCase()) : null;
         User user = User.create(extId, emailHash, emailBytes);
         userRepository.save(user);
-        oauthIdentityRepository.save(
-                OauthIdentity.link(user.getId(), info.provider(), info.providerUid()));
         // 기본 닉네임은 user.id 기반 — DB BIGINT AUTO_INCREMENT 가 유일성 보장. 온보딩 UI 에서 유저가 변경.
         String defaultNickname = "crimper_" + user.getId();
         profileRepository.save(Profile.create(user.getId(), defaultNickname));

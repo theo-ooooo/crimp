@@ -107,7 +107,7 @@ class AuthServiceTest {
     }
 
     @Test
-    void exchange_existingDeletedUser_throws_AUTH_ACCOUNT_DELETED() {
+    void exchange_existingDeletedUser_createsFreshUserAndRelinksIdentity() {
         OauthUserInfo info = new OauthUserInfo(OauthProvider.KAKAO, "kakao-uid-1", "a@b.com", null);
         when(kakaoVerifier.verify("valid-token")).thenReturn(info);
 
@@ -120,10 +120,18 @@ class AuthServiceTest {
         setField(existing, "id", 10L);
         existing.deleteAccount();
         when(userRepo.findById(10L)).thenReturn(Optional.of(existing));
+        when(userRepo.save(any(User.class))).thenAnswer(inv -> {
+            User u = inv.getArgument(0);
+            setField(u, "id", 77L);
+            return u;
+        });
 
-        assertThatThrownBy(() -> service.exchange(OauthProvider.KAKAO, "valid-token"))
-                .isInstanceOf(AuthException.class)
-                .satisfies(e -> assertThat(((AuthException) e).code()).isEqualTo("AUTH_ACCOUNT_DELETED"));
+        AuthTokens tokens = service.exchange(OauthProvider.KAKAO, "valid-token");
+
+        assertThat(tokens.accessToken()).isNotBlank();
+        assertThat(identity.getUserId()).isEqualTo(77L);
+        verify(userRepo).save(any(User.class));
+        verify(oauthRepo).save(identity);
     }
 
     @Test

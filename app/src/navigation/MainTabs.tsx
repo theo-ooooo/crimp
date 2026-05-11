@@ -16,6 +16,8 @@ import { fontFamily, fontSize, fontWeight, type Theme } from '@/lib/tokens';
 import { useReducedMotion } from '@/lib/useReducedMotion';
 import { useTokens } from '@/lib/useTokens';
 import CrewDetailScreen from '@/screens/CrewDetailScreen';
+import CrewFormScreen from '@/screens/CrewFormScreen';
+import CrewJoinRequestsScreen from '@/screens/CrewJoinRequestsScreen';
 import CrewListScreen from '@/screens/CrewListScreen';
 import FeedScreen from '@/screens/FeedScreen';
 import GymDetailScreen from '@/screens/GymDetailScreen';
@@ -154,6 +156,16 @@ function CrewsTabStack(): JSX.Element {
         name="CrewDetail"
         component={CrewDetailScreen}
         options={{ title: t('crew.detail.title') }}
+      />
+      <CrewsStack.Screen
+        name="CrewForm"
+        component={CrewFormScreen}
+        options={{ title: t('crew.form.title') }}
+      />
+      <CrewsStack.Screen
+        name="CrewJoinRequests"
+        component={CrewJoinRequestsScreen}
+        options={{ title: t('crew.requests.title') }}
       />
     </CrewsStack.Navigator>
   );

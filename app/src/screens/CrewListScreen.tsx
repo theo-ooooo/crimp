@@ -18,6 +18,7 @@ import { AuthHydrationGate } from '@/components/common/screen/AuthHydrationGate'
 import { Chip, CrimpIcon, Skeleton } from '@/components/common/primitives';
 import {
   CREW_LEVEL_OPTIONS,
+  CREW_REGION_OPTIONS,
   CREW_STYLE_OPTIONS,
   useCrewListScreen,
 } from '@/hooks/screens/useCrewListScreen';
@@ -27,7 +28,9 @@ import {
   fontFamily,
   fontSize,
   fontWeight,
+  letterSpacing,
   radius,
+  shadow,
   space,
   type Theme,
 } from '@/lib/tokens';
@@ -81,49 +84,59 @@ function CrewListContent({ accessToken }: { accessToken: string }): JSX.Element 
 
   const header = (
     <View style={styles.headerStack}>
-      <View>
-        <Text style={styles.eyebrow}>Crew</Text>
-        <Text style={styles.title}>{t('crew.list.title')}</Text>
+      <View style={styles.titleBlock}>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>{t('crew.list.title')}</Text>
+          <Pressable
+            onPress={() => navigation.navigate('CrewForm')}
+            accessibilityRole="button"
+            accessibilityLabel={t('crew.form.createCta')}
+            style={({ pressed }) => [
+              styles.createButton,
+              pressed ? styles.cardPressed : null,
+            ]}
+          >
+            <CrimpIcon.plus size={18} color={theme.accent.on} />
+          </Pressable>
+        </View>
         <Text style={styles.subtitle}>{t('crew.list.subtitle')}</Text>
       </View>
 
-      <View style={styles.searchField}>
-        <CrimpIcon.search size={20} color={theme.text3} />
-        <TextInput
-          value={state.searchText}
-          onChangeText={state.setSearchText}
-          placeholder={t('crew.list.searchPlaceholder')}
-          placeholderTextColor={theme.text4}
-          style={styles.searchInput}
-          autoCapitalize="none"
-          autoCorrect={false}
-          returnKeyType="search"
-          clearButtonMode="while-editing"
-          accessibilityLabel={t('crew.list.searchAccessibilityLabel')}
-        />
-        {state.searchText.length > 0 ? (
-          <Pressable
-            onPress={() => state.setSearchText('')}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={t('crew.list.searchClearLabel')}
-          >
-            <CrimpIcon.close size={18} color={theme.text3} />
-          </Pressable>
-        ) : null}
+      <View style={styles.searchWrap}>
+        <View style={styles.searchField}>
+          <CrimpIcon.search size={20} color={theme.text3} />
+          <TextInput
+            value={state.searchText}
+            onChangeText={state.setSearchText}
+            placeholder={t('crew.list.searchPlaceholder')}
+            placeholderTextColor={theme.text4}
+            style={styles.searchInput}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="search"
+            clearButtonMode="while-editing"
+            accessibilityLabel={t('crew.list.searchAccessibilityLabel')}
+          />
+          {state.searchText.length > 0 ? (
+            <Pressable
+              onPress={() => state.setSearchText('')}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t('crew.list.searchClearLabel')}
+              style={styles.searchClear}
+            >
+              <CrimpIcon.close size={18} color={theme.text3} />
+            </Pressable>
+          ) : null}
+        </View>
       </View>
 
-      <TextInput
-        value={state.region}
-        onChangeText={state.setRegion}
-        placeholder={t('crew.list.regionPlaceholder')}
-        placeholderTextColor={theme.text4}
-        style={styles.regionInput}
-        autoCapitalize="none"
-        autoCorrect={false}
-        returnKeyType="search"
+      <FilterRow
+        label={t('crew.list.regionFilterLabel')}
+        options={CREW_REGION_OPTIONS}
+        active={state.region}
+        onSelect={(next) => state.setRegion(next)}
       />
-
       <FilterRow
         label={t('crew.list.levelFilterLabel')}
         options={CREW_LEVEL_OPTIONS}
@@ -204,7 +217,7 @@ function CrewListContent({ accessToken }: { accessToken: string }): JSX.Element 
   );
 }
 
-function FilterRow<T extends CrewLevelBand | CrewStyle>({
+function FilterRow<T extends string>({
   label,
   options,
   active,
@@ -215,9 +228,11 @@ function FilterRow<T extends CrewLevelBand | CrewStyle>({
   active: T | null;
   onSelect: (next: T) => void;
 }): JSX.Element {
+  const theme = useTokens();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   return (
     <View style={filterStyles.block}>
-      <Text style={filterStyles.label}>{label}</Text>
+      <Text style={styles.filterLabel}>{label}</Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -239,6 +254,7 @@ function FilterRow<T extends CrewLevelBand | CrewStyle>({
 function CrewCard({ crew, onPress }: { crew: CrewItem; onPress: () => void }): JSX.Element {
   const theme = useTokens();
   const styles = useMemo(() => makeStyles(theme), [theme]);
+  const avatarText = Array.from(crew.name)[0] ?? 'C';
   return (
     <Pressable
       onPress={onPress}
@@ -246,27 +262,37 @@ function CrewCard({ crew, onPress }: { crew: CrewItem; onPress: () => void }): J
       accessibilityLabel={`${crew.name} ${t('crew.detail.title')}`}
       style={({ pressed }) => [styles.card, pressed ? styles.cardPressed : null]}
     >
-      <View style={styles.cardTop}>
-        <View style={styles.cardText}>
-          <View style={styles.cardTitleRow}>
-            <Text style={styles.cardTitle} numberOfLines={1}>{crew.name}</Text>
-            <StatusBadge status={crew.myStatus} />
-          </View>
-          <Text style={styles.cardSummary} numberOfLines={2}>
-            {crew.summary ?? t('crew.common.summaryFallback')}
+      <View style={styles.cardAvatar}>
+        <Text style={styles.cardAvatarText} allowFontScaling={false}>{avatarText}</Text>
+      </View>
+      <View style={styles.cardBody}>
+        <View style={styles.cardTopRow}>
+          <Text style={styles.cardTitle} numberOfLines={1}>{crew.name}</Text>
+          <StatusBadge status={crew.myStatus} />
+        </View>
+        <Text style={styles.cardSummary} numberOfLines={2}>
+          {crew.summary ?? t('crew.common.summaryFallback')}
+        </Text>
+        <View style={styles.metaRow}>
+          <Text style={styles.metaText} numberOfLines={1}>
+            {crew.region ?? t('crew.common.regionFallback')}
+          </Text>
+          <View style={styles.metaDot} />
+          <Text style={styles.metaText} numberOfLines={1}>
+            {crew.homeGym?.name ?? t('crew.common.homeGymFallback')}
           </Text>
         </View>
-        <CrimpIcon.chevR size={20} color={theme.text3} />
+        <View style={styles.metaRow}>
+          <Text style={styles.metaText}>{levelLabel(crew.levelBand)}</Text>
+          <View style={styles.metaDot} />
+          <Text style={styles.metaText}>{styleLabel(crew.style)}</Text>
+          <View style={styles.metaDot} />
+          <Text style={styles.metaText}>
+            {formatMemberCount(crew.memberCount, crew.capacity)}
+          </Text>
+        </View>
       </View>
-      <View style={styles.metaWrap}>
-        <InfoChip label={crew.region ?? t('crew.common.regionFallback')} />
-        <InfoChip label={crew.homeGym?.name ?? t('crew.common.homeGymFallback')} />
-        <InfoChip label={levelLabel(crew.levelBand)} />
-        <InfoChip label={styleLabel(crew.style)} />
-      </View>
-      <Text style={styles.memberText}>
-        {formatMemberCount(crew.memberCount, crew.capacity)}
-      </Text>
+      <CrimpIcon.chevR size={20} color={theme.text3} />
     </Pressable>
   );
 }
@@ -280,16 +306,6 @@ function StatusBadge({ status }: { status: CrewMyStatus }): JSX.Element | null {
   return (
     <View style={styles.statusBadge}>
       <Text style={styles.statusText}>{statusLabel(status)}</Text>
-    </View>
-  );
-}
-
-function InfoChip({ label }: { label: string }): JSX.Element {
-  const theme = useTokens();
-  const styles = useMemo(() => makeStyles(theme), [theme]);
-  return (
-    <View style={styles.infoChip}>
-      <Text style={styles.infoChipText} numberOfLines={1}>{label}</Text>
     </View>
   );
 }
@@ -340,7 +356,6 @@ function makeStyles(theme: Theme) {
     },
     content: {
       paddingHorizontal: space[5],
-      paddingTop: space[6],
       paddingBottom: space[10],
       gap: space[3],
     },
@@ -348,42 +363,51 @@ function makeStyles(theme: Theme) {
       flexGrow: 1,
     },
     headerStack: {
-      gap: space[3],
-      marginBottom: space[2],
-    },
-    eyebrow: {
-      fontFamily,
-      fontSize: fontSize.caption,
-      fontWeight: fontWeight.extrabold,
-      color: theme.accent.ink,
-      letterSpacing: 2,
-      textTransform: 'uppercase',
+      gap: space[4],
+      paddingTop: space[2],
       marginBottom: space[1],
+    },
+    titleBlock: {
+      gap: space[1],
+    },
+    titleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: space[3],
+    },
+    createButton: {
+      width: 40,
+      height: 40,
+      borderRadius: radius.full,
+      backgroundColor: theme.accent.base,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
     },
     title: {
       fontFamily,
       fontSize: fontSize.h1,
       fontWeight: fontWeight.extrabold,
       color: theme.text,
-      letterSpacing: -1.28,
+      letterSpacing: letterSpacing.h1,
     },
     subtitle: {
-      marginTop: space[1],
       fontFamily,
-      fontSize: fontSize.body,
+      fontSize: 13,
       fontWeight: fontWeight.medium,
       color: theme.text3,
-      lineHeight: fontSize.body * 1.5,
+    },
+    searchWrap: {
+      paddingBottom: space[1],
     },
     searchField: {
-      height: 48,
       borderRadius: radius.lg,
       backgroundColor: theme.subtle,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.hairline,
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: space[4],
+      paddingVertical: space[3],
       gap: space[2],
     },
     searchInput: {
@@ -392,97 +416,97 @@ function makeStyles(theme: Theme) {
       color: theme.text,
       fontFamily,
       fontSize: fontSize.body,
-      fontWeight: fontWeight.semibold,
+      fontWeight: fontWeight.medium,
+      letterSpacing: letterSpacing.body,
       padding: 0,
     },
-    regionInput: {
-      height: 48,
-      borderRadius: radius.lg,
-      backgroundColor: theme.bg,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.hairline,
-      color: theme.text,
-      fontFamily,
-      fontSize: fontSize.body,
-      fontWeight: fontWeight.semibold,
-      paddingHorizontal: space[4],
+    searchClear: {
+      padding: space[1],
     },
     card: {
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.hairline,
-      borderRadius: radius.xl,
-      backgroundColor: theme.bg,
-      padding: space[4],
+      flexDirection: 'row',
+      alignItems: 'center',
       gap: space[3],
+      borderRadius: radius.lg,
+      backgroundColor: theme.subtle,
+      padding: space[4],
+      ...shadow.xs,
     },
     cardPressed: {
-      opacity: 0.82,
+      opacity: 0.85,
     },
-    cardTop: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      justifyContent: 'space-between',
-      gap: space[2],
+    cardAvatar: {
+      width: 56,
+      height: 56,
+      borderRadius: radius.lg,
+      backgroundColor: theme.accent.soft,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
     },
-    cardText: {
+    cardAvatarText: {
+      fontFamily,
+      fontSize: fontSize.title,
+      fontWeight: fontWeight.extrabold,
+      color: theme.text,
+      letterSpacing: letterSpacing.title,
+    },
+    cardBody: {
       flex: 1,
       minWidth: 0,
       gap: space[1],
     },
-    cardTitleRow: {
+    cardTopRow: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'space-between',
       gap: space[2],
     },
     cardTitle: {
       flex: 1,
       fontFamily,
-      fontSize: fontSize.title,
-      fontWeight: fontWeight.extrabold,
+      fontSize: 17,
+      fontWeight: fontWeight.bold,
       color: theme.text,
-      letterSpacing: -0.36,
+      letterSpacing: letterSpacing.title,
     },
     cardSummary: {
       fontFamily,
-      fontSize: fontSize.body,
+      fontSize: 13,
       fontWeight: fontWeight.medium,
       color: theme.text2,
-      lineHeight: fontSize.body * 1.5,
+      lineHeight: 19,
     },
-    metaWrap: {
+    metaRow: {
       flexDirection: 'row',
-      flexWrap: 'wrap',
+      alignItems: 'center',
       gap: space[2],
     },
-    infoChip: {
-      maxWidth: '100%',
-      borderRadius: radius.full,
-      backgroundColor: theme.chip,
-      paddingHorizontal: space[3],
-      paddingVertical: space[1],
-    },
-    infoChipText: {
+    metaText: {
+      flexShrink: 1,
       fontFamily,
       fontSize: fontSize.caption,
-      fontWeight: fontWeight.bold,
+      fontWeight: fontWeight.semibold,
       color: theme.text2,
+    },
+    metaDot: {
+      width: 4,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: theme.text4,
+      flexShrink: 0,
     },
     statusBadge: {
       borderRadius: radius.full,
-      backgroundColor: theme.accent.soft,
+      backgroundColor: theme.chip,
       paddingHorizontal: space[2],
       paddingVertical: space[1],
+      flexShrink: 0,
     },
     statusText: {
       fontFamily,
       fontSize: 11,
       fontWeight: fontWeight.extrabold,
-      color: theme.accent.ink,
-    },
-    memberText: {
-      fontFamily,
-      fontSize: fontSize.caption,
-      fontWeight: fontWeight.semibold,
       color: theme.text3,
     },
     stateCard: {
@@ -507,18 +531,18 @@ function makeStyles(theme: Theme) {
     footer: {
       paddingVertical: space[5],
     },
+    filterLabel: {
+      fontFamily,
+      fontSize: fontSize.caption,
+      fontWeight: fontWeight.bold,
+      color: theme.text3,
+    },
   });
 }
 
 const filterStyles = StyleSheet.create({
   block: {
     gap: space[1],
-  },
-  label: {
-    fontFamily,
-    fontSize: fontSize.caption,
-    fontWeight: fontWeight.bold,
-    color: '#8B95A1',
   },
   row: {
     gap: space[2],

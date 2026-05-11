@@ -50,4 +50,8 @@ public class OauthIdentity {
     public static OauthIdentity link(Long userId, OauthProvider provider, String providerUid) {
         return new OauthIdentity(userId, provider, providerUid);
     }
+
+    public void relinkTo(Long userId) {
+        this.userId = userId;
+    }
 }

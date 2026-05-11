@@ -318,13 +318,20 @@
       "OPEN": "즉시 가입",
       "INVITE_ONLY": "초대 전용"
     },
+    "region": {
+      "ALL": "전체",
+      "SEOUL": "서울",
+      "GYEONGGI": "경기",
+      "INCHEON": "인천",
+      "BUSAN": "부산"
+    },
     "list": {
       "title": "크루 찾기",
       "subtitle": "지역, 레벨, 스타일이 맞는 등반 모임을 찾아보세요.",
       "searchPlaceholder": "크루 이름, 소개로 검색",
       "searchAccessibilityLabel": "크루 검색",
       "searchClearLabel": "검색어 지우기",
-      "regionPlaceholder": "지역 필터 예: 서울 강남",
+      "regionFilterLabel": "지역",
       "levelFilterLabel": "레벨",
       "styleFilterLabel": "스타일",
       "emptyTitle": "아직 표시할 크루가 없어요",
@@ -341,6 +348,10 @@
       "joinTitle": "가입",
       "requestJoinCta": "가입 요청",
       "cancelRequestCta": "가입 요청 취소",
+      "manageRequestsCta": "가입 요청 관리",
+      "leaveCrewCta": "크루 탈퇴",
+      "leaveConfirmTitle": "크루에서 탈퇴할까요?",
+      "leaveConfirmBody": "탈퇴 후에도 다시 가입 요청을 보낼 수 있습니다.",
       "alreadyMemberCta": "이미 가입한 크루",
       "openDisabledCta": "즉시 가입 준비 중",
       "inviteOnlyCta": "초대 전용 크루",
@@ -350,6 +361,39 @@
         "OPEN": "즉시 가입 크루입니다. 앱 즉시 가입 동작은 후속 화면에서 연결합니다.",
         "INVITE_ONLY": "초대 전용 크루입니다. 공개 화면에서는 가입 요청을 보낼 수 없습니다."
       }
+    },
+    "requests": {
+      "title": "가입 요청",
+      "subtitle": "대기 중인 요청을 확인하고 승인 또는 거절합니다.",
+      "crewFallback": "크루",
+      "emptyTitle": "대기 중인 요청이 없어요",
+      "emptyBody": "새 가입 요청이 생기면 이 화면에 표시됩니다.",
+      "errorTitle": "가입 요청을 불러오지 못했어요",
+      "messageFallback": "가입 메시지가 없습니다.",
+      "nicknameFallback": "탈퇴사용자",
+      "approveCta": "승인",
+      "rejectCta": "거절",
+      "approveConfirmTitle": "가입 요청을 승인할까요?",
+      "rejectConfirmTitle": "가입 요청을 거절할까요?"
+    },
+    "form": {
+      "title": "크루 만들기",
+      "subtitle": "공개 크루의 기본 정보를 설정합니다.",
+      "createCta": "크루 만들기",
+      "creating": "만드는 중...",
+      "nameLabel": "크루 이름",
+      "namePlaceholder": "예: 강남 퇴근볼더",
+      "nameValidation": "크루 이름은 2~30자로 입력해 주세요.",
+      "summaryLabel": "짧은 소개",
+      "summaryPlaceholder": "예: 평일 저녁 강남권 V3~V6",
+      "descriptionLabel": "소개",
+      "descriptionPlaceholder": "크루 분위기, 활동 요일, 찾는 멤버를 적어보세요.",
+      "regionLabel": "지역",
+      "levelLabel": "레벨",
+      "styleLabel": "스타일",
+      "capacityLabel": "정원",
+      "capacityPlaceholder": "미입력 시 제한 없음",
+      "capacityValidation": "정원은 2~200명 사이 숫자로 입력해 주세요."
     }
   },
   "profile": {

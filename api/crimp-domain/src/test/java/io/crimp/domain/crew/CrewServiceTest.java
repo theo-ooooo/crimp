@@ -205,6 +205,31 @@ class CrewServiceTest {
     }
 
     @Test
+    void requestJoin_allowsLeftMemberToRequestAgain() {
+        Crew crew = crew(55L, "01JCREW", 7L, null, "기존 크루");
+        when(crewRepository.findByExtIdForUpdate("01JCREW")).thenReturn(Optional.of(crew));
+        when(crewMemberRepository.existsByCrewIdAndUserIdAndStatus(55L, 8L, CrewMemberStatus.ACTIVE))
+                .thenReturn(false);
+        when(crewJoinRequestRepository.existsByCrewIdAndUserIdAndStatus(55L, 8L, CrewJoinRequestStatus.PENDING))
+                .thenReturn(false);
+        when(crewJoinRequestRepository.saveAndFlush(any(CrewJoinRequest.class))).thenAnswer(invocation -> {
+            CrewJoinRequest request = invocation.getArgument(0);
+            setField(request, "id", 92L);
+            setField(request, "extId", "01JREQ3");
+            return request;
+        });
+        when(crewJoinRequestRepository.findRowByExtId(any()))
+                .thenReturn(Optional.of(requestRow(92L, "01JREQ3", CrewJoinRequestStatus.PENDING)));
+
+        CrewJoinRequestView view = service.requestJoin(8L, "01JCREW",
+                new CreateCrewJoinRequestCommand(null));
+
+        assertThat(view.status()).isEqualTo(CrewJoinRequestStatus.PENDING);
+        verify(crewMemberRepository).existsByCrewIdAndUserIdAndStatus(
+                55L, 8L, CrewMemberStatus.ACTIVE);
+    }
+
+    @Test
     void requestJoin_rejectsDuplicatePendingRequestInSameCrew() {
         Crew crew = crew(55L, "01JCREW", 7L, null, "기존 크루");
         when(crewRepository.findByExtIdForUpdate("01JCREW")).thenReturn(Optional.of(crew));

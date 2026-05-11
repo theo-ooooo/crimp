@@ -18,6 +18,14 @@ export const CREW_STYLE_OPTIONS: Array<{ key: CrewStyle; labelKey: string }> = [
   { key: 'BOTH', labelKey: 'crew.style.BOTH' },
 ];
 
+export const CREW_REGION_OPTIONS: Array<{ key: string; labelKey: string }> = [
+  { key: '', labelKey: 'crew.region.ALL' },
+  { key: '서울', labelKey: 'crew.region.SEOUL' },
+  { key: '경기', labelKey: 'crew.region.GYEONGGI' },
+  { key: '인천', labelKey: 'crew.region.INCHEON' },
+  { key: '부산', labelKey: 'crew.region.BUSAN' },
+];
+
 export function useCrewListScreen(accessToken: string | null) {
   const [searchText, setSearchText] = useState('');
   const [debouncedQ, setDebouncedQ] = useState('');

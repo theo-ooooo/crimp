@@ -1,7 +1,8 @@
-import { useRoute, type RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import React, { useMemo } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,6 +15,7 @@ import { AuthHydrationGate } from '@/components/common/screen/AuthHydrationGate'
 import {
   useCancelMyCrewJoinRequest,
   useCrewQuery,
+  useLeaveCrew,
   useRequestCrewJoin,
 } from '@/hooks/queries/useCrews';
 import { toUserMessage } from '@/lib/api/errorMessage';
@@ -22,7 +24,9 @@ import {
   fontFamily,
   fontSize,
   fontWeight,
+  letterSpacing,
   radius,
+  shadow,
   space,
   type Theme,
 } from '@/lib/tokens';
@@ -33,7 +37,7 @@ import type {
   CrewMyStatus,
   CrewStyle,
 } from '@/lib/schemas/crew';
-import type { RootStackParamList } from '@/navigation/types';
+import type { RootStackNavigationProp, RootStackParamList } from '@/navigation/types';
 import { useTokenStore } from '@/store/tokenStore';
 
 export default function CrewDetailScreen(): JSX.Element {
@@ -72,6 +76,8 @@ function CrewDetailContent({
   const crewQuery = useCrewQuery(accessToken, extId);
   const requestJoin = useRequestCrewJoin(accessToken);
   const cancelJoin = useCancelMyCrewJoinRequest(accessToken);
+  const leaveCrew = useLeaveCrew(accessToken);
+  const navigation = useNavigation<RootStackNavigationProp<'CrewDetail'>>();
 
   if (crewQuery.isLoading) {
     return (
@@ -103,20 +109,28 @@ function CrewDetailContent({
     );
   }
 
-  const pending = requestJoin.isPending || cancelJoin.isPending;
-  const mutationError = requestJoin.error ?? cancelJoin.error;
+  const pending = requestJoin.isPending || cancelJoin.isPending || leaveCrew.isPending;
+  const mutationError = requestJoin.error ?? cancelJoin.error ?? leaveCrew.error;
+  const avatarText = Array.from(crew.name)[0] ?? 'C';
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.hero}>
-        <View style={styles.badgeRow}>
-          <StatusBadge status={crew.myStatus} />
-          <InfoChip label={joinPolicyLabel(crew.joinPolicy)} />
+        <View style={styles.heroTop}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText} allowFontScaling={false}>{avatarText}</Text>
+          </View>
+          <View style={styles.heroBody}>
+            <View style={styles.badgeRow}>
+              <StatusBadge status={crew.myStatus} />
+              <InfoChip label={joinPolicyLabel(crew.joinPolicy)} />
+            </View>
+            <Text style={styles.heroTitle}>{crew.name}</Text>
+            <Text style={styles.heroSummary}>
+              {crew.summary ?? t('crew.common.summaryFallback')}
+            </Text>
+          </View>
         </View>
-        <Text style={styles.heroTitle}>{crew.name}</Text>
-        <Text style={styles.heroSummary}>
-          {crew.summary ?? t('crew.common.summaryFallback')}
-        </Text>
         <View style={styles.statGrid}>
           <StatCard label={t('crew.detail.memberLabel')} value={memberValue(crew)} />
           <StatCard label={t('crew.detail.ownerLabel')} value={crew.owner.nickname ?? t('home.nicknameFallback')} />
@@ -144,6 +158,24 @@ function CrewDetailContent({
           disabled={pending}
           onRequest={() => requestJoin.mutate({ crewExtId: crew.extId, body: { message: null } })}
           onCancel={() => cancelJoin.mutate(crew.extId)}
+          onLeave={() => {
+            Alert.alert(
+              t('crew.detail.leaveConfirmTitle'),
+              t('crew.detail.leaveConfirmBody'),
+              [
+                { text: t('common.cancel'), style: 'cancel' },
+                {
+                  text: t('crew.detail.leaveCrewCta'),
+                  style: 'destructive',
+                  onPress: () => leaveCrew.mutate(crew.extId),
+                },
+              ],
+            );
+          }}
+          onManageRequests={() => navigation.navigate('CrewJoinRequests', {
+            crewExtId: crew.extId,
+            crewName: crew.name,
+          })}
         />
         {pending ? (
           <View style={styles.pendingRow}>
@@ -163,12 +195,23 @@ function JoinAction({
   disabled,
   onRequest,
   onCancel,
+  onLeave,
+  onManageRequests,
 }: {
   crew: CrewDetail;
   disabled: boolean;
   onRequest: () => void;
   onCancel: () => void;
+  onLeave: () => void;
+  onManageRequests: () => void;
 }): JSX.Element {
+  if (crew.myStatus === 'OWNER' || crew.myStatus === 'ADMIN') {
+    return (
+      <SecondaryButton onPress={onManageRequests}>
+        {t('crew.detail.manageRequestsCta')}
+      </SecondaryButton>
+    );
+  }
   if (crew.myStatus === 'PENDING') {
     return (
       <SecondaryButton
@@ -179,8 +222,12 @@ function JoinAction({
       </SecondaryButton>
     );
   }
-  if (crew.myStatus === 'MEMBER' || crew.myStatus === 'OWNER' || crew.myStatus === 'ADMIN') {
-    return <SecondaryButton disabled>{t('crew.detail.alreadyMemberCta')}</SecondaryButton>;
+  if (crew.myStatus === 'MEMBER') {
+    return (
+      <SecondaryButton onPress={onLeave} disabled={disabled}>
+        {disabled ? t('crew.detail.processing') : t('crew.detail.leaveCrewCta')}
+      </SecondaryButton>
+    );
   }
   if (crew.joinPolicy === 'OPEN') {
     return <SecondaryButton disabled>{t('crew.detail.openDisabledCta')}</SecondaryButton>;
@@ -264,9 +311,9 @@ function makeStyles(theme: Theme) {
   return StyleSheet.create({
     content: {
       paddingHorizontal: space[5],
-      paddingTop: space[6],
+      paddingTop: space[3],
       paddingBottom: space[10],
-      gap: space[4],
+      gap: space[3],
       backgroundColor: theme.bg,
     },
     safeArea: {
@@ -274,10 +321,38 @@ function makeStyles(theme: Theme) {
       backgroundColor: theme.bg,
     },
     hero: {
-      borderRadius: radius['2xl'],
+      borderRadius: radius.xl,
       backgroundColor: theme.subtle,
       padding: space[5],
       gap: space[3],
+      ...shadow.xs,
+    },
+    heroTop: {
+      flexDirection: 'row',
+      gap: space[4],
+      alignItems: 'center',
+    },
+    avatar: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: theme.accent.base,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+    },
+    avatarText: {
+      fontFamily,
+      fontSize: 28,
+      fontWeight: fontWeight.extrabold,
+      letterSpacing: -1.12,
+      color: theme.accent.on,
+      includeFontPadding: false,
+    },
+    heroBody: {
+      flex: 1,
+      minWidth: 0,
+      gap: space[1],
     },
     badgeRow: {
       flexDirection: 'row',
@@ -286,18 +361,17 @@ function makeStyles(theme: Theme) {
     },
     heroTitle: {
       fontFamily,
-      fontSize: 30,
+      fontSize: 22,
       fontWeight: fontWeight.extrabold,
       color: theme.text,
-      letterSpacing: -1.2,
-      lineHeight: 36,
+      letterSpacing: -0.66,
     },
     heroSummary: {
       fontFamily,
-      fontSize: fontSize.body,
-      fontWeight: fontWeight.semibold,
-      color: theme.text2,
-      lineHeight: fontSize.body * 1.5,
+      fontSize: 13,
+      fontWeight: fontWeight.medium,
+      color: theme.text3,
+      lineHeight: 19,
     },
     statGrid: {
       flexDirection: 'row',
@@ -305,7 +379,7 @@ function makeStyles(theme: Theme) {
     },
     statCard: {
       flex: 1,
-      borderRadius: radius.xl,
+      borderRadius: radius.lg,
       backgroundColor: theme.bg,
       padding: space[4],
       gap: space[1],
@@ -321,20 +395,20 @@ function makeStyles(theme: Theme) {
       fontSize: fontSize.title,
       fontWeight: fontWeight.extrabold,
       color: theme.text,
+      letterSpacing: letterSpacing.title,
     },
     section: {
       borderRadius: radius.xl,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.hairline,
-      backgroundColor: theme.bg,
+      backgroundColor: theme.subtle,
       padding: space[5],
       gap: space[3],
     },
     sectionTitle: {
       fontFamily,
       fontSize: fontSize.title,
-      fontWeight: fontWeight.extrabold,
+      fontWeight: fontWeight.bold,
       color: theme.text,
+      letterSpacing: letterSpacing.title,
     },
     bodyText: {
       fontFamily,
@@ -363,7 +437,7 @@ function makeStyles(theme: Theme) {
     },
     statusBadge: {
       borderRadius: radius.full,
-      backgroundColor: theme.accent.soft,
+      backgroundColor: theme.chip,
       paddingHorizontal: space[3],
       paddingVertical: space[1],
     },
@@ -371,7 +445,7 @@ function makeStyles(theme: Theme) {
       fontFamily,
       fontSize: fontSize.caption,
       fontWeight: fontWeight.extrabold,
-      color: theme.accent.ink,
+      color: theme.text3,
     },
     pendingRow: {
       minHeight: 20,

@@ -212,3 +212,10 @@ sequenceDiagram
 - `PRIVATE`/초대 링크 도입 시점.
 - 멤버 강제 추방과 owner 양도 정책.
 - 알림 도메인 연결 방식.
+
+## 9. 계정 탈퇴와 재가입
+
+- 회원 탈퇴는 `users` 를 soft-delete 하되, 공개 컨텐츠와 크루 멤버 이력은 삭제하지 않고 `탈퇴사용자` 로 익명화한다.
+- 탈퇴 시 대기 중인 `crew_join_requests` 는 `CANCELED` 로 정리한다.
+- 같은 OAuth 계정으로 재가입하면 새 user 행을 만들고 OAuth identity 를 새 user 로 재연결한다. 새 user 는 기존 탈퇴 user 의 `crew_members` PK 와 무관하므로 같은 크루에 새 가입 요청을 보낼 수 있다.
+- 크루 탈퇴(`DELETE /crews/{extId}/members/me`)는 계정 탈퇴와 별개이며, `LEFT` 멤버는 승인 시 기존 `crew_members` 행을 `ACTIVE MEMBER` 로 재활성화한다.
