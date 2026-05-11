@@ -202,6 +202,38 @@ class AuthServiceTest {
     }
 
     @Test
+    void exchangeCode_existingDeletedUser_createsFreshUserAndRelinksIdentity() {
+        when(kakaoExchanger.exchange("auth-code-1", "https://app/callback"))
+                .thenReturn("verified-id-token");
+
+        OauthUserInfo info = new OauthUserInfo(OauthProvider.KAKAO, "kakao-uid-1", "a@b.com", null);
+        when(kakaoVerifier.verify("verified-id-token")).thenReturn(info);
+
+        OauthIdentity identity = OauthIdentity.link(10L, OauthProvider.KAKAO, "kakao-uid-1");
+        setField(identity, "userId", 10L);
+        when(oauthRepo.findByProviderAndProviderUid(OauthProvider.KAKAO, "kakao-uid-1"))
+                .thenReturn(Optional.of(identity));
+
+        User existing = User.create("01HXXXXXXX", "hash", null);
+        setField(existing, "id", 10L);
+        existing.deleteAccount();
+        when(userRepo.findById(10L)).thenReturn(Optional.of(existing));
+        when(userRepo.save(any(User.class))).thenAnswer(inv -> {
+            User u = inv.getArgument(0);
+            setField(u, "id", 88L);
+            return u;
+        });
+
+        AuthTokens tokens = service.exchangeCode(
+                OauthProvider.KAKAO, "auth-code-1", "https://app/callback");
+
+        assertThat(tokens.accessToken()).isNotBlank();
+        assertThat(identity.getUserId()).isEqualTo(88L);
+        verify(userRepo).save(any(User.class));
+        verify(oauthRepo).save(identity);
+    }
+
+    @Test
     void exchangeCode_newUser_createsAndIssues() {
         when(kakaoExchanger.exchange(eq("c"), eq("https://app/callback")))
                 .thenReturn("verified-id-token");
