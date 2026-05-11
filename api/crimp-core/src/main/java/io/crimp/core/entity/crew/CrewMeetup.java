@@ -55,6 +55,9 @@ public class CrewMeetup extends SoftDeletableEntity {
     @Column(name = "location", length = 100)
     private String location;
 
+    @Column(name = "is_outdoor", nullable = false)
+    private boolean outdoor;
+
     @Column(name = "capacity")
     private Short capacity;
 
@@ -64,7 +67,7 @@ public class CrewMeetup extends SoftDeletableEntity {
 
     @Builder
     private CrewMeetup(String extId, Long crewId, Long createdBy, Long gymId, String title, String description,
-                       Instant startsAt, Instant endsAt, String location, Short capacity,
+                       Instant startsAt, Instant endsAt, String location, boolean outdoor, Short capacity,
                        MeetupJoinPolicy joinPolicy) {
         this.extId = extId;
         this.crewId = crewId;
@@ -75,18 +78,20 @@ public class CrewMeetup extends SoftDeletableEntity {
         this.startsAt = startsAt;
         this.endsAt = endsAt;
         this.location = location;
+        this.outdoor = outdoor;
         this.capacity = capacity;
         this.joinPolicy = joinPolicy == null ? MeetupJoinPolicy.OPEN : joinPolicy;
     }
 
     public void updateBasic(String title, String description, Long gymId, Instant startsAt, Instant endsAt,
-                            String location, Short capacity, MeetupJoinPolicy joinPolicy) {
+                            String location, boolean outdoor, Short capacity, MeetupJoinPolicy joinPolicy) {
         this.title = title;
         this.description = description;
         this.gymId = gymId;
         this.startsAt = startsAt;
         this.endsAt = endsAt;
         this.location = location;
+        this.outdoor = outdoor;
         this.capacity = capacity;
         this.joinPolicy = joinPolicy;
     }

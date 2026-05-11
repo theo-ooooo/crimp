@@ -307,12 +307,13 @@ public class CrewController {
             Instant endsAt,
             @Size(min = 26, max = 26) String gymExtId,
             @Size(max = 100) String location,
+            boolean outdoor,
             @Min(2) @Max(200) Integer capacity,
             String joinPolicy
     ) {
         CreateCrewMeetupCommand toCommand() {
-            return new CreateCrewMeetupCommand(title, description, startsAt, endsAt, gymExtId, location, capacity,
-                    joinPolicy);
+            return new CreateCrewMeetupCommand(title, description, startsAt, endsAt, gymExtId, location, outdoor,
+                    capacity, joinPolicy);
         }
     }
 
@@ -341,6 +342,7 @@ public class CrewController {
             String gymExtId,
             String gymName,
             String location,
+            boolean outdoor,
             Integer capacity,
             String joinPolicy,
             Integer participantCount,
@@ -355,7 +357,7 @@ public class CrewController {
             }
             return new CrewMeetupItem(v.extId(), v.title(), v.description(), v.startsAt(), v.endsAt(),
                     v.crewExtId(), v.crewName(), v.gymExtId(), v.gymName(),
-                    v.location(), v.capacity(), v.joinPolicy(), v.participantCount(), v.myParticipation(),
+                    v.location(), v.outdoor(), v.capacity(), v.joinPolicy(), v.participantCount(), v.myParticipation(),
                     MeetupHost.of(v.host()), v.canManage(), v.createdAt());
         }
     }

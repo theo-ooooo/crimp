@@ -9,6 +9,7 @@ public record CreateCrewMeetupCommand(
         Instant endsAt,
         String gymExtId,
         String location,
+        boolean outdoor,
         Integer capacity,
         String joinPolicy
 ) {}

@@ -414,9 +414,38 @@ class CrewServiceTest {
         assertThatThrownBy(() -> service.createMeetup(7L, null, new CreateCrewMeetupCommand(
                 "퇴근 볼더링", null,
                 Instant.now().minusSeconds(120), null,
-                null, "강남", 8, "OPEN")))
+                null, "강남", false, 8, "OPEN")))
                 .isInstanceOf(CrewException.class)
                 .satisfies(e -> assertThat(((CrewException) e).code()).isEqualTo("INVALID_CREW_MEETUP_REQUEST"));
+    }
+
+    @Test
+    void createMeetup_setsOutdoorFlag() {
+        when(meetupParticipantRepository.countByMeetupIdAndStatus(any(), any())).thenReturn(0L);
+        when(meetupParticipantRepository.existsByMeetupIdAndUserIdAndStatus(any(), any(), any())).thenReturn(false);
+
+        service.createMeetup(7L, null, new CreateCrewMeetupCommand(
+                "인수봉 등반", null,
+                Instant.now().plusSeconds(86400), null,
+                null, "북한산", true, 6, "OPEN"));
+
+        verify(crewMeetupRepository).saveAndFlush(
+                org.mockito.ArgumentMatchers.argThat(m -> m.isOutdoor()));
+    }
+
+    @Test
+    void listAllMeetups_nearWithoutCoordinates_throws() {
+        assertThatThrownBy(() -> service.listAllMeetups(7L, 10, true, null, null, null, null, false))
+                .isInstanceOf(CrewException.class)
+                .satisfies(e -> assertThat(((CrewException) e).code()).isEqualTo("INVALID_MEETUP_FILTER"));
+    }
+
+    @Test
+    void listAllMeetups_nearWithOnlyLat_throws() {
+        assertThatThrownBy(() -> service.listAllMeetups(
+                7L, 10, true, new BigDecimal("37.5000000"), null, null, null, false))
+                .isInstanceOf(CrewException.class)
+                .satisfies(e -> assertThat(((CrewException) e).code()).isEqualTo("INVALID_MEETUP_FILTER"));
     }
 
     @Test

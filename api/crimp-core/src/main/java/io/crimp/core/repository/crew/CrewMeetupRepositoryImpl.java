@@ -59,22 +59,7 @@ public class CrewMeetupRepositoryImpl implements CrewMeetupRepositoryCustom {
             }
         }
         if (outdoor) {
-            where.and(
-                    meetup.title.containsIgnoreCase("외벽")
-                            .or(meetup.title.containsIgnoreCase("야외"))
-                            .or(meetup.title.containsIgnoreCase("아웃도어"))
-                            .or(meetup.title.containsIgnoreCase("outdoor"))
-                            .or(meetup.description.containsIgnoreCase("외벽"))
-                            .or(meetup.description.containsIgnoreCase("야외"))
-                            .or(meetup.description.containsIgnoreCase("아웃도어"))
-                            .or(meetup.description.containsIgnoreCase("outdoor"))
-                            .or(meetup.location.containsIgnoreCase("외벽"))
-                            .or(meetup.location.containsIgnoreCase("야외"))
-                            .or(meetup.location.containsIgnoreCase("아웃도어"))
-                            .or(meetup.location.containsIgnoreCase("outdoor"))
-                            .or(gym.featuresJson.containsIgnoreCase("outdoor"))
-                            .or(gym.featuresJson.containsIgnoreCase("outside"))
-            );
+            where.and(meetup.outdoor.isTrue());
         }
 
         var query = jpaQueryFactory
@@ -87,7 +72,7 @@ public class CrewMeetupRepositoryImpl implements CrewMeetupRepositoryCustom {
         if (nearMode) {
             var distance = com.querydsl.core.types.dsl.Expressions.numberTemplate(
                     Double.class,
-                    "sqrt(power({0} - {1}, 2) + power({2} - {3}, 2))",
+                    "power({0} - {1}, 2) + power({2} - {3}, 2)",
                     gym.lat,
                     centerLat,
                     gym.lng,

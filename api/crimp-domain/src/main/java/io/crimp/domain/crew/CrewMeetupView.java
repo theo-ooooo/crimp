@@ -13,6 +13,7 @@ public record CrewMeetupView(
         String gymExtId,
         String gymName,
         String location,
+        boolean outdoor,
         Integer capacity,
         String joinPolicy,
         Integer participantCount,

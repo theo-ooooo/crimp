@@ -103,6 +103,7 @@ class MeetupControllerTest {
                                 null,
                                 "01JGYM00000000000000000000",
                                 null,
+                                false,
                                 8,
                                 "OPEN"))))
                 .andExpect(status().isOk())
@@ -125,6 +126,7 @@ class MeetupControllerTest {
                                 null,
                                 null,
                                 "강남",
+                                false,
                                 8,
                                 "OPEN"))))
                 .andExpect(status().isBadRequest())
@@ -154,6 +156,7 @@ class MeetupControllerTest {
                                 null,
                                 null,
                                 "강남",
+                                null,
                                 10,
                                 "APPROVAL"))))
                 .andExpect(status().isOk())
@@ -200,6 +203,7 @@ class MeetupControllerTest {
                 "01JGYM00000000000000000000",
                 "더클라임 강남점",
                 "더클라임 강남점",
+                false,
                 8,
                 "OPEN",
                 0,

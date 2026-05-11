@@ -169,12 +169,13 @@ public class MeetupController {
             @Size(min = 26, max = 26) String crewExtId,
             @Size(min = 26, max = 26) String gymExtId,
             @Size(max = 100) String location,
+            boolean outdoor,
             @Min(2) @Max(200) Integer capacity,
             String joinPolicy
     ) {
         CreateCrewMeetupCommand toCommand() {
-            return new CreateCrewMeetupCommand(title, description, startsAt, endsAt, gymExtId, location, capacity,
-                    joinPolicy);
+            return new CreateCrewMeetupCommand(title, description, startsAt, endsAt, gymExtId, location, outdoor,
+                    capacity, joinPolicy);
         }
     }
 
@@ -185,12 +186,13 @@ public class MeetupController {
             Instant endsAt,
             @Size(min = 26, max = 26) String gymExtId,
             @Size(max = 100) String location,
+            Boolean outdoor,
             @Min(2) @Max(200) Integer capacity,
             String joinPolicy
     ) {
         UpdateCrewMeetupCommand toCommand() {
-            return new UpdateCrewMeetupCommand(title, description, startsAt, endsAt, gymExtId, location, capacity,
-                    joinPolicy);
+            return new UpdateCrewMeetupCommand(title, description, startsAt, endsAt, gymExtId, location, outdoor,
+                    capacity, joinPolicy);
         }
     }
 
@@ -211,6 +213,7 @@ public class MeetupController {
             String gymExtId,
             String gymName,
             String location,
+            boolean outdoor,
             Integer capacity,
             String joinPolicy,
             Integer participantCount,
@@ -221,9 +224,9 @@ public class MeetupController {
     ) {
         static MeetupItem of(CrewMeetupView v) {
             return new MeetupItem(v.extId(), v.title(), v.description(), v.startsAt(), v.endsAt(),
-                    v.crewExtId(), v.crewName(), v.gymExtId(), v.gymName(), v.location(), v.capacity(),
-                    v.joinPolicy(), v.participantCount(), v.myParticipation(), MeetupHost.of(v.host()),
-                    v.canManage(), v.createdAt());
+                    v.crewExtId(), v.crewName(), v.gymExtId(), v.gymName(), v.location(), v.outdoor(),
+                    v.capacity(), v.joinPolicy(), v.participantCount(), v.myParticipation(),
+                    MeetupHost.of(v.host()), v.canManage(), v.createdAt());
         }
     }
 
