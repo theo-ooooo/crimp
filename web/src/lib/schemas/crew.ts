@@ -35,7 +35,7 @@ export const CrewHomeGymSchema = z.object({
 export type CrewHomeGym = z.infer<typeof CrewHomeGymSchema>;
 
 export const CrewOwnerSchema = z.object({
-  extId: z.string(),
+  extId: z.string().nullable(),
   nickname: z.string().nullable(),
 });
 

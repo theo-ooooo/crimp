@@ -565,14 +565,59 @@ class UserServiceTest {
         when(userRepo.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(crewJoinRequestRepo.findAllByUserIdAndStatus(1L, CrewJoinRequestStatus.PENDING))
                 .thenReturn(List.of());
+        when(crewMemberRepo.findCrewIdsByUserIdAndStatus(1L, CrewMemberStatus.ACTIVE))
+                .thenReturn(List.of(55L));
+        when(crewRepo.findAllByIdInForUpdate(List.of(55L))).thenReturn(List.of(crew));
         when(crewMemberRepo.findAllByUserIdAndStatus(1L, CrewMemberStatus.ACTIVE))
                 .thenReturn(List.of(member));
-        when(crewRepo.findAllByIdInForUpdate(List.of(55L))).thenReturn(List.of(crew));
 
         service.deleteMe(1L);
 
         assertThat(member.getStatus()).isEqualTo(CrewMemberStatus.LEFT);
         assertThat(crew.getMemberCount()).isEqualTo(11);
+        assertThat(user.getStatus()).isEqualTo(UserStatus.DELETED);
+    }
+
+    @Test
+    void deleteMe_rechecksActiveMembershipsAfterCrewLock_beforeDecrementingCounts() {
+        User user = user(1L, "01HDELETE__");
+        Crew crew = crew(55L, "01JCREW", 12);
+        when(userRepo.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(crewJoinRequestRepo.findAllByUserIdAndStatus(1L, CrewJoinRequestStatus.PENDING))
+                .thenReturn(List.of());
+        when(crewMemberRepo.findCrewIdsByUserIdAndStatus(1L, CrewMemberStatus.ACTIVE))
+                .thenReturn(List.of(55L));
+        when(crewRepo.findAllByIdInForUpdate(List.of(55L))).thenReturn(List.of(crew));
+        when(crewMemberRepo.findAllByUserIdAndStatus(1L, CrewMemberStatus.ACTIVE))
+                .thenReturn(List.of());
+
+        service.deleteMe(1L);
+
+        assertThat(crew.getMemberCount()).isEqualTo(12);
+        assertThat(user.getStatus()).isEqualTo(UserStatus.DELETED);
+    }
+
+    @Test
+    void deleteMe_softDeletesCrew_whenLeavingSoleOwnerMembership() {
+        User user = user(1L, "01HDELETE__");
+        CrewMember member = CrewMember.create(55L, 1L, CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE);
+        Crew crew = crew(55L, "01JCREW", 12);
+        when(userRepo.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(crewJoinRequestRepo.findAllByUserIdAndStatus(1L, CrewJoinRequestStatus.PENDING))
+                .thenReturn(List.of());
+        when(crewMemberRepo.findCrewIdsByUserIdAndStatus(1L, CrewMemberStatus.ACTIVE))
+                .thenReturn(List.of(55L));
+        when(crewRepo.findAllByIdInForUpdate(List.of(55L))).thenReturn(List.of(crew));
+        when(crewMemberRepo.findAllByUserIdAndStatus(1L, CrewMemberStatus.ACTIVE))
+                .thenReturn(List.of(member));
+        when(crewMemberRepo.countByCrewIdAndRoleAndStatus(55L, CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE))
+                .thenReturn(1L);
+
+        service.deleteMe(1L);
+
+        assertThat(member.getStatus()).isEqualTo(CrewMemberStatus.LEFT);
+        assertThat(crew.getMemberCount()).isEqualTo(11);
+        assertThat(crew.isDeleted()).isTrue();
         assertThat(user.getStatus()).isEqualTo(UserStatus.DELETED);
     }
 

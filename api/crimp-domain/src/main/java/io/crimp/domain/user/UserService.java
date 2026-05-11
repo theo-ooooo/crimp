@@ -7,6 +7,7 @@ import io.crimp.core.entity.enums.MediaKind;
 import io.crimp.core.entity.enums.MediaStatus;
 import io.crimp.core.entity.enums.MediaUsage;
 import io.crimp.core.entity.enums.CrewJoinRequestStatus;
+import io.crimp.core.entity.enums.CrewMemberRole;
 import io.crimp.core.entity.enums.CrewMemberStatus;
 import io.crimp.core.entity.enums.GymStatus;
 import io.crimp.core.entity.enums.UserStatus;
@@ -160,19 +161,26 @@ public class UserService {
     }
 
     private void leaveActiveCrewMemberships(long userId) {
-        var memberships = crewMemberRepo.findAllByUserIdAndStatus(userId, CrewMemberStatus.ACTIVE);
-        if (memberships.isEmpty()) {
+        var crewIds = crewMemberRepo.findCrewIdsByUserIdAndStatus(userId, CrewMemberStatus.ACTIVE);
+        if (crewIds.isEmpty()) {
             return;
         }
-        Map<Long, Crew> crewsById = crewRepo.findAllByIdInForUpdate(
-                        memberships.stream().map(CrewMember::getCrewId).toList())
+        Map<Long, Crew> crewsById = crewRepo.findAllByIdInForUpdate(crewIds)
                 .stream()
                 .collect(Collectors.toMap(Crew::getId, Function.identity()));
+        var memberships = crewMemberRepo.findAllByUserIdAndStatus(userId, CrewMemberStatus.ACTIVE);
         for (CrewMember member : memberships) {
-            member.leave();
             Crew crew = crewsById.get(member.getCrewId());
+            boolean archiveCrew = crew != null
+                    && member.getRole() == CrewMemberRole.OWNER
+                    && crewMemberRepo.countByCrewIdAndRoleAndStatus(
+                    member.getCrewId(), CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE) <= 1;
+            member.leave();
             if (crew != null) {
                 crew.decrementMemberCount();
+                if (archiveCrew) {
+                    crew.softDelete();
+                }
             }
         }
     }

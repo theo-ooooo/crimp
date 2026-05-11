@@ -1,9 +1,9 @@
 package io.crimp.core.repository.crew;
 
 import com.querydsl.core.BooleanBuilder;
+import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.core.types.dsl.Expressions;
-import com.querydsl.core.types.Projections;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import io.crimp.core.entity.crew.QCrew;
 import io.crimp.core.entity.crew.QCrewJoinRequest;
