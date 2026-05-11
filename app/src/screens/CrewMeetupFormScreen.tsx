@@ -434,19 +434,23 @@ function CalendarPicker({
               accessibilityRole="button"
               style={({ pressed }) => [
                 styles.dayCell,
-                !day.inMonth ? styles.dayCellMuted : null,
-                active ? styles.dayCellActive : null,
                 pressed ? styles.pressed : null,
               ]}
             >
-              <Text style={[
-                styles.dayText,
-                !day.inMonth ? styles.dayTextMuted : null,
-                active ? styles.dayTextActive : null,
-              ]}
-              >
-                {day.date.getDate()}
-              </Text>
+              <View style={[
+                styles.dayButton,
+                !day.inMonth ? styles.dayButtonMuted : null,
+                active ? styles.dayButtonActive : null,
+              ]}>
+                <Text style={[
+                  styles.dayText,
+                  !day.inMonth ? styles.dayTextMuted : null,
+                  active ? styles.dayTextActive : null,
+                ]}
+                >
+                  {day.date.getDate()}
+                </Text>
+              </View>
             </Pressable>
           );
         })}
@@ -638,10 +642,16 @@ function makeStyles(theme: Theme) {
       aspectRatio: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: radius.md,
     },
-    dayCellMuted: { opacity: 0.35 },
-    dayCellActive: { backgroundColor: theme.accent.base },
+    dayButton: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    dayButtonMuted: { opacity: 0.35 },
+    dayButtonActive: { backgroundColor: theme.accent.base, opacity: 1 },
     dayText: {
       fontFamily,
       fontSize: fontSize.caption,
