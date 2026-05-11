@@ -42,6 +42,7 @@ import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.time.Instant;
 
@@ -216,10 +217,21 @@ public class CrewService {
 
     @Transactional(readOnly = true)
     public List<CrewMeetupView> listAllMeetups(Long viewerUserId, Integer size) {
+        return listAllMeetups(viewerUserId, size, false, null, null, null, null, false);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CrewMeetupView> listAllMeetups(Long viewerUserId, Integer size, boolean near,
+                                               BigDecimal lat, BigDecimal lng,
+                                               String levelBand, String style, boolean outdoor) {
         int pageSize = capSize(size);
+        CrewLevelBand parsedLevelBand = parseEnum(CrewLevelBand.class, levelBand, "INVALID_CREW_MEETUP_REQUEST");
+        CrewStyle parsedStyle = parseEnum(CrewStyle.class, style, "INVALID_CREW_MEETUP_REQUEST");
+        BigDecimal centerLat = near ? lat : null;
+        BigDecimal centerLng = near ? lng : null;
         return crewMeetupRepository
-                .findByDeletedAtIsNullAndStartsAtGreaterThanEqualOrderByStartsAtAscIdAsc(
-                        Instant.now(), PageRequest.of(0, pageSize))
+                .searchUpcoming(Instant.now(), centerLat, centerLng, parsedLevelBand, parsedStyle, outdoor,
+                        PageRequest.of(0, pageSize))
                 .stream()
                 .map(meetup -> toMeetupView(meetup, viewerUserId))
                 .toList();

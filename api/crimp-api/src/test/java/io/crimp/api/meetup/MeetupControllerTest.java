@@ -58,13 +58,34 @@ class MeetupControllerTest {
 
     @Test
     void list_http_mapsGlobalMeetups() throws Exception {
-        when(crewService.listAllMeetups(7L, 20)).thenReturn(List.of(meetupView()));
+        when(crewService.listAllMeetups(7L, 20, false, null, null, null, null, false)).thenReturn(List.of(meetupView()));
 
         mockMvc.perform(get("/api/v1/meetups").param("size", "20"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value(true))
                 .andExpect(jsonPath("$.data.items[0].extId").value("01JMEETUP"))
                 .andExpect(jsonPath("$.data.items[0].gymName").value("더클라임 강남점"));
+    }
+
+    @Test
+    void list_http_forwardsFilters() throws Exception {
+        when(crewService.listAllMeetups(
+                eq(7L), eq(20), eq(true), any(), any(), eq("BEGINNER"), eq("LEAD"), eq(true)))
+                .thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/meetups")
+                        .param("size", "20")
+                        .param("near", "true")
+                        .param("lat", "37.5")
+                        .param("lng", "127.0")
+                        .param("levelBand", "BEGINNER")
+                        .param("style", "LEAD")
+                        .param("outdoor", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items").isArray());
+
+        verify(crewService).listAllMeetups(
+                eq(7L), eq(20), eq(true), any(), any(), eq("BEGINNER"), eq("LEAD"), eq(true));
     }
 
     @Test

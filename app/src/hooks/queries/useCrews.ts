@@ -44,6 +44,7 @@ import type {
   CrewMeetup,
   CrewMeetupList,
   JoinMeetupBody,
+  MeetupListFilters,
   MeetupParticipant,
   MeetupParticipantList,
   UpdateCrewBody,
@@ -72,8 +73,8 @@ export function crewMeetupsQueryKey(extId: string) {
   return ['crew', extId, 'meetups'] as const;
 }
 
-export function meetupsQueryKey() {
-  return ['meetups'] as const;
+export function meetupsQueryKey(filters?: MeetupListFilters) {
+  return filters ? (['meetups', filters] as const) : (['meetups'] as const);
 }
 
 export function meetupQueryKey(extId: string) {
@@ -344,16 +345,18 @@ export function useCreateCrewMeetup(accessToken: string | null) {
   });
 }
 
-export function useMeetupsQuery(accessToken: string | null, size?: number) {
+export function useMeetupsQuery(accessToken: string | null, size?: number, filters?: MeetupListFilters) {
+  const hasRequiredLocation = filters?.near !== true
+    || (typeof filters.lat === 'number' && typeof filters.lng === 'number');
   return useQuery<CrewMeetupList>({
-    queryKey: meetupsQueryKey(),
+    queryKey: meetupsQueryKey(filters),
     queryFn: ({ signal }) => {
       if (!accessToken) {
         return Promise.reject(new Error('access token is required'));
       }
-      return fetchMeetups(accessToken, size, signal);
+      return fetchMeetups(accessToken, size, filters, signal);
     },
-    enabled: Boolean(accessToken),
+    enabled: Boolean(accessToken) && hasRequiredLocation,
     retry: 0,
   });
 }

@@ -48,6 +48,7 @@ import {
   type CrewLevelBand,
   type CrewStyle,
   type JoinMeetupBody,
+  type MeetupListFilters,
   type MeetupParticipant,
   type MeetupParticipantList,
   type UpdateCrewBody,
@@ -91,7 +92,7 @@ import {
 import { apiRequest } from './client';
 
 function buildQueryString(
-  entries: Array<[key: string, value: string | number | null | undefined]>,
+  entries: Array<[key: string, value: string | number | boolean | null | undefined]>,
 ): string {
   const parts: string[] = [];
   for (const [key, value] of entries) {
@@ -757,9 +758,18 @@ export function createCrewMeetup(
 export function fetchMeetups(
   accessToken: string,
   size?: number,
+  filters?: MeetupListFilters,
   signal?: AbortSignal,
 ): Promise<CrewMeetupList> {
-  const qs = buildQueryString([['size', size]]);
+  const qs = buildQueryString([
+    ['size', size],
+    ['near', filters?.near === true ? true : undefined],
+    ['lat', filters?.lat],
+    ['lng', filters?.lng],
+    ['levelBand', filters?.levelBand],
+    ['style', filters?.style],
+    ['outdoor', filters?.outdoor === true ? true : undefined],
+  ]);
   return apiRequest({
     method: 'GET',
     path: `/api/v1/meetups${qs ? `?${qs}` : ''}`,

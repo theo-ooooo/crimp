@@ -236,7 +236,7 @@
 | POST | `/api/v1/crews` | 크루 생성. 생성자는 `OWNER` 멤버가 된다. `imageMediaId` 전달 시 호출자 소유 READY CREW IMAGE 만 연결 |
 | GET | `/api/v1/crews/{extId}` | 크루 상세. 기본 정보, 대표 이미지, 대표 암장, owner, 내 가입 상태 |
 | PATCH | `/api/v1/crews/{extId}` | 크루 기본 정보/대표 이미지 수정 (`OWNER`/`ADMIN`). `clearImage=true` 로 대표 이미지 해제 |
-| GET | `/api/v1/meetups?size=` | 전체 예정 모임 목록. 크루 소속 여부와 무관하게 시작 시각 오름차순 |
+| GET | `/api/v1/meetups?size=&near=&lat=&lng=&levelBand=&style=&outdoor=` | 전체 예정 모임 목록. 크루 소속 여부와 무관하게 시작 시각 오름차순. `near=true` 는 클라이언트 현재 위치 좌표(`lat`,`lng`) 기준 거리순, `levelBand`/`style` 은 연결된 크루 기준, `outdoor=true` 는 외벽/아웃도어 키워드 기준 |
 | POST | `/api/v1/meetups` | 독립 모임 또는 크루 모임 생성. Body: `{ title, description?, startsAt, endsAt?, crewExtId?, gymExtId?, location?, capacity?, joinPolicy? }`. 생성자는 자동 참여 |
 | GET | `/api/v1/meetups/{extId}` | 모임 상세. 장소, 크루, 참여 방식, 참여 인원, 내 참여 상태, 방장(`host`), 내 관리 가능 여부(`canManage`) 포함 |
 | PATCH | `/api/v1/meetups/{extId}` | 모임 수정. 시작 전 모임만 가능. 독립 모임은 방장, 크루 모임은 방장 또는 크루 `OWNER`/`ADMIN` 가능 |

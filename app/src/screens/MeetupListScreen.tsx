@@ -1,14 +1,18 @@
 import { useNavigation } from '@react-navigation/native';
-import React, { useMemo } from 'react';
+import Geolocation from '@react-native-community/geolocation';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   View,
   type ListRenderItem,
 } from 'react-native';
+import { check, PERMISSIONS, request, RESULTS, type Permission } from 'react-native-permissions';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CrimpIcon, Skeleton } from '@/components/common/primitives';
@@ -29,6 +33,19 @@ import { useTokens } from '@/lib/useTokens';
 import type { CrewMeetup } from '@/lib/schemas/crew';
 import type { RootStackNavigationProp } from '@/navigation/types';
 import { useTokenStore } from '@/store/tokenStore';
+import type { MeetupListFilters } from '@/lib/schemas/crew';
+
+type MeetupFilterKey = 'all' | 'near' | 'beginner' | 'intermediate' | 'lead' | 'outdoor';
+type CurrentLocation = { lat: number; lng: number };
+
+const FILTER_TABS: Array<{ key: MeetupFilterKey; label: string; filters: MeetupListFilters }> = [
+  { key: 'all', label: '전체', filters: {} },
+  { key: 'near', label: '근처', filters: { near: true } },
+  { key: 'beginner', label: '입문', filters: { levelBand: 'BEGINNER' } },
+  { key: 'intermediate', label: '중급', filters: { levelBand: 'INTERMEDIATE' } },
+  { key: 'lead', label: '리드', filters: { style: 'LEAD' } },
+  { key: 'outdoor', label: '외벽', filters: { outdoor: true } },
+];
 
 export default function MeetupListScreen(): JSX.Element {
   const theme = useTokens();
@@ -56,7 +73,48 @@ function MeetupListContent({ accessToken }: { accessToken: string }): JSX.Elemen
   const theme = useTokens();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const navigation = useNavigation<RootStackNavigationProp<'MeetupList'>>();
-  const meetupsQuery = useMeetupsQuery(accessToken, 30);
+  const [activeFilter, setActiveFilter] = useState<MeetupFilterKey>('all');
+  const [currentLocation, setCurrentLocation] = useState<CurrentLocation | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const activeFilters = useMemo(
+    () => {
+      const base = FILTER_TABS.find((tab) => tab.key === activeFilter)?.filters ?? {};
+      if (activeFilter !== 'near' || !currentLocation) {
+        return base;
+      }
+      return { ...base, lat: currentLocation.lat, lng: currentLocation.lng };
+    },
+    [activeFilter, currentLocation],
+  );
+  const meetupsQuery = useMeetupsQuery(accessToken, 30, activeFilters);
+
+  useEffect(() => {
+    if (activeFilter !== 'near' || currentLocation || locationLoading) {
+      return;
+    }
+    let canceled = false;
+    setLocationLoading(true);
+    requestCurrentLocation()
+      .then((location) => {
+        if (!canceled) {
+          setCurrentLocation(location);
+        }
+      })
+      .catch(() => {
+        if (!canceled) {
+          Alert.alert('위치 권한이 필요해요', '근처 모임을 보려면 위치 접근을 허용해주세요.');
+          setActiveFilter('all');
+        }
+      })
+      .finally(() => {
+        if (!canceled) {
+          setLocationLoading(false);
+        }
+      });
+    return () => {
+      canceled = true;
+    };
+  }, [activeFilter, currentLocation, locationLoading]);
 
   const renderItem: ListRenderItem<CrewMeetup> = ({ item }) => (
     <MeetupCard meetup={item} onPress={() => navigation.navigate('MeetupDetail', { extId: item.extId })} />
@@ -79,12 +137,22 @@ function MeetupListContent({ accessToken }: { accessToken: string }): JSX.Elemen
         </Pressable>
       </View>
       <View style={styles.quickTabs}>
-        {['전체', '근처', '입문', '중급', '리드', '외벽'].map((label, index) => (
-          <View key={label} style={[styles.quickTab, index === 0 ? styles.quickTabActive : null]}>
-            <Text style={[styles.quickTabText, index === 0 ? styles.quickTabTextActive : null]}>
-              {label}
+        {FILTER_TABS.map((tab) => (
+          <Pressable
+            key={tab.key}
+            onPress={() => setActiveFilter(tab.key)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: activeFilter === tab.key }}
+            style={({ pressed }) => [
+              styles.quickTab,
+              activeFilter === tab.key ? styles.quickTabActive : null,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <Text style={[styles.quickTabText, activeFilter === tab.key ? styles.quickTabTextActive : null]}>
+              {tab.label}
             </Text>
-          </View>
+          </Pressable>
         ))}
       </View>
     </View>
@@ -119,9 +187,38 @@ function MeetupListContent({ accessToken }: { accessToken: string }): JSX.Elemen
       ItemSeparatorComponent={ItemSeparator}
       ListEmptyComponent={<StateCard title={t('meetup.list.emptyTitle')} body={t('meetup.list.emptyBody')} />}
       renderItem={renderItem}
-      ListFooterComponent={meetupsQuery.isFetching ? <ActivityIndicator color={theme.accent.base} /> : null}
+      ListFooterComponent={meetupsQuery.isFetching || locationLoading ? <ActivityIndicator color={theme.accent.base} /> : null}
     />
   );
+}
+
+function locationPermission(): Permission {
+  return Platform.OS === 'ios'
+    ? PERMISSIONS.IOS.LOCATION_WHEN_IN_USE
+    : PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION;
+}
+
+async function requestCurrentLocation(): Promise<CurrentLocation> {
+  const permission = locationPermission();
+  let status = await check(permission);
+  if (status === RESULTS.DENIED) {
+    status = await request(permission);
+  }
+  if (status !== RESULTS.GRANTED && status !== RESULTS.LIMITED) {
+    throw new Error('location permission denied');
+  }
+  return new Promise((resolve, reject) => {
+    Geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      },
+      reject,
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60_000 },
+    );
+  });
 }
 
 function MeetupCard({ meetup, onPress }: { meetup: CrewMeetup; onPress: () => void }): JSX.Element {
