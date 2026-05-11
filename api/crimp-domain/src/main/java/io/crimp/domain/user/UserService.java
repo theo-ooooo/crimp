@@ -1,12 +1,17 @@
 package io.crimp.domain.user;
 
 import io.crimp.common.config.AppProperties;
+import io.crimp.core.entity.crew.Crew;
+import io.crimp.core.entity.crew.CrewMember;
 import io.crimp.core.entity.enums.MediaKind;
 import io.crimp.core.entity.enums.MediaStatus;
 import io.crimp.core.entity.enums.MediaUsage;
 import io.crimp.core.entity.enums.CrewJoinRequestStatus;
+import io.crimp.core.entity.enums.CrewMemberStatus;
 import io.crimp.core.entity.enums.GymStatus;
 import io.crimp.core.entity.enums.UserStatus;
+import io.crimp.core.repository.crew.CrewMemberRepository;
+import io.crimp.core.repository.crew.CrewRepository;
 import io.crimp.core.repository.crew.CrewJoinRequestRepository;
 import io.crimp.core.entity.gym.Gym;
 import io.crimp.core.entity.media.MediaAsset;
@@ -22,6 +27,10 @@ import io.crimp.domain.auth.RefreshTokenStore;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
 @Service
 @org.springframework.context.annotation.Profile("!test")
 public class UserService {
@@ -31,6 +40,8 @@ public class UserService {
     private final GymRepository gymRepo;
     private final RefreshTokenStore refreshTokenStore;
     private final CrewJoinRequestRepository crewJoinRequestRepo;
+    private final CrewMemberRepository crewMemberRepo;
+    private final CrewRepository crewRepo;
     private final MediaAssetRepository mediaAssetRepo;
     private final MediaImageVariantRepository mediaImageVariantRepo;
     private final AppProperties appProperties;
@@ -41,6 +52,8 @@ public class UserService {
             GymRepository gymRepo,
             RefreshTokenStore refreshTokenStore,
             CrewJoinRequestRepository crewJoinRequestRepo,
+            CrewMemberRepository crewMemberRepo,
+            CrewRepository crewRepo,
             MediaAssetRepository mediaAssetRepo,
             MediaImageVariantRepository mediaImageVariantRepo,
             AppProperties appProperties) {
@@ -49,6 +62,8 @@ public class UserService {
         this.gymRepo = gymRepo;
         this.refreshTokenStore = refreshTokenStore;
         this.crewJoinRequestRepo = crewJoinRequestRepo;
+        this.crewMemberRepo = crewMemberRepo;
+        this.crewRepo = crewRepo;
         this.mediaAssetRepo = mediaAssetRepo;
         this.mediaImageVariantRepo = mediaImageVariantRepo;
         this.appProperties = appProperties;
@@ -139,8 +154,27 @@ public class UserService {
         }
         crewJoinRequestRepo.findAllByUserIdAndStatus(userId, CrewJoinRequestStatus.PENDING)
                 .forEach(request -> request.cancel(userId));
+        leaveActiveCrewMemberships(userId);
         user.deleteAccount();
         refreshTokenStore.deleteAllForUser(userId);
+    }
+
+    private void leaveActiveCrewMemberships(long userId) {
+        var memberships = crewMemberRepo.findAllByUserIdAndStatus(userId, CrewMemberStatus.ACTIVE);
+        if (memberships.isEmpty()) {
+            return;
+        }
+        Map<Long, Crew> crewsById = crewRepo.findAllById(
+                        memberships.stream().map(CrewMember::getCrewId).toList())
+                .stream()
+                .collect(Collectors.toMap(Crew::getId, Function.identity()));
+        for (CrewMember member : memberships) {
+            member.leave();
+            Crew crew = crewsById.get(member.getCrewId());
+            if (crew != null) {
+                crew.decrementMemberCount();
+            }
+        }
     }
 
     private static void requireActive(User user) {
