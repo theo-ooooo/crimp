@@ -73,6 +73,7 @@ public class CrewRepositoryImpl implements CrewRepositoryCustom {
                         crew.summary,
                         crew.description,
                         crew.region,
+                        crew.imageMediaId,
                         crew.levelBand,
                         crew.style,
                         crew.joinPolicy,

@@ -68,6 +68,27 @@ export async function uploadAvatarImage(
   return uploadReadyMedia(accessToken, ready, signal, { usage: 'AVATAR' });
 }
 
+export async function uploadCrewImage(
+  accessToken: string,
+  image: CapturedMedia,
+  options?: {
+    signal?: AbortSignal;
+    onPhase?: (phase: UploadPhase) => void;
+  },
+): Promise<CompleteResponse> {
+  const signal = options?.signal;
+  if (signal?.aborted) {
+    throw new DOMException('aborted before upload', 'AbortError');
+  }
+  options?.onPhase?.('compressing');
+  const ready = await compressCapturedMedia(image, signal);
+  if (ready.kind !== 'IMAGE') {
+    throw new MediaUploadError('local-read', 'crew image upload requires an image');
+  }
+  options?.onPhase?.('uploading');
+  return uploadReadyMedia(accessToken, ready, signal, { usage: 'CREW' });
+}
+
 /**
  * 비디오 업로드 후(READY) JPEG 포스터를 올리고 `attachAsPosterForVideoId` 로 연결.
  * 반환은 비디오 미디어 `CompleteResponse`.

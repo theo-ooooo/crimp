@@ -6,6 +6,7 @@ public record CreateCrewCommand(
         String description,
         String region,
         String homeGymExtId,
+        Long imageMediaId,
         String levelBand,
         String style,
         Integer capacity

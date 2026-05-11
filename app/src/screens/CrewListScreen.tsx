@@ -3,6 +3,7 @@ import React, { useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -18,6 +19,7 @@ import { AuthHydrationGate } from '@/components/common/screen/AuthHydrationGate'
 import { Chip, CrimpIcon, Skeleton } from '@/components/common/primitives';
 import {
   CREW_LEVEL_OPTIONS,
+  CREW_REGION_OPTIONS,
   CREW_STYLE_OPTIONS,
   useCrewListScreen,
 } from '@/hooks/screens/useCrewListScreen';
@@ -27,6 +29,7 @@ import {
   fontFamily,
   fontSize,
   fontWeight,
+  letterSpacing,
   radius,
   space,
   type Theme,
@@ -34,9 +37,7 @@ import {
 import { useTokens } from '@/lib/useTokens';
 import type {
   CrewItem,
-  CrewLevelBand,
   CrewMyStatus,
-  CrewStyle,
 } from '@/lib/schemas/crew';
 import type { RootStackNavigationProp } from '@/navigation/types';
 import { useTokenStore } from '@/store/tokenStore';
@@ -81,49 +82,60 @@ function CrewListContent({ accessToken }: { accessToken: string }): JSX.Element 
 
   const header = (
     <View style={styles.headerStack}>
-      <View>
-        <Text style={styles.eyebrow}>Crew</Text>
-        <Text style={styles.title}>{t('crew.list.title')}</Text>
-        <Text style={styles.subtitle}>{t('crew.list.subtitle')}</Text>
-      </View>
+      <View style={styles.titleBlock}>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>{t('crew.list.title')}</Text>
+          <View style={styles.headerActions}>
+            <View style={styles.searchIconButton}>
+              <CrimpIcon.search size={18} color={theme.text} />
+            </View>
+            <Pressable
+              onPress={() => navigation.navigate('CrewForm')}
+              accessibilityRole="button"
+              accessibilityLabel={t('crew.form.createCta')}
+              style={({ pressed }) => [
+                styles.createButton,
+                pressed ? styles.cardPressed : null,
+              ]}
+            >
+              <CrimpIcon.plus size={20} color={theme.bg} />
+            </Pressable>
+          </View>
+        </View>
 
-      <View style={styles.searchField}>
-        <CrimpIcon.search size={20} color={theme.text3} />
-        <TextInput
-          value={state.searchText}
-          onChangeText={state.setSearchText}
-          placeholder={t('crew.list.searchPlaceholder')}
-          placeholderTextColor={theme.text4}
-          style={styles.searchInput}
-          autoCapitalize="none"
-          autoCorrect={false}
-          returnKeyType="search"
-          clearButtonMode="while-editing"
-          accessibilityLabel={t('crew.list.searchAccessibilityLabel')}
-        />
-        {state.searchText.length > 0 ? (
-          <Pressable
-            onPress={() => state.setSearchText('')}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={t('crew.list.searchClearLabel')}
-          >
-            <CrimpIcon.close size={18} color={theme.text3} />
-          </Pressable>
-        ) : null}
+        <View style={styles.searchField}>
+          <CrimpIcon.search size={18} color={theme.text3} />
+          <TextInput
+            value={state.searchText}
+            onChangeText={state.setSearchText}
+            placeholder={t('crew.list.searchPlaceholder')}
+            placeholderTextColor={theme.text4}
+            style={styles.searchInput}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="search"
+            clearButtonMode="while-editing"
+            accessibilityLabel={t('crew.list.searchAccessibilityLabel')}
+          />
+          {state.searchText.length > 0 ? (
+            <Pressable
+              onPress={() => state.setSearchText('')}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t('crew.list.searchClearLabel')}
+              style={styles.searchClear}
+            >
+              <CrimpIcon.close size={16} color={theme.text3} />
+            </Pressable>
+          ) : null}
+        </View>
       </View>
-
-      <TextInput
-        value={state.region}
-        onChangeText={state.setRegion}
-        placeholder={t('crew.list.regionPlaceholder')}
-        placeholderTextColor={theme.text4}
-        style={styles.regionInput}
-        autoCapitalize="none"
-        autoCorrect={false}
-        returnKeyType="search"
+      <FilterRow
+        label={t('crew.list.regionFilterLabel')}
+        options={CREW_REGION_OPTIONS}
+        active={state.region}
+        onSelect={(next) => state.setRegion(next)}
       />
-
       <FilterRow
         label={t('crew.list.levelFilterLabel')}
         options={CREW_LEVEL_OPTIONS}
@@ -204,7 +216,7 @@ function CrewListContent({ accessToken }: { accessToken: string }): JSX.Element 
   );
 }
 
-function FilterRow<T extends CrewLevelBand | CrewStyle>({
+function FilterRow<T extends string>({
   label,
   options,
   active,
@@ -215,9 +227,11 @@ function FilterRow<T extends CrewLevelBand | CrewStyle>({
   active: T | null;
   onSelect: (next: T) => void;
 }): JSX.Element {
+  const theme = useTokens();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   return (
     <View style={filterStyles.block}>
-      <Text style={filterStyles.label}>{label}</Text>
+      <Text style={styles.filterLabel}>{label}</Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -246,27 +260,48 @@ function CrewCard({ crew, onPress }: { crew: CrewItem; onPress: () => void }): J
       accessibilityLabel={`${crew.name} ${t('crew.detail.title')}`}
       style={({ pressed }) => [styles.card, pressed ? styles.cardPressed : null]}
     >
-      <View style={styles.cardTop}>
-        <View style={styles.cardText}>
-          <View style={styles.cardTitleRow}>
+      <View style={styles.cardHeader}>
+        <View style={styles.cardAvatar}>
+          {crew.imageUrl ? (
+            <Image source={{ uri: crew.imageUrl }} style={styles.cardAvatarImage} />
+          ) : (
+            <View style={styles.rockMark} />
+          )}
+        </View>
+        <View style={styles.cardTitleBlock}>
+          <View style={styles.cardTopRow}>
             <Text style={styles.cardTitle} numberOfLines={1}>{crew.name}</Text>
             <StatusBadge status={crew.myStatus} />
           </View>
-          <Text style={styles.cardSummary} numberOfLines={2}>
-            {crew.summary ?? t('crew.common.summaryFallback')}
+          <Text style={styles.cardSummary} numberOfLines={1}>
+            {formatMemberCount(crew.memberCount, crew.capacity)}
           </Text>
         </View>
-        <CrimpIcon.chevR size={20} color={theme.text3} />
       </View>
-      <View style={styles.metaWrap}>
-        <InfoChip label={crew.region ?? t('crew.common.regionFallback')} />
-        <InfoChip label={crew.homeGym?.name ?? t('crew.common.homeGymFallback')} />
-        <InfoChip label={levelLabel(crew.levelBand)} />
-        <InfoChip label={styleLabel(crew.style)} />
+      <View style={styles.cardBody}>
+        <View style={styles.nextMeetupRow}>
+          <CrimpIcon.clock size={14} color={theme.text} />
+          <Text style={styles.nextMeetupLabel}>다음 모임</Text>
+          <Text style={styles.nextMeetupText} numberOfLines={1}>
+            {crew.nextMeetup ? formatNextMeetup(crew.nextMeetup) : t('crew.meetup.emptyBody')}
+          </Text>
+        </View>
+        <View style={styles.memberRow}>
+          <View style={styles.memberAvatarGroup}>
+            {(crew.memberPreview ?? []).slice(0, 5).map((member, index) => (
+              <View key={member.extId} style={[styles.memberAvatar, index > 0 ? styles.memberAvatarOverlap : null]}>
+                <Text style={styles.memberAvatarText}>{memberInitial(member.nickname)}</Text>
+              </View>
+            ))}
+            {crew.memberCount > (crew.memberPreview?.length ?? 0) ? (
+              <View style={[styles.memberAvatar, styles.memberAvatarMore, styles.memberAvatarOverlap]}>
+                <Text style={styles.memberAvatarMoreText}>+{crew.memberCount - (crew.memberPreview?.length ?? 0)}</Text>
+              </View>
+            ) : null}
+          </View>
+          <Text style={styles.enterText}>들어가기 →</Text>
+        </View>
       </View>
-      <Text style={styles.memberText}>
-        {formatMemberCount(crew.memberCount, crew.capacity)}
-      </Text>
     </Pressable>
   );
 }
@@ -280,16 +315,6 @@ function StatusBadge({ status }: { status: CrewMyStatus }): JSX.Element | null {
   return (
     <View style={styles.statusBadge}>
       <Text style={styles.statusText}>{statusLabel(status)}</Text>
-    </View>
-  );
-}
-
-function InfoChip({ label }: { label: string }): JSX.Element {
-  const theme = useTokens();
-  const styles = useMemo(() => makeStyles(theme), [theme]);
-  return (
-    <View style={styles.infoChip}>
-      <Text style={styles.infoChipText} numberOfLines={1}>{label}</Text>
     </View>
   );
 }
@@ -309,14 +334,6 @@ function ItemSeparator(): JSX.Element {
   return <View style={{ height: space[3] }} />;
 }
 
-function levelLabel(v: CrewLevelBand): string {
-  return t(`crew.level.${v}` as MessageKey);
-}
-
-function styleLabel(v: CrewStyle): string {
-  return t(`crew.style.${v}` as MessageKey);
-}
-
 function statusLabel(v: CrewMyStatus): string {
   return t(`crew.status.${v}` as MessageKey);
 }
@@ -326,6 +343,21 @@ function formatMemberCount(memberCount: number, capacity: number | null): string
   return capacity
     ? `${base} / ${t('crew.common.capacityCount').replace('{{count}}', String(capacity))}`
     : base;
+}
+
+function formatNextMeetup(meetup: NonNullable<CrewItem['nextMeetup']>): string {
+  const when = new Intl.DateTimeFormat('ko-KR', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(meetup.startsAt));
+  const where = meetup.gymName ?? meetup.location ?? t('crew.meetup.noGymSelected');
+  return `${when} · ${where}`;
+}
+
+function memberInitial(nickname: string | null): string {
+  return Array.from(nickname ?? t('home.nicknameFallback'))[0] ?? '?';
 }
 
 function makeStyles(theme: Theme) {
@@ -340,7 +372,6 @@ function makeStyles(theme: Theme) {
     },
     content: {
       paddingHorizontal: space[5],
-      paddingTop: space[6],
       paddingBottom: space[10],
       gap: space[3],
     },
@@ -349,140 +380,214 @@ function makeStyles(theme: Theme) {
     },
     headerStack: {
       gap: space[3],
-      marginBottom: space[2],
-    },
-    eyebrow: {
-      fontFamily,
-      fontSize: fontSize.caption,
-      fontWeight: fontWeight.extrabold,
-      color: theme.accent.ink,
-      letterSpacing: 2,
-      textTransform: 'uppercase',
+      paddingTop: space[2],
       marginBottom: space[1],
+    },
+    titleBlock: {
+      gap: space[1],
+    },
+    titleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: space[3],
+    },
+    createButton: {
+      width: 40,
+      height: 40,
+      borderRadius: radius.full,
+      backgroundColor: theme.text,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+      overflow: 'hidden',
+    },
+    headerActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space[2],
+    },
+    searchIconButton: {
+      width: 40,
+      height: 40,
+      borderRadius: radius.full,
+      backgroundColor: theme.subtle,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    cardAvatarImage: {
+      width: '100%',
+      height: '100%',
+    },
+    cardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space[3],
+      marginBottom: space[3],
+    },
+    cardTitleBlock: {
+      flex: 1,
+      minWidth: 0,
+      gap: space[1],
     },
     title: {
       fontFamily,
       fontSize: fontSize.h1,
       fontWeight: fontWeight.extrabold,
       color: theme.text,
-      letterSpacing: -1.28,
-    },
-    subtitle: {
-      marginTop: space[1],
-      fontFamily,
-      fontSize: fontSize.body,
-      fontWeight: fontWeight.medium,
-      color: theme.text3,
-      lineHeight: fontSize.body * 1.5,
+      letterSpacing: letterSpacing.h1,
     },
     searchField: {
-      height: 48,
       borderRadius: radius.lg,
       backgroundColor: theme.subtle,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.hairline,
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: space[4],
+      paddingVertical: space[3],
       gap: space[2],
+      marginTop: space[3],
     },
     searchInput: {
       flex: 1,
-      height: '100%',
       color: theme.text,
       fontFamily,
       fontSize: fontSize.body,
-      fontWeight: fontWeight.semibold,
+      fontWeight: fontWeight.medium,
+      letterSpacing: letterSpacing.body,
       padding: 0,
     },
-    regionInput: {
-      height: 48,
-      borderRadius: radius.lg,
-      backgroundColor: theme.bg,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.hairline,
-      color: theme.text,
-      fontFamily,
-      fontSize: fontSize.body,
-      fontWeight: fontWeight.semibold,
-      paddingHorizontal: space[4],
+    searchClear: {
+      padding: space[1],
     },
     card: {
+      borderRadius: radius.xl,
+      backgroundColor: theme.subtle,
+      padding: space[5],
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.hairline,
-      borderRadius: radius.xl,
-      backgroundColor: theme.bg,
-      padding: space[4],
-      gap: space[3],
     },
     cardPressed: {
-      opacity: 0.82,
+      opacity: 0.85,
     },
-    cardTop: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      justifyContent: 'space-between',
-      gap: space[2],
+    cardAvatar: {
+      width: 56,
+      height: 56,
+      borderRadius: radius.lg,
+      backgroundColor: theme.accent.base,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+      overflow: 'hidden',
     },
-    cardText: {
-      flex: 1,
-      minWidth: 0,
-      gap: space[1],
+    rockMark: {
+      width: 30,
+      height: 18,
+      borderRadius: 9,
+      backgroundColor: theme.text,
+      transform: [{ rotate: '-4deg' }],
     },
-    cardTitleRow: {
+    cardBody: {
+      gap: space[3],
+    },
+    cardTopRow: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'space-between',
       gap: space[2],
     },
     cardTitle: {
       flex: 1,
       fontFamily,
-      fontSize: fontSize.title,
-      fontWeight: fontWeight.extrabold,
+      fontSize: 17,
+      fontWeight: fontWeight.bold,
       color: theme.text,
-      letterSpacing: -0.36,
+      letterSpacing: letterSpacing.title,
     },
     cardSummary: {
       fontFamily,
-      fontSize: fontSize.body,
+      fontSize: 13,
       fontWeight: fontWeight.medium,
       color: theme.text2,
-      lineHeight: fontSize.body * 1.5,
+      lineHeight: 19,
     },
-    metaWrap: {
+    nextMeetupRow: {
       flexDirection: 'row',
-      flexWrap: 'wrap',
+      alignItems: 'center',
       gap: space[2],
-    },
-    infoChip: {
-      maxWidth: '100%',
-      borderRadius: radius.full,
-      backgroundColor: theme.chip,
+      borderRadius: radius.md,
+      backgroundColor: theme.bg,
       paddingHorizontal: space[3],
-      paddingVertical: space[1],
+      paddingVertical: space[3],
     },
-    infoChipText: {
+    nextMeetupLabel: {
       fontFamily,
       fontSize: fontSize.caption,
-      fontWeight: fontWeight.bold,
+      fontWeight: fontWeight.extrabold,
+      color: theme.text,
+    },
+    nextMeetupText: {
+      flex: 1,
+      textAlign: 'right',
+      fontFamily,
+      fontSize: fontSize.caption,
+      fontWeight: fontWeight.semibold,
+      color: theme.text3,
+    },
+    memberRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: space[3],
+    },
+    memberAvatarGroup: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    memberAvatar: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: theme.accent.soft,
+      borderWidth: 2,
+      borderColor: theme.subtle,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    memberAvatarOverlap: {
+      marginLeft: -8,
+    },
+    memberAvatarText: {
+      fontFamily,
+      fontSize: 11,
+      fontWeight: fontWeight.extrabold,
+      color: theme.text,
+    },
+    memberAvatarMore: {
+      backgroundColor: theme.text,
+    },
+    memberAvatarMoreText: {
+      fontFamily,
+      fontSize: 10,
+      fontWeight: fontWeight.extrabold,
+      color: theme.bg,
+    },
+    enterText: {
+      fontFamily,
+      fontSize: fontSize.caption,
+      fontWeight: fontWeight.extrabold,
       color: theme.text2,
     },
     statusBadge: {
       borderRadius: radius.full,
-      backgroundColor: theme.accent.soft,
+      backgroundColor: theme.chip,
       paddingHorizontal: space[2],
       paddingVertical: space[1],
+      flexShrink: 0,
     },
     statusText: {
       fontFamily,
       fontSize: 11,
       fontWeight: fontWeight.extrabold,
-      color: theme.accent.ink,
-    },
-    memberText: {
-      fontFamily,
-      fontSize: fontSize.caption,
-      fontWeight: fontWeight.semibold,
       color: theme.text3,
     },
     stateCard: {
@@ -507,18 +612,18 @@ function makeStyles(theme: Theme) {
     footer: {
       paddingVertical: space[5],
     },
+    filterLabel: {
+      fontFamily,
+      fontSize: fontSize.caption,
+      fontWeight: fontWeight.bold,
+      color: theme.text3,
+    },
   });
 }
 
 const filterStyles = StyleSheet.create({
   block: {
     gap: space[1],
-  },
-  label: {
-    fontFamily,
-    fontSize: fontSize.caption,
-    fontWeight: fontWeight.bold,
-    color: '#8B95A1',
   },
   row: {
     gap: space[2],

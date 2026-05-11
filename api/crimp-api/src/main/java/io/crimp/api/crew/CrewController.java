@@ -6,16 +6,20 @@ import io.crimp.common.response.ErrorBody;
 import io.crimp.core.entity.enums.CrewJoinPolicy;
 import io.crimp.core.entity.enums.CrewJoinRequestStatus;
 import io.crimp.core.entity.enums.CrewLevelBand;
+import io.crimp.core.entity.enums.CrewMemberRole;
 import io.crimp.core.entity.enums.CrewStyle;
 import io.crimp.domain.crew.CreateCrewCommand;
 import io.crimp.domain.crew.CreateCrewJoinRequestCommand;
+import io.crimp.domain.crew.CreateCrewMeetupCommand;
 import io.crimp.domain.crew.CrewException;
 import io.crimp.domain.crew.CrewHomeGymView;
 import io.crimp.domain.crew.CrewJoinRequestView;
 import io.crimp.domain.crew.CrewMemberView;
+import io.crimp.domain.crew.CrewMeetupView;
 import io.crimp.domain.crew.CrewOwnerView;
 import io.crimp.domain.crew.CrewService;
 import io.crimp.domain.crew.CrewView;
+import io.crimp.domain.crew.MeetupHostView;
 import io.crimp.domain.crew.UpdateCrewCommand;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -202,14 +206,55 @@ public class CrewController {
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(
+            summary = "크루 멤버 탈퇴 처리",
+            description = "OWNER/ADMIN 이 크루 멤버를 탈퇴 처리한다. OWNER 는 제거할 수 없다."
+    )
+    @DeleteMapping("/{extId}/members/{userExtId}")
+    public ResponseEntity<Void> removeMember(
+            @AuthenticationPrincipal CrimpPrincipal principal,
+            @PathVariable String extId,
+            @PathVariable String userExtId) {
+        crewService.removeMember(principal.userId(), extId, userExtId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(
+            summary = "크루 모임 목록",
+            description = "크루 상세의 예정 모임을 시작일 오름차순으로 조회한다."
+    )
+    @GetMapping("/{extId}/meetups")
+    public CrewMeetupListResponse listMeetups(
+            @AuthenticationPrincipal CrimpPrincipal principal,
+            @PathVariable String extId,
+            @RequestParam(required = false) Integer size) {
+        return new CrewMeetupListResponse(
+                crewService.listMeetups(principal.userId(), extId, size).stream()
+                        .map(CrewMeetupItem::of)
+                        .toList());
+    }
+
+    @Operation(
+            summary = "크루 모임 생성",
+            description = "OWNER/ADMIN 이 크루 모임을 생성한다."
+    )
+    @PostMapping("/{extId}/meetups")
+    public CrewMeetupItem createMeetup(
+            @AuthenticationPrincipal CrimpPrincipal principal,
+            @PathVariable String extId,
+            @Valid @RequestBody CreateCrewMeetupRequest req) {
+        return CrewMeetupItem.of(crewService.createMeetup(principal.userId(), extId, req.toCommand()));
+    }
+
     @ExceptionHandler(CrewException.class)
     public ResponseEntity<ApiResponse<Void>> handleCrew(CrewException e) {
         HttpStatus status = switch (e.code()) {
             case "CREW_NOT_FOUND", "CREW_HOME_GYM_NOT_FOUND", "CREW_JOIN_REQUEST_NOT_FOUND",
-                    "CREW_MEMBER_NOT_FOUND" -> HttpStatus.NOT_FOUND;
-            case "CREW_FORBIDDEN" -> HttpStatus.FORBIDDEN;
+                    "CREW_MEMBER_NOT_FOUND", "CREW_IMAGE_MEDIA_NOT_FOUND",
+                    "MEETUP_NOT_FOUND", "MEETUP_PARTICIPANT_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+            case "CREW_FORBIDDEN", "CREW_IMAGE_MEDIA_FORBIDDEN" -> HttpStatus.FORBIDDEN;
             case "CREW_NAME_TAKEN", "CREW_LIMIT_EXCEEDED", "CREW_ALREADY_MEMBER",
-                    "CREW_JOIN_REQUEST_PENDING", "CREW_CAPACITY_FULL" -> HttpStatus.CONFLICT;
+                    "CREW_JOIN_REQUEST_PENDING", "CREW_CAPACITY_FULL", "MEETUP_CAPACITY_FULL" -> HttpStatus.CONFLICT;
             case "CREW_OWNER_LEAVE_BLOCKED" -> HttpStatus.UNPROCESSABLE_ENTITY;
             default -> HttpStatus.BAD_REQUEST;
         };
@@ -222,13 +267,14 @@ public class CrewController {
             @Size(max = 500) String description,
             @Size(max = 50) String region,
             @Size(min = 26, max = 26) String homeGymExtId,
+            Long imageMediaId,
             String levelBand,
             String style,
             @Min(2) @Max(200) Integer capacity
     ) {
         CreateCrewCommand toCommand() {
             return new CreateCrewCommand(name, summary, description, region, homeGymExtId,
-                    levelBand, style, capacity);
+                    imageMediaId, levelBand, style, capacity);
         }
     }
 
@@ -239,6 +285,8 @@ public class CrewController {
             @Size(max = 50) String region,
             @Size(min = 26, max = 26) String homeGymExtId,
             Boolean clearHomeGym,
+            Long imageMediaId,
+            Boolean clearImage,
             String levelBand,
             String style,
             @Min(2) @Max(200) Integer capacity,
@@ -246,8 +294,25 @@ public class CrewController {
     ) {
         UpdateCrewCommand toCommand() {
             return new UpdateCrewCommand(name, summary, description, region, homeGymExtId,
-                    Boolean.TRUE.equals(clearHomeGym), levelBand, style, capacity,
+                    Boolean.TRUE.equals(clearHomeGym), imageMediaId, Boolean.TRUE.equals(clearImage),
+                    levelBand, style, capacity,
                     Boolean.TRUE.equals(clearCapacity));
+        }
+    }
+
+    public record CreateCrewMeetupRequest(
+            @Size(min = 2, max = 60) String title,
+            @Size(max = 500) String description,
+            Instant startsAt,
+            Instant endsAt,
+            @Size(min = 26, max = 26) String gymExtId,
+            @Size(max = 100) String location,
+            @Min(2) @Max(200) Integer capacity,
+            String joinPolicy
+    ) {
+        CreateCrewMeetupCommand toCommand() {
+            return new CreateCrewMeetupCommand(title, description, startsAt, endsAt, gymExtId, location, capacity,
+                    joinPolicy);
         }
     }
 
@@ -262,6 +327,44 @@ public class CrewController {
     public record CrewJoinRequestListResponse(List<CrewJoinRequestItem> items, Page page) {}
 
     public record CrewMemberListResponse(List<CrewMemberItem> items, Page page) {}
+
+    public record CrewMeetupListResponse(List<CrewMeetupItem> items) {}
+
+    public record CrewMeetupItem(
+            String extId,
+            String title,
+            String description,
+            Instant startsAt,
+            Instant endsAt,
+            String crewExtId,
+            String crewName,
+            String gymExtId,
+            String gymName,
+            String location,
+            Integer capacity,
+            String joinPolicy,
+            Integer participantCount,
+            String myParticipation,
+            MeetupHost host,
+            boolean canManage,
+            Instant createdAt
+    ) {
+        static CrewMeetupItem of(CrewMeetupView v) {
+            if (v == null) {
+                return null;
+            }
+            return new CrewMeetupItem(v.extId(), v.title(), v.description(), v.startsAt(), v.endsAt(),
+                    v.crewExtId(), v.crewName(), v.gymExtId(), v.gymName(),
+                    v.location(), v.capacity(), v.joinPolicy(), v.participantCount(), v.myParticipation(),
+                    MeetupHost.of(v.host()), v.canManage(), v.createdAt());
+        }
+    }
+
+    public record MeetupHost(String extId, String nickname) {
+        static MeetupHost of(MeetupHostView v) {
+            return v == null ? null : new MeetupHost(v.extId(), v.nickname());
+        }
+    }
 
     public record Page(Long nextCursor, int size) {}
 
@@ -328,12 +431,16 @@ public class CrewController {
             String summary,
             String region,
             HomeGym homeGym,
+            Long imageMediaId,
+            String imageUrl,
             CrewLevelBand levelBand,
             CrewStyle style,
             int memberCount,
             Integer capacity,
             CrewJoinPolicy joinPolicy,
-            String myStatus
+            String myStatus,
+            CrewMeetupItem nextMeetup,
+            List<CrewMemberPreview> memberPreview
     ) {
         static CrewItem of(CrewView v) {
             return new CrewItem(
@@ -342,12 +449,22 @@ public class CrewController {
                     v.summary(),
                     v.region(),
                     HomeGym.of(v.homeGym()),
+                    v.imageMediaId(),
+                    v.imageUrl(),
                     v.levelBand(),
                     v.style(),
                     v.memberCount(),
                     v.capacity(),
                     v.joinPolicy(),
-                    v.myStatus());
+                    v.myStatus(),
+                    CrewMeetupItem.of(v.nextMeetup()),
+                    v.memberPreview().stream().map(CrewMemberPreview::of).toList());
+        }
+    }
+
+    public record CrewMemberPreview(String extId, String nickname, CrewMemberRole role) {
+        static CrewMemberPreview of(CrewMemberView v) {
+            return new CrewMemberPreview(v.userExtId(), v.nickname(), v.role());
         }
     }
 
@@ -358,12 +475,16 @@ public class CrewController {
             String description,
             String region,
             HomeGym homeGym,
+            Long imageMediaId,
+            String imageUrl,
             CrewLevelBand levelBand,
             CrewStyle style,
             int memberCount,
             Integer capacity,
             CrewJoinPolicy joinPolicy,
             String myStatus,
+            CrewMeetupItem nextMeetup,
+            List<CrewMemberPreview> memberPreview,
             Owner owner,
             Instant createdAt
     ) {
@@ -375,12 +496,16 @@ public class CrewController {
                     v.description(),
                     v.region(),
                     HomeGym.of(v.homeGym()),
+                    v.imageMediaId(),
+                    v.imageUrl(),
                     v.levelBand(),
                     v.style(),
                     v.memberCount(),
                     v.capacity(),
                     v.joinPolicy(),
                     v.myStatus(),
+                    CrewMeetupItem.of(v.nextMeetup()),
+                    v.memberPreview().stream().map(CrewMemberPreview::of).toList(),
                     Owner.of(v.owner()),
                     v.createdAt());
         }

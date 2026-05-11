@@ -11,6 +11,7 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -31,7 +32,8 @@ public class JwtProvider {
 
     public JwtProvider(JwtProperties props) {
         this.props = props;
-        byte[] raw = props.secret().getBytes(StandardCharsets.UTF_8);
+        String secret = Objects.requireNonNull(props.secret(), "app.auth.jwt.secret 은 반드시 설정되어야 함");
+        byte[] raw = secret.getBytes(StandardCharsets.UTF_8);
         if (raw.length < 32) {
             throw new IllegalStateException("app.auth.jwt.secret 은 최소 32바이트(256bit) 이상이어야 함");
         }

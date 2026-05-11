@@ -30,17 +30,28 @@ import {
   CrewJoinRequestSchema,
   CrewListSchema,
   CrewMemberListSchema,
+  CrewMeetupListSchema,
+  CrewMeetupSchema,
+  MeetupParticipantListSchema,
+  MeetupParticipantSchema,
   type CreateCrewBody,
   type CreateCrewJoinRequestBody,
+  type CreateCrewMeetupBody,
   type CrewDetail,
   type CrewJoinRequest,
   type CrewJoinRequestList,
   type CrewJoinRequestStatus,
   type CrewList,
   type CrewMemberList,
+  type CrewMeetup,
+  type CrewMeetupList,
   type CrewLevelBand,
   type CrewStyle,
+  type JoinMeetupBody,
+  type MeetupParticipant,
+  type MeetupParticipantList,
   type UpdateCrewBody,
+  type UpdateCrewMeetupBody,
 } from '@/lib/schemas/crew';
 import {
   GymDetailSchema,
@@ -532,7 +543,7 @@ export function fetchCrews(
     method: 'GET',
     path: `/api/v1/crews${qs ? `?${qs}` : ''}`,
     accessToken,
-    schema: CrewListSchema,
+    schema: CrewListSchema as z.ZodType<CrewList>,
     signal,
   });
 }
@@ -547,7 +558,7 @@ export function fetchCrew(
     method: 'GET',
     path: `/api/v1/crews/${encodeURIComponent(extId)}`,
     accessToken,
-    schema: CrewDetailSchema,
+    schema: CrewDetailSchema as z.ZodType<CrewDetail>,
     signal,
   });
 }
@@ -563,7 +574,7 @@ export function createCrew(
     path: '/api/v1/crews',
     accessToken,
     body,
-    schema: CrewDetailSchema,
+    schema: CrewDetailSchema as z.ZodType<CrewDetail>,
     signal,
   });
 }
@@ -580,7 +591,7 @@ export function updateCrew(
     path: `/api/v1/crews/${encodeURIComponent(extId)}`,
     accessToken,
     body,
-    schema: CrewDetailSchema,
+    schema: CrewDetailSchema as z.ZodType<CrewDetail>,
     signal,
   });
 }
@@ -688,6 +699,201 @@ export function leaveCrew(
     path: `/api/v1/crews/${encodeURIComponent(crewExtId)}/members/me`,
     accessToken,
     schema: z.void(),
+    signal,
+  });
+}
+
+/** `DELETE /api/v1/crews/{extId}/members/{userExtId}` — 관리자 멤버 탈퇴 처리. */
+export function removeCrewMember(
+  accessToken: string,
+  crewExtId: string,
+  userExtId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  return apiRequest({
+    method: 'DELETE',
+    path: `/api/v1/crews/${encodeURIComponent(crewExtId)}/members/${encodeURIComponent(userExtId)}`,
+    accessToken,
+    schema: z.void(),
+    signal,
+  });
+}
+
+/** `GET /api/v1/crews/{extId}/meetups` — 크루 모임 목록. */
+export function fetchCrewMeetups(
+  accessToken: string,
+  crewExtId: string,
+  size?: number,
+  signal?: AbortSignal,
+): Promise<CrewMeetupList> {
+  const qs = buildQueryString([['size', size]]);
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/crews/${encodeURIComponent(crewExtId)}/meetups${qs ? `?${qs}` : ''}`,
+    accessToken,
+    schema: CrewMeetupListSchema as z.ZodType<CrewMeetupList>,
+    signal,
+  });
+}
+
+/** `POST /api/v1/crews/{extId}/meetups` — 크루 모임 생성. */
+export function createCrewMeetup(
+  accessToken: string,
+  crewExtId: string,
+  body: CreateCrewMeetupBody,
+  signal?: AbortSignal,
+): Promise<CrewMeetup> {
+  return apiRequest({
+    method: 'POST',
+    path: `/api/v1/crews/${encodeURIComponent(crewExtId)}/meetups`,
+    accessToken,
+    body,
+    schema: CrewMeetupSchema as z.ZodType<CrewMeetup>,
+    signal,
+  });
+}
+
+/** `GET /api/v1/meetups` — 전체 모임 목록. */
+export function fetchMeetups(
+  accessToken: string,
+  size?: number,
+  signal?: AbortSignal,
+): Promise<CrewMeetupList> {
+  const qs = buildQueryString([['size', size]]);
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/meetups${qs ? `?${qs}` : ''}`,
+    accessToken,
+    schema: CrewMeetupListSchema as z.ZodType<CrewMeetupList>,
+    signal,
+  });
+}
+
+/** `GET /api/v1/meetups/{extId}` — 모임 상세. */
+export function fetchMeetup(
+  accessToken: string,
+  extId: string,
+  signal?: AbortSignal,
+): Promise<CrewMeetup> {
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/meetups/${encodeURIComponent(extId)}`,
+    accessToken,
+    schema: CrewMeetupSchema as z.ZodType<CrewMeetup>,
+    signal,
+  });
+}
+
+/** `PATCH /api/v1/meetups/{extId}` — 모임 수정. */
+export function updateMeetup(
+  accessToken: string,
+  extId: string,
+  body: UpdateCrewMeetupBody,
+  signal?: AbortSignal,
+): Promise<CrewMeetup> {
+  return apiRequest({
+    method: 'PATCH',
+    path: `/api/v1/meetups/${encodeURIComponent(extId)}`,
+    accessToken,
+    body,
+    schema: CrewMeetupSchema as z.ZodType<CrewMeetup>,
+    signal,
+  });
+}
+
+/** `POST /api/v1/meetups` — 독립/크루 모임 생성. */
+export function createMeetup(
+  accessToken: string,
+  body: CreateCrewMeetupBody,
+  signal?: AbortSignal,
+): Promise<CrewMeetup> {
+  return apiRequest({
+    method: 'POST',
+    path: '/api/v1/meetups',
+    accessToken,
+    body,
+    schema: CrewMeetupSchema as z.ZodType<CrewMeetup>,
+    signal,
+  });
+}
+
+/** `POST /api/v1/meetups/{extId}/participants/me` — 내 모임 참여/참여 요청. */
+export function joinMeetup(
+  accessToken: string,
+  extId: string,
+  body?: JoinMeetupBody,
+  signal?: AbortSignal,
+): Promise<CrewMeetup> {
+  return apiRequest({
+    method: 'POST',
+    path: `/api/v1/meetups/${encodeURIComponent(extId)}/participants/me`,
+    accessToken,
+    body: body ?? {},
+    schema: CrewMeetupSchema as z.ZodType<CrewMeetup>,
+    signal,
+  });
+}
+
+/** `DELETE /api/v1/meetups/{extId}/participants/me` — 내 모임 참여 취소. */
+export function leaveMeetup(
+  accessToken: string,
+  extId: string,
+  signal?: AbortSignal,
+): Promise<CrewMeetup> {
+  return apiRequest({
+    method: 'DELETE',
+    path: `/api/v1/meetups/${encodeURIComponent(extId)}/participants/me`,
+    accessToken,
+    schema: CrewMeetupSchema as z.ZodType<CrewMeetup>,
+    signal,
+  });
+}
+
+/** `DELETE /api/v1/meetups/{extId}` — 모임 삭제. */
+export function deleteMeetup(
+  accessToken: string,
+  extId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  return apiRequest({
+    method: 'DELETE',
+    path: `/api/v1/meetups/${encodeURIComponent(extId)}`,
+    accessToken,
+    schema: z.void(),
+    signal,
+  });
+}
+
+/** `GET /api/v1/meetups/{extId}/participants` — 모임 참여자/요청 목록. */
+export function fetchMeetupParticipants(
+  accessToken: string,
+  extId: string,
+  status?: 'ACTIVE' | 'PENDING',
+  signal?: AbortSignal,
+): Promise<MeetupParticipantList> {
+  const qs = buildQueryString([['status', status]]);
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/meetups/${encodeURIComponent(extId)}/participants${qs ? `?${qs}` : ''}`,
+    accessToken,
+    schema: MeetupParticipantListSchema as z.ZodType<MeetupParticipantList>,
+    signal,
+  });
+}
+
+/** `POST /api/v1/meetups/{extId}/participants/{userExtId}:approve|reject` — 모임 참여 요청 결정. */
+export function decideMeetupParticipant(
+  accessToken: string,
+  extId: string,
+  userExtId: string,
+  decision: 'approve' | 'reject',
+  signal?: AbortSignal,
+): Promise<MeetupParticipant> {
+  return apiRequest({
+    method: 'POST',
+    path: `/api/v1/meetups/${encodeURIComponent(extId)}/participants/${encodeURIComponent(userExtId)}:${decision}`,
+    accessToken,
+    schema: MeetupParticipantSchema as z.ZodType<MeetupParticipant>,
     signal,
   });
 }

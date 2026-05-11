@@ -2,6 +2,7 @@ package io.crimp.domain.crew;
 
 import io.crimp.core.entity.crew.Crew;
 import io.crimp.core.entity.crew.CrewJoinRequest;
+import io.crimp.core.entity.crew.CrewMeetup;
 import io.crimp.core.entity.crew.CrewMember;
 import io.crimp.core.entity.enums.CrewJoinPolicy;
 import io.crimp.core.entity.enums.CrewJoinRequestStatus;
@@ -11,13 +12,21 @@ import io.crimp.core.entity.enums.CrewMemberStatus;
 import io.crimp.core.entity.enums.CrewStyle;
 import io.crimp.core.entity.enums.GymStatus;
 import io.crimp.core.entity.gym.Gym;
+import io.crimp.core.entity.user.User;
 import io.crimp.core.repository.crew.CrewJoinRequestRepository;
 import io.crimp.core.repository.crew.CrewJoinRequestRow;
 import io.crimp.core.repository.crew.CrewMemberRepository;
 import io.crimp.core.repository.crew.CrewMemberRow;
+import io.crimp.core.repository.crew.CrewMeetupRepository;
 import io.crimp.core.repository.crew.CrewRepository;
 import io.crimp.core.repository.crew.CrewSearchRow;
+import io.crimp.core.repository.crew.MeetupParticipantRepository;
 import io.crimp.core.repository.gym.GymRepository;
+import io.crimp.core.repository.media.MediaAssetRepository;
+import io.crimp.core.repository.media.MediaImageVariantRepository;
+import io.crimp.core.repository.user.ProfileRepository;
+import io.crimp.core.repository.user.UserRepository;
+import io.crimp.common.config.AppProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.Pageable;
@@ -42,7 +51,13 @@ class CrewServiceTest {
     private CrewRepository crewRepository;
     private CrewJoinRequestRepository crewJoinRequestRepository;
     private CrewMemberRepository crewMemberRepository;
+    private CrewMeetupRepository crewMeetupRepository;
+    private MeetupParticipantRepository meetupParticipantRepository;
     private GymRepository gymRepository;
+    private MediaAssetRepository mediaAssetRepository;
+    private MediaImageVariantRepository mediaImageVariantRepository;
+    private UserRepository userRepository;
+    private ProfileRepository profileRepository;
     private CrewService service;
 
     @BeforeEach
@@ -50,8 +65,25 @@ class CrewServiceTest {
         crewRepository = mock(CrewRepository.class);
         crewJoinRequestRepository = mock(CrewJoinRequestRepository.class);
         crewMemberRepository = mock(CrewMemberRepository.class);
+        crewMeetupRepository = mock(CrewMeetupRepository.class);
+        meetupParticipantRepository = mock(MeetupParticipantRepository.class);
         gymRepository = mock(GymRepository.class);
-        service = new CrewService(crewRepository, crewJoinRequestRepository, crewMemberRepository, gymRepository);
+        mediaAssetRepository = mock(MediaAssetRepository.class);
+        mediaImageVariantRepository = mock(MediaImageVariantRepository.class);
+        userRepository = mock(UserRepository.class);
+        profileRepository = mock(ProfileRepository.class);
+        service = new CrewService(
+                crewRepository,
+                crewJoinRequestRepository,
+                crewMemberRepository,
+                crewMeetupRepository,
+                meetupParticipantRepository,
+                gymRepository,
+                mediaAssetRepository,
+                mediaImageVariantRepository,
+                userRepository,
+                profileRepository,
+                new AppProperties("Crimp", "test", null, new AppProperties.Media(null, 300)));
     }
 
     @Test
@@ -68,7 +100,7 @@ class CrewServiceTest {
 
         CrewView view = service.create(7L, new CreateCrewCommand(
                 " 강남 퇴근볼더 ", "평일 저녁", "V3~V6 중심", "서울 강남",
-                null, "INTERMEDIATE", "BOULDERING", 30));
+                null, null, "INTERMEDIATE", "BOULDERING", 30));
 
         assertThat(view.name()).isEqualTo("강남 퇴근볼더");
         verify(crewRepository).save(any(Crew.class));
@@ -91,7 +123,7 @@ class CrewServiceTest {
 
         service.create(7L, new CreateCrewCommand(
                 "강남 퇴근볼더", null, null, null,
-                "01JGYM00000000000000000000", null, null, null));
+                "01JGYM00000000000000000000", null, null, null, null));
 
         verify(crewRepository).save(org.mockito.ArgumentMatchers.argThat(crew -> crew.getHomeGymId().equals(33L)));
     }
@@ -103,7 +135,7 @@ class CrewServiceTest {
 
         assertThatThrownBy(() -> service.create(7L, new CreateCrewCommand(
                 "강남 퇴근볼더", null, null, null,
-                "01JGYM00000000000000000000", null, null, null)))
+                "01JGYM00000000000000000000", null, null, null, null)))
                 .isInstanceOf(CrewException.class)
                 .satisfies(e -> assertThat(((CrewException) e).code()).isEqualTo("CREW_HOME_GYM_NOT_FOUND"));
     }
@@ -113,7 +145,7 @@ class CrewServiceTest {
         when(crewRepository.existsByName("강남 퇴근볼더")).thenReturn(true);
 
         assertThatThrownBy(() -> service.create(7L, new CreateCrewCommand(
-                "강남 퇴근볼더", null, null, null, null, null, null, null)))
+                "강남 퇴근볼더", null, null, null, null, null, null, null, null)))
                 .isInstanceOf(CrewException.class)
                 .satisfies(e -> assertThat(((CrewException) e).code()).isEqualTo("CREW_NAME_TAKEN"));
     }
@@ -129,10 +161,10 @@ class CrewServiceTest {
                 .thenReturn(Optional.of(row(55L, "01JCREW", CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE, null)));
 
         service.update(7L, "01JCREW", new UpdateCrewCommand(
-                "새 크루", "새 요약", null, null, null, false,
-                "ADVANCED", "LEAD", null, true));
+                null, "새 요약", null, null, null, false,
+                null, false, "ADVANCED", "LEAD", null, true));
 
-        assertThat(crew.getName()).isEqualTo("새 크루");
+        assertThat(crew.getName()).isEqualTo("기존 크루");
         assertThat(crew.getSummary()).isEqualTo("새 요약");
         assertThat(crew.getLevelBand()).isEqualTo(CrewLevelBand.ADVANCED);
         assertThat(crew.getStyle()).isEqualTo(CrewStyle.LEAD);
@@ -147,7 +179,7 @@ class CrewServiceTest {
                 .thenReturn(Optional.of(CrewMember.create(55L, 8L, CrewMemberRole.MEMBER, CrewMemberStatus.ACTIVE)));
 
         assertThatThrownBy(() -> service.update(8L, "01JCREW", new UpdateCrewCommand(
-                "새 크루", null, null, null, null, false, null, null, null, false)))
+                "새 크루", null, null, null, null, false, null, false, null, null, null, false)))
                 .isInstanceOf(CrewException.class)
                 .satisfies(e -> assertThat(((CrewException) e).code()).isEqualTo("CREW_FORBIDDEN"));
     }
@@ -160,7 +192,7 @@ class CrewServiceTest {
                 .thenReturn(Optional.of(CrewMember.create(55L, 7L, CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE)));
 
         assertThatThrownBy(() -> service.update(7L, "01JCREW", new UpdateCrewCommand(
-                null, null, null, null, null, false, null, null, 20, true)))
+                null, null, null, null, null, false, null, false, null, null, 20, true)))
                 .isInstanceOf(CrewException.class)
                 .satisfies(e -> assertThat(((CrewException) e).code()).isEqualTo("INVALID_CREW_REQUEST"));
     }
@@ -202,6 +234,31 @@ class CrewServiceTest {
                 new CreateCrewJoinRequestCommand(null)))
                 .isInstanceOf(CrewException.class)
                 .satisfies(e -> assertThat(((CrewException) e).code()).isEqualTo("CREW_ALREADY_MEMBER"));
+    }
+
+    @Test
+    void requestJoin_allowsLeftMemberToRequestAgain() {
+        Crew crew = crew(55L, "01JCREW", 7L, null, "기존 크루");
+        when(crewRepository.findByExtIdForUpdate("01JCREW")).thenReturn(Optional.of(crew));
+        when(crewMemberRepository.existsByCrewIdAndUserIdAndStatus(55L, 8L, CrewMemberStatus.ACTIVE))
+                .thenReturn(false);
+        when(crewJoinRequestRepository.existsByCrewIdAndUserIdAndStatus(55L, 8L, CrewJoinRequestStatus.PENDING))
+                .thenReturn(false);
+        when(crewJoinRequestRepository.saveAndFlush(any(CrewJoinRequest.class))).thenAnswer(invocation -> {
+            CrewJoinRequest request = invocation.getArgument(0);
+            setField(request, "id", 92L);
+            setField(request, "extId", "01JREQ3");
+            return request;
+        });
+        when(crewJoinRequestRepository.findRowByExtId(any()))
+                .thenReturn(Optional.of(requestRow(92L, "01JREQ3", CrewJoinRequestStatus.PENDING)));
+
+        CrewJoinRequestView view = service.requestJoin(8L, "01JCREW",
+                new CreateCrewJoinRequestCommand(null));
+
+        assertThat(view.status()).isEqualTo(CrewJoinRequestStatus.PENDING);
+        verify(crewMemberRepository).existsByCrewIdAndUserIdAndStatus(
+                55L, 8L, CrewMemberStatus.ACTIVE);
     }
 
     @Test
@@ -300,7 +357,7 @@ class CrewServiceTest {
     void approveJoinRequest_rejectsFullCapacityBeforeAddingMember() {
         Crew crew = crew(55L, "01JCREW", 7L, null, "기존 크루");
         crew.updateBasic(crew.getName(), crew.getSummary(), crew.getDescription(), crew.getRegion(),
-                crew.getHomeGymId(), crew.getLevelBand(), crew.getStyle(), (short) 1);
+                crew.getHomeGymId(), crew.getImageMediaId(), crew.getLevelBand(), crew.getStyle(), (short) 1);
         CrewJoinRequest request = CrewJoinRequest.builder()
                 .extId("01JREQ")
                 .crewId(55L)
@@ -353,6 +410,72 @@ class CrewServiceTest {
     }
 
     @Test
+    void createMeetup_rejectsPastStart() {
+        assertThatThrownBy(() -> service.createMeetup(7L, null, new CreateCrewMeetupCommand(
+                "퇴근 볼더링", null,
+                Instant.now().minusSeconds(120), null,
+                null, "강남", 8, "OPEN")))
+                .isInstanceOf(CrewException.class)
+                .satisfies(e -> assertThat(((CrewException) e).code()).isEqualTo("INVALID_CREW_MEETUP_REQUEST"));
+    }
+
+    @Test
+    void listAllMeetups_queriesUpcomingOnly() {
+        CrewMeetup meetup = CrewMeetup.builder()
+                .extId("01JMEETUP")
+                .createdBy(7L)
+                .title("퇴근 볼더링")
+                .startsAt(Instant.now().plusSeconds(3600))
+                .location("강남")
+                .capacity((short) 8)
+                .build();
+        when(crewMeetupRepository.findByDeletedAtIsNullAndStartsAtGreaterThanEqualOrderByStartsAtAscIdAsc(
+                any(Instant.class), any(Pageable.class)))
+                .thenReturn(List.of(meetup));
+        when(meetupParticipantRepository.countByMeetupIdAndStatus(any(), any())).thenReturn(0L);
+        when(meetupParticipantRepository.existsByMeetupIdAndUserIdAndStatus(any(), any(), any())).thenReturn(false);
+
+        List<CrewMeetupView> result = service.listAllMeetups(7L, 10);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).extId()).isEqualTo("01JMEETUP");
+        verify(crewMeetupRepository).findByDeletedAtIsNullAndStartsAtGreaterThanEqualOrderByStartsAtAscIdAsc(
+                any(Instant.class), any(Pageable.class));
+    }
+
+    @Test
+    void deleteMeetup_softDeletesWhenActorIsHost() {
+        CrewMeetup meetup = CrewMeetup.builder()
+                .extId("01JMEETUP")
+                .createdBy(7L)
+                .title("퇴근 볼더링")
+                .startsAt(Instant.now().plusSeconds(3600))
+                .build();
+        when(crewMeetupRepository.findByExtIdAndDeletedAtIsNull("01JMEETUP")).thenReturn(Optional.of(meetup));
+
+        service.deleteMeetup(7L, "01JMEETUP");
+
+        assertThat(meetup.isDeleted()).isTrue();
+        verify(crewMeetupRepository).flush();
+    }
+
+    @Test
+    void deleteMeetup_rejectsNonHost() {
+        CrewMeetup meetup = CrewMeetup.builder()
+                .extId("01JMEETUP")
+                .createdBy(7L)
+                .title("퇴근 볼더링")
+                .startsAt(Instant.now().plusSeconds(3600))
+                .build();
+        when(crewMeetupRepository.findByExtIdAndDeletedAtIsNull("01JMEETUP")).thenReturn(Optional.of(meetup));
+
+        assertThatThrownBy(() -> service.deleteMeetup(8L, "01JMEETUP"))
+                .isInstanceOf(CrewException.class)
+                .satisfies(e -> assertThat(((CrewException) e).code()).isEqualTo("MEETUP_FORBIDDEN"));
+        assertThat(meetup.isDeleted()).isFalse();
+    }
+
+    @Test
     void leaveCrew_marksMemberLeftAndDecrementsMemberCount() {
         Crew crew = crew(55L, "01JCREW", 7L, null, "기존 크루");
         CrewMember member = CrewMember.create(55L, 8L, CrewMemberRole.MEMBER, CrewMemberStatus.ACTIVE);
@@ -390,6 +513,42 @@ class CrewServiceTest {
                 .thenReturn(1L);
 
         assertThatThrownBy(() -> service.leaveCrew(7L, "01JCREW"))
+                .isInstanceOf(CrewException.class)
+                .satisfies(e -> assertThat(((CrewException) e).code()).isEqualTo("CREW_OWNER_LEAVE_BLOCKED"));
+    }
+
+    @Test
+    void removeMember_marksMemberLeftAndDecrementsMemberCount() {
+        Crew crew = crew(55L, "01JCREW", 7L, null, "기존 크루");
+        CrewMember actor = CrewMember.create(55L, 7L, CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE);
+        CrewMember member = CrewMember.create(55L, 8L, CrewMemberRole.MEMBER, CrewMemberStatus.ACTIVE);
+        when(crewRepository.findByExtIdForUpdate("01JCREW")).thenReturn(Optional.of(crew));
+        when(crewMemberRepository.findByCrewIdAndUserIdAndStatus(55L, 7L, CrewMemberStatus.ACTIVE))
+                .thenReturn(Optional.of(actor));
+        when(userRepository.findByExtId("01JUSER")).thenReturn(Optional.of(user(8L, "01JUSER")));
+        when(crewMemberRepository.findByCrewIdAndUserIdAndStatus(55L, 8L, CrewMemberStatus.ACTIVE))
+                .thenReturn(Optional.of(member));
+
+        service.removeMember(7L, "01JCREW", "01JUSER");
+
+        assertThat(member.getStatus()).isEqualTo(CrewMemberStatus.LEFT);
+        assertThat(crew.getMemberCount()).isEqualTo(0);
+        verify(crewRepository).flush();
+    }
+
+    @Test
+    void removeMember_blocksOwnerRemoval() {
+        Crew crew = crew(55L, "01JCREW", 7L, null, "기존 크루");
+        CrewMember actor = CrewMember.create(55L, 8L, CrewMemberRole.ADMIN, CrewMemberStatus.ACTIVE);
+        CrewMember owner = CrewMember.create(55L, 7L, CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE);
+        when(crewRepository.findByExtIdForUpdate("01JCREW")).thenReturn(Optional.of(crew));
+        when(crewMemberRepository.findByCrewIdAndUserIdAndStatus(55L, 8L, CrewMemberStatus.ACTIVE))
+                .thenReturn(Optional.of(actor));
+        when(userRepository.findByExtId("01JOWNER")).thenReturn(Optional.of(user(7L, "01JOWNER")));
+        when(crewMemberRepository.findByCrewIdAndUserIdAndStatus(55L, 7L, CrewMemberStatus.ACTIVE))
+                .thenReturn(Optional.of(owner));
+
+        assertThatThrownBy(() -> service.removeMember(8L, "01JCREW", "01JOWNER"))
                 .isInstanceOf(CrewException.class)
                 .satisfies(e -> assertThat(((CrewException) e).code()).isEqualTo("CREW_OWNER_LEAVE_BLOCKED"));
     }
@@ -438,6 +597,7 @@ class CrewServiceTest {
                 "평일 저녁 강남권",
                 "V3~V6 중심",
                 "서울 강남",
+                null,
                 CrewLevelBand.INTERMEDIATE,
                 CrewStyle.BOULDERING,
                 CrewJoinPolicy.APPROVAL,
@@ -497,6 +657,12 @@ class CrewServiceTest {
                 .build();
         setField(crew, "id", id);
         return crew;
+    }
+
+    private static User user(Long id, String extId) {
+        User user = User.create(extId, null, null);
+        setField(user, "id", id);
+        return user;
     }
 
     @SuppressWarnings("unused")

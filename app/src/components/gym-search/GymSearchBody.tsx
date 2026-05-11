@@ -44,6 +44,7 @@ type Props = {
   onRefresh: () => void;
   onEndReached: () => void;
   navigation: RootStackNavigationProp<'GymSearch'>;
+  onSelectGym?: (gym: GymItem) => void;
 };
 
 export function GymSearchBody({
@@ -66,15 +67,16 @@ export function GymSearchBody({
   onRefresh,
   onEndReached,
   navigation,
+  onSelectGym,
 }: Props): JSX.Element {
   const renderItem = useCallback<ListRenderItem<GymItem>>(
     ({ item }) => (
       <GymSearchCard
         gym={item}
-        onPress={() => navigation.navigate('GymDetail', { extId: item.extId })}
+        onPress={() => onSelectGym ? onSelectGym(item) : navigation.navigate('GymDetail', { extId: item.extId })}
       />
     ),
-    [navigation],
+    [navigation, onSelectGym],
   );
   const mapGyms = useMemo(
     () => gyms
@@ -181,12 +183,10 @@ export function GymSearchBody({
       </View>
     );
   }, [
-    accentColor,
     brand,
     brandOptions,
     error,
     gyms,
-    isLoading,
     mapGyms,
     navigation,
     searchText,

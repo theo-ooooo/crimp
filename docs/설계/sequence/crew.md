@@ -20,6 +20,10 @@ erDiagram
     users ||--o{ crew_members : joins
     crews ||--o{ crew_join_requests : receives
     users ||--o{ crew_join_requests : requests
+    crews ||--o{ meetups : schedules
+    users ||--o{ meetups : creates
+    meetups ||--o{ meetup_participants : has
+    users ||--o{ meetup_participants : joins
 ```
 
 ### 1.1 상태 enum
@@ -31,6 +35,8 @@ erDiagram
 | `crew_members.role` | `OWNER`, `ADMIN`, `MEMBER` |
 | `crew_members.status` | `ACTIVE`, `LEFT`, `REMOVED` |
 | `crew_join_requests.status` | `PENDING`, `APPROVED`, `REJECTED`, `CANCELED` |
+| `meetups.join_policy` | `OPEN`, `APPROVAL` |
+| `meetup_participants.status` | `PENDING`, `ACTIVE`, `CANCELED` |
 | `crews.level_band` | `BEGINNER`, `INTERMEDIATE`, `ADVANCED`, `ALL` |
 | `crews.style` | `BOULDERING`, `LEAD`, `BOTH` |
 
@@ -152,6 +158,18 @@ sequenceDiagram
 | --- | --- | --- |
 | POST | `/api/v1/crews` | 크루 생성 |
 | PATCH | `/api/v1/crews/{extId}` | 크루 기본 정보 수정 |
+| GET | `/api/v1/meetups` | 전체 예정 모임 목록 |
+| POST | `/api/v1/meetups` | 독립 모임 또는 크루 모임 생성 |
+| GET | `/api/v1/meetups/{extId}` | 모임 상세 |
+| PATCH | `/api/v1/meetups/{extId}` | 모임 관리자 수정 |
+| POST | `/api/v1/meetups/{extId}/participants/me` | 모임 참여 또는 승인 요청 |
+| DELETE | `/api/v1/meetups/{extId}/participants/me` | 내 모임 참여/요청 취소 |
+| DELETE | `/api/v1/meetups/{extId}` | 모임 관리자 취소 |
+| GET | `/api/v1/meetups/{extId}/participants?status=` | 모임 참여자/승인 요청 목록 |
+| POST | `/api/v1/meetups/{extId}/participants/{userExtId}:approve` | 승인제 모임 요청 승인 |
+| POST | `/api/v1/meetups/{extId}/participants/{userExtId}:reject` | 승인제 모임 요청 거절 |
+| GET | `/api/v1/crews/{extId}/meetups` | 크루 예정 모임 목록 |
+| POST | `/api/v1/crews/{extId}/meetups` | 크루장/관리자 모임 생성 |
 | POST | `/api/v1/crews/{extId}/join-requests` | 가입 요청 |
 | DELETE | `/api/v1/crews/{extId}/join-requests/me` | 내 대기 요청 취소 |
 | GET | `/api/v1/crews/{extId}/join-requests` | 크루장/관리자 요청 목록 |
@@ -159,8 +177,24 @@ sequenceDiagram
 | POST | `/api/v1/crews/{extId}/join-requests/{requestExtId}:reject` | 가입 거절 |
 | GET | `/api/v1/crews/{extId}/members` | 멤버 목록 |
 | DELETE | `/api/v1/crews/{extId}/members/me` | 크루 탈퇴 |
+| DELETE | `/api/v1/crews/{extId}/members/{userExtId}` | 크루장/관리자 멤버 탈퇴 처리 |
 
 ---
+
+## 4.4 대표 이미지와 모임
+
+- 대표 이미지는 `POST /api/v1/media/presign { kind: "IMAGE", usage: "CREW" }` → object storage PUT → `POST /api/v1/media/{id}/complete` 로 READY 처리 후 크루 생성/수정의 `imageMediaId` 로 연결한다.
+- 도메인은 이미지가 호출자 소유, `READY`, `IMAGE`, `CREW` usage 인지 검증한다. 수정에서 `clearImage=true` 와 `imageMediaId` 동시 전달은 거부한다.
+- 모임은 전역 `meetups` 목록에서 조회한다. `crew_id` 는 nullable 이며 특정 크루 상세에서 만든 경우에만 연결된다.
+- 전역 모임 생성은 로그인 사용자 누구나 가능하다. 특정 크루 모임 생성은 `OWNER`/`ADMIN` 만 가능하다.
+- v0.1 필드는 `title`, `description`, `startsAt`, `endsAt`, `gymExtId`, `location`, `capacity`, `joinPolicy` 이며 목록은 시작 시각 오름차순 최대 50개를 반환한다.
+- 모임 생성자는 생성과 동시에 `meetup_participants.status=ACTIVE` 로 등록한다.
+- 모임 생성자는 해당 모임의 방장이다. 독립 모임은 방장만 관리하고, 크루 모임은 방장과 크루 `OWNER`/`ADMIN` 이 관리한다.
+- 모임 관리자는 시작 전 모임을 수정하거나 취소할 수 있다. 취소는 현재 `deleted_at` soft-delete 로 구현하며, 취소된 모임은 목록/상세에서 제외된다.
+- 모임 참여 방식은 `OPEN` 과 `APPROVAL` 이다. `OPEN` 은 `meetup_participants.status=ACTIVE`, `APPROVAL` 은 요청 메시지(`message`)와 함께 `PENDING` 으로 생성한다.
+- 승인제 모임의 `PENDING` 요청은 모임 관리자만 조회·승인·거절할 수 있다. 승인 시 정원을 재확인한다.
+- 정원이 있는 모임은 `ACTIVE` 참여자 수 기준으로 제한한다. 승인 대기자는 정원 계산에 포함하지 않는다.
+- App 생성 플로우는 `기본 정보 → 날짜/시간 달력 → 장소 선택(GymSearch/GymDetail 재사용) → 확인` 단계형으로 구성한다.
 
 ## 5. 에러 코드
 
@@ -212,3 +246,10 @@ sequenceDiagram
 - `PRIVATE`/초대 링크 도입 시점.
 - 멤버 강제 추방과 owner 양도 정책.
 - 알림 도메인 연결 방식.
+
+## 9. 계정 탈퇴와 재가입
+
+- 회원 탈퇴는 `users` 를 soft-delete 하되, 공개 컨텐츠와 크루 멤버 이력은 삭제하지 않고 `탈퇴사용자` 로 익명화한다.
+- 탈퇴 시 대기 중인 `crew_join_requests` 는 `CANCELED` 로 정리한다.
+- 같은 OAuth 계정으로 재가입하면 새 user 행을 만들고 OAuth identity 를 새 user 로 재연결한다. 새 user 는 기존 탈퇴 user 의 `crew_members` PK 와 무관하므로 같은 크루에 새 가입 요청을 보낼 수 있다.
+- 크루 탈퇴(`DELETE /crews/{extId}/members/me`)는 계정 탈퇴와 별개이며, `LEFT` 멤버는 승인 시 기존 `crew_members` 행을 `ACTIVE MEMBER` 로 재활성화한다.

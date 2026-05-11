@@ -42,6 +42,10 @@ erDiagram
     users ||--o{ crew_members : joins
     crews ||--o{ crew_join_requests : receives
     users ||--o{ crew_join_requests : requests
+    crews ||--o{ meetups : schedules
+    users ||--o{ meetups : creates
+    meetups ||--o{ meetup_participants : has
+    users ||--o{ meetup_participants : joins
 ```
 
 ## 3. 테이블 정의
@@ -373,6 +377,7 @@ CREATE TABLE crews (
   ext_id        CHAR(26) NOT NULL,
   owner_user_id BIGINT UNSIGNED NOT NULL,
   home_gym_id   BIGINT UNSIGNED NULL,
+  image_media_id BIGINT UNSIGNED NULL,
   name          VARCHAR(30) NOT NULL,
   summary       VARCHAR(120) NULL,
   description   VARCHAR(500) NULL,
@@ -392,9 +397,11 @@ CREATE TABLE crews (
   KEY idx_crews_list (visibility, deleted_at, id DESC),
   KEY idx_crews_filters (region, level_band, style),
   KEY idx_crews_home_gym (home_gym_id),
+  KEY idx_crews_image_media (image_media_id),
   KEY idx_crews_owner (owner_user_id),
   CONSTRAINT fk_crews_owner FOREIGN KEY (owner_user_id) REFERENCES users(id),
   CONSTRAINT fk_crews_home_gym FOREIGN KEY (home_gym_id) REFERENCES gyms(id),
+  CONSTRAINT fk_crews_image_media FOREIGN KEY (image_media_id) REFERENCES media_assets(id),
   CONSTRAINT chk_crews_capacity CHECK (capacity IS NULL OR capacity BETWEEN 2 AND 200)
 );
 ```
@@ -441,6 +448,54 @@ CREATE TABLE crew_join_requests (
 
 > MySQL 은 `status='PENDING'` 조건부 unique 를 직접 지원하지 않으므로, "크루별 사용자 pending 요청 1개" 정책은 서비스 트랜잭션에서 검증한다. 필요 시 `pending_key` generated column 으로 보강한다.
 
+### 3.17 meetups (Phase 1.5)
+```sql
+CREATE TABLE meetups (
+  id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  ext_id      CHAR(26) NOT NULL,
+  crew_id     BIGINT UNSIGNED NULL,
+  created_by  BIGINT UNSIGNED NOT NULL,
+  gym_id      BIGINT UNSIGNED NULL,
+  title       VARCHAR(60) NOT NULL,
+  description VARCHAR(500) NULL,
+  starts_at   TIMESTAMP NOT NULL,
+  ends_at     TIMESTAMP NULL,
+  location    VARCHAR(100) NULL,
+  capacity    SMALLINT UNSIGNED NULL,
+  join_policy VARCHAR(20) NOT NULL DEFAULT 'OPEN', -- OPEN, APPROVAL
+  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at  TIMESTAMP NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_meetups_ext_id (ext_id),
+  KEY idx_meetups_starts (deleted_at, starts_at, id),
+  KEY idx_meetups_crew_starts (crew_id, deleted_at, starts_at, id),
+  KEY idx_meetups_creator (created_by),
+  KEY idx_meetups_gym (gym_id),
+  CONSTRAINT fk_meetups_crew FOREIGN KEY (crew_id) REFERENCES crews(id),
+  CONSTRAINT fk_meetups_creator FOREIGN KEY (created_by) REFERENCES users(id),
+  CONSTRAINT fk_meetups_gym FOREIGN KEY (gym_id) REFERENCES gyms(id),
+  CONSTRAINT chk_meetups_capacity CHECK (capacity IS NULL OR capacity BETWEEN 2 AND 200)
+);
+```
+
+### 3.18 meetup_participants (Phase 1.5)
+```sql
+CREATE TABLE meetup_participants (
+  meetup_id  BIGINT UNSIGNED NOT NULL,
+  user_id    BIGINT UNSIGNED NOT NULL,
+  status     VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', -- PENDING, ACTIVE, CANCELED
+  message    VARCHAR(500) NULL,                     -- APPROVAL 요청 메시지
+  joined_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (meetup_id, user_id),
+  KEY idx_meetup_participants_user (user_id, status, joined_at DESC),
+  KEY idx_meetup_participants_meetup_status (meetup_id, status),
+  CONSTRAINT fk_meetup_participants_meetup FOREIGN KEY (meetup_id) REFERENCES meetups(id),
+  CONSTRAINT fk_meetup_participants_user FOREIGN KEY (user_id) REFERENCES users(id)
+);
+```
+
 ## 4. 비정규화·카운터 정책
 
 - `feed_posts.like_count / comment_count`: Redis `post:{id}:likes` / `post:{id}:comments` 증감 → 1분 주기 DB flush
@@ -470,6 +525,10 @@ CREATE TABLE crew_join_requests (
 | V202605071100 | `V202605071100__media_type_tables.sql` | 이미지/비디오 전용 메타, variant, 비디오 썸네일 테이블 분리 |
 | V202605071200 | `V202605071200__media_asset_base_cleanup.sql` | media_assets 를 공통 원본 자산 컬럼만 남기도록 정리 |
 | V202605081000 | `V202605081000__init_crews.sql` | crews, crew_members, crew_join_requests |
+| V202605111100 | `V202605111100__crew_images_and_meetups.sql` | crews.image_media_id, meetups |
+| V202605111200 | `V202605111200__meetup_participants.sql` | meetup_participants |
+| V202605111210 | `V202605111210__meetup_join_policy.sql` | meetups.join_policy |
+| V202605111220 | `V202605111220__meetup_participant_message.sql` | meetup_participants.message |
 
 ## 7. 오픈 이슈
 

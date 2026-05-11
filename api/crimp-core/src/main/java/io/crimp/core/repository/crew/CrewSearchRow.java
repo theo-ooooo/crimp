@@ -15,6 +15,7 @@ public record CrewSearchRow(
         String summary,
         String description,
         String region,
+        Long imageMediaId,
         CrewLevelBand levelBand,
         CrewStyle style,
         CrewJoinPolicy joinPolicy,

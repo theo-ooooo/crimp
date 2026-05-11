@@ -22,6 +22,15 @@ export type CrewJoinPolicy = z.infer<typeof CrewJoinPolicySchema>;
 export const CrewMyStatusSchema = z.enum(['NONE', 'PENDING', 'MEMBER', 'OWNER', 'ADMIN']);
 export type CrewMyStatus = z.infer<typeof CrewMyStatusSchema>;
 
+export const MeetupJoinPolicySchema = z.enum(['OPEN', 'APPROVAL']);
+export type MeetupJoinPolicy = z.infer<typeof MeetupJoinPolicySchema>;
+
+export const MeetupParticipationSchema = z.enum(['NONE', 'PENDING', 'JOINED']);
+export type MeetupParticipation = z.infer<typeof MeetupParticipationSchema>;
+
+export const MeetupParticipantStatusSchema = z.enum(['PENDING', 'ACTIVE', 'CANCELED']);
+export type MeetupParticipantStatus = z.infer<typeof MeetupParticipantStatusSchema>;
+
 export const CrewJoinRequestStatusSchema = z.enum(['PENDING', 'APPROVED', 'REJECTED', 'CANCELED']);
 export type CrewJoinRequestStatus = z.infer<typeof CrewJoinRequestStatusSchema>;
 
@@ -49,18 +58,59 @@ export const CrewOwnerSchema = z.object({
 
 export type CrewOwner = z.infer<typeof CrewOwnerSchema>;
 
+export const MeetupHostSchema = z.object({
+  extId: z.string().nullable(),
+  nickname: z.string().nullable(),
+});
+
+export type MeetupHost = z.infer<typeof MeetupHostSchema>;
+
+export const CrewMeetupSchema = z.object({
+  extId: z.string(),
+  title: z.string(),
+  description: z.string().nullable(),
+  startsAt: z.string(),
+  endsAt: z.string().nullable(),
+  crewExtId: z.string().nullable().optional(),
+  crewName: z.string().nullable().optional(),
+  gymExtId: z.string().nullable().optional(),
+  gymName: z.string().nullable().optional(),
+  location: z.string().nullable(),
+  capacity: z.number().int().nullable(),
+  joinPolicy: z.preprocess((value) => value ?? 'OPEN', MeetupJoinPolicySchema),
+  participantCount: z.preprocess((value) => value ?? 0, z.number().int()),
+  myParticipation: z.preprocess((value) => value ?? 'NONE', MeetupParticipationSchema),
+  host: MeetupHostSchema.nullable().optional(),
+  canManage: z.preprocess((value) => value ?? false, z.boolean()),
+  createdAt: z.string(),
+});
+
+export type CrewMeetup = z.infer<typeof CrewMeetupSchema>;
+
+export const CrewMemberPreviewSchema = z.object({
+  extId: z.string(),
+  nickname: z.string().nullable(),
+  role: CrewMemberRoleSchema,
+});
+
+export type CrewMemberPreview = z.infer<typeof CrewMemberPreviewSchema>;
+
 export const CrewItemSchema = z.object({
   extId: z.string(),
   name: z.string(),
   summary: z.string().nullable(),
   region: z.string().nullable(),
   homeGym: CrewHomeGymSchema.nullable(),
+  imageMediaId: z.number().int().nullable().optional(),
+  imageUrl: z.string().url().nullable().optional(),
   levelBand: CrewLevelBandSchema,
   style: CrewStyleSchema,
   memberCount: z.number().int(),
   capacity: z.number().int().nullable(),
   joinPolicy: CrewJoinPolicySchema,
   myStatus: CrewMyStatusSchema,
+  nextMeetup: CrewMeetupSchema.nullable().optional(),
+  memberPreview: z.array(CrewMemberPreviewSchema).optional(),
 });
 
 export type CrewItem = z.infer<typeof CrewItemSchema>;
@@ -86,6 +136,7 @@ export const CreateCrewBodySchema = z.object({
   description: z.string().max(500).nullable().optional(),
   region: z.string().max(50).nullable().optional(),
   homeGymExtId: z.string().length(26).nullable().optional(),
+  imageMediaId: z.number().int().nullable().optional(),
   levelBand: CrewLevelBandSchema.nullable().optional(),
   style: CrewStyleSchema.nullable().optional(),
   capacity: z.number().int().min(2).max(200).nullable().optional(),
@@ -95,6 +146,7 @@ export type CreateCrewBody = z.infer<typeof CreateCrewBodySchema>;
 
 export const UpdateCrewBodySchema = CreateCrewBodySchema.partial().extend({
   clearHomeGym: z.boolean().optional(),
+  clearImage: z.boolean().optional(),
   clearCapacity: z.boolean().optional(),
 });
 
@@ -152,3 +204,51 @@ export const CrewMemberListSchema = z.object({
 });
 
 export type CrewMemberList = z.infer<typeof CrewMemberListSchema>;
+
+export const CrewMeetupListSchema = z.object({
+  items: z.array(CrewMeetupSchema),
+});
+
+export type CrewMeetupList = z.infer<typeof CrewMeetupListSchema>;
+
+export const CreateCrewMeetupBodySchema = z.object({
+  title: z.string().min(2).max(60),
+  description: z.string().max(500).nullable().optional(),
+  startsAt: z.string(),
+  endsAt: z.string().nullable().optional(),
+  crewExtId: z.string().length(26).nullable().optional(),
+  gymExtId: z.string().length(26).nullable().optional(),
+  location: z.string().max(100).nullable().optional(),
+  capacity: z.number().int().min(2).max(200).nullable().optional(),
+  joinPolicy: MeetupJoinPolicySchema.nullable().optional(),
+});
+
+export type CreateCrewMeetupBody = z.infer<typeof CreateCrewMeetupBodySchema>;
+
+export const UpdateCrewMeetupBodySchema = CreateCrewMeetupBodySchema.partial().omit({
+  crewExtId: true,
+});
+
+export type UpdateCrewMeetupBody = z.infer<typeof UpdateCrewMeetupBodySchema>;
+
+export const JoinMeetupBodySchema = z.object({
+  message: z.string().max(500).nullable().optional(),
+});
+
+export type JoinMeetupBody = z.infer<typeof JoinMeetupBodySchema>;
+
+export const MeetupParticipantSchema = z.object({
+  userExtId: z.string().nullable(),
+  nickname: z.string().nullable(),
+  status: MeetupParticipantStatusSchema,
+  message: z.string().nullable(),
+  joinedAt: z.string(),
+});
+
+export type MeetupParticipant = z.infer<typeof MeetupParticipantSchema>;
+
+export const MeetupParticipantListSchema = z.object({
+  items: z.array(MeetupParticipantSchema),
+});
+
+export type MeetupParticipantList = z.infer<typeof MeetupParticipantListSchema>;

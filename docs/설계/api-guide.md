@@ -232,10 +232,22 @@
 
 | Method | Path | 설명 |
 | --- | --- | --- |
-| GET | `/api/v1/crews?q=&region=&gymExtId=&levelBand=&style=&cursor=&size=` | 공개 크루 목록. 지역·대표 암장·레벨·스타일 필터, 커서 페이지네이션. 응답에는 `memberCount`, `capacity`, `joinPolicy`, `myStatus` 포함 |
-| POST | `/api/v1/crews` | 크루 생성. 생성자는 `OWNER` 멤버가 된다. v0.1 은 `visibility=PUBLIC`, `joinPolicy=APPROVAL` 만 생성 |
-| GET | `/api/v1/crews/{extId}` | 크루 상세. 기본 정보, 대표 암장, owner, 내 가입 상태 |
-| PATCH | `/api/v1/crews/{extId}` | 크루 기본 정보 수정 (`OWNER`/`ADMIN`) |
+| GET | `/api/v1/crews?q=&region=&gymExtId=&levelBand=&style=&cursor=&size=` | 공개 크루 목록. 지역·대표 암장·레벨·스타일 필터, 커서 페이지네이션. 응답에는 `imageMediaId`, `imageUrl`, `memberCount`, `capacity`, `joinPolicy`, `myStatus`, `nextMeetup`, `memberPreview` 포함 |
+| POST | `/api/v1/crews` | 크루 생성. 생성자는 `OWNER` 멤버가 된다. `imageMediaId` 전달 시 호출자 소유 READY CREW IMAGE 만 연결 |
+| GET | `/api/v1/crews/{extId}` | 크루 상세. 기본 정보, 대표 이미지, 대표 암장, owner, 내 가입 상태 |
+| PATCH | `/api/v1/crews/{extId}` | 크루 기본 정보/대표 이미지 수정 (`OWNER`/`ADMIN`). `clearImage=true` 로 대표 이미지 해제 |
+| GET | `/api/v1/meetups?size=` | 전체 예정 모임 목록. 크루 소속 여부와 무관하게 시작 시각 오름차순 |
+| POST | `/api/v1/meetups` | 독립 모임 또는 크루 모임 생성. Body: `{ title, description?, startsAt, endsAt?, crewExtId?, gymExtId?, location?, capacity?, joinPolicy? }`. 생성자는 자동 참여 |
+| GET | `/api/v1/meetups/{extId}` | 모임 상세. 장소, 크루, 참여 방식, 참여 인원, 내 참여 상태, 방장(`host`), 내 관리 가능 여부(`canManage`) 포함 |
+| PATCH | `/api/v1/meetups/{extId}` | 모임 수정. 시작 전 모임만 가능. 독립 모임은 방장, 크루 모임은 방장 또는 크루 `OWNER`/`ADMIN` 가능 |
+| POST | `/api/v1/meetups/{extId}/participants/me` | 내 모임 참여. Body: `{ message? }`. `joinPolicy=OPEN` 은 즉시 `JOINED`, `APPROVAL` 은 요청 메시지와 함께 `PENDING` 요청 상태 |
+| DELETE | `/api/v1/meetups/{extId}/participants/me` | 내 모임 참여/요청 취소 |
+| DELETE | `/api/v1/meetups/{extId}` | 모임 취소. 시작 전 모임만 가능. 독립 모임은 방장, 크루 모임은 방장 또는 크루 `OWNER`/`ADMIN` 가능. 취소된 모임은 목록/상세에서 제외 |
+| GET | `/api/v1/meetups/{extId}/participants?status=ACTIVE\|PENDING` | 모임 참여자/요청 목록. `ACTIVE` 는 참여자 목록, `PENDING` 은 승인 대기 요청이며 모임 관리자만 조회 |
+| POST | `/api/v1/meetups/{extId}/participants/{userExtId}:approve` | 승인제 모임 참여 요청 승인. 모임 관리자만 가능 |
+| POST | `/api/v1/meetups/{extId}/participants/{userExtId}:reject` | 승인제 모임 참여 요청 거절. 모임 관리자만 가능 |
+| GET | `/api/v1/crews/{extId}/meetups?size=` | 크루 예정 모임 목록. 시작 시각 오름차순 |
+| POST | `/api/v1/crews/{extId}/meetups` | 크루 모임 생성 (`OWNER`/`ADMIN`). Body: `{ title, description?, startsAt, endsAt?, gymExtId?, location?, capacity?, joinPolicy? }` |
 | POST | `/api/v1/crews/{extId}/join-requests` | 가입 요청 생성. 같은 사용자는 여러 크루에 가입 요청 가능, 같은 크루의 대기 요청은 1개 |
 | DELETE | `/api/v1/crews/{extId}/join-requests/me` | 내 대기 가입 요청 취소 |
 | GET | `/api/v1/crews/{extId}/join-requests?status=PENDING&cursor=&size=` | 가입 요청 목록 (`OWNER`/`ADMIN`) |
@@ -243,19 +255,14 @@
 | POST | `/api/v1/crews/{extId}/join-requests/{requestExtId}:reject` | 가입 요청 거절 |
 | GET | `/api/v1/crews/{extId}/members?cursor=&size=` | ACTIVE 멤버 목록. userExtId, nickname, role, joinedAt 포함 |
 | DELETE | `/api/v1/crews/{extId}/members/me` | 크루 탈퇴. `crew_members.status=LEFT`, 마지막 `OWNER` 는 탈퇴 불가 |
-
-후속 예정 API:
-
-| Method | Path | 설명 |
-| --- | --- | --- |
-| DELETE | `/api/v1/crews/{extId}/members/{userExtId}` | 멤버 강제 내보내기 (`OWNER`/`ADMIN`) |
+| DELETE | `/api/v1/crews/{extId}/members/{userExtId}` | 멤버 탈퇴 처리 (`OWNER`/`ADMIN`). `OWNER` 는 제거 불가, `ADMIN` 은 다른 `ADMIN` 제거 불가 |
 
 상세 설계: [../기획/crew.md](../기획/crew.md), [sequence/crew.md](./sequence/crew.md).
 
 ### 미디어 (`/api/v1/media`)
 | Method | Path | 설명 |
 | --- | --- | --- |
-| POST | `/api/v1/media/presign` | UPLOADING 행 생성 + S3 presigned PUT URL. Body: `{ kind, usage?, mime, byteSize }`. `usage` 는 `ATTEMPT`(기본), `AVATAR`, `POSTER` 중 하나이며 프로필 이미지는 `AVATAR` 로 업로드한 READY IMAGE 만 연결 가능. |
+| POST | `/api/v1/media/presign` | UPLOADING 행 생성 + S3 presigned PUT URL. Body: `{ kind, usage?, mime, byteSize }`. `usage` 는 `ATTEMPT`(기본), `AVATAR`, `POSTER`, `CREW` 중 하나이며 프로필/크루 이미지는 각각 `AVATAR`/`CREW` READY IMAGE 만 연결 가능. |
 | POST | `/api/v1/media/{id}/complete` | S3 PUT 성공 후 호출 → READY. Body: `{ byteSize, width, height, durationMs, attachAsPosterForVideoId? }`. `attachAsPosterForVideoId` 는 **IMAGE** 완료 시에만 의미 있음: 해당 id 의 **VIDEO** 미디어(이미 READY, 동일 소유자)에 본 이미지를 대표 썸네일(`media_video_thumbnails`)로 연결. 생략·null 시 기존과 동일. |
 
 클라이언트 흐름: `presign` → `PUT` presigned URL → `complete`. 동영상 사용자 지정 포스터는 **비디오 `complete` 후** 포스터 이미지를 presign→PUT→`complete` 하며 `attachAsPosterForVideoId` 에 비디오 미디어 numeric `id` 를 넣는다.

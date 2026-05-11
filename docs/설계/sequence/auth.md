@@ -106,6 +106,8 @@ sequenceDiagram
     App->>App: 로컬 토큰 제거 + 로그인 화면 reset
 ```
 
+계정 탈퇴 후 같은 OAuth 계정으로 다시 로그인하면 기존 soft-deleted `users` 행을 부활시키지 않고 새 `users` 행을 생성한다. 기존 `oauth_identities` 행은 새 user 로 재연결한다. 탈퇴 시 `users.email/email_hash` 는 비워 같은 이메일의 재가입을 막지 않는다.
+
 정책 기본안:
 - 30일 복구 기간 동안 `oauth_identities` 는 유지하되 로그인 시 복구 분기를 노출한다.
 - 복구 기간 만료 후 provider 식별자와 개인정보성 프로필 필드 삭제 또는 irreversible anonymize 를 수행한다.

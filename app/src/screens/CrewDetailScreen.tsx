@@ -1,10 +1,14 @@
-import { useRoute, type RouteProp } from '@react-navigation/native';
-import React, { useMemo } from 'react';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
+  Pressable,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,6 +18,8 @@ import { AuthHydrationGate } from '@/components/common/screen/AuthHydrationGate'
 import {
   useCancelMyCrewJoinRequest,
   useCrewQuery,
+  useCrewMeetupsQuery,
+  useLeaveCrew,
   useRequestCrewJoin,
 } from '@/hooks/queries/useCrews';
 import { toUserMessage } from '@/lib/api/errorMessage';
@@ -22,6 +28,7 @@ import {
   fontFamily,
   fontSize,
   fontWeight,
+  letterSpacing,
   radius,
   space,
   type Theme,
@@ -33,7 +40,7 @@ import type {
   CrewMyStatus,
   CrewStyle,
 } from '@/lib/schemas/crew';
-import type { RootStackParamList } from '@/navigation/types';
+import type { RootStackNavigationProp, RootStackParamList } from '@/navigation/types';
 import { useTokenStore } from '@/store/tokenStore';
 
 export default function CrewDetailScreen(): JSX.Element {
@@ -70,8 +77,12 @@ function CrewDetailContent({
   const theme = useTokens();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const crewQuery = useCrewQuery(accessToken, extId);
+  const meetupsQuery = useCrewMeetupsQuery(accessToken, extId, 5);
   const requestJoin = useRequestCrewJoin(accessToken);
   const cancelJoin = useCancelMyCrewJoinRequest(accessToken);
+  const leaveCrew = useLeaveCrew(accessToken);
+  const navigation = useNavigation<RootStackNavigationProp<'CrewDetail'>>();
+  const [joinMessage, setJoinMessage] = useState('');
 
   if (crewQuery.isLoading) {
     return (
@@ -103,8 +114,8 @@ function CrewDetailContent({
     );
   }
 
-  const pending = requestJoin.isPending || cancelJoin.isPending;
-  const mutationError = requestJoin.error ?? cancelJoin.error;
+  const pending = requestJoin.isPending || cancelJoin.isPending || leaveCrew.isPending;
+  const mutationError = requestJoin.error ?? cancelJoin.error ?? leaveCrew.error;
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -117,6 +128,9 @@ function CrewDetailContent({
         <Text style={styles.heroSummary}>
           {crew.summary ?? t('crew.common.summaryFallback')}
         </Text>
+        {crew.imageUrl ? (
+          <Image source={{ uri: crew.imageUrl }} style={styles.heroImage} />
+        ) : null}
         <View style={styles.statGrid}>
           <StatCard label={t('crew.detail.memberLabel')} value={memberValue(crew)} />
           <StatCard label={t('crew.detail.ownerLabel')} value={crew.owner.nickname ?? t('home.nicknameFallback')} />
@@ -125,6 +139,11 @@ function CrewDetailContent({
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{t('crew.detail.infoTitle')}</Text>
+        {crew.myStatus === 'OWNER' || crew.myStatus === 'ADMIN' ? (
+          <SecondaryButton onPress={() => navigation.navigate('CrewForm', { extId: crew.extId })}>
+            {t('crew.detail.editCta')}
+          </SecondaryButton>
+        ) : null}
         <View style={styles.metaWrap}>
           <InfoChip label={crew.region ?? t('crew.common.regionFallback')} />
           <InfoChip label={crew.homeGym?.name ?? t('crew.common.homeGymFallback')} />
@@ -139,11 +158,49 @@ function CrewDetailContent({
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{t('crew.detail.joinTitle')}</Text>
         <Text style={styles.bodyText}>{joinHelpText(crew.joinPolicy)}</Text>
+        {crew.myStatus === 'NONE' && crew.joinPolicy === 'APPROVAL' ? (
+          <TextInput
+            value={joinMessage}
+            onChangeText={setJoinMessage}
+            placeholder={t('crew.detail.joinMessagePlaceholder')}
+            placeholderTextColor={theme.text4}
+            style={[styles.input, styles.textAreaSmall]}
+            multiline
+            maxLength={500}
+            editable={!pending}
+          />
+        ) : null}
         <JoinAction
           crew={crew}
           disabled={pending}
-          onRequest={() => requestJoin.mutate({ crewExtId: crew.extId, body: { message: null } })}
+          onRequest={() => requestJoin.mutate({
+            crewExtId: crew.extId,
+            body: { message: joinMessage.trim().length > 0 ? joinMessage.trim() : null },
+          })}
           onCancel={() => cancelJoin.mutate(crew.extId)}
+          onLeave={() => {
+            Alert.alert(
+              t('crew.detail.leaveConfirmTitle'),
+              t('crew.detail.leaveConfirmBody'),
+              [
+                { text: t('common.cancel'), style: 'cancel' },
+                {
+                  text: t('crew.detail.leaveCrewCta'),
+                  style: 'destructive',
+                  onPress: () => leaveCrew.mutate(crew.extId),
+                },
+              ],
+            );
+          }}
+          onManageRequests={() => navigation.navigate('CrewJoinRequests', {
+            crewExtId: crew.extId,
+            crewName: crew.name,
+          })}
+          onManageMembers={() => navigation.navigate('CrewMembers', {
+            crewExtId: crew.extId,
+            crewName: crew.name,
+            managerRole: crew.myStatus === 'OWNER' || crew.myStatus === 'ADMIN' ? crew.myStatus : undefined,
+          })}
         />
         {pending ? (
           <View style={styles.pendingRow}>
@@ -154,6 +211,47 @@ function CrewDetailContent({
           <Text style={styles.errorText}>{toUserMessage(mutationError)}</Text>
         ) : null}
       </View>
+
+      <View style={styles.section}>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>{t('crew.meetup.title')}</Text>
+          {crew.myStatus === 'OWNER' || crew.myStatus === 'ADMIN' ? (
+            <SecondaryButton
+              onPress={() => navigation.navigate('MeetupForm', {
+                crewExtId: crew.extId,
+                crewName: crew.name,
+              })}
+            >
+              {t('crew.meetup.createCta')}
+            </SecondaryButton>
+          ) : null}
+        </View>
+        {meetupsQuery.isLoading ? (
+          <View style={styles.pendingRow}>
+            <ActivityIndicator color={theme.accent.base} />
+          </View>
+        ) : meetupsQuery.data?.items.length ? (
+          <View style={styles.meetupList}>
+            {meetupsQuery.data.items.map((meetup) => (
+              <Pressable
+                key={meetup.extId}
+                onPress={() => navigation.navigate('MeetupDetail', { extId: meetup.extId })}
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.meetupItem, pressed ? styles.cardPressed : null]}
+              >
+                <Text style={styles.meetupTitle}>{meetup.title}</Text>
+                <Text style={styles.meetupMeta}>{formatMeetupTime(meetup.startsAt)}</Text>
+                {meetup.location ? <Text style={styles.meetupMeta}>{meetup.location}</Text> : null}
+                <Text style={styles.meetupMeta}>
+                  {t('meetup.detail.participantCount').replace('{{count}}', String(meetup.participantCount))}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : (
+          <Text style={styles.bodyText}>{t('crew.meetup.emptyBody')}</Text>
+        )}
+      </View>
     </ScrollView>
   );
 }
@@ -163,12 +261,33 @@ function JoinAction({
   disabled,
   onRequest,
   onCancel,
+  onLeave,
+  onManageRequests,
+  onManageMembers,
 }: {
   crew: CrewDetail;
   disabled: boolean;
   onRequest: () => void;
   onCancel: () => void;
+  onLeave: () => void;
+  onManageRequests: () => void;
+  onManageMembers: () => void;
 }): JSX.Element {
+  const theme = useTokens();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
+
+  if (crew.myStatus === 'OWNER' || crew.myStatus === 'ADMIN') {
+    return (
+      <View style={styles.adminActionColumn}>
+        <SecondaryButton onPress={onManageRequests}>
+          {t('crew.detail.manageRequestsCta')}
+        </SecondaryButton>
+        <SecondaryButton onPress={onManageMembers}>
+          {t('crew.detail.manageMembersCta')}
+        </SecondaryButton>
+      </View>
+    );
+  }
   if (crew.myStatus === 'PENDING') {
     return (
       <SecondaryButton
@@ -179,8 +298,12 @@ function JoinAction({
       </SecondaryButton>
     );
   }
-  if (crew.myStatus === 'MEMBER' || crew.myStatus === 'OWNER' || crew.myStatus === 'ADMIN') {
-    return <SecondaryButton disabled>{t('crew.detail.alreadyMemberCta')}</SecondaryButton>;
+  if (crew.myStatus === 'MEMBER') {
+    return (
+      <SecondaryButton onPress={onLeave} disabled={disabled}>
+        {disabled ? t('crew.detail.processing') : t('crew.detail.leaveCrewCta')}
+      </SecondaryButton>
+    );
   }
   if (crew.joinPolicy === 'OPEN') {
     return <SecondaryButton disabled>{t('crew.detail.openDisabledCta')}</SecondaryButton>;
@@ -260,13 +383,22 @@ function memberValue(crew: CrewDetail): string {
     : base;
 }
 
+function formatMeetupTime(value: string): string {
+  return new Intl.DateTimeFormat('ko-KR', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     content: {
-      paddingHorizontal: space[5],
-      paddingTop: space[6],
+      paddingHorizontal: 0,
+      paddingTop: 0,
       paddingBottom: space[10],
-      gap: space[4],
+      gap: space[3],
       backgroundColor: theme.bg,
     },
     safeArea: {
@@ -274,10 +406,12 @@ function makeStyles(theme: Theme) {
       backgroundColor: theme.bg,
     },
     hero: {
-      borderRadius: radius['2xl'],
-      backgroundColor: theme.subtle,
+      borderRadius: 0,
+      backgroundColor: theme.accent.base,
       padding: space[5],
-      gap: space[3],
+      paddingTop: space[8],
+      paddingBottom: space[6],
+      gap: space[2],
     },
     badgeRow: {
       flexDirection: 'row',
@@ -288,16 +422,23 @@ function makeStyles(theme: Theme) {
       fontFamily,
       fontSize: 30,
       fontWeight: fontWeight.extrabold,
-      color: theme.text,
-      letterSpacing: -1.2,
-      lineHeight: 36,
+      color: theme.accent.on,
+      letterSpacing: letterSpacing.h1,
     },
     heroSummary: {
       fontFamily,
-      fontSize: fontSize.body,
-      fontWeight: fontWeight.semibold,
-      color: theme.text2,
-      lineHeight: fontSize.body * 1.5,
+      fontSize: 13,
+      fontWeight: fontWeight.medium,
+      color: theme.accent.on,
+      lineHeight: 19,
+      opacity: 0.82,
+      marginBottom: space[2],
+    },
+    heroImage: {
+      width: '100%',
+      height: 136,
+      borderRadius: radius.lg,
+      marginVertical: space[2],
     },
     statGrid: {
       flexDirection: 'row',
@@ -305,8 +446,8 @@ function makeStyles(theme: Theme) {
     },
     statCard: {
       flex: 1,
-      borderRadius: radius.xl,
-      backgroundColor: theme.bg,
+      borderRadius: radius.lg,
+      backgroundColor: 'rgba(255, 255, 255, 0.34)',
       padding: space[4],
       gap: space[1],
     },
@@ -314,27 +455,59 @@ function makeStyles(theme: Theme) {
       fontFamily,
       fontSize: fontSize.caption,
       fontWeight: fontWeight.bold,
-      color: theme.text3,
+      color: theme.accent.on,
+      opacity: 0.72,
     },
     statValue: {
       fontFamily,
       fontSize: fontSize.title,
       fontWeight: fontWeight.extrabold,
-      color: theme.text,
+      color: theme.accent.on,
+      letterSpacing: letterSpacing.title,
     },
     section: {
+      marginHorizontal: space[5],
       borderRadius: radius.xl,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.hairline,
-      backgroundColor: theme.bg,
+      backgroundColor: theme.subtle,
       padding: space[5],
       gap: space[3],
     },
     sectionTitle: {
       fontFamily,
       fontSize: fontSize.title,
-      fontWeight: fontWeight.extrabold,
+      fontWeight: fontWeight.bold,
       color: theme.text,
+      letterSpacing: letterSpacing.title,
+    },
+    sectionHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: space[3],
+    },
+    meetupList: {
+      gap: space[2],
+    },
+    meetupItem: {
+      borderRadius: radius.lg,
+      backgroundColor: theme.text,
+      padding: space[4],
+      gap: space[2],
+    },
+    cardPressed: {
+      opacity: 0.86,
+    },
+    meetupTitle: {
+      fontFamily,
+      fontSize: fontSize.body,
+      fontWeight: fontWeight.bold,
+      color: theme.bg,
+    },
+    meetupMeta: {
+      fontFamily,
+      fontSize: fontSize.caption,
+      fontWeight: fontWeight.medium,
+      color: theme.text4,
     },
     bodyText: {
       fontFamily,
@@ -342,6 +515,25 @@ function makeStyles(theme: Theme) {
       fontWeight: fontWeight.medium,
       color: theme.text2,
       lineHeight: fontSize.body * 1.5,
+    },
+    input: {
+      minHeight: 48,
+      borderRadius: radius.lg,
+      backgroundColor: theme.bg,
+      color: theme.text,
+      fontFamily,
+      fontSize: fontSize.body,
+      fontWeight: fontWeight.medium,
+      letterSpacing: letterSpacing.body,
+      paddingHorizontal: space[4],
+      paddingVertical: space[3],
+    },
+    textAreaSmall: {
+      minHeight: 92,
+      textAlignVertical: 'top',
+    },
+    adminActionColumn: {
+      gap: space[2],
     },
     metaWrap: {
       flexDirection: 'row',
@@ -363,7 +555,7 @@ function makeStyles(theme: Theme) {
     },
     statusBadge: {
       borderRadius: radius.full,
-      backgroundColor: theme.accent.soft,
+      backgroundColor: theme.chip,
       paddingHorizontal: space[3],
       paddingVertical: space[1],
     },
@@ -371,7 +563,7 @@ function makeStyles(theme: Theme) {
       fontFamily,
       fontSize: fontSize.caption,
       fontWeight: fontWeight.extrabold,
-      color: theme.accent.ink,
+      color: theme.text3,
     },
     pendingRow: {
       minHeight: 20,

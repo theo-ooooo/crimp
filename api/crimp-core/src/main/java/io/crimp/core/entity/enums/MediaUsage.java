@@ -3,7 +3,8 @@ package io.crimp.core.entity.enums;
 public enum MediaUsage {
     ATTEMPT(1),
     AVATAR(2),
-    POSTER(3);
+    POSTER(3),
+    CREW(4);
 
     private final int code;
 

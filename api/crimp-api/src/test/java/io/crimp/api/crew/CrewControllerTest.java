@@ -75,7 +75,7 @@ class CrewControllerTest {
                 new CrimpPrincipal(7L, "01JUSER"),
                 new CrewController.CreateCrewRequest(
                         "강남 퇴근볼더", "평일 저녁", "V3~V6 중심", "서울 강남",
-                        null, "INTERMEDIATE", "BOULDERING", 30));
+                        null, null, "INTERMEDIATE", "BOULDERING", 30));
 
         assertThat(res.extId()).isEqualTo("01JCREW");
         assertThat(res.myStatus()).isEqualTo("OWNER");
@@ -90,7 +90,7 @@ class CrewControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new CrewController.CreateCrewRequest(
                                 "강남 퇴근볼더", "평일 저녁", "V3~V6 중심", "서울 강남",
-                                null, "INTERMEDIATE", "BOULDERING", 30))))
+                                null, null, "INTERMEDIATE", "BOULDERING", 30))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value(true))
                 .andExpect(jsonPath("$.data.extId").value("01JCREW"))
@@ -102,7 +102,7 @@ class CrewControllerTest {
         mockMvc.perform(post("/api/v1/crews")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new CrewController.CreateCrewRequest(
-                                "강남 퇴근볼더", null, null, null, null, null, null, 1))))
+                                "강남 퇴근볼더", null, null, null, null, null, null, null, 1))))
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(crewService);
@@ -116,7 +116,7 @@ class CrewControllerTest {
         mockMvc.perform(post("/api/v1/crews")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new CrewController.CreateCrewRequest(
-                                "강남 퇴근볼더", null, null, null, null, null, null, null))))
+                                "강남 퇴근볼더", null, null, null, null, null, null, null, null))))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(false))
                 .andExpect(jsonPath("$.error.code").value("CREW_NAME_TAKEN"));
@@ -131,7 +131,7 @@ class CrewControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new CrewController.UpdateCrewRequest(
                                 "새 크루", null, null, null, null, false,
-                                null, null, null, false))))
+                                null, false, null, null, null, false))))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.status").value(false))
                 .andExpect(jsonPath("$.error.code").value("CREW_FORBIDDEN"));
@@ -219,6 +219,22 @@ class CrewControllerTest {
     }
 
     @Test
+    void removeMember_http_returnsNoContent() throws Exception {
+        mockMvc.perform(delete("/api/v1/crews/01JCREW/members/01JUSER2"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void removeMember_http_mapsForbidden() throws Exception {
+        org.mockito.Mockito.doThrow(new CrewException("CREW_FORBIDDEN", "Admin cannot remove another admin"))
+                .when(crewService).removeMember(7L, "01JCREW", "01JADMIN");
+
+        mockMvc.perform(delete("/api/v1/crews/01JCREW/members/01JADMIN"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("CREW_FORBIDDEN"));
+    }
+
+    @Test
     void list_maps_domain_result() {
         when(crewService.search(7L, null, "강남", null, null, null, null, 20))
                 .thenReturn(new CrewService.CrewSearchResult(List.of(view("01JCREW", "MEMBER")), 10L, 20));
@@ -255,7 +271,7 @@ class CrewControllerTest {
                 "01JCREW",
                 new CrewController.UpdateCrewRequest(
                         "새 크루", null, null, null, null, false,
-                        "ADVANCED", "LEAD", null, true));
+                        null, false, "ADVANCED", "LEAD", null, true));
 
         assertThat(res.extId()).isEqualTo("01JCREW");
         assertThat(res.owner().nickname()).isEqualTo("크루장");
@@ -270,12 +286,16 @@ class CrewControllerTest {
                 "V3~V6 중심",
                 "서울 강남",
                 new CrewHomeGymView("01JGYM", "더클라임 강남점"),
+                null,
+                null,
                 CrewLevelBand.INTERMEDIATE,
                 CrewStyle.BOULDERING,
                 18,
                 30,
                 CrewJoinPolicy.APPROVAL,
                 myStatus,
+                null,
+                List.of(),
                 new CrewOwnerView("01JOWNER", "크루장"),
                 Instant.parse("2026-05-08T00:00:00Z"));
     }
