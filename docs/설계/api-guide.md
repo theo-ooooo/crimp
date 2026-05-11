@@ -174,7 +174,7 @@
 | GET | `/api/v1/me` | 내 정보. 응답에 `nicknameConfigured`(사용자가 닉네임을 직접 저장했는지), `mainGymId`(numeric, 호환), `mainGym: { extId, name, brand }`(해석된 lightweight 객체, 미설정 시 null/누락), `avatarMediaId`, `avatarUrl` 을 함께 반환. `avatarUrl` 은 CDN 설정이 있고 연결된 미디어가 READY IMAGE 일 때만 내려간다. |
 | PATCH | `/api/v1/me/profile` | 프로필 수정. 주 암장은 `mainGymExtId: String` (권장) / `mainGymId: number` (호환) / `clearMainGym: true` (명시 해제) 중 하나로 표현. 두 변경 입력을 동시에 set 하면 400 (`INVALID_MAIN_GYM_REQUEST`), `mainGymExtId` 가 존재하지 않는 ULID 면 404 (`MAIN_GYM_NOT_FOUND`). 프로필 이미지는 `avatarMediaId` 또는 `clearAvatar: true` 로 연결/해제한다. `avatarMediaId` 는 본인 소유 READY IMAGE 만 허용하며, 위반 시 `AVATAR_MEDIA_*` 에러를 반환한다. |
 | POST | `/api/v1/me/profile/avatar` | Phase 1.5 후보. 프로필 이미지 업로드 편의 endpoint. 기본안은 기존 `/media/presign` → PUT → `/media/complete` 후 `PATCH /me/profile { avatarMediaId }` 재사용이며, UX 단순화를 위해 래핑 endpoint 도 검토한다. |
-| DELETE | `/api/v1/me` | 계정 탈퇴. 204 응답. refresh token 전체 폐기, `users.status=DELETED` soft delete, 이후 내 정보/공개 프로필 조회·수정 및 OAuth 재로그인/refresh 재발급을 차단한다. 기존 공개 컨텐츠는 유지하되 작성자 식별 정보는 익명화한다. |
+| DELETE | `/api/v1/me` | 계정 탈퇴. 204 응답. refresh token 전체 폐기, `users.status=DELETED` soft delete, 이후 내 정보/공개 프로필 조회·수정 및 기존 refresh 재발급을 차단한다. 같은 OAuth 계정으로 다시 로그인하면 기존 user 를 부활시키지 않고 새 user 를 생성하며 `oauth_identities` 를 새 user 로 재연결한다. 기존 공개 컨텐츠는 유지하되 작성자 식별 정보는 익명화한다. |
 | GET | `/api/v1/users/{extId}` | 타 사용자 프로필 |
 | POST | `/api/v1/users/{extId}:follow` | 팔로우 |
 | DELETE | `/api/v1/users/{extId}:follow` | 언팔로우 |
