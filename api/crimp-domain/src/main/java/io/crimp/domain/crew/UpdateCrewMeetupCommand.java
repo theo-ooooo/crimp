@@ -9,6 +9,7 @@ public record UpdateCrewMeetupCommand(
         Instant endsAt,
         String gymExtId,
         String location,
+        Boolean outdoor,
         Integer capacity,
         String joinPolicy
 ) {}

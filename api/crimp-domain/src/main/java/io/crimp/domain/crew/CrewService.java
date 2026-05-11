@@ -193,6 +193,7 @@ public class CrewService {
                 .startsAt(command.startsAt())
                 .endsAt(command.endsAt())
                 .location(location)
+                .outdoor(command.outdoor())
                 .capacity(capacity)
                 .joinPolicy(joinPolicy)
                 .build();
@@ -224,6 +225,9 @@ public class CrewService {
     public List<CrewMeetupView> listAllMeetups(Long viewerUserId, Integer size, boolean near,
                                                BigDecimal lat, BigDecimal lng,
                                                String levelBand, String style, boolean outdoor) {
+        if (near && (lat == null || lng == null)) {
+            throw new CrewException("INVALID_MEETUP_FILTER", "lat and lng are required when near=true");
+        }
         int pageSize = capSize(size);
         CrewLevelBand parsedLevelBand = parseEnum(CrewLevelBand.class, levelBand, "INVALID_CREW_MEETUP_REQUEST");
         CrewStyle parsedStyle = parseEnum(CrewStyle.class, style, "INVALID_CREW_MEETUP_REQUEST");
@@ -267,6 +271,7 @@ public class CrewService {
         MeetupJoinPolicy joinPolicy = command.joinPolicy() == null
                 ? meetup.getJoinPolicy()
                 : parseEnum(MeetupJoinPolicy.class, command.joinPolicy(), "INVALID_CREW_MEETUP_REQUEST");
+        boolean outdoor = command.outdoor() == null ? meetup.isOutdoor() : command.outdoor();
 
         if (startsAt.isBefore(Instant.now().minusSeconds(MEETUP_START_CLOCK_SKEW_SECONDS))) {
             throw new CrewException("INVALID_CREW_MEETUP_REQUEST", "startsAt must be in the future");
@@ -280,7 +285,7 @@ public class CrewService {
         }
 
         meetup.updateBasic(title, description, gym == null ? null : gym.getId(), startsAt, endsAt, location,
-                capacity, joinPolicy);
+                outdoor, capacity, joinPolicy);
         crewMeetupRepository.flush();
         return toMeetupView(meetup, actorUserId);
     }
@@ -761,6 +766,7 @@ public class CrewService {
                 gym == null ? null : gym.getExtId(),
                 gym == null ? null : gym.getName(),
                 meetup.getLocation(),
+                meetup.isOutdoor(),
                 meetup.getCapacity() == null ? null : meetup.getCapacity().intValue(),
                 meetup.getJoinPolicy().name(),
                 participantCount,
