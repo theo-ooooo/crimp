@@ -543,7 +543,7 @@ class UserServiceTest {
                 .crewId(55L)
                 .userId(1L)
                 .build();
-        when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepo.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(crewJoinRequestRepo.findAllByUserIdAndStatus(1L, CrewJoinRequestStatus.PENDING))
                 .thenReturn(List.of(request));
 
@@ -562,12 +562,12 @@ class UserServiceTest {
         User user = user(1L, "01HDELETE__");
         CrewMember member = CrewMember.create(55L, 1L, CrewMemberRole.MEMBER, CrewMemberStatus.ACTIVE);
         Crew crew = crew(55L, "01JCREW", 12);
-        when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepo.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(crewJoinRequestRepo.findAllByUserIdAndStatus(1L, CrewJoinRequestStatus.PENDING))
                 .thenReturn(List.of());
         when(crewMemberRepo.findAllByUserIdAndStatus(1L, CrewMemberStatus.ACTIVE))
                 .thenReturn(List.of(member));
-        when(crewRepo.findAllById(List.of(55L))).thenReturn(List.of(crew));
+        when(crewRepo.findAllByIdInForUpdate(List.of(55L))).thenReturn(List.of(crew));
 
         service.deleteMe(1L);
 
@@ -580,7 +580,7 @@ class UserServiceTest {
     void deleteMe_alreadyDeleted_isIdempotent_andClearsRefreshTokens() {
         User user = user(1L, "01HDELETE__");
         user.deleteAccount();
-        when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepo.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
 
         service.deleteMe(1L);
 

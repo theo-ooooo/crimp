@@ -35,6 +35,13 @@ describe('crew schemas', () => {
       owner: { extId: '01JOWNER0000000000000000', nickname: '크루장' },
       createdAt: '2026-05-08T00:00:00Z',
     }).owner.nickname).toBe('크루장');
+
+    expect(CrewDetailSchema.parse({
+      ...item,
+      description: 'V3~V6 중심',
+      owner: { extId: null, nickname: '탈퇴사용자' },
+      createdAt: '2026-05-08T00:00:00Z',
+    }).owner.extId).toBeNull();
   });
 
   it('parses join request and member lists', () => {

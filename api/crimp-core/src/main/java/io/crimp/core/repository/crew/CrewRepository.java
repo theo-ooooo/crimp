@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface CrewRepository extends JpaRepository<Crew, Long>, CrewRepositoryCustom {
@@ -15,6 +16,10 @@ public interface CrewRepository extends JpaRepository<Crew, Long>, CrewRepositor
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select c from Crew c where c.extId = :extId")
     Optional<Crew> findByExtIdForUpdate(@Param("extId") String extId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select c from Crew c where c.id in :ids")
+    List<Crew> findAllByIdInForUpdate(@Param("ids") List<Long> ids);
 
     boolean existsByName(String name);
     long countByOwnerUserIdAndDeletedAtIsNull(Long ownerUserId);

@@ -146,7 +146,7 @@ public class UserService {
 
     @Transactional
     public void deleteMe(long userId) {
-        User user = userRepo.findById(userId)
+        User user = userRepo.findByIdForUpdate(userId)
                 .orElseThrow(() -> new UserException("USER_NOT_FOUND", "User " + userId + " not found"));
         if (user.getStatus() == UserStatus.DELETED || user.isDeleted()) {
             refreshTokenStore.deleteAllForUser(userId);
@@ -164,7 +164,7 @@ public class UserService {
         if (memberships.isEmpty()) {
             return;
         }
-        Map<Long, Crew> crewsById = crewRepo.findAllById(
+        Map<Long, Crew> crewsById = crewRepo.findAllByIdInForUpdate(
                         memberships.stream().map(CrewMember::getCrewId).toList())
                 .stream()
                 .collect(Collectors.toMap(Crew::getId, Function.identity()));
