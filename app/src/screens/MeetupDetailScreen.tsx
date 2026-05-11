@@ -73,6 +73,7 @@ function MeetupDetailContent({ accessToken, extId }: { accessToken: string; extI
       : meetup.joinPolicy === 'APPROVAL'
         ? t('meetup.detail.requestCta')
         : t('meetup.detail.joinCta');
+  const canJoinOrLeave = !meetup.canManage;
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -108,7 +109,7 @@ function MeetupDetailContent({ accessToken, extId }: { accessToken: string; extI
 
       {error ? <Text style={styles.errorText}>{toUserMessage(error)}</Text> : null}
 
-      {meetup.joinPolicy === 'APPROVAL' && meetup.myParticipation === 'NONE' ? (
+      {canJoinOrLeave && meetup.joinPolicy === 'APPROVAL' && meetup.myParticipation === 'NONE' ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('meetup.detail.requestMessageTitle')}</Text>
           <TextInput
@@ -124,29 +125,31 @@ function MeetupDetailContent({ accessToken, extId }: { accessToken: string; extI
         </View>
       ) : null}
 
-      {meetup.myParticipation === 'JOINED' || meetup.myParticipation === 'PENDING' ? (
-        <SecondaryButton
-          disabled={busy}
-          onPress={() => {
-            Alert.alert(t('meetup.detail.leaveConfirmTitle'), t('meetup.detail.leaveConfirmBody'), [
-              { text: t('common.cancel'), style: 'cancel' },
-              { text: primaryText, style: 'destructive', onPress: () => leaveMeetup.mutate(meetup.extId) },
-            ]);
-          }}
-        >
-          {busy ? t('crew.detail.processing') : primaryText}
-        </SecondaryButton>
-      ) : (
-        <PrimaryButton
-          onPress={() => joinMeetup.mutate({
-            extId: meetup.extId,
-            body: { message: requestMessage.trim().length > 0 ? requestMessage.trim() : null },
-          })}
-          disabled={busy}
-        >
-          {busy ? t('crew.detail.processing') : primaryText}
-        </PrimaryButton>
-      )}
+      {canJoinOrLeave ? (
+        meetup.myParticipation === 'JOINED' || meetup.myParticipation === 'PENDING' ? (
+          <SecondaryButton
+            disabled={busy}
+            onPress={() => {
+              Alert.alert(t('meetup.detail.leaveConfirmTitle'), t('meetup.detail.leaveConfirmBody'), [
+                { text: t('common.cancel'), style: 'cancel' },
+                { text: primaryText, style: 'destructive', onPress: () => leaveMeetup.mutate(meetup.extId) },
+              ]);
+            }}
+          >
+            {busy ? t('crew.detail.processing') : primaryText}
+          </SecondaryButton>
+        ) : (
+          <PrimaryButton
+            onPress={() => joinMeetup.mutate({
+              extId: meetup.extId,
+              body: { message: requestMessage.trim().length > 0 ? requestMessage.trim() : null },
+            })}
+            disabled={busy}
+          >
+            {busy ? t('crew.detail.processing') : primaryText}
+          </PrimaryButton>
+        )
+      ) : null}
       {meetup.canManage ? (
         <SecondaryButton
           disabled={busy}
