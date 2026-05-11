@@ -190,6 +190,19 @@ class UserServiceTest {
     }
 
     @Test
+    void updateMyProfile_deletedPrefix_throws() {
+        User user = user(1L, "01HU");
+        Profile profile = Profile.create(1L, "mine");
+        when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+        when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
+
+        var cmd = new UpdateProfileCommand("deleted_1", null, null, null, null, false, null);
+        assertThatThrownBy(() -> service.updateMyProfile(1L, cmd))
+                .isInstanceOf(UserException.class)
+                .satisfies(e -> assertThat(((UserException) e).code()).isEqualTo("INVALID_NICKNAME"));
+    }
+
+    @Test
     void updateMyProfile_same_nickname_skipsExistsCheck() {
         User user = user(1L, "01HU");
         Profile profile = Profile.create(1L, "mine");
