@@ -2,6 +2,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,9 +11,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { PrimaryButton } from '@/components/common/primitives';
+import { PrimaryButton, SecondaryButton } from '@/components/common/primitives';
 import { AuthHydrationGate } from '@/components/common/screen/AuthHydrationGate';
-import { useCreateCrewMeetup } from '@/hooks/queries/useCrews';
+import { useCreateMeetup } from '@/hooks/queries/useCrews';
 import { toUserMessage } from '@/lib/api/errorMessage';
 import { t } from '@/lib/i18n';
 import {
@@ -29,12 +30,14 @@ import type { CreateCrewMeetupBody } from '@/lib/schemas/crew';
 import type { RootStackNavigationProp, RootStackParamList } from '@/navigation/types';
 import { useTokenStore } from '@/store/tokenStore';
 
+type Step = 'basic' | 'time' | 'place' | 'confirm';
+
 export default function CrewMeetupFormScreen(): JSX.Element {
   const theme = useTokens();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const hydrated = useTokenStore((s) => s.hydrated);
   const accessToken = useTokenStore((s) => s.accessToken);
-  const route = useRoute<RouteProp<RootStackParamList, 'CrewMeetupForm'>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'MeetupForm'>>();
 
   return (
     <AuthHydrationGate
@@ -45,10 +48,12 @@ export default function CrewMeetupFormScreen(): JSX.Element {
     >
       {(token) => (
         <SafeAreaView style={styles.safeArea} edges={['top']}>
-          <CrewMeetupFormContent
+          <MeetupFormContent
             accessToken={token}
-            crewExtId={route.params.crewExtId}
-            crewName={route.params.crewName}
+            crewExtId={route.params?.crewExtId}
+            crewName={route.params?.crewName}
+            selectedGymExtId={route.params?.selectedGymExtId}
+            selectedGymName={route.params?.selectedGymName}
           />
         </SafeAreaView>
       )}
@@ -56,58 +61,83 @@ export default function CrewMeetupFormScreen(): JSX.Element {
   );
 }
 
-function CrewMeetupFormContent({
+function MeetupFormContent({
   accessToken,
   crewExtId,
   crewName,
+  selectedGymExtId,
+  selectedGymName,
 }: {
   accessToken: string;
-  crewExtId: string;
+  crewExtId?: string;
   crewName?: string;
+  selectedGymExtId?: string;
+  selectedGymName?: string;
 }): JSX.Element {
   const theme = useTokens();
   const styles = useMemo(() => makeStyles(theme), [theme]);
-  const navigation = useNavigation<RootStackNavigationProp<'CrewMeetupForm'>>();
-  const createMeetup = useCreateCrewMeetup(accessToken);
+  const navigation = useNavigation<RootStackNavigationProp<'MeetupForm'>>();
+  const createMeetup = useCreateMeetup(accessToken);
+  const [step, setStep] = useState<Step>('basic');
   const [title, setTitle] = useState('');
-  const [startsAt, setStartsAt] = useState('');
-  const [location, setLocation] = useState('');
-  const [capacityText, setCapacityText] = useState('');
   const [description, setDescription] = useState('');
+  const [selectedDate, setSelectedDate] = useState(() => startOfDay(addDays(new Date(), 1)));
+  const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(addDays(new Date(), 1)));
+  const [selectedHour, setSelectedHour] = useState(19);
+  const [selectedMinute, setSelectedMinute] = useState(30);
+  const [manualLocation, setManualLocation] = useState('');
+  const [capacityText, setCapacityText] = useState('');
   const [validation, setValidation] = useState<string | null>(null);
 
+  const startsAt = new Date(
+    selectedDate.getFullYear(),
+    selectedDate.getMonth(),
+    selectedDate.getDate(),
+    selectedHour,
+    selectedMinute,
+    0,
+    0,
+  );
+  const busy = createMeetup.isPending;
+  const error = validation ?? (createMeetup.error ? toUserMessage(createMeetup.error) : null);
+
+  const goNext = () => {
+    if (step === 'basic') {
+      if (title.trim().length < 2 || title.trim().length > 60) {
+        setValidation(t('crew.meetup.titleValidation'));
+        return;
+      }
+      setValidation(null);
+      setStep('time');
+      return;
+    }
+    if (step === 'time') {
+      setStep('place');
+      return;
+    }
+    if (step === 'place') {
+      setStep('confirm');
+    }
+  };
+
   const submit = () => {
-    const trimmedTitle = title.trim();
-    if (trimmedTitle.length < 2 || trimmedTitle.length > 60) {
-      setValidation(t('crew.meetup.titleValidation'));
-      return;
-    }
-    const parsedStartsAt = parseLocalDateTime(startsAt);
-    if (!parsedStartsAt) {
-      setValidation(t('crew.meetup.startsAtValidation'));
-      return;
-    }
     const capacity = capacityText.trim().length > 0 ? Number(capacityText.trim()) : null;
     if (capacity !== null && (!Number.isInteger(capacity) || capacity < 2 || capacity > 200)) {
       setValidation(t('crew.form.capacityValidation'));
       return;
     }
-
     const body: CreateCrewMeetupBody = {
-      title: trimmedTitle,
-      startsAt: parsedStartsAt.toISOString(),
-      location: toNullable(location),
-      capacity,
+      title: title.trim(),
       description: toNullable(description),
+      startsAt: startsAt.toISOString(),
+      crewExtId: crewExtId ?? null,
+      gymExtId: selectedGymExtId ?? null,
+      location: selectedGymExtId ? null : toNullable(manualLocation),
+      capacity,
     };
     setValidation(null);
-    createMeetup.mutate({ crewExtId, body }, {
-      onSuccess: () => navigation.goBack(),
-    });
+    createMeetup.mutate(body, { onSuccess: () => navigation.goBack() });
   };
-
-  const busy = createMeetup.isPending;
-  const error = validation ?? (createMeetup.error ? toUserMessage(createMeetup.error) : null);
 
   return (
     <ScrollView
@@ -117,70 +147,140 @@ function CrewMeetupFormContent({
     >
       <View style={styles.titleBlock}>
         <Text style={styles.title}>{t('crew.meetup.formTitle')}</Text>
-        <Text style={styles.subtitle}>{crewName ?? t('crew.requests.crewFallback')}</Text>
+        <Text style={styles.subtitle}>{stepLabel(step, crewName)}</Text>
       </View>
 
+      <StepIndicator step={step} />
+
       <View style={styles.card}>
-        <FieldLabel label={t('crew.meetup.nameLabel')} />
-        <TextInput
-          value={title}
-          onChangeText={setTitle}
-          placeholder={t('crew.meetup.namePlaceholder')}
-          placeholderTextColor={theme.text4}
-          style={styles.input}
-          maxLength={60}
-          editable={!busy}
-        />
+        {step === 'basic' ? (
+          <>
+            <FieldLabel label={t('crew.meetup.nameLabel')} />
+            <TextInput
+              value={title}
+              onChangeText={setTitle}
+              placeholder={t('crew.meetup.namePlaceholder')}
+              placeholderTextColor={theme.text4}
+              style={styles.input}
+              maxLength={60}
+              editable={!busy}
+            />
+            <FieldLabel label={t('crew.form.descriptionLabel')} />
+            <TextInput
+              value={description}
+              onChangeText={setDescription}
+              placeholder={t('crew.meetup.descriptionPlaceholder')}
+              placeholderTextColor={theme.text4}
+              style={[styles.input, styles.textArea]}
+              multiline
+              maxLength={500}
+              editable={!busy}
+            />
+          </>
+        ) : null}
 
-        <FieldLabel label={t('crew.meetup.startsAtLabel')} />
-        <TextInput
-          value={startsAt}
-          onChangeText={setStartsAt}
-          placeholder={t('crew.meetup.startsAtPlaceholder')}
-          placeholderTextColor={theme.text4}
-          style={styles.input}
-          editable={!busy}
-        />
+        {step === 'time' ? (
+          <>
+            <CalendarPicker
+              visibleMonth={visibleMonth}
+              selectedDate={selectedDate}
+              disabled={busy}
+              onPrevious={() => setVisibleMonth(addMonths(visibleMonth, -1))}
+              onNext={() => setVisibleMonth(addMonths(visibleMonth, 1))}
+              onSelect={setSelectedDate}
+            />
+            <View style={styles.timeGrid}>
+              {TIME_SLOTS.map((slot) => {
+                const active = slot.hour === selectedHour && slot.minute === selectedMinute;
+                return (
+                  <Pressable
+                    key={slot.label}
+                    onPress={() => {
+                      setSelectedHour(slot.hour);
+                      setSelectedMinute(slot.minute);
+                    }}
+                    disabled={busy}
+                    accessibilityRole="button"
+                    style={({ pressed }) => [
+                      styles.timeChip,
+                      active ? styles.timeChipActive : null,
+                      pressed ? styles.pressed : null,
+                    ]}
+                  >
+                    <Text style={[styles.timeChipText, active ? styles.timeChipTextActive : null]}>
+                      {slot.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Text style={styles.selectedDateText}>{formatSelectedDate(startsAt)}</Text>
+          </>
+        ) : null}
 
-        <FieldLabel label={t('crew.meetup.locationLabel')} />
-        <TextInput
-          value={location}
-          onChangeText={setLocation}
-          placeholder={t('crew.meetup.locationPlaceholder')}
-          placeholderTextColor={theme.text4}
-          style={styles.input}
-          maxLength={100}
-          editable={!busy}
-        />
+        {step === 'place' ? (
+          <>
+            <FieldLabel label={t('crew.meetup.locationLabel')} />
+            <View style={styles.selectedGymBox}>
+              <Text style={styles.selectedGymTitle}>
+                {selectedGymName ?? t('crew.meetup.noGymSelected')}
+              </Text>
+              <SecondaryButton
+                onPress={() => navigation.navigate('GymSearch', { selectFor: 'MeetupForm', crewExtId, crewName })}
+                disabled={busy}
+              >
+                {t('crew.meetup.chooseGymCta')}
+              </SecondaryButton>
+            </View>
+            <TextInput
+              value={manualLocation}
+              onChangeText={setManualLocation}
+              placeholder={t('crew.meetup.locationPlaceholder')}
+              placeholderTextColor={theme.text4}
+              style={styles.input}
+              maxLength={100}
+              editable={!busy && !selectedGymExtId}
+            />
+            <FieldLabel label={t('crew.form.capacityLabel')} />
+            <TextInput
+              value={capacityText}
+              onChangeText={setCapacityText}
+              placeholder={t('crew.form.capacityPlaceholder')}
+              placeholderTextColor={theme.text4}
+              style={styles.input}
+              keyboardType="number-pad"
+              editable={!busy}
+            />
+          </>
+        ) : null}
 
-        <FieldLabel label={t('crew.form.capacityLabel')} />
-        <TextInput
-          value={capacityText}
-          onChangeText={setCapacityText}
-          placeholder={t('crew.form.capacityPlaceholder')}
-          placeholderTextColor={theme.text4}
-          style={styles.input}
-          keyboardType="number-pad"
-          editable={!busy}
-        />
-
-        <FieldLabel label={t('crew.form.descriptionLabel')} />
-        <TextInput
-          value={description}
-          onChangeText={setDescription}
-          placeholder={t('crew.meetup.descriptionPlaceholder')}
-          placeholderTextColor={theme.text4}
-          style={[styles.input, styles.textArea]}
-          multiline
-          maxLength={500}
-          editable={!busy}
-        />
+        {step === 'confirm' ? (
+          <View style={styles.confirmList}>
+            <ConfirmRow label={t('crew.meetup.nameLabel')} value={title.trim()} />
+            <ConfirmRow label={t('crew.meetup.startsAtLabel')} value={formatSelectedDate(startsAt)} />
+            <ConfirmRow
+              label={t('crew.meetup.locationLabel')}
+              value={selectedGymName ?? toNullable(manualLocation) ?? t('crew.meetup.noGymSelected')}
+            />
+            {crewName ? <ConfirmRow label={t('crew.list.title')} value={crewName} /> : null}
+          </View>
+        ) : null}
       </View>
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
-      <PrimaryButton onPress={submit} disabled={busy}>
-        {busy ? t('crew.form.creating') : t('crew.meetup.createCta')}
-      </PrimaryButton>
+
+      <View style={styles.actionRow}>
+        {step !== 'basic' ? (
+          <SecondaryButton onPress={() => setStep(previousStep(step))} disabled={busy}>
+            {t('common.back')}
+          </SecondaryButton>
+        ) : null}
+        <View style={styles.primaryAction}>
+          <PrimaryButton onPress={step === 'confirm' ? submit : goNext} disabled={busy}>
+            {busy ? t('crew.form.creating') : step === 'confirm' ? t('crew.meetup.createCta') : t('common.next')}
+          </PrimaryButton>
+        </View>
+      </View>
       {busy ? (
         <View style={styles.pendingRow}>
           <ActivityIndicator color={theme.accent.base} />
@@ -190,20 +290,174 @@ function CrewMeetupFormContent({
   );
 }
 
+function StepIndicator({ step }: { step: Step }): JSX.Element {
+  const theme = useTokens();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const current = STEPS.indexOf(step);
+  return (
+    <View style={styles.stepRow}>
+      {STEPS.map((item, index) => (
+        <View key={item} style={[styles.stepDot, index <= current ? styles.stepDotActive : null]} />
+      ))}
+    </View>
+  );
+}
+
 function FieldLabel({ label }: { label: string }): JSX.Element {
   const theme = useTokens();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   return <Text style={styles.label}>{label}</Text>;
 }
 
-function parseLocalDateTime(value: string): Date | null {
-  const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})$/);
-  if (!match) {
-    return null;
+function ConfirmRow({ label, value }: { label: string; value: string }): JSX.Element {
+  const theme = useTokens();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
+  return (
+    <View style={styles.confirmRow}>
+      <Text style={styles.confirmLabel}>{label}</Text>
+      <Text style={styles.confirmValue}>{value}</Text>
+    </View>
+  );
+}
+
+function CalendarPicker({
+  visibleMonth,
+  selectedDate,
+  disabled,
+  onPrevious,
+  onNext,
+  onSelect,
+}: {
+  visibleMonth: Date;
+  selectedDate: Date;
+  disabled: boolean;
+  onPrevious: () => void;
+  onNext: () => void;
+  onSelect: (date: Date) => void;
+}): JSX.Element {
+  const theme = useTokens();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const days = useMemo(() => calendarDays(visibleMonth), [visibleMonth]);
+
+  return (
+    <View style={styles.calendar}>
+      <View style={styles.calendarHeader}>
+        <Pressable onPress={onPrevious} disabled={disabled} style={styles.monthButton}>
+          <Text style={styles.monthButtonText}>‹</Text>
+        </Pressable>
+        <Text style={styles.calendarTitle}>{formatMonth(visibleMonth)}</Text>
+        <Pressable onPress={onNext} disabled={disabled} style={styles.monthButton}>
+          <Text style={styles.monthButtonText}>›</Text>
+        </Pressable>
+      </View>
+      <View style={styles.weekRow}>
+        {WEEKDAYS.map((day) => <Text key={day} style={styles.weekday}>{day}</Text>)}
+      </View>
+      <View style={styles.dayGrid}>
+        {days.map((day, index) => {
+          const active = isSameDay(day.date, selectedDate);
+          return (
+            <Pressable
+              key={`${day.date.toISOString()}-${index}`}
+              onPress={() => onSelect(startOfDay(day.date))}
+              disabled={disabled}
+              accessibilityRole="button"
+              style={({ pressed }) => [
+                styles.dayCell,
+                !day.inMonth ? styles.dayCellMuted : null,
+                active ? styles.dayCellActive : null,
+                pressed ? styles.pressed : null,
+              ]}
+            >
+              <Text style={[
+                styles.dayText,
+                !day.inMonth ? styles.dayTextMuted : null,
+                active ? styles.dayTextActive : null,
+              ]}
+              >
+                {day.date.getDate()}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+const STEPS: Step[] = ['basic', 'time', 'place', 'confirm'];
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+const TIME_SLOTS = [
+  { label: '10:00', hour: 10, minute: 0 },
+  { label: '13:00', hour: 13, minute: 0 },
+  { label: '15:00', hour: 15, minute: 0 },
+  { label: '17:00', hour: 17, minute: 0 },
+  { label: '19:30', hour: 19, minute: 30 },
+  { label: '21:00', hour: 21, minute: 0 },
+] as const;
+
+function previousStep(step: Step): Step {
+  const index = Math.max(0, STEPS.indexOf(step) - 1);
+  return STEPS[index] ?? 'basic';
+}
+
+function stepLabel(step: Step, crewName?: string): string {
+  const prefix = crewName ? `${crewName} · ` : '';
+  if (step === 'basic') {
+    return `${prefix}${t('crew.meetup.stepBasic')}`;
   }
-  const [, y, m, d, hh, mm] = match;
-  const date = new Date(Number(y), Number(m) - 1, Number(d), Number(hh), Number(mm), 0, 0);
-  return Number.isNaN(date.getTime()) ? null : date;
+  if (step === 'time') {
+    return `${prefix}${t('crew.meetup.stepTime')}`;
+  }
+  if (step === 'place') {
+    return `${prefix}${t('crew.meetup.stepPlace')}`;
+  }
+  return `${prefix}${t('crew.meetup.stepConfirm')}`;
+}
+
+function calendarDays(month: Date): Array<{ date: Date; inMonth: boolean }> {
+  const first = startOfMonth(month);
+  const start = addDays(first, -first.getDay());
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = addDays(start, index);
+    return { date, inMonth: date.getMonth() === first.getMonth() };
+  });
+}
+
+function startOfMonth(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function startOfDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function addDays(date: Date, days: number): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+}
+
+function addMonths(date: Date, months: number): Date {
+  return new Date(date.getFullYear(), date.getMonth() + months, 1);
+}
+
+function isSameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear()
+    && a.getMonth() === b.getMonth()
+    && a.getDate() === b.getDate();
+}
+
+function formatMonth(date: Date): string {
+  return new Intl.DateTimeFormat('ko-KR', { year: 'numeric', month: 'long' }).format(date);
+}
+
+function formatSelectedDate(date: Date): string {
+  return new Intl.DateTimeFormat('ko-KR', {
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
 }
 
 function toNullable(value: string): string | null {
@@ -213,23 +467,15 @@ function toNullable(value: string): string | null {
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
-    safeArea: {
-      flex: 1,
-      backgroundColor: theme.bg,
-    },
-    container: {
-      flex: 1,
-      backgroundColor: theme.bg,
-    },
+    safeArea: { flex: 1, backgroundColor: theme.bg },
+    container: { flex: 1, backgroundColor: theme.bg },
     content: {
       paddingHorizontal: space[5],
       paddingTop: space[1],
       paddingBottom: space[10],
       gap: space[4],
     },
-    titleBlock: {
-      gap: space[1],
-    },
+    titleBlock: { gap: space[1] },
     title: {
       fontFamily,
       fontSize: fontSize.h1,
@@ -243,6 +489,14 @@ function makeStyles(theme: Theme) {
       fontWeight: fontWeight.medium,
       color: theme.text3,
     },
+    stepRow: { flexDirection: 'row', gap: space[2] },
+    stepDot: {
+      flex: 1,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: theme.hairline,
+    },
+    stepDotActive: { backgroundColor: theme.accent.base },
     card: {
       borderRadius: radius.xl,
       backgroundColor: theme.subtle,
@@ -267,10 +521,121 @@ function makeStyles(theme: Theme) {
       paddingHorizontal: space[4],
       paddingVertical: space[3],
     },
-    textArea: {
-      minHeight: 112,
-      textAlignVertical: 'top',
+    textArea: { minHeight: 112, textAlignVertical: 'top' },
+    calendar: {
+      borderRadius: radius.lg,
+      backgroundColor: theme.bg,
+      padding: space[3],
+      gap: space[2],
     },
+    calendarHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    monthButton: {
+      width: 36,
+      height: 36,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: radius.md,
+      backgroundColor: theme.subtle,
+    },
+    monthButtonText: {
+      fontFamily,
+      fontSize: 24,
+      fontWeight: fontWeight.bold,
+      color: theme.text,
+    },
+    calendarTitle: {
+      fontFamily,
+      fontSize: fontSize.body,
+      fontWeight: fontWeight.bold,
+      color: theme.text,
+    },
+    weekRow: { flexDirection: 'row' },
+    weekday: {
+      flex: 1,
+      textAlign: 'center',
+      fontFamily,
+      fontSize: fontSize.caption,
+      fontWeight: fontWeight.bold,
+      color: theme.text3,
+    },
+    dayGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+    dayCell: {
+      width: `${100 / 7}%`,
+      aspectRatio: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: radius.md,
+    },
+    dayCellMuted: { opacity: 0.35 },
+    dayCellActive: { backgroundColor: theme.accent.base },
+    dayText: {
+      fontFamily,
+      fontSize: fontSize.caption,
+      fontWeight: fontWeight.bold,
+      color: theme.text,
+    },
+    dayTextMuted: { color: theme.text4 },
+    dayTextActive: { color: theme.accent.on },
+    timeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
+    timeChip: {
+      minWidth: 74,
+      borderRadius: radius.full,
+      backgroundColor: theme.bg,
+      paddingHorizontal: space[3],
+      paddingVertical: space[2],
+      alignItems: 'center',
+    },
+    timeChipActive: { backgroundColor: theme.accent.base },
+    timeChipText: {
+      fontFamily,
+      fontSize: fontSize.caption,
+      fontWeight: fontWeight.bold,
+      color: theme.text2,
+    },
+    timeChipTextActive: { color: theme.accent.on },
+    selectedDateText: {
+      fontFamily,
+      fontSize: fontSize.body,
+      fontWeight: fontWeight.bold,
+      color: theme.text,
+    },
+    selectedGymBox: {
+      borderRadius: radius.lg,
+      backgroundColor: theme.bg,
+      padding: space[3],
+      gap: space[2],
+    },
+    selectedGymTitle: {
+      fontFamily,
+      fontSize: fontSize.body,
+      fontWeight: fontWeight.bold,
+      color: theme.text,
+    },
+    confirmList: { gap: space[3] },
+    confirmRow: { gap: space[1] },
+    confirmLabel: {
+      fontFamily,
+      fontSize: fontSize.caption,
+      fontWeight: fontWeight.bold,
+      color: theme.text3,
+    },
+    confirmValue: {
+      fontFamily,
+      fontSize: fontSize.body,
+      fontWeight: fontWeight.bold,
+      color: theme.text,
+    },
+    actionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space[3],
+    },
+    primaryAction: { flex: 1 },
+    pressed: { opacity: 0.75 },
     errorText: {
       fontFamily,
       fontSize: fontSize.caption,

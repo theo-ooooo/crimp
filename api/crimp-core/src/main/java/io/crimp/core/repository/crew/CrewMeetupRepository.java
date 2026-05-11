@@ -8,4 +8,6 @@ import java.util.List;
 
 public interface CrewMeetupRepository extends JpaRepository<CrewMeetup, Long> {
     List<CrewMeetup> findByCrewIdAndDeletedAtIsNullOrderByStartsAtAscIdAsc(Long crewId, Pageable pageable);
+
+    List<CrewMeetup> findByDeletedAtIsNullOrderByStartsAtAscIdAsc(Pageable pageable);
 }

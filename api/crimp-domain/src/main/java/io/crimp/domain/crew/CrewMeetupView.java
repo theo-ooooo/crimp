@@ -8,6 +8,10 @@ public record CrewMeetupView(
         String description,
         Instant startsAt,
         Instant endsAt,
+        String crewExtId,
+        String crewName,
+        String gymExtId,
+        String gymName,
         String location,
         Integer capacity,
         Instant createdAt

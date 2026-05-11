@@ -5,11 +5,12 @@ ALTER TABLE crews
   ADD KEY idx_crews_image_media (image_media_id),
   ADD CONSTRAINT fk_crews_image_media FOREIGN KEY (image_media_id) REFERENCES media_assets(id);
 
-CREATE TABLE crew_meetups (
+CREATE TABLE meetups (
   id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   ext_id      CHAR(26) NOT NULL,
-  crew_id     BIGINT UNSIGNED NOT NULL,
+  crew_id     BIGINT UNSIGNED NULL,
   created_by  BIGINT UNSIGNED NOT NULL,
+  gym_id      BIGINT UNSIGNED NULL,
   title       VARCHAR(60) NOT NULL,
   description VARCHAR(500) NULL,
   starts_at   TIMESTAMP NOT NULL,
@@ -20,10 +21,13 @@ CREATE TABLE crew_meetups (
   updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   deleted_at  TIMESTAMP NULL,
   PRIMARY KEY (id),
-  UNIQUE KEY uk_crew_meetups_ext_id (ext_id),
-  KEY idx_crew_meetups_crew_starts (crew_id, deleted_at, starts_at, id),
-  KEY idx_crew_meetups_creator (created_by),
-  CONSTRAINT fk_crew_meetups_crew FOREIGN KEY (crew_id) REFERENCES crews(id),
-  CONSTRAINT fk_crew_meetups_creator FOREIGN KEY (created_by) REFERENCES users(id),
-  CONSTRAINT chk_crew_meetups_capacity CHECK (capacity IS NULL OR capacity BETWEEN 2 AND 200)
+  UNIQUE KEY uk_meetups_ext_id (ext_id),
+  KEY idx_meetups_starts (deleted_at, starts_at, id),
+  KEY idx_meetups_crew_starts (crew_id, deleted_at, starts_at, id),
+  KEY idx_meetups_creator (created_by),
+  KEY idx_meetups_gym (gym_id),
+  CONSTRAINT fk_meetups_crew FOREIGN KEY (crew_id) REFERENCES crews(id),
+  CONSTRAINT fk_meetups_creator FOREIGN KEY (created_by) REFERENCES users(id),
+  CONSTRAINT fk_meetups_gym FOREIGN KEY (gym_id) REFERENCES gyms(id),
+  CONSTRAINT chk_meetups_capacity CHECK (capacity IS NULL OR capacity BETWEEN 2 AND 200)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

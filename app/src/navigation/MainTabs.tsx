@@ -24,6 +24,7 @@ import FeedScreen from '@/screens/FeedScreen';
 import GymDetailScreen from '@/screens/GymDetailScreen';
 import GymMapScreen from '@/screens/GymMapScreen';
 import GymSearchScreen from '@/screens/GymSearchScreen';
+import MeetupListScreen from '@/screens/MeetupListScreen';
 import ProfileEditScreen from '@/screens/ProfileEditScreen';
 import HomeScreen from '@/screens/HomeScreen';
 import ProfileScreen from '@/screens/ProfileScreen';
@@ -50,7 +51,7 @@ const Tab = createBottomTabNavigator<MainTabsParamList>();
 const HomeStack = createNativeStackNavigator<RootStackParamList>();
 const FeedStack = createNativeStackNavigator<RootStackParamList>();
 const SessionsStack = createNativeStackNavigator<RootStackParamList>();
-const GymsStack = createNativeStackNavigator<RootStackParamList>();
+const MeetupsStack = createNativeStackNavigator<RootStackParamList>();
 const CrewsStack = createNativeStackNavigator<RootStackParamList>();
 const ProfileStack = createNativeStackNavigator<RootStackParamList>();
 
@@ -79,6 +80,21 @@ function HomeTabStack(): JSX.Element {
         name="SessionDetail"
         component={SessionDetailScreen}
         options={{ title: t('session.detail.title') }}
+      />
+      <HomeStack.Screen
+        name="GymSearch"
+        component={GymSearchScreen}
+        options={{ headerShown: false, title: t('gym.list.title') }}
+      />
+      <HomeStack.Screen
+        name="GymDetail"
+        component={GymDetailScreen}
+        options={{ headerShown: false, title: t('gym.detail.title') }}
+      />
+      <HomeStack.Screen
+        name="GymMap"
+        component={GymMapScreen}
+        options={{ headerShown: false, title: '지도' }}
       />
     </HomeStack.Navigator>
   );
@@ -118,30 +134,35 @@ function SessionsTabStack(): JSX.Element {
   );
 }
 
-function GymsTabStack(): JSX.Element {
+function MeetupsTabStack(): JSX.Element {
   return (
-    <GymsStack.Navigator screenOptions={stackScreenOptions}>
-      <GymsStack.Screen
+    <MeetupsStack.Navigator screenOptions={stackScreenOptions}>
+      <MeetupsStack.Screen
+        name="MeetupList"
+        component={MeetupListScreen}
+        options={{ headerShown: false, title: t('meetup.list.title') }}
+      />
+      <MeetupsStack.Screen
+        name="MeetupForm"
+        component={CrewMeetupFormScreen}
+        options={{ title: t('crew.meetup.formTitle') }}
+      />
+      <MeetupsStack.Screen
         name="GymSearch"
         component={GymSearchScreen}
         options={{ headerShown: false, title: t('gym.list.title') }}
       />
-      <GymsStack.Screen
+      <MeetupsStack.Screen
         name="GymDetail"
         component={GymDetailScreen}
         options={{ headerShown: false, title: t('gym.detail.title') }}
       />
-      <GymsStack.Screen
+      <MeetupsStack.Screen
         name="GymMap"
         component={GymMapScreen}
         options={{ headerShown: false, title: '지도' }}
       />
-      <GymsStack.Screen
-        name="StartSession"
-        component={StartSessionScreen}
-        options={{ title: t('session.start.title') }}
-      />
-    </GymsStack.Navigator>
+    </MeetupsStack.Navigator>
   );
 }
 
@@ -169,7 +190,7 @@ function CrewsTabStack(): JSX.Element {
         options={{ title: t('crew.requests.title') }}
       />
       <CrewsStack.Screen
-        name="CrewMeetupForm"
+        name="MeetupForm"
         component={CrewMeetupFormScreen}
         options={{ title: t('crew.meetup.formTitle') }}
       />
@@ -200,11 +221,11 @@ type TabSpec = {
   key: TabKey;
   component: () => JSX.Element;
   icon: IconName;
-  labelKey: 'nav.home' | 'nav.feed' | 'nav.sessions' | 'nav.gyms' | 'nav.crews' | 'nav.profile';
-  accessibilityLabelKey: 'nav.a11y.home' | 'nav.a11y.feed' | 'nav.a11y.sessions' | 'nav.a11y.gyms' | 'nav.a11y.crews' | 'nav.a11y.profile';
+  labelKey: 'nav.home' | 'nav.feed' | 'nav.sessions' | 'nav.meetups' | 'nav.crews' | 'nav.profile';
+  accessibilityLabelKey: 'nav.a11y.home' | 'nav.a11y.feed' | 'nav.a11y.sessions' | 'nav.a11y.meetups' | 'nav.a11y.crews' | 'nav.a11y.profile';
 };
 
-// 탭 순서: 홈 / 피드 / 세션 / 암장 / 크루 / 프로필.
+// 탭 순서: 홈 / 피드 / 세션 / 모임 / 크루 / 프로필. 암장은 홈/모임 장소 선택에서 진입한다.
 const tabs: readonly TabSpec[] = [
   {
     key: 'HomeTab',
@@ -228,11 +249,11 @@ const tabs: readonly TabSpec[] = [
     accessibilityLabelKey: 'nav.a11y.sessions',
   },
   {
-    key: 'GymsTab',
-    component: GymsTabStack,
-    icon: 'pin',
-    labelKey: 'nav.gyms',
-    accessibilityLabelKey: 'nav.a11y.gyms',
+    key: 'MeetupsTab',
+    component: MeetupsTabStack,
+    icon: 'clock',
+    labelKey: 'nav.meetups',
+    accessibilityLabelKey: 'nav.a11y.meetups',
   },
   {
     key: 'CrewsTab',

@@ -17,7 +17,7 @@ import static lombok.AccessLevel.PROTECTED;
 
 @Entity
 @Getter
-@Table(name = "crew_meetups")
+@Table(name = "meetups")
 @NoArgsConstructor(access = PROTECTED)
 public class CrewMeetup extends SoftDeletableEntity {
 
@@ -28,11 +28,14 @@ public class CrewMeetup extends SoftDeletableEntity {
     @Column(name = "ext_id", nullable = false, columnDefinition = "char(26)", unique = true, updatable = false)
     private String extId;
 
-    @Column(name = "crew_id", nullable = false)
+    @Column(name = "crew_id")
     private Long crewId;
 
     @Column(name = "created_by", nullable = false)
     private Long createdBy;
+
+    @Column(name = "gym_id")
+    private Long gymId;
 
     @Column(name = "title", nullable = false, length = 60)
     private String title;
@@ -53,11 +56,12 @@ public class CrewMeetup extends SoftDeletableEntity {
     private Short capacity;
 
     @Builder
-    private CrewMeetup(String extId, Long crewId, Long createdBy, String title, String description,
+    private CrewMeetup(String extId, Long crewId, Long createdBy, Long gymId, String title, String description,
                        Instant startsAt, Instant endsAt, String location, Short capacity) {
         this.extId = extId;
         this.crewId = crewId;
         this.createdBy = createdBy;
+        this.gymId = gymId;
         this.title = title;
         this.description = description;
         this.startsAt = startsAt;

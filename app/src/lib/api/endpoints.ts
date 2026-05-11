@@ -731,6 +731,38 @@ export function createCrewMeetup(
   });
 }
 
+/** `GET /api/v1/meetups` — 전체 모임 목록. */
+export function fetchMeetups(
+  accessToken: string,
+  size?: number,
+  signal?: AbortSignal,
+): Promise<CrewMeetupList> {
+  const qs = buildQueryString([['size', size]]);
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/meetups${qs ? `?${qs}` : ''}`,
+    accessToken,
+    schema: CrewMeetupListSchema,
+    signal,
+  });
+}
+
+/** `POST /api/v1/meetups` — 독립/크루 모임 생성. */
+export function createMeetup(
+  accessToken: string,
+  body: CreateCrewMeetupBody,
+  signal?: AbortSignal,
+): Promise<CrewMeetup> {
+  return apiRequest({
+    method: 'POST',
+    path: '/api/v1/meetups',
+    accessToken,
+    body,
+    schema: CrewMeetupSchema,
+    signal,
+  });
+}
+
 // ===== Social (좋아요·댓글) =====
 
 /**

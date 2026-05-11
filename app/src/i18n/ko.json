@@ -10,6 +10,7 @@
     "retry": "다시 시도",
     "cancel": "취소",
     "back": "뒤로",
+    "next": "다음",
     "save": "저장",
     "delete": "삭제",
     "empty": "-"
@@ -19,6 +20,7 @@
     "feed": "피드",
     "sessions": "세션",
     "gyms": "암장",
+    "meetups": "모임",
     "crews": "크루",
     "profile": "프로필",
     "a11y": {
@@ -26,6 +28,7 @@
       "feed": "피드 탭",
       "sessions": "세션 탭",
       "gyms": "암장 탭",
+      "meetups": "모임 탭",
       "crews": "크루 탭",
       "profile": "프로필 탭"
     }
@@ -46,6 +49,7 @@
     "topGradeLabel": "최고 그레이드",
     "topGradeEmpty": "—",
     "ctaStartSession": "세션 시작하기",
+    "ctaFindGym": "암장 찾기",
     "greetingHeadline": "안녕 {{nickname}},",
     "weekSendsCardSummary": "완등 · 세션 {{n}}회",
     "topGradeCardLabel": "최고 그레이드",
@@ -413,7 +417,22 @@
       "startsAtValidation": "일시는 YYYY-MM-DD HH:mm 형식으로 입력해 주세요.",
       "locationLabel": "장소",
       "locationPlaceholder": "예: 더클라임 강남점",
-      "descriptionPlaceholder": "준비물, 난이도, 만나는 위치 등을 적어보세요."
+      "descriptionPlaceholder": "준비물, 난이도, 만나는 위치 등을 적어보세요.",
+      "chooseGymCta": "암장에서 선택",
+      "noGymSelected": "암장 미선택",
+      "stepBasic": "기본 정보",
+      "stepTime": "날짜와 시간",
+      "stepPlace": "장소",
+      "stepConfirm": "확인"
+    }
+  },
+  "meetup": {
+    "list": {
+      "title": "모임",
+      "subtitle": "크루와 상관없이 참여할 수 있는 등반 모임을 찾아보세요.",
+      "emptyTitle": "아직 표시할 모임이 없어요",
+      "emptyBody": "첫 모임을 만들거나 나중에 다시 확인해 주세요.",
+      "errorTitle": "모임을 불러오지 못했어요"
     }
   },
   "profile": {

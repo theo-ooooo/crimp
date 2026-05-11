@@ -199,7 +199,7 @@ function CrewDetailContent({
           <Text style={styles.sectionTitle}>{t('crew.meetup.title')}</Text>
           {crew.myStatus === 'OWNER' || crew.myStatus === 'ADMIN' ? (
             <SecondaryButton
-              onPress={() => navigation.navigate('CrewMeetupForm', {
+              onPress={() => navigation.navigate('MeetupForm', {
                 crewExtId: crew.extId,
                 crewName: crew.name,
               })}

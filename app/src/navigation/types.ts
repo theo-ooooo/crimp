@@ -44,7 +44,13 @@ export type RootStackParamList = {
   /**
    * 암장 검색·목록 (비인증 허용).
    */
-  GymSearch: undefined;
+  GymSearch:
+    | {
+        selectFor?: 'MeetupForm';
+        crewExtId?: string;
+        crewName?: string;
+      }
+    | undefined;
   /**
    * 암장 지도 전체화면. 검색 화면의 현재 목록을 지도 마커로 표시한다.
    */
@@ -77,7 +83,15 @@ export type RootStackParamList = {
   CrewList: undefined;
   CrewDetail: { extId: string };
   CrewForm: undefined;
-  CrewMeetupForm: { crewExtId: string; crewName?: string };
+  MeetupList: undefined;
+  MeetupForm:
+    | {
+        crewExtId?: string;
+        crewName?: string;
+        selectedGymExtId?: string;
+        selectedGymName?: string;
+      }
+    | undefined;
   CrewJoinRequests: { crewExtId: string; crewName?: string };
   /**
    * 프로필 화면. 닉네임·레벨 표시(읽기 전용) + 내 암장 설정/변경/해제.
@@ -104,7 +118,7 @@ export type MainTabsParamList = {
   HomeTab: undefined;
   FeedTab: undefined;
   SessionsTab: undefined;
-  GymsTab: undefined;
+  MeetupsTab: undefined;
   CrewsTab: undefined;
   ProfileTab: undefined;
 };

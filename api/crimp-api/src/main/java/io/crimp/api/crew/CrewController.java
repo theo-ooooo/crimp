@@ -289,11 +289,12 @@ public class CrewController {
             @Size(max = 500) String description,
             Instant startsAt,
             Instant endsAt,
+            @Size(min = 26, max = 26) String gymExtId,
             @Size(max = 100) String location,
             @Min(2) @Max(200) Integer capacity
     ) {
         CreateCrewMeetupCommand toCommand() {
-            return new CreateCrewMeetupCommand(title, description, startsAt, endsAt, location, capacity);
+            return new CreateCrewMeetupCommand(title, description, startsAt, endsAt, gymExtId, location, capacity);
         }
     }
 
@@ -317,12 +318,17 @@ public class CrewController {
             String description,
             Instant startsAt,
             Instant endsAt,
+            String crewExtId,
+            String crewName,
+            String gymExtId,
+            String gymName,
             String location,
             Integer capacity,
             Instant createdAt
     ) {
         static CrewMeetupItem of(CrewMeetupView v) {
             return new CrewMeetupItem(v.extId(), v.title(), v.description(), v.startsAt(), v.endsAt(),
+                    v.crewExtId(), v.crewName(), v.gymExtId(), v.gymName(),
                     v.location(), v.capacity(), v.createdAt());
         }
     }

@@ -9,6 +9,7 @@ import {
 import {
   cancelMyCrewJoinRequest,
   createCrew,
+  createMeetup,
   createCrewMeetup,
   decideCrewJoinRequest,
   fetchCrew,
@@ -16,6 +17,7 @@ import {
   fetchCrewMembers,
   fetchCrewMeetups,
   fetchCrews,
+  fetchMeetups,
   leaveCrew,
   requestCrewJoin,
   updateCrew,
@@ -56,6 +58,10 @@ export function crewMembersQueryKey(extId: string) {
 
 export function crewMeetupsQueryKey(extId: string) {
   return ['crew', extId, 'meetups'] as const;
+}
+
+export function meetupsQueryKey() {
+  return ['meetups'] as const;
 }
 
 export function useCrewsQuery(
@@ -297,6 +303,38 @@ export function useCreateCrewMeetup(accessToken: string | null) {
     },
     onSuccess: (_, { crewExtId }) => {
       qc.invalidateQueries({ queryKey: crewMeetupsQueryKey(crewExtId) });
+    },
+  });
+}
+
+export function useMeetupsQuery(accessToken: string | null, size?: number) {
+  return useQuery<CrewMeetupList>({
+    queryKey: meetupsQueryKey(),
+    queryFn: ({ signal }) => {
+      if (!accessToken) {
+        return Promise.reject(new Error('access token is required'));
+      }
+      return fetchMeetups(accessToken, size, signal);
+    },
+    enabled: Boolean(accessToken),
+    retry: 0,
+  });
+}
+
+export function useCreateMeetup(accessToken: string | null) {
+  const qc = useQueryClient();
+  return useMutation<CrewMeetup, Error, CreateCrewMeetupBody>({
+    mutationFn: (body) => {
+      if (!accessToken) {
+        return Promise.reject(new Error('access token is required'));
+      }
+      return createMeetup(accessToken, body);
+    },
+    onSuccess: (created) => {
+      qc.invalidateQueries({ queryKey: meetupsQueryKey() });
+      if (created.crewExtId) {
+        qc.invalidateQueries({ queryKey: crewMeetupsQueryKey(created.crewExtId) });
+      }
     },
   });
 }

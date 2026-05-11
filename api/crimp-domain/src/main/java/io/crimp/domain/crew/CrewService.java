@@ -145,12 +145,15 @@ public class CrewService {
 
     @Transactional
     public CrewMeetupView createMeetup(Long actorUserId, String crewExtId, CreateCrewMeetupCommand command) {
-        Crew crew = findActiveCrew(crewExtId);
-        requireAdmin(crew.getId(), actorUserId);
+        Crew crew = crewExtId == null ? null : findActiveCrew(crewExtId);
+        if (crew != null) {
+            requireAdmin(crew.getId(), actorUserId);
+        }
         String title = requireLength(command.title(), 2, 60, "INVALID_CREW_MEETUP_REQUEST",
                 "Meetup title must be 2-60 characters");
         String description = trimOptional(command.description(), 500, "description");
-        String location = trimOptional(command.location(), 100, "location");
+        Gym gym = resolveMeetupGym(command.gymExtId());
+        String location = gym == null ? trimOptional(command.location(), 100, "location") : gym.getName();
         Short capacity = parseCapacity(command.capacity());
         if (command.startsAt() == null) {
             throw new CrewException("INVALID_CREW_MEETUP_REQUEST", "startsAt is required");
@@ -161,8 +164,9 @@ public class CrewService {
 
         CrewMeetup meetup = CrewMeetup.builder()
                 .extId(UlidGenerator.next())
-                .crewId(crew.getId())
+                .crewId(crew == null ? null : crew.getId())
                 .createdBy(actorUserId)
+                .gymId(gym == null ? null : gym.getId())
                 .title(title)
                 .description(description)
                 .startsAt(command.startsAt())
@@ -181,7 +185,17 @@ public class CrewService {
         return crewMeetupRepository
                 .findByCrewIdAndDeletedAtIsNullOrderByStartsAtAscIdAsc(crew.getId(), PageRequest.of(0, pageSize))
                 .stream()
-                .map(CrewService::toMeetupView)
+                .map(this::toMeetupView)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<CrewMeetupView> listAllMeetups(Long viewerUserId, Integer size) {
+        int pageSize = capSize(size);
+        return crewMeetupRepository
+                .findByDeletedAtIsNullOrderByStartsAtAscIdAsc(PageRequest.of(0, pageSize))
+                .stream()
+                .map(this::toMeetupView)
                 .toList();
     }
 
@@ -403,6 +417,13 @@ public class CrewService {
         return gym.getId();
     }
 
+    private Gym resolveMeetupGym(String gymExtId) {
+        String extId = blankToNull(gymExtId);
+        if (extId == null) return null;
+        return gymRepository.findByExtIdAndStatus(extId, GymStatus.ACTIVE)
+                .orElseThrow(() -> new CrewException("CREW_HOME_GYM_NOT_FOUND", "Meetup gym not found or inactive: " + extId));
+    }
+
     private void requireAdmin(Long crewId, Long actorUserId) {
         CrewMember member = crewMemberRepository.findByCrewIdAndUserIdAndStatus(crewId, actorUserId, CrewMemberStatus.ACTIVE)
                 .orElseThrow(() -> new CrewException("CREW_FORBIDDEN", "Crew admin permission required"));
@@ -446,13 +467,19 @@ public class CrewService {
         return variantPath == null ? null : joinUrl(cdnBaseUrl, variantPath);
     }
 
-    private static CrewMeetupView toMeetupView(CrewMeetup meetup) {
+    private CrewMeetupView toMeetupView(CrewMeetup meetup) {
+        Crew crew = meetup.getCrewId() == null ? null : crewRepository.findById(meetup.getCrewId()).orElse(null);
+        Gym gym = meetup.getGymId() == null ? null : gymRepository.findById(meetup.getGymId()).orElse(null);
         return new CrewMeetupView(
                 meetup.getExtId(),
                 meetup.getTitle(),
                 meetup.getDescription(),
                 meetup.getStartsAt(),
                 meetup.getEndsAt(),
+                crew == null ? null : crew.getExtId(),
+                crew == null ? null : crew.getName(),
+                gym == null ? null : gym.getExtId(),
+                gym == null ? null : gym.getName(),
                 meetup.getLocation(),
                 meetup.getCapacity() == null ? null : meetup.getCapacity().intValue(),
                 meetup.getCreatedAt());

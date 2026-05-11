@@ -10,6 +10,7 @@
     "retry": "Retry",
     "cancel": "Cancel",
     "back": "Back",
+    "next": "Next",
     "save": "Save",
     "delete": "Delete",
     "empty": "-"
@@ -19,6 +20,7 @@
     "feed": "Feed",
     "sessions": "Sessions",
     "gyms": "Gyms",
+    "meetups": "Meetups",
     "crews": "Crews",
     "profile": "Profile",
     "a11y": {
@@ -26,6 +28,7 @@
       "feed": "Feed tab",
       "sessions": "Sessions tab",
       "gyms": "Gyms tab",
+      "meetups": "Meetups tab",
       "crews": "Crews tab",
       "profile": "Profile tab"
     }
@@ -46,6 +49,7 @@
     "topGradeLabel": "Top grade",
     "topGradeEmpty": "—",
     "ctaStartSession": "Start a session",
+    "ctaFindGym": "Find gyms",
     "greetingHeadline": "Hi {{nickname}},",
     "weekSendsCardSummary": "sends · {{n}} sessions",
     "topGradeCardLabel": "Top grade",
@@ -413,7 +417,22 @@
       "startsAtValidation": "Use YYYY-MM-DD HH:mm for the date and time.",
       "locationLabel": "Location",
       "locationPlaceholder": "e.g. The Climb Gangnam",
-      "descriptionPlaceholder": "Add gear, level, or where to meet."
+      "descriptionPlaceholder": "Add gear, level, or where to meet.",
+      "chooseGymCta": "Choose from gyms",
+      "noGymSelected": "No gym selected",
+      "stepBasic": "Basics",
+      "stepTime": "Date and time",
+      "stepPlace": "Place",
+      "stepConfirm": "Review"
+    }
+  },
+  "meetup": {
+    "list": {
+      "title": "Meetups",
+      "subtitle": "Find climbing meetups you can join with or without a crew.",
+      "emptyTitle": "No meetups yet",
+      "emptyBody": "Create the first meetup or check back later.",
+      "errorTitle": "Failed to load meetups"
     }
   },
   "profile": {
