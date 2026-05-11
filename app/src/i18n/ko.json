@@ -19,12 +19,14 @@
     "feed": "피드",
     "sessions": "세션",
     "gyms": "암장",
+    "crews": "크루",
     "profile": "프로필",
     "a11y": {
       "home": "홈 탭",
       "feed": "피드 탭",
       "sessions": "세션 탭",
       "gyms": "암장 탭",
+      "crews": "크루 탭",
       "profile": "프로필 탭"
     }
   },
@@ -281,6 +283,73 @@
       "routeSetterUnknown": "미표기",
       "startSessionCta": "이 암장에서 세션 시작",
       "errorTitle": "암장 정보를 불러오지 못했어요"
+    }
+  },
+  "crew": {
+    "loginRequiredTitle": "로그인 필요",
+    "loginRequiredDescription": "크루를 보려면 로그인이 필요합니다.",
+    "common": {
+      "summaryFallback": "소개가 아직 없습니다.",
+      "regionFallback": "지역 미설정",
+      "homeGymFallback": "대표 암장 없음",
+      "memberCount": "멤버 {{count}}명",
+      "capacityCount": "정원 {{count}}명"
+    },
+    "level": {
+      "ALL": "레벨 무관",
+      "BEGINNER": "입문",
+      "INTERMEDIATE": "중급",
+      "ADVANCED": "고급"
+    },
+    "style": {
+      "BOULDERING": "볼더링",
+      "LEAD": "리드",
+      "BOTH": "볼더링 · 리드"
+    },
+    "status": {
+      "NONE": "미가입",
+      "PENDING": "요청 대기",
+      "MEMBER": "멤버",
+      "OWNER": "오너",
+      "ADMIN": "관리자"
+    },
+    "joinPolicy": {
+      "APPROVAL": "승인제",
+      "OPEN": "즉시 가입",
+      "INVITE_ONLY": "초대 전용"
+    },
+    "list": {
+      "title": "크루 찾기",
+      "subtitle": "지역, 레벨, 스타일이 맞는 등반 모임을 찾아보세요.",
+      "searchPlaceholder": "크루 이름, 소개로 검색",
+      "searchAccessibilityLabel": "크루 검색",
+      "searchClearLabel": "검색어 지우기",
+      "regionPlaceholder": "지역 필터 예: 서울 강남",
+      "levelFilterLabel": "레벨",
+      "styleFilterLabel": "스타일",
+      "emptyTitle": "아직 표시할 크루가 없어요",
+      "emptyBody": "검색어나 필터를 바꾸거나 첫 공개 크루가 만들어질 때까지 기다려 주세요.",
+      "errorTitle": "크루를 불러오지 못했어요"
+    },
+    "detail": {
+      "title": "크루 상세",
+      "errorTitle": "크루를 불러오지 못했어요",
+      "memberLabel": "멤버",
+      "ownerLabel": "오너",
+      "infoTitle": "기본 정보",
+      "descriptionFallback": "아직 자세한 소개가 없습니다.",
+      "joinTitle": "가입",
+      "requestJoinCta": "가입 요청",
+      "cancelRequestCta": "가입 요청 취소",
+      "alreadyMemberCta": "이미 가입한 크루",
+      "openDisabledCta": "즉시 가입 준비 중",
+      "inviteOnlyCta": "초대 전용 크루",
+      "processing": "처리 중...",
+      "joinHelp": {
+        "APPROVAL": "승인제 크루입니다. 요청을 보내면 크루장 또는 관리자가 확인합니다.",
+        "OPEN": "즉시 가입 크루입니다. 앱 즉시 가입 동작은 후속 화면에서 연결합니다.",
+        "INVITE_ONLY": "초대 전용 크루입니다. 공개 화면에서는 가입 요청을 보낼 수 없습니다."
+      }
     }
   },
   "profile": {

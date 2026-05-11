@@ -15,6 +15,8 @@ import { t } from '@/lib/i18n';
 import { fontFamily, fontSize, fontWeight, type Theme } from '@/lib/tokens';
 import { useReducedMotion } from '@/lib/useReducedMotion';
 import { useTokens } from '@/lib/useTokens';
+import CrewDetailScreen from '@/screens/CrewDetailScreen';
+import CrewListScreen from '@/screens/CrewListScreen';
 import FeedScreen from '@/screens/FeedScreen';
 import GymDetailScreen from '@/screens/GymDetailScreen';
 import GymMapScreen from '@/screens/GymMapScreen';
@@ -46,6 +48,7 @@ const HomeStack = createNativeStackNavigator<RootStackParamList>();
 const FeedStack = createNativeStackNavigator<RootStackParamList>();
 const SessionsStack = createNativeStackNavigator<RootStackParamList>();
 const GymsStack = createNativeStackNavigator<RootStackParamList>();
+const CrewsStack = createNativeStackNavigator<RootStackParamList>();
 const ProfileStack = createNativeStackNavigator<RootStackParamList>();
 
 // 모든 inner Stack 의 헤더를 Crimp 공용 컴포넌트로 통일.
@@ -139,6 +142,23 @@ function GymsTabStack(): JSX.Element {
   );
 }
 
+function CrewsTabStack(): JSX.Element {
+  return (
+    <CrewsStack.Navigator screenOptions={stackScreenOptions}>
+      <CrewsStack.Screen
+        name="CrewList"
+        component={CrewListScreen}
+        options={{ headerShown: false, title: t('crew.list.title') }}
+      />
+      <CrewsStack.Screen
+        name="CrewDetail"
+        component={CrewDetailScreen}
+        options={{ title: t('crew.detail.title') }}
+      />
+    </CrewsStack.Navigator>
+  );
+}
+
 function ProfileTabStack(): JSX.Element {
   return (
     <ProfileStack.Navigator screenOptions={stackScreenOptions}>
@@ -162,11 +182,11 @@ type TabSpec = {
   key: TabKey;
   component: () => JSX.Element;
   icon: IconName;
-  labelKey: 'nav.home' | 'nav.feed' | 'nav.sessions' | 'nav.gyms' | 'nav.profile';
-  accessibilityLabelKey: 'nav.a11y.home' | 'nav.a11y.feed' | 'nav.a11y.sessions' | 'nav.a11y.gyms' | 'nav.a11y.profile';
+  labelKey: 'nav.home' | 'nav.feed' | 'nav.sessions' | 'nav.gyms' | 'nav.crews' | 'nav.profile';
+  accessibilityLabelKey: 'nav.a11y.home' | 'nav.a11y.feed' | 'nav.a11y.sessions' | 'nav.a11y.gyms' | 'nav.a11y.crews' | 'nav.a11y.profile';
 };
 
-// 탭 순서: 홈 / 피드 / 세션 / 암장 / 프로필 (스펙 고정).
+// 탭 순서: 홈 / 피드 / 세션 / 암장 / 크루 / 프로필.
 const tabs: readonly TabSpec[] = [
   {
     key: 'HomeTab',
@@ -195,6 +215,13 @@ const tabs: readonly TabSpec[] = [
     icon: 'pin',
     labelKey: 'nav.gyms',
     accessibilityLabelKey: 'nav.a11y.gyms',
+  },
+  {
+    key: 'CrewsTab',
+    component: CrewsTabStack,
+    icon: 'target',
+    labelKey: 'nav.crews',
+    accessibilityLabelKey: 'nav.a11y.crews',
   },
   {
     key: 'ProfileTab',
