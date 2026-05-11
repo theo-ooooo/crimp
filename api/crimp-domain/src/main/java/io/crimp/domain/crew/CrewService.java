@@ -44,6 +44,7 @@ public class CrewService {
     private static final int DEFAULT_PAGE_SIZE = 20;
     private static final int MAX_PAGE_SIZE = 50;
     private static final int MAX_CREWS_PER_OWNER = 10;
+    private static final long MEETUP_START_CLOCK_SKEW_SECONDS = 60;
 
     private final CrewRepository crewRepository;
     private final CrewJoinRequestRepository crewJoinRequestRepository;
@@ -158,6 +159,9 @@ public class CrewService {
         if (command.startsAt() == null) {
             throw new CrewException("INVALID_CREW_MEETUP_REQUEST", "startsAt is required");
         }
+        if (command.startsAt().isBefore(Instant.now().minusSeconds(MEETUP_START_CLOCK_SKEW_SECONDS))) {
+            throw new CrewException("INVALID_CREW_MEETUP_REQUEST", "startsAt must be in the future");
+        }
         if (command.endsAt() != null && !command.endsAt().isAfter(command.startsAt())) {
             throw new CrewException("INVALID_CREW_MEETUP_REQUEST", "endsAt must be after startsAt");
         }
@@ -183,7 +187,8 @@ public class CrewService {
         Crew crew = findActiveCrew(crewExtId);
         int pageSize = capSize(size);
         return crewMeetupRepository
-                .findByCrewIdAndDeletedAtIsNullOrderByStartsAtAscIdAsc(crew.getId(), PageRequest.of(0, pageSize))
+                .findByCrewIdAndDeletedAtIsNullAndStartsAtGreaterThanEqualOrderByStartsAtAscIdAsc(
+                        crew.getId(), Instant.now(), PageRequest.of(0, pageSize))
                 .stream()
                 .map(this::toMeetupView)
                 .toList();
@@ -193,7 +198,8 @@ public class CrewService {
     public List<CrewMeetupView> listAllMeetups(Long viewerUserId, Integer size) {
         int pageSize = capSize(size);
         return crewMeetupRepository
-                .findByDeletedAtIsNullOrderByStartsAtAscIdAsc(PageRequest.of(0, pageSize))
+                .findByDeletedAtIsNullAndStartsAtGreaterThanEqualOrderByStartsAtAscIdAsc(
+                        Instant.now(), PageRequest.of(0, pageSize))
                 .stream()
                 .map(this::toMeetupView)
                 .toList();

@@ -1,7 +1,10 @@
 package io.crimp.api.meetup;
 
 import io.crimp.api.security.CrimpPrincipal;
+import io.crimp.common.response.ApiResponse;
+import io.crimp.common.response.ErrorBody;
 import io.crimp.domain.crew.CreateCrewMeetupCommand;
+import io.crimp.domain.crew.CrewException;
 import io.crimp.domain.crew.CrewMeetupView;
 import io.crimp.domain.crew.CrewService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -11,7 +14,10 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 import org.springframework.context.annotation.Profile;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -50,6 +56,20 @@ public class MeetupController {
             @AuthenticationPrincipal CrimpPrincipal principal,
             @Valid @RequestBody CreateMeetupRequest req) {
         return MeetupItem.of(crewService.createMeetup(principal.userId(), req.crewExtId(), req.toCommand()));
+    }
+
+    @ExceptionHandler(CrewException.class)
+    public ResponseEntity<ApiResponse<Void>> handleCrew(CrewException e) {
+        HttpStatus status = switch (e.code()) {
+            case "CREW_NOT_FOUND", "CREW_HOME_GYM_NOT_FOUND", "CREW_JOIN_REQUEST_NOT_FOUND",
+                    "CREW_MEMBER_NOT_FOUND", "CREW_IMAGE_MEDIA_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+            case "CREW_FORBIDDEN", "CREW_IMAGE_MEDIA_FORBIDDEN" -> HttpStatus.FORBIDDEN;
+            case "CREW_NAME_TAKEN", "CREW_LIMIT_EXCEEDED", "CREW_ALREADY_MEMBER",
+                    "CREW_JOIN_REQUEST_PENDING", "CREW_CAPACITY_FULL" -> HttpStatus.CONFLICT;
+            case "CREW_OWNER_LEAVE_BLOCKED" -> HttpStatus.UNPROCESSABLE_ENTITY;
+            default -> HttpStatus.BAD_REQUEST;
+        };
+        return ResponseEntity.status(status).body(ApiResponse.failure(ErrorBody.of(e.code(), e.getMessage())));
     }
 
     public record CreateMeetupRequest(

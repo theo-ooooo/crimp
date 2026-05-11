@@ -194,6 +194,21 @@ function CrewsTabStack(): JSX.Element {
         component={CrewMeetupFormScreen}
         options={{ title: t('crew.meetup.formTitle') }}
       />
+      <CrewsStack.Screen
+        name="GymSearch"
+        component={GymSearchScreen}
+        options={{ headerShown: false, title: t('gym.list.title') }}
+      />
+      <CrewsStack.Screen
+        name="GymDetail"
+        component={GymDetailScreen}
+        options={{ headerShown: false, title: t('gym.detail.title') }}
+      />
+      <CrewsStack.Screen
+        name="GymMap"
+        component={GymMapScreen}
+        options={{ headerShown: false, title: '지도' }}
+      />
     </CrewsStack.Navigator>
   );
 }

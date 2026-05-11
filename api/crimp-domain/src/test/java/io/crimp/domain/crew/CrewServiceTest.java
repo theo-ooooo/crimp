@@ -2,6 +2,7 @@ package io.crimp.domain.crew;
 
 import io.crimp.core.entity.crew.Crew;
 import io.crimp.core.entity.crew.CrewJoinRequest;
+import io.crimp.core.entity.crew.CrewMeetup;
 import io.crimp.core.entity.crew.CrewMember;
 import io.crimp.core.entity.enums.CrewJoinPolicy;
 import io.crimp.core.entity.enums.CrewJoinRequestStatus;
@@ -393,6 +394,38 @@ class CrewServiceTest {
         assertThat(result.items().get(0).userExtId()).isEqualTo("01JUSER");
         assertThat(result.items().get(0).role()).isEqualTo(CrewMemberRole.MEMBER);
         assertThat(result.size()).isEqualTo(20);
+    }
+
+    @Test
+    void createMeetup_rejectsPastStart() {
+        assertThatThrownBy(() -> service.createMeetup(7L, null, new CreateCrewMeetupCommand(
+                "퇴근 볼더링", null,
+                Instant.now().minusSeconds(120), null,
+                null, "강남", 8)))
+                .isInstanceOf(CrewException.class)
+                .satisfies(e -> assertThat(((CrewException) e).code()).isEqualTo("INVALID_CREW_MEETUP_REQUEST"));
+    }
+
+    @Test
+    void listAllMeetups_queriesUpcomingOnly() {
+        CrewMeetup meetup = CrewMeetup.builder()
+                .extId("01JMEETUP")
+                .createdBy(7L)
+                .title("퇴근 볼더링")
+                .startsAt(Instant.now().plusSeconds(3600))
+                .location("강남")
+                .capacity((short) 8)
+                .build();
+        when(crewMeetupRepository.findByDeletedAtIsNullAndStartsAtGreaterThanEqualOrderByStartsAtAscIdAsc(
+                any(Instant.class), any(Pageable.class)))
+                .thenReturn(List.of(meetup));
+
+        List<CrewMeetupView> result = service.listAllMeetups(7L, 10);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).extId()).isEqualTo("01JMEETUP");
+        verify(crewMeetupRepository).findByDeletedAtIsNullAndStartsAtGreaterThanEqualOrderByStartsAtAscIdAsc(
+                any(Instant.class), any(Pageable.class));
     }
 
     @Test
