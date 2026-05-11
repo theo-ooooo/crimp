@@ -211,6 +211,15 @@ export const CrewMeetupListSchema = z.object({
 
 export type CrewMeetupList = z.infer<typeof CrewMeetupListSchema>;
 
+export type MeetupListFilters = {
+  near?: boolean;
+  lat?: number;
+  lng?: number;
+  levelBand?: CrewLevelBand;
+  style?: CrewStyle;
+  outdoor?: boolean;
+};
+
 export const CreateCrewMeetupBodySchema = z.object({
   title: z.string().min(2).max(60),
   description: z.string().max(500).nullable().optional(),

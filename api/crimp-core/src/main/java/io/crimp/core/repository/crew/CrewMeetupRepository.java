@@ -8,7 +8,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
-public interface CrewMeetupRepository extends JpaRepository<CrewMeetup, Long> {
+public interface CrewMeetupRepository extends JpaRepository<CrewMeetup, Long>, CrewMeetupRepositoryCustom {
     Optional<CrewMeetup> findByExtIdAndDeletedAtIsNull(String extId);
 
     List<CrewMeetup> findByCrewIdAndDeletedAtIsNullAndStartsAtGreaterThanEqualOrderByStartsAtAscIdAsc(

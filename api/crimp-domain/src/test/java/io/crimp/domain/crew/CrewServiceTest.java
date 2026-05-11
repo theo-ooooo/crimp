@@ -429,8 +429,7 @@ class CrewServiceTest {
                 .location("강남")
                 .capacity((short) 8)
                 .build();
-        when(crewMeetupRepository.findByDeletedAtIsNullAndStartsAtGreaterThanEqualOrderByStartsAtAscIdAsc(
-                any(Instant.class), any(Pageable.class)))
+        when(crewMeetupRepository.searchUpcoming(any(Instant.class), eq(null), eq(null), eq(null), eq(null), eq(false), any(Pageable.class)))
                 .thenReturn(List.of(meetup));
         when(meetupParticipantRepository.countByMeetupIdAndStatus(any(), any())).thenReturn(0L);
         when(meetupParticipantRepository.existsByMeetupIdAndUserIdAndStatus(any(), any(), any())).thenReturn(false);
@@ -439,8 +438,34 @@ class CrewServiceTest {
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).extId()).isEqualTo("01JMEETUP");
-        verify(crewMeetupRepository).findByDeletedAtIsNullAndStartsAtGreaterThanEqualOrderByStartsAtAscIdAsc(
-                any(Instant.class), any(Pageable.class));
+        verify(crewMeetupRepository).searchUpcoming(any(Instant.class), eq(null), eq(null), eq(null), eq(null), eq(false), any(Pageable.class));
+    }
+
+    @Test
+    void listAllMeetups_appliesFiltersAndUsesCurrentLocationForNear() {
+        when(crewMeetupRepository.searchUpcoming(
+                any(Instant.class),
+                eq(new BigDecimal("37.5000000")),
+                eq(new BigDecimal("127.0000000")),
+                eq(CrewLevelBand.BEGINNER),
+                eq(CrewStyle.LEAD),
+                eq(true),
+                any(Pageable.class)))
+                .thenReturn(List.of());
+
+        List<CrewMeetupView> result = service.listAllMeetups(
+                7L, 10, true, new BigDecimal("37.5000000"), new BigDecimal("127.0000000"),
+                "BEGINNER", "LEAD", true);
+
+        assertThat(result).isEmpty();
+        verify(crewMeetupRepository).searchUpcoming(
+                any(Instant.class),
+                eq(new BigDecimal("37.5000000")),
+                eq(new BigDecimal("127.0000000")),
+                eq(CrewLevelBand.BEGINNER),
+                eq(CrewStyle.LEAD),
+                eq(true),
+                any(Pageable.class));
     }
 
     @Test

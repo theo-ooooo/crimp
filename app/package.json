@@ -13,6 +13,7 @@
   "dependencies": {
     "@bam.tech/react-native-image-resizer": "^3.0.11",
     "@invertase/react-native-apple-authentication": "^2.5.1",
+    "@react-native-community/geolocation": "^3.4.0",
     "@react-native-community/slider": "^5.2.0",
     "@react-native-seoul/kakao-login": "5.4.2",
     "@react-navigation/bottom-tabs": "^6.6.1",

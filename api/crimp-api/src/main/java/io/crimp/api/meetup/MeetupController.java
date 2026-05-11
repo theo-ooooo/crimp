@@ -31,6 +31,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
@@ -50,8 +51,15 @@ public class MeetupController {
     @GetMapping
     public MeetupListResponse list(
             @AuthenticationPrincipal CrimpPrincipal principal,
-            @RequestParam(required = false) Integer size) {
-        return new MeetupListResponse(crewService.listAllMeetups(principal.userId(), size).stream()
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false, defaultValue = "false") boolean near,
+            @RequestParam(required = false) BigDecimal lat,
+            @RequestParam(required = false) BigDecimal lng,
+            @RequestParam(required = false) String levelBand,
+            @RequestParam(required = false) String style,
+            @RequestParam(required = false, defaultValue = "false") boolean outdoor) {
+        return new MeetupListResponse(crewService.listAllMeetups(
+                        principal.userId(), size, near, lat, lng, levelBand, style, outdoor).stream()
                 .map(MeetupItem::of)
                 .toList());
     }
