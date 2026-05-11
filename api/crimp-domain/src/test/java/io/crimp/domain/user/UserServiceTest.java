@@ -190,6 +190,19 @@ class UserServiceTest {
     }
 
     @Test
+    void updateMyProfile_deletedPrefix_throws() {
+        User user = user(1L, "01HU");
+        Profile profile = Profile.create(1L, "mine");
+        when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+        when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
+
+        var cmd = new UpdateProfileCommand("deleted_1", null, null, null, null, false, null);
+        assertThatThrownBy(() -> service.updateMyProfile(1L, cmd))
+                .isInstanceOf(UserException.class)
+                .satisfies(e -> assertThat(((UserException) e).code()).isEqualTo("INVALID_NICKNAME"));
+    }
+
+    @Test
     void updateMyProfile_same_nickname_skipsExistsCheck() {
         User user = user(1L, "01HU");
         Profile profile = Profile.create(1L, "mine");
@@ -618,6 +631,25 @@ class UserServiceTest {
         assertThat(member.getStatus()).isEqualTo(CrewMemberStatus.LEFT);
         assertThat(crew.getMemberCount()).isEqualTo(11);
         assertThat(crew.isDeleted()).isTrue();
+        assertThat(user.getStatus()).isEqualTo(UserStatus.DELETED);
+    }
+
+    @Test
+    void deleteMe_releasesNickname_soOthersCanReuseIt() {
+        User user = user(1L, "01HDELETE__");
+        Profile profile = Profile.create(1L, "myNickname");
+        profile.updateNickname("myNickname");
+        when(userRepo.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
+        when(crewJoinRequestRepo.findAllByUserIdAndStatus(1L, CrewJoinRequestStatus.PENDING))
+                .thenReturn(List.of());
+        when(crewMemberRepo.findCrewIdsByUserIdAndStatus(1L, CrewMemberStatus.ACTIVE))
+                .thenReturn(List.of());
+
+        service.deleteMe(1L);
+
+        assertThat(profile.getNickname()).isEqualTo("deleted_1");
+        assertThat(profile.isNicknameConfigured()).isFalse();
         assertThat(user.getStatus()).isEqualTo(UserStatus.DELETED);
     }
 

@@ -62,4 +62,9 @@ public class Profile {
     public void updateAvatar(Long avatarMediaId) { this.avatarMediaId = avatarMediaId; }
     public void updateLevel(Byte levelSelf) { this.levelSelf = levelSelf; }
     public void updateMainGym(Long mainGymId) { this.mainGymId = mainGymId; }
+
+    public void releaseNicknameOnDeletion() {
+        this.nickname = "deleted_" + this.userId;
+        this.nicknameConfigured = false;
+    }
 }

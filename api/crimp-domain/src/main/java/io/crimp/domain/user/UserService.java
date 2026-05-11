@@ -109,6 +109,9 @@ public class UserService {
             if (trimmed.length() < 2 || trimmed.length() > 30) {
                 throw new UserException("INVALID_NICKNAME", "Nickname must be 2-30 characters after trim");
             }
+            if (trimmed.startsWith("deleted_")) {
+                throw new UserException("INVALID_NICKNAME", "Nickname cannot start with 'deleted_'");
+            }
             if (!trimmed.equals(profile.getNickname())
                     && profileRepo.existsByNickname(trimmed)) {
                 throw new UserException("NICKNAME_TAKEN", "Nickname already taken: " + trimmed);
@@ -156,6 +159,7 @@ public class UserService {
         crewJoinRequestRepo.findAllByUserIdAndStatus(userId, CrewJoinRequestStatus.PENDING)
                 .forEach(request -> request.cancel(userId));
         leaveActiveCrewMemberships(userId);
+        profileRepo.findById(userId).ifPresent(Profile::releaseNicknameOnDeletion);
         user.deleteAccount();
         refreshTokenStore.deleteAllForUser(userId);
     }
