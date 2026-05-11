@@ -1,11 +1,50 @@
 -- V202605111100: 크루 대표 이미지와 크루 모임
 
-ALTER TABLE crews
-  ADD COLUMN image_media_id BIGINT UNSIGNED NULL AFTER home_gym_id,
-  ADD KEY idx_crews_image_media (image_media_id),
-  ADD CONSTRAINT fk_crews_image_media FOREIGN KEY (image_media_id) REFERENCES media_assets(id);
+DELIMITER //
 
-CREATE TABLE meetups (
+CREATE PROCEDURE crimp_apply_crew_images_and_meetups()
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'crews'
+      AND COLUMN_NAME = 'image_media_id'
+  ) THEN
+    ALTER TABLE crews
+      ADD COLUMN image_media_id BIGINT UNSIGNED NULL AFTER home_gym_id;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'crews'
+      AND INDEX_NAME = 'idx_crews_image_media'
+  ) THEN
+    ALTER TABLE crews
+      ADD KEY idx_crews_image_media (image_media_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.TABLE_CONSTRAINTS
+    WHERE CONSTRAINT_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'crews'
+      AND CONSTRAINT_NAME = 'fk_crews_image_media'
+  ) THEN
+    ALTER TABLE crews
+      ADD CONSTRAINT fk_crews_image_media FOREIGN KEY (image_media_id) REFERENCES media_assets(id);
+  END IF;
+END//
+
+CALL crimp_apply_crew_images_and_meetups()//
+
+DROP PROCEDURE crimp_apply_crew_images_and_meetups//
+
+DELIMITER ;
+
+CREATE TABLE IF NOT EXISTS meetups (
   id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   ext_id      CHAR(26) NOT NULL,
   crew_id     BIGINT UNSIGNED NULL,
