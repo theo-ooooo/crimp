@@ -3,6 +3,7 @@ import React, { useMemo } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,6 +16,7 @@ import { AuthHydrationGate } from '@/components/common/screen/AuthHydrationGate'
 import {
   useCancelMyCrewJoinRequest,
   useCrewQuery,
+  useCrewMeetupsQuery,
   useLeaveCrew,
   useRequestCrewJoin,
 } from '@/hooks/queries/useCrews';
@@ -74,6 +76,7 @@ function CrewDetailContent({
   const theme = useTokens();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const crewQuery = useCrewQuery(accessToken, extId);
+  const meetupsQuery = useCrewMeetupsQuery(accessToken, extId, 5);
   const requestJoin = useRequestCrewJoin(accessToken);
   const cancelJoin = useCancelMyCrewJoinRequest(accessToken);
   const leaveCrew = useLeaveCrew(accessToken);
@@ -118,7 +121,11 @@ function CrewDetailContent({
       <View style={styles.hero}>
         <View style={styles.heroTop}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText} allowFontScaling={false}>{avatarText}</Text>
+            {crew.imageUrl ? (
+              <Image source={{ uri: crew.imageUrl }} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.avatarText} allowFontScaling={false}>{avatarText}</Text>
+            )}
           </View>
           <View style={styles.heroBody}>
             <View style={styles.badgeRow}>
@@ -185,6 +192,39 @@ function CrewDetailContent({
         {mutationError ? (
           <Text style={styles.errorText}>{toUserMessage(mutationError)}</Text>
         ) : null}
+      </View>
+
+      <View style={styles.section}>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>{t('crew.meetup.title')}</Text>
+          {crew.myStatus === 'OWNER' || crew.myStatus === 'ADMIN' ? (
+            <SecondaryButton
+              onPress={() => navigation.navigate('CrewMeetupForm', {
+                crewExtId: crew.extId,
+                crewName: crew.name,
+              })}
+            >
+              {t('crew.meetup.createCta')}
+            </SecondaryButton>
+          ) : null}
+        </View>
+        {meetupsQuery.isLoading ? (
+          <View style={styles.pendingRow}>
+            <ActivityIndicator color={theme.accent.base} />
+          </View>
+        ) : meetupsQuery.data?.items.length ? (
+          <View style={styles.meetupList}>
+            {meetupsQuery.data.items.map((meetup) => (
+              <View key={meetup.extId} style={styles.meetupItem}>
+                <Text style={styles.meetupTitle}>{meetup.title}</Text>
+                <Text style={styles.meetupMeta}>{formatMeetupTime(meetup.startsAt)}</Text>
+                {meetup.location ? <Text style={styles.meetupMeta}>{meetup.location}</Text> : null}
+              </View>
+            ))}
+          </View>
+        ) : (
+          <Text style={styles.bodyText}>{t('crew.meetup.emptyBody')}</Text>
+        )}
       </View>
     </ScrollView>
   );
@@ -307,6 +347,15 @@ function memberValue(crew: CrewDetail): string {
     : base;
 }
 
+function formatMeetupTime(value: string): string {
+  return new Intl.DateTimeFormat('ko-KR', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     content: {
@@ -340,6 +389,11 @@ function makeStyles(theme: Theme) {
       alignItems: 'center',
       justifyContent: 'center',
       flexShrink: 0,
+      overflow: 'hidden',
+    },
+    avatarImage: {
+      width: '100%',
+      height: '100%',
     },
     avatarText: {
       fontFamily,
@@ -409,6 +463,33 @@ function makeStyles(theme: Theme) {
       fontWeight: fontWeight.bold,
       color: theme.text,
       letterSpacing: letterSpacing.title,
+    },
+    sectionHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: space[3],
+    },
+    meetupList: {
+      gap: space[2],
+    },
+    meetupItem: {
+      borderRadius: radius.lg,
+      backgroundColor: theme.bg,
+      padding: space[3],
+      gap: space[1],
+    },
+    meetupTitle: {
+      fontFamily,
+      fontSize: fontSize.body,
+      fontWeight: fontWeight.bold,
+      color: theme.text,
+    },
+    meetupMeta: {
+      fontFamily,
+      fontSize: fontSize.caption,
+      fontWeight: fontWeight.medium,
+      color: theme.text2,
     },
     bodyText: {
       fontFamily,

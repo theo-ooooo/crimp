@@ -3,6 +3,7 @@ import React, { useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -263,7 +264,11 @@ function CrewCard({ crew, onPress }: { crew: CrewItem; onPress: () => void }): J
       style={({ pressed }) => [styles.card, pressed ? styles.cardPressed : null]}
     >
       <View style={styles.cardAvatar}>
-        <Text style={styles.cardAvatarText} allowFontScaling={false}>{avatarText}</Text>
+        {crew.imageUrl ? (
+          <Image source={{ uri: crew.imageUrl }} style={styles.cardAvatarImage} />
+        ) : (
+          <Text style={styles.cardAvatarText} allowFontScaling={false}>{avatarText}</Text>
+        )}
       </View>
       <View style={styles.cardBody}>
         <View style={styles.cardTopRow}>
@@ -384,6 +389,11 @@ function makeStyles(theme: Theme) {
       alignItems: 'center',
       justifyContent: 'center',
       flexShrink: 0,
+      overflow: 'hidden',
+    },
+    cardAvatarImage: {
+      width: '100%',
+      height: '100%',
     },
     title: {
       fontFamily,

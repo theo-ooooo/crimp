@@ -15,9 +15,13 @@ import io.crimp.core.repository.crew.CrewJoinRequestRepository;
 import io.crimp.core.repository.crew.CrewJoinRequestRow;
 import io.crimp.core.repository.crew.CrewMemberRepository;
 import io.crimp.core.repository.crew.CrewMemberRow;
+import io.crimp.core.repository.crew.CrewMeetupRepository;
 import io.crimp.core.repository.crew.CrewRepository;
 import io.crimp.core.repository.crew.CrewSearchRow;
 import io.crimp.core.repository.gym.GymRepository;
+import io.crimp.core.repository.media.MediaAssetRepository;
+import io.crimp.core.repository.media.MediaImageVariantRepository;
+import io.crimp.common.config.AppProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.Pageable;
@@ -42,7 +46,10 @@ class CrewServiceTest {
     private CrewRepository crewRepository;
     private CrewJoinRequestRepository crewJoinRequestRepository;
     private CrewMemberRepository crewMemberRepository;
+    private CrewMeetupRepository crewMeetupRepository;
     private GymRepository gymRepository;
+    private MediaAssetRepository mediaAssetRepository;
+    private MediaImageVariantRepository mediaImageVariantRepository;
     private CrewService service;
 
     @BeforeEach
@@ -50,8 +57,19 @@ class CrewServiceTest {
         crewRepository = mock(CrewRepository.class);
         crewJoinRequestRepository = mock(CrewJoinRequestRepository.class);
         crewMemberRepository = mock(CrewMemberRepository.class);
+        crewMeetupRepository = mock(CrewMeetupRepository.class);
         gymRepository = mock(GymRepository.class);
-        service = new CrewService(crewRepository, crewJoinRequestRepository, crewMemberRepository, gymRepository);
+        mediaAssetRepository = mock(MediaAssetRepository.class);
+        mediaImageVariantRepository = mock(MediaImageVariantRepository.class);
+        service = new CrewService(
+                crewRepository,
+                crewJoinRequestRepository,
+                crewMemberRepository,
+                crewMeetupRepository,
+                gymRepository,
+                mediaAssetRepository,
+                mediaImageVariantRepository,
+                new AppProperties("Crimp", "test", null, new AppProperties.Media(null, 300)));
     }
 
     @Test
@@ -68,7 +86,7 @@ class CrewServiceTest {
 
         CrewView view = service.create(7L, new CreateCrewCommand(
                 " 강남 퇴근볼더 ", "평일 저녁", "V3~V6 중심", "서울 강남",
-                null, "INTERMEDIATE", "BOULDERING", 30));
+                null, null, "INTERMEDIATE", "BOULDERING", 30));
 
         assertThat(view.name()).isEqualTo("강남 퇴근볼더");
         verify(crewRepository).save(any(Crew.class));
@@ -91,7 +109,7 @@ class CrewServiceTest {
 
         service.create(7L, new CreateCrewCommand(
                 "강남 퇴근볼더", null, null, null,
-                "01JGYM00000000000000000000", null, null, null));
+                "01JGYM00000000000000000000", null, null, null, null));
 
         verify(crewRepository).save(org.mockito.ArgumentMatchers.argThat(crew -> crew.getHomeGymId().equals(33L)));
     }
@@ -103,7 +121,7 @@ class CrewServiceTest {
 
         assertThatThrownBy(() -> service.create(7L, new CreateCrewCommand(
                 "강남 퇴근볼더", null, null, null,
-                "01JGYM00000000000000000000", null, null, null)))
+                "01JGYM00000000000000000000", null, null, null, null)))
                 .isInstanceOf(CrewException.class)
                 .satisfies(e -> assertThat(((CrewException) e).code()).isEqualTo("CREW_HOME_GYM_NOT_FOUND"));
     }
@@ -113,7 +131,7 @@ class CrewServiceTest {
         when(crewRepository.existsByName("강남 퇴근볼더")).thenReturn(true);
 
         assertThatThrownBy(() -> service.create(7L, new CreateCrewCommand(
-                "강남 퇴근볼더", null, null, null, null, null, null, null)))
+                "강남 퇴근볼더", null, null, null, null, null, null, null, null)))
                 .isInstanceOf(CrewException.class)
                 .satisfies(e -> assertThat(((CrewException) e).code()).isEqualTo("CREW_NAME_TAKEN"));
     }
@@ -130,7 +148,7 @@ class CrewServiceTest {
 
         service.update(7L, "01JCREW", new UpdateCrewCommand(
                 "새 크루", "새 요약", null, null, null, false,
-                "ADVANCED", "LEAD", null, true));
+                null, false, "ADVANCED", "LEAD", null, true));
 
         assertThat(crew.getName()).isEqualTo("새 크루");
         assertThat(crew.getSummary()).isEqualTo("새 요약");
@@ -147,7 +165,7 @@ class CrewServiceTest {
                 .thenReturn(Optional.of(CrewMember.create(55L, 8L, CrewMemberRole.MEMBER, CrewMemberStatus.ACTIVE)));
 
         assertThatThrownBy(() -> service.update(8L, "01JCREW", new UpdateCrewCommand(
-                "새 크루", null, null, null, null, false, null, null, null, false)))
+                "새 크루", null, null, null, null, false, null, false, null, null, null, false)))
                 .isInstanceOf(CrewException.class)
                 .satisfies(e -> assertThat(((CrewException) e).code()).isEqualTo("CREW_FORBIDDEN"));
     }
@@ -160,7 +178,7 @@ class CrewServiceTest {
                 .thenReturn(Optional.of(CrewMember.create(55L, 7L, CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE)));
 
         assertThatThrownBy(() -> service.update(7L, "01JCREW", new UpdateCrewCommand(
-                null, null, null, null, null, false, null, null, 20, true)))
+                null, null, null, null, null, false, null, false, null, null, 20, true)))
                 .isInstanceOf(CrewException.class)
                 .satisfies(e -> assertThat(((CrewException) e).code()).isEqualTo("INVALID_CREW_REQUEST"));
     }
@@ -325,7 +343,7 @@ class CrewServiceTest {
     void approveJoinRequest_rejectsFullCapacityBeforeAddingMember() {
         Crew crew = crew(55L, "01JCREW", 7L, null, "기존 크루");
         crew.updateBasic(crew.getName(), crew.getSummary(), crew.getDescription(), crew.getRegion(),
-                crew.getHomeGymId(), crew.getLevelBand(), crew.getStyle(), (short) 1);
+                crew.getHomeGymId(), crew.getImageMediaId(), crew.getLevelBand(), crew.getStyle(), (short) 1);
         CrewJoinRequest request = CrewJoinRequest.builder()
                 .extId("01JREQ")
                 .crewId(55L)
@@ -463,6 +481,7 @@ class CrewServiceTest {
                 "평일 저녁 강남권",
                 "V3~V6 중심",
                 "서울 강남",
+                null,
                 CrewLevelBand.INTERMEDIATE,
                 CrewStyle.BOULDERING,
                 CrewJoinPolicy.APPROVAL,

@@ -55,6 +55,8 @@ export const CrewItemSchema = z.object({
   summary: z.string().nullable(),
   region: z.string().nullable(),
   homeGym: CrewHomeGymSchema.nullable(),
+  imageMediaId: z.number().int().nullable().optional(),
+  imageUrl: z.string().url().nullable().optional(),
   levelBand: CrewLevelBandSchema,
   style: CrewStyleSchema,
   memberCount: z.number().int(),
@@ -86,6 +88,7 @@ export const CreateCrewBodySchema = z.object({
   description: z.string().max(500).nullable().optional(),
   region: z.string().max(50).nullable().optional(),
   homeGymExtId: z.string().length(26).nullable().optional(),
+  imageMediaId: z.number().int().nullable().optional(),
   levelBand: CrewLevelBandSchema.nullable().optional(),
   style: CrewStyleSchema.nullable().optional(),
   capacity: z.number().int().min(2).max(200).nullable().optional(),
@@ -95,6 +98,7 @@ export type CreateCrewBody = z.infer<typeof CreateCrewBodySchema>;
 
 export const UpdateCrewBodySchema = CreateCrewBodySchema.partial().extend({
   clearHomeGym: z.boolean().optional(),
+  clearImage: z.boolean().optional(),
   clearCapacity: z.boolean().optional(),
 });
 
@@ -152,3 +156,33 @@ export const CrewMemberListSchema = z.object({
 });
 
 export type CrewMemberList = z.infer<typeof CrewMemberListSchema>;
+
+export const CrewMeetupSchema = z.object({
+  extId: z.string(),
+  title: z.string(),
+  description: z.string().nullable(),
+  startsAt: z.string(),
+  endsAt: z.string().nullable(),
+  location: z.string().nullable(),
+  capacity: z.number().int().nullable(),
+  createdAt: z.string(),
+});
+
+export type CrewMeetup = z.infer<typeof CrewMeetupSchema>;
+
+export const CrewMeetupListSchema = z.object({
+  items: z.array(CrewMeetupSchema),
+});
+
+export type CrewMeetupList = z.infer<typeof CrewMeetupListSchema>;
+
+export const CreateCrewMeetupBodySchema = z.object({
+  title: z.string().min(2).max(60),
+  description: z.string().max(500).nullable().optional(),
+  startsAt: z.string(),
+  endsAt: z.string().nullable().optional(),
+  location: z.string().max(100).nullable().optional(),
+  capacity: z.number().int().min(2).max(200).nullable().optional(),
+});
+
+export type CreateCrewMeetupBody = z.infer<typeof CreateCrewMeetupBodySchema>;

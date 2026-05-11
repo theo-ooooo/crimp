@@ -38,6 +38,9 @@ public class Crew extends SoftDeletableEntity {
     @Column(name = "home_gym_id")
     private Long homeGymId;
 
+    @Column(name = "image_media_id")
+    private Long imageMediaId;
+
     @Column(name = "name", nullable = false, length = 30)
     private String name;
 
@@ -73,13 +76,14 @@ public class Crew extends SoftDeletableEntity {
     private Integer memberCount;
 
     @Builder
-    private Crew(String extId, Long ownerUserId, Long homeGymId, String name, String summary,
+    private Crew(String extId, Long ownerUserId, Long homeGymId, Long imageMediaId, String name, String summary,
                  String description, String region, CrewLevelBand levelBand, CrewStyle style,
                  CrewVisibility visibility, CrewJoinPolicy joinPolicy, Short capacity,
                  Integer memberCount) {
         this.extId = extId;
         this.ownerUserId = ownerUserId;
         this.homeGymId = homeGymId;
+        this.imageMediaId = imageMediaId;
         this.name = name;
         this.summary = summary;
         this.description = description;
@@ -93,13 +97,14 @@ public class Crew extends SoftDeletableEntity {
     }
 
     public void updateBasic(String name, String summary, String description, String region,
-                            Long homeGymId, CrewLevelBand levelBand, CrewStyle style,
-                            Short capacity) {
+                            Long homeGymId, Long imageMediaId, CrewLevelBand levelBand,
+                            CrewStyle style, Short capacity) {
         this.name = name;
         this.summary = summary;
         this.description = description;
         this.region = region;
         this.homeGymId = homeGymId;
+        this.imageMediaId = imageMediaId;
         this.levelBand = levelBand;
         this.style = style;
         this.capacity = capacity;

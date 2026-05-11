@@ -1,8 +1,10 @@
 package io.crimp.domain.crew;
 
 import io.crimp.common.id.UlidGenerator;
+import io.crimp.common.config.AppProperties;
 import io.crimp.core.entity.crew.Crew;
 import io.crimp.core.entity.crew.CrewJoinRequest;
+import io.crimp.core.entity.crew.CrewMeetup;
 import io.crimp.core.entity.crew.CrewMember;
 import io.crimp.core.entity.enums.CrewJoinPolicy;
 import io.crimp.core.entity.enums.CrewJoinRequestStatus;
@@ -11,20 +13,29 @@ import io.crimp.core.entity.enums.CrewLevelBand;
 import io.crimp.core.entity.enums.CrewMemberStatus;
 import io.crimp.core.entity.enums.CrewStyle;
 import io.crimp.core.entity.enums.GymStatus;
+import io.crimp.core.entity.enums.MediaKind;
+import io.crimp.core.entity.enums.MediaStatus;
+import io.crimp.core.entity.enums.MediaUsage;
 import io.crimp.core.entity.gym.Gym;
+import io.crimp.core.entity.media.MediaAsset;
+import io.crimp.core.entity.media.MediaImageVariant;
 import io.crimp.core.repository.crew.CrewJoinRequestRepository;
 import io.crimp.core.repository.crew.CrewJoinRequestRow;
 import io.crimp.core.repository.crew.CrewMemberRepository;
 import io.crimp.core.repository.crew.CrewMemberRow;
+import io.crimp.core.repository.crew.CrewMeetupRepository;
 import io.crimp.core.repository.crew.CrewRepository;
 import io.crimp.core.repository.crew.CrewSearchRow;
 import io.crimp.core.repository.gym.GymRepository;
+import io.crimp.core.repository.media.MediaAssetRepository;
+import io.crimp.core.repository.media.MediaImageVariantRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.time.Instant;
 
 @Service
 @org.springframework.context.annotation.Profile("!test")
@@ -37,15 +48,27 @@ public class CrewService {
     private final CrewRepository crewRepository;
     private final CrewJoinRequestRepository crewJoinRequestRepository;
     private final CrewMemberRepository crewMemberRepository;
+    private final CrewMeetupRepository crewMeetupRepository;
     private final GymRepository gymRepository;
+    private final MediaAssetRepository mediaAssetRepository;
+    private final MediaImageVariantRepository mediaImageVariantRepository;
+    private final AppProperties appProperties;
 
     public CrewService(CrewRepository crewRepository, CrewJoinRequestRepository crewJoinRequestRepository,
                        CrewMemberRepository crewMemberRepository,
-                       GymRepository gymRepository) {
+                       CrewMeetupRepository crewMeetupRepository,
+                       GymRepository gymRepository,
+                       MediaAssetRepository mediaAssetRepository,
+                       MediaImageVariantRepository mediaImageVariantRepository,
+                       AppProperties appProperties) {
         this.crewRepository = crewRepository;
         this.crewJoinRequestRepository = crewJoinRequestRepository;
         this.crewMemberRepository = crewMemberRepository;
+        this.crewMeetupRepository = crewMeetupRepository;
         this.gymRepository = gymRepository;
+        this.mediaAssetRepository = mediaAssetRepository;
+        this.mediaImageVariantRepository = mediaImageVariantRepository;
+        this.appProperties = appProperties;
     }
 
     @Transactional
@@ -58,6 +81,7 @@ public class CrewService {
         CrewStyle style = parseEnum(CrewStyle.class, command.style(), "INVALID_CREW_REQUEST");
         Short capacity = parseCapacity(command.capacity());
         Long homeGymId = resolveHomeGymId(command.homeGymExtId());
+        Long imageMediaId = resolveCrewImageId(ownerUserId, command.imageMediaId());
 
         if (crewRepository.existsByName(name)) {
             throw new CrewException("CREW_NAME_TAKEN", "Crew name already taken: " + name);
@@ -70,6 +94,7 @@ public class CrewService {
                 .extId(UlidGenerator.next())
                 .ownerUserId(ownerUserId)
                 .homeGymId(homeGymId)
+                .imageMediaId(imageMediaId)
                 .name(name)
                 .summary(summary)
                 .description(description)
@@ -111,10 +136,53 @@ public class CrewService {
         Short capacity = command.clearCapacity() ? null
                 : command.capacity() == null ? crew.getCapacity() : parseCapacity(command.capacity());
         Long homeGymId = resolveUpdatedHomeGymId(command, crew);
+        Long imageMediaId = resolveUpdatedImageMediaId(actorUserId, command, crew);
 
-        crew.updateBasic(name, summary, description, region, homeGymId, levelBand, style, capacity);
+        crew.updateBasic(name, summary, description, region, homeGymId, imageMediaId, levelBand, style, capacity);
         crewRepository.flush();
         return getByExtId(actorUserId, crew.getExtId());
+    }
+
+    @Transactional
+    public CrewMeetupView createMeetup(Long actorUserId, String crewExtId, CreateCrewMeetupCommand command) {
+        Crew crew = findActiveCrew(crewExtId);
+        requireAdmin(crew.getId(), actorUserId);
+        String title = requireLength(command.title(), 2, 60, "INVALID_CREW_MEETUP_REQUEST",
+                "Meetup title must be 2-60 characters");
+        String description = trimOptional(command.description(), 500, "description");
+        String location = trimOptional(command.location(), 100, "location");
+        Short capacity = parseCapacity(command.capacity());
+        if (command.startsAt() == null) {
+            throw new CrewException("INVALID_CREW_MEETUP_REQUEST", "startsAt is required");
+        }
+        if (command.endsAt() != null && !command.endsAt().isAfter(command.startsAt())) {
+            throw new CrewException("INVALID_CREW_MEETUP_REQUEST", "endsAt must be after startsAt");
+        }
+
+        CrewMeetup meetup = CrewMeetup.builder()
+                .extId(UlidGenerator.next())
+                .crewId(crew.getId())
+                .createdBy(actorUserId)
+                .title(title)
+                .description(description)
+                .startsAt(command.startsAt())
+                .endsAt(command.endsAt())
+                .location(location)
+                .capacity(capacity)
+                .build();
+        crewMeetupRepository.saveAndFlush(meetup);
+        return toMeetupView(meetup);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CrewMeetupView> listMeetups(Long viewerUserId, String crewExtId, Integer size) {
+        Crew crew = findActiveCrew(crewExtId);
+        int pageSize = capSize(size);
+        return crewMeetupRepository
+                .findByCrewIdAndDeletedAtIsNullOrderByStartsAtAscIdAsc(crew.getId(), PageRequest.of(0, pageSize))
+                .stream()
+                .map(CrewService::toMeetupView)
+                .toList();
     }
 
     @Transactional
@@ -253,7 +321,7 @@ public class CrewService {
                 viewerUserId,
                 PageRequest.of(0, pageSize));
 
-        List<CrewView> items = slice.getContent().stream().map(CrewService::toView).toList();
+        List<CrewView> items = slice.getContent().stream().map(this::toView).toList();
         Long nextCursor = slice.hasNext() && !slice.getContent().isEmpty()
                 ? slice.getContent().get(slice.getContent().size() - 1).id()
                 : null;
@@ -303,6 +371,30 @@ public class CrewService {
         return crew.getHomeGymId();
     }
 
+    private Long resolveUpdatedImageMediaId(Long actorUserId, UpdateCrewCommand command, Crew crew) {
+        if (command.clearImage() && command.imageMediaId() != null) {
+            throw new CrewException("INVALID_CREW_REQUEST", "clearImage cannot be combined with imageMediaId");
+        }
+        if (command.clearImage()) return null;
+        if (command.imageMediaId() != null) return resolveCrewImageId(actorUserId, command.imageMediaId());
+        return crew.getImageMediaId();
+    }
+
+    private Long resolveCrewImageId(Long actorUserId, Long imageMediaId) {
+        if (imageMediaId == null) return null;
+        MediaAsset asset = mediaAssetRepository.findById(imageMediaId)
+                .orElseThrow(() -> new CrewException("CREW_IMAGE_MEDIA_NOT_FOUND", "Crew image media not found: " + imageMediaId));
+        if (!asset.getOwnerUserId().equals(actorUserId)) {
+            throw new CrewException("CREW_IMAGE_MEDIA_FORBIDDEN", "Crew image belongs to another user: " + imageMediaId);
+        }
+        if (asset.getKind() != MediaKind.IMAGE
+                || asset.getStatus() != MediaStatus.READY
+                || asset.getUsage() != MediaUsage.CREW) {
+            throw new CrewException("CREW_IMAGE_MEDIA_INVALID", "Crew image must be a READY CREW IMAGE: " + imageMediaId);
+        }
+        return asset.getId();
+    }
+
     private Long resolveHomeGymId(String homeGymExtId) {
         String extId = blankToNull(homeGymExtId);
         if (extId == null) return null;
@@ -319,7 +411,7 @@ public class CrewService {
         }
     }
 
-    private static CrewView toView(CrewSearchRow row) {
+    private CrewView toView(CrewSearchRow row) {
         CrewHomeGymView homeGym = row.homeGymExtId() == null
                 ? null
                 : new CrewHomeGymView(row.homeGymExtId(), row.homeGymName());
@@ -331,6 +423,8 @@ public class CrewService {
                 row.description(),
                 row.region(),
                 homeGym,
+                row.imageMediaId(),
+                resolveCrewImageUrl(row.imageMediaId()),
                 row.levelBand(),
                 row.style(),
                 row.memberCount() == null ? 0 : row.memberCount(),
@@ -339,6 +433,35 @@ public class CrewService {
                 myStatus(row),
                 owner,
                 row.createdAt());
+    }
+
+    private String resolveCrewImageUrl(Long imageMediaId) {
+        if (imageMediaId == null) return null;
+        String cdnBaseUrl = appProperties.media().cdnBaseUrl();
+        if (cdnBaseUrl == null || cdnBaseUrl.isBlank()) return null;
+        String variantPath = mediaImageVariantRepository
+                .findFirstByMediaIdAndStatusAndPrimaryTrueOrderByIdDesc(imageMediaId, MediaStatus.READY)
+                .map(MediaImageVariant::getPath)
+                .orElse(null);
+        return variantPath == null ? null : joinUrl(cdnBaseUrl, variantPath);
+    }
+
+    private static CrewMeetupView toMeetupView(CrewMeetup meetup) {
+        return new CrewMeetupView(
+                meetup.getExtId(),
+                meetup.getTitle(),
+                meetup.getDescription(),
+                meetup.getStartsAt(),
+                meetup.getEndsAt(),
+                meetup.getLocation(),
+                meetup.getCapacity() == null ? null : meetup.getCapacity().intValue(),
+                meetup.getCreatedAt());
+    }
+
+    private static String joinUrl(String base, String path) {
+        String b = base.endsWith("/") ? base.substring(0, base.length() - 1) : base;
+        String p = path.startsWith("/") ? path.substring(1) : path;
+        return b + "/" + p;
     }
 
     private static CrewJoinRequestView toJoinRequestView(CrewJoinRequestRow row) {

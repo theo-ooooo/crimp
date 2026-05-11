@@ -1,0 +1,29 @@
+-- V202605111100: 크루 대표 이미지와 크루 모임
+
+ALTER TABLE crews
+  ADD COLUMN image_media_id BIGINT UNSIGNED NULL AFTER home_gym_id,
+  ADD KEY idx_crews_image_media (image_media_id),
+  ADD CONSTRAINT fk_crews_image_media FOREIGN KEY (image_media_id) REFERENCES media_assets(id);
+
+CREATE TABLE crew_meetups (
+  id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  ext_id      CHAR(26) NOT NULL,
+  crew_id     BIGINT UNSIGNED NOT NULL,
+  created_by  BIGINT UNSIGNED NOT NULL,
+  title       VARCHAR(60) NOT NULL,
+  description VARCHAR(500) NULL,
+  starts_at   TIMESTAMP NOT NULL,
+  ends_at     TIMESTAMP NULL,
+  location    VARCHAR(100) NULL,
+  capacity    SMALLINT UNSIGNED NULL,
+  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at  TIMESTAMP NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_crew_meetups_ext_id (ext_id),
+  KEY idx_crew_meetups_crew_starts (crew_id, deleted_at, starts_at, id),
+  KEY idx_crew_meetups_creator (created_by),
+  CONSTRAINT fk_crew_meetups_crew FOREIGN KEY (crew_id) REFERENCES crews(id),
+  CONSTRAINT fk_crew_meetups_creator FOREIGN KEY (created_by) REFERENCES users(id),
+  CONSTRAINT chk_crew_meetups_capacity CHECK (capacity IS NULL OR capacity BETWEEN 2 AND 200)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

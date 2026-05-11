@@ -373,6 +373,7 @@ CREATE TABLE crews (
   ext_id        CHAR(26) NOT NULL,
   owner_user_id BIGINT UNSIGNED NOT NULL,
   home_gym_id   BIGINT UNSIGNED NULL,
+  image_media_id BIGINT UNSIGNED NULL,
   name          VARCHAR(30) NOT NULL,
   summary       VARCHAR(120) NULL,
   description   VARCHAR(500) NULL,
@@ -392,9 +393,11 @@ CREATE TABLE crews (
   KEY idx_crews_list (visibility, deleted_at, id DESC),
   KEY idx_crews_filters (region, level_band, style),
   KEY idx_crews_home_gym (home_gym_id),
+  KEY idx_crews_image_media (image_media_id),
   KEY idx_crews_owner (owner_user_id),
   CONSTRAINT fk_crews_owner FOREIGN KEY (owner_user_id) REFERENCES users(id),
   CONSTRAINT fk_crews_home_gym FOREIGN KEY (home_gym_id) REFERENCES gyms(id),
+  CONSTRAINT fk_crews_image_media FOREIGN KEY (image_media_id) REFERENCES media_assets(id),
   CONSTRAINT chk_crews_capacity CHECK (capacity IS NULL OR capacity BETWEEN 2 AND 200)
 );
 ```
@@ -440,6 +443,32 @@ CREATE TABLE crew_join_requests (
 ```
 
 > MySQL 은 `status='PENDING'` 조건부 unique 를 직접 지원하지 않으므로, "크루별 사용자 pending 요청 1개" 정책은 서비스 트랜잭션에서 검증한다. 필요 시 `pending_key` generated column 으로 보강한다.
+
+### 3.17 crew_meetups (Phase 1.5)
+```sql
+CREATE TABLE crew_meetups (
+  id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  ext_id      CHAR(26) NOT NULL,
+  crew_id     BIGINT UNSIGNED NOT NULL,
+  created_by  BIGINT UNSIGNED NOT NULL,
+  title       VARCHAR(60) NOT NULL,
+  description VARCHAR(500) NULL,
+  starts_at   TIMESTAMP NOT NULL,
+  ends_at     TIMESTAMP NULL,
+  location    VARCHAR(100) NULL,
+  capacity    SMALLINT UNSIGNED NULL,
+  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at  TIMESTAMP NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_crew_meetups_ext_id (ext_id),
+  KEY idx_crew_meetups_crew_starts (crew_id, deleted_at, starts_at, id),
+  KEY idx_crew_meetups_creator (created_by),
+  CONSTRAINT fk_crew_meetups_crew FOREIGN KEY (crew_id) REFERENCES crews(id),
+  CONSTRAINT fk_crew_meetups_creator FOREIGN KEY (created_by) REFERENCES users(id),
+  CONSTRAINT chk_crew_meetups_capacity CHECK (capacity IS NULL OR capacity BETWEEN 2 AND 200)
+);
+```
 
 ## 4. 비정규화·카운터 정책
 

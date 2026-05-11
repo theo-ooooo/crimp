@@ -30,14 +30,19 @@ import {
   CrewJoinRequestSchema,
   CrewListSchema,
   CrewMemberListSchema,
+  CrewMeetupListSchema,
+  CrewMeetupSchema,
   type CreateCrewBody,
   type CreateCrewJoinRequestBody,
+  type CreateCrewMeetupBody,
   type CrewDetail,
   type CrewJoinRequest,
   type CrewJoinRequestList,
   type CrewJoinRequestStatus,
   type CrewList,
   type CrewMemberList,
+  type CrewMeetup,
+  type CrewMeetupList,
   type CrewLevelBand,
   type CrewStyle,
   type UpdateCrewBody,
@@ -688,6 +693,40 @@ export function leaveCrew(
     path: `/api/v1/crews/${encodeURIComponent(crewExtId)}/members/me`,
     accessToken,
     schema: z.void(),
+    signal,
+  });
+}
+
+/** `GET /api/v1/crews/{extId}/meetups` — 크루 모임 목록. */
+export function fetchCrewMeetups(
+  accessToken: string,
+  crewExtId: string,
+  size?: number,
+  signal?: AbortSignal,
+): Promise<CrewMeetupList> {
+  const qs = buildQueryString([['size', size]]);
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/crews/${encodeURIComponent(crewExtId)}/meetups${qs ? `?${qs}` : ''}`,
+    accessToken,
+    schema: CrewMeetupListSchema,
+    signal,
+  });
+}
+
+/** `POST /api/v1/crews/{extId}/meetups` — 크루 모임 생성. */
+export function createCrewMeetup(
+  accessToken: string,
+  crewExtId: string,
+  body: CreateCrewMeetupBody,
+  signal?: AbortSignal,
+): Promise<CrewMeetup> {
+  return apiRequest({
+    method: 'POST',
+    path: `/api/v1/crews/${encodeURIComponent(crewExtId)}/meetups`,
+    accessToken,
+    body,
+    schema: CrewMeetupSchema,
     signal,
   });
 }

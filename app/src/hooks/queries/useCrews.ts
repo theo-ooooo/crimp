@@ -9,10 +9,12 @@ import {
 import {
   cancelMyCrewJoinRequest,
   createCrew,
+  createCrewMeetup,
   decideCrewJoinRequest,
   fetchCrew,
   fetchCrewJoinRequests,
   fetchCrewMembers,
+  fetchCrewMeetups,
   fetchCrews,
   leaveCrew,
   requestCrewJoin,
@@ -22,12 +24,15 @@ import {
 import type {
   CreateCrewBody,
   CreateCrewJoinRequestBody,
+  CreateCrewMeetupBody,
   CrewDetail,
   CrewJoinRequest,
   CrewJoinRequestList,
   CrewJoinRequestStatus,
   CrewList,
   CrewMemberList,
+  CrewMeetup,
+  CrewMeetupList,
   UpdateCrewBody,
 } from '@/lib/schemas/crew';
 
@@ -47,6 +52,10 @@ export function crewJoinRequestsQueryKey(extId: string, status?: CrewJoinRequest
 
 export function crewMembersQueryKey(extId: string) {
   return ['crew', extId, 'members'] as const;
+}
+
+export function crewMeetupsQueryKey(extId: string) {
+  return ['crew', extId, 'meetups'] as const;
 }
 
 export function useCrewsQuery(
@@ -252,6 +261,42 @@ export function useLeaveCrew(accessToken: string | null) {
       qc.invalidateQueries({ queryKey: CREWS_QUERY_KEY_ROOT });
       qc.invalidateQueries({ queryKey: crewQueryKey(crewExtId) });
       qc.invalidateQueries({ queryKey: crewMembersQueryKey(crewExtId) });
+    },
+  });
+}
+
+export function useCrewMeetupsQuery(
+  accessToken: string | null,
+  crewExtId: string | null | undefined,
+  size?: number,
+) {
+  return useQuery<CrewMeetupList>({
+    queryKey: crewExtId ? crewMeetupsQueryKey(crewExtId) : (['crew', '__none__', 'meetups'] as const),
+    queryFn: ({ signal }) => {
+      if (!accessToken) {
+        return Promise.reject(new Error('access token is required'));
+      }
+      if (!crewExtId) {
+        return Promise.reject(new Error('crew extId is required'));
+      }
+      return fetchCrewMeetups(accessToken, crewExtId, size, signal);
+    },
+    enabled: Boolean(accessToken && crewExtId),
+    retry: 0,
+  });
+}
+
+export function useCreateCrewMeetup(accessToken: string | null) {
+  const qc = useQueryClient();
+  return useMutation<CrewMeetup, Error, { crewExtId: string; body: CreateCrewMeetupBody }>({
+    mutationFn: ({ crewExtId, body }) => {
+      if (!accessToken) {
+        return Promise.reject(new Error('access token is required'));
+      }
+      return createCrewMeetup(accessToken, crewExtId, body);
+    },
+    onSuccess: (_, { crewExtId }) => {
+      qc.invalidateQueries({ queryKey: crewMeetupsQueryKey(crewExtId) });
     },
   });
 }

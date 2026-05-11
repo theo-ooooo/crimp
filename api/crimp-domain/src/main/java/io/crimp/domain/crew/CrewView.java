@@ -13,6 +13,8 @@ public record CrewView(
         String description,
         String region,
         CrewHomeGymView homeGym,
+        Long imageMediaId,
+        String imageUrl,
         CrewLevelBand levelBand,
         CrewStyle style,
         int memberCount,

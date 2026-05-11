@@ -7,6 +7,8 @@ public record UpdateCrewCommand(
         String region,
         String homeGymExtId,
         boolean clearHomeGym,
+        Long imageMediaId,
+        boolean clearImage,
         String levelBand,
         String style,
         Integer capacity,

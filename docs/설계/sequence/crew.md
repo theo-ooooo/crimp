@@ -152,6 +152,8 @@ sequenceDiagram
 | --- | --- | --- |
 | POST | `/api/v1/crews` | 크루 생성 |
 | PATCH | `/api/v1/crews/{extId}` | 크루 기본 정보 수정 |
+| GET | `/api/v1/crews/{extId}/meetups` | 크루 예정 모임 목록 |
+| POST | `/api/v1/crews/{extId}/meetups` | 크루장/관리자 모임 생성 |
 | POST | `/api/v1/crews/{extId}/join-requests` | 가입 요청 |
 | DELETE | `/api/v1/crews/{extId}/join-requests/me` | 내 대기 요청 취소 |
 | GET | `/api/v1/crews/{extId}/join-requests` | 크루장/관리자 요청 목록 |
@@ -161,6 +163,12 @@ sequenceDiagram
 | DELETE | `/api/v1/crews/{extId}/members/me` | 크루 탈퇴 |
 
 ---
+
+## 4.4 대표 이미지와 모임
+
+- 대표 이미지는 `POST /api/v1/media/presign { kind: "IMAGE", usage: "CREW" }` → object storage PUT → `POST /api/v1/media/{id}/complete` 로 READY 처리 후 크루 생성/수정의 `imageMediaId` 로 연결한다.
+- 도메인은 이미지가 호출자 소유, `READY`, `IMAGE`, `CREW` usage 인지 검증한다. 수정에서 `clearImage=true` 와 `imageMediaId` 동시 전달은 거부한다.
+- 모임 생성은 `OWNER`/`ADMIN` 만 가능하다. v0.1 필드는 `title`, `description`, `startsAt`, `endsAt`, `location`, `capacity` 이며 목록은 시작 시각 오름차순 최대 50개를 반환한다.
 
 ## 5. 에러 코드
 

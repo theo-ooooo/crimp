@@ -393,7 +393,27 @@
       "styleLabel": "Style",
       "capacityLabel": "Capacity",
       "capacityPlaceholder": "Leave empty for no limit",
-      "capacityValidation": "Capacity must be a number from 2 to 200."
+      "capacityValidation": "Capacity must be a number from 2 to 200.",
+      "imageLabel": "Cover image",
+      "imageHelp": "Choose a photo from your library for this crew.",
+      "imageChoose": "Choose cover image",
+      "imagePlaceholder": "Choose image",
+      "imageUploading": "Uploading image..."
+    },
+    "meetup": {
+      "title": "Meetups",
+      "formTitle": "Create meetup",
+      "createCta": "Create meetup",
+      "emptyBody": "No meetups yet.",
+      "nameLabel": "Meetup name",
+      "namePlaceholder": "e.g. Saturday Gangnam bouldering",
+      "titleValidation": "Meetup name must be 2-60 characters.",
+      "startsAtLabel": "Date and time",
+      "startsAtPlaceholder": "e.g. 2026-05-16 19:30",
+      "startsAtValidation": "Use YYYY-MM-DD HH:mm for the date and time.",
+      "locationLabel": "Location",
+      "locationPlaceholder": "e.g. The Climb Gangnam",
+      "descriptionPlaceholder": "Add gear, level, or where to meet."
     }
   },
   "profile": {

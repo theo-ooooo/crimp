@@ -8,7 +8,7 @@ import { z } from 'zod';
 export const MediaKindSchema = z.enum(['IMAGE', 'VIDEO']);
 export type MediaKind = z.infer<typeof MediaKindSchema>;
 
-export const MediaUsageSchema = z.enum(['ATTEMPT', 'AVATAR', 'POSTER']);
+export const MediaUsageSchema = z.enum(['ATTEMPT', 'AVATAR', 'POSTER', 'CREW']);
 export type MediaUsage = z.infer<typeof MediaUsageSchema>;
 
 export const PresignResponseSchema = z.object({

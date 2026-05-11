@@ -393,7 +393,27 @@
       "styleLabel": "스타일",
       "capacityLabel": "정원",
       "capacityPlaceholder": "미입력 시 제한 없음",
-      "capacityValidation": "정원은 2~200명 사이 숫자로 입력해 주세요."
+      "capacityValidation": "정원은 2~200명 사이 숫자로 입력해 주세요.",
+      "imageLabel": "대표 이미지",
+      "imageHelp": "앨범에서 크루를 보여줄 사진을 선택할 수 있어요.",
+      "imageChoose": "대표 이미지 선택",
+      "imagePlaceholder": "이미지 선택",
+      "imageUploading": "이미지 업로드 중..."
+    },
+    "meetup": {
+      "title": "모임",
+      "formTitle": "모임 만들기",
+      "createCta": "모임 만들기",
+      "emptyBody": "아직 등록된 모임이 없습니다.",
+      "nameLabel": "모임 이름",
+      "namePlaceholder": "예: 토요일 강남 볼더링",
+      "titleValidation": "모임 이름은 2~60자로 입력해 주세요.",
+      "startsAtLabel": "일시",
+      "startsAtPlaceholder": "예: 2026-05-16 19:30",
+      "startsAtValidation": "일시는 YYYY-MM-DD HH:mm 형식으로 입력해 주세요.",
+      "locationLabel": "장소",
+      "locationPlaceholder": "예: 더클라임 강남점",
+      "descriptionPlaceholder": "준비물, 난이도, 만나는 위치 등을 적어보세요."
     }
   },
   "profile": {

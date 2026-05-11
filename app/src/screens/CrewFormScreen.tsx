@@ -2,17 +2,23 @@ import { useNavigation } from '@react-navigation/native';
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { launchImageLibrary, type Asset } from 'react-native-image-picker';
+import RNFS from 'react-native-fs';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Chip, PrimaryButton } from '@/components/common/primitives';
 import { AuthHydrationGate } from '@/components/common/screen/AuthHydrationGate';
 import { useCreateCrew } from '@/hooks/queries/useCrews';
+import type { CapturedMedia } from '@/lib/camera/types';
+import { readImageMeta, type DetectedImageMime } from '@/lib/camera/measure';
 import {
   CREW_LEVEL_OPTIONS,
   CREW_REGION_OPTIONS,
@@ -31,6 +37,7 @@ import {
 } from '@/lib/tokens';
 import { useTokens } from '@/lib/useTokens';
 import type { CreateCrewBody, CrewLevelBand, CrewStyle } from '@/lib/schemas/crew';
+import { uploadCrewImage, type UploadPhase } from '@/lib/media/upload';
 import type { RootStackNavigationProp } from '@/navigation/types';
 import { useTokenStore } from '@/store/tokenStore';
 
@@ -68,6 +75,9 @@ function CrewFormContent({ accessToken }: { accessToken: string }): JSX.Element 
   const [capacityText, setCapacityText] = useState('');
   const [levelBand, setLevelBand] = useState<CrewLevelBand>('ALL');
   const [style, setStyle] = useState<CrewStyle>('BOTH');
+  const [imageMediaId, setImageMediaId] = useState<number | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [uploadPhase, setUploadPhase] = useState<UploadPhase | null>(null);
   const [validation, setValidation] = useState<string | null>(null);
 
   const submit = () => {
@@ -97,6 +107,7 @@ function CrewFormContent({ accessToken }: { accessToken: string }): JSX.Element 
       levelBand,
       style,
       capacity,
+      imageMediaId,
     };
 
     createCrew.mutate(body, {
@@ -106,7 +117,7 @@ function CrewFormContent({ accessToken }: { accessToken: string }): JSX.Element 
     });
   };
 
-  const busy = createCrew.isPending;
+  const busy = createCrew.isPending || uploadPhase !== null;
   const error = validation ?? (createCrew.error ? toUserMessage(createCrew.error) : null);
 
   return (
@@ -121,6 +132,20 @@ function CrewFormContent({ accessToken }: { accessToken: string }): JSX.Element 
       </View>
 
       <View style={styles.card}>
+        <CrewImagePicker
+          accessToken={accessToken}
+          previewUrl={imagePreviewUrl}
+          disabled={busy}
+          phase={uploadPhase}
+          onPhase={setUploadPhase}
+          onUploaded={(mediaId, url) => {
+            setImageMediaId(mediaId);
+            setImagePreviewUrl(url);
+            setValidation(null);
+          }}
+          onError={(err) => setValidation(toUserMessage(err))}
+        />
+
         <FieldLabel label={t('crew.form.nameLabel')} />
         <TextInput
           value={name}
@@ -242,6 +267,143 @@ function toNullable(value: string): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function CrewImagePicker({
+  accessToken,
+  previewUrl,
+  disabled,
+  phase,
+  onPhase,
+  onUploaded,
+  onError,
+}: {
+  accessToken: string;
+  previewUrl: string | null;
+  disabled: boolean;
+  phase: UploadPhase | null;
+  onPhase: (phase: UploadPhase | null) => void;
+  onUploaded: (mediaId: number, url: string | null) => void;
+  onError: (error: unknown) => void;
+}): JSX.Element {
+  const theme = useTokens();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
+
+  const chooseImage = async () => {
+    if (disabled) {
+      return;
+    }
+    try {
+      const result = await launchImageLibrary({
+        mediaType: 'photo',
+        selectionLimit: 1,
+        quality: 0.9,
+        includeBase64: true,
+      });
+      if (result.didCancel) {
+        return;
+      }
+      if (result.errorCode) {
+        throw new Error(result.errorMessage ?? result.errorCode);
+      }
+      const asset = result.assets?.[0];
+      if (!asset?.uri) {
+        throw new Error('No image selected');
+      }
+      const captured = await assetToCapturedMedia(asset);
+      const uploaded = await uploadCrewImage(accessToken, captured, {
+        onPhase: onPhase as (phase: UploadPhase) => void,
+      });
+      onUploaded(uploaded.id, uploaded.cdnUrl ?? uploaded.variantUrl ?? captured.uri);
+    } catch (err) {
+      onError(err);
+    } finally {
+      onPhase(null);
+    }
+  };
+
+  return (
+    <View style={styles.imageBlock}>
+      <Pressable
+        onPress={chooseImage}
+        disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel={t('crew.form.imageChoose')}
+        style={({ pressed }) => [
+          styles.imagePicker,
+          pressed ? styles.cardPressed : null,
+          disabled ? styles.disabled : null,
+        ]}
+      >
+        {previewUrl ? (
+          <Image source={{ uri: previewUrl }} style={styles.imagePreview} />
+        ) : (
+          <Text style={styles.imagePlaceholder}>{t('crew.form.imagePlaceholder')}</Text>
+        )}
+        {phase ? (
+          <View style={styles.imageOverlay}>
+            <ActivityIndicator color={theme.accent.on} />
+          </View>
+        ) : null}
+      </Pressable>
+      <View style={styles.imageCopy}>
+        <Text style={styles.label}>{t('crew.form.imageLabel')}</Text>
+        <Text style={styles.help}>{phase ? t('crew.form.imageUploading') : t('crew.form.imageHelp')}</Text>
+      </View>
+    </View>
+  );
+}
+
+async function assetToCapturedMedia(asset: Asset): Promise<CapturedMedia> {
+  if (!asset.uri) {
+    throw new Error('Image uri is missing');
+  }
+  let byteSize = typeof asset.fileSize === 'number' && asset.fileSize > 0 ? asset.fileSize : null;
+  let detectedMime: DetectedImageMime | null = normalizeImageMime(asset.type);
+  if (detectedMime === null) {
+    const meta = await readImageMeta(asset.uri);
+    byteSize = byteSize ?? meta.byteSize;
+    detectedMime = meta.mime;
+  }
+  const uri = await persistPickerImage(asset, detectedMime ?? 'image/jpeg');
+  if (asset.base64) {
+    byteSize = byteSize ?? measureBase64Bytes(asset.base64);
+  }
+  return {
+    uri,
+    mime: detectedMime ?? 'image/jpeg',
+    byteSize: byteSize ?? 1,
+    width: typeof asset.width === 'number' && asset.width > 0 ? asset.width : null,
+    height: typeof asset.height === 'number' && asset.height > 0 ? asset.height : null,
+    durationMs: null,
+    kind: 'IMAGE',
+  };
+}
+
+async function persistPickerImage(asset: Asset, mime: DetectedImageMime): Promise<string> {
+  const extension = mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : mime === 'image/heic' ? 'heic' : 'jpg';
+  const path = `${RNFS.CachesDirectoryPath}/crew-image-${Date.now()}.${extension}`;
+  if (asset.base64) {
+    await RNFS.writeFile(path, asset.base64, 'base64');
+  } else if (asset.uri) {
+    await RNFS.copyFile(asset.uri.startsWith('file://') ? asset.uri.slice('file://'.length) : asset.uri, path);
+  } else {
+    throw new Error('Image uri is missing');
+  }
+  return `file://${path}`;
+}
+
+function normalizeImageMime(mime: string | undefined): DetectedImageMime | null {
+  if (mime === 'image/jpeg' || mime === 'image/jpg' || mime === 'image/png' || mime === 'image/heic' || mime === 'image/webp') {
+    return mime === 'image/jpg' ? 'image/jpeg' : mime;
+  }
+  return null;
+}
+
+function measureBase64Bytes(base64: string): number {
+  const normalized = base64.trim();
+  const padding = normalized.endsWith('==') ? 2 : normalized.endsWith('=') ? 1 : 0;
+  return Math.max(1, Math.floor((normalized.length * 3) / 4) - padding);
+}
+
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     safeArea: {
@@ -279,6 +441,57 @@ function makeStyles(theme: Theme) {
       backgroundColor: theme.subtle,
       padding: space[5],
       gap: space[3],
+    },
+    imageBlock: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space[3],
+      marginBottom: space[1],
+    },
+    imagePicker: {
+      width: 86,
+      height: 86,
+      borderRadius: radius.lg,
+      backgroundColor: theme.accent.soft,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+      flexShrink: 0,
+    },
+    imagePreview: {
+      width: '100%',
+      height: '100%',
+    },
+    imagePlaceholder: {
+      fontFamily,
+      fontSize: fontSize.caption,
+      fontWeight: fontWeight.bold,
+      color: theme.text3,
+      textAlign: 'center',
+      paddingHorizontal: space[2],
+    },
+    imageOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'rgba(0, 0, 0, 0.36)',
+    },
+    imageCopy: {
+      flex: 1,
+      gap: space[1],
+    },
+    help: {
+      fontFamily,
+      fontSize: fontSize.caption,
+      fontWeight: fontWeight.medium,
+      color: theme.text3,
+      lineHeight: 17,
+    },
+    disabled: {
+      opacity: 0.55,
+    },
+    cardPressed: {
+      opacity: 0.85,
     },
     label: {
       fontFamily,

@@ -294,7 +294,8 @@ public class MediaService {
         if (usage == null) {
             throw new MediaException("MEDIA_USAGE_INVALID", "usage is required");
         }
-        if ((usage == MediaUsage.AVATAR || usage == MediaUsage.POSTER) && kind != MediaKind.IMAGE) {
+        if ((usage == MediaUsage.AVATAR || usage == MediaUsage.POSTER || usage == MediaUsage.CREW)
+                && kind != MediaKind.IMAGE) {
             throw new MediaException("MEDIA_USAGE_INVALID", usage + " media must be IMAGE");
         }
     }

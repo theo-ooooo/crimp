@@ -232,10 +232,12 @@
 
 | Method | Path | 설명 |
 | --- | --- | --- |
-| GET | `/api/v1/crews?q=&region=&gymExtId=&levelBand=&style=&cursor=&size=` | 공개 크루 목록. 지역·대표 암장·레벨·스타일 필터, 커서 페이지네이션. 응답에는 `memberCount`, `capacity`, `joinPolicy`, `myStatus` 포함 |
-| POST | `/api/v1/crews` | 크루 생성. 생성자는 `OWNER` 멤버가 된다. v0.1 은 `visibility=PUBLIC`, `joinPolicy=APPROVAL` 만 생성 |
-| GET | `/api/v1/crews/{extId}` | 크루 상세. 기본 정보, 대표 암장, owner, 내 가입 상태 |
-| PATCH | `/api/v1/crews/{extId}` | 크루 기본 정보 수정 (`OWNER`/`ADMIN`) |
+| GET | `/api/v1/crews?q=&region=&gymExtId=&levelBand=&style=&cursor=&size=` | 공개 크루 목록. 지역·대표 암장·레벨·스타일 필터, 커서 페이지네이션. 응답에는 `imageMediaId`, `imageUrl`, `memberCount`, `capacity`, `joinPolicy`, `myStatus` 포함 |
+| POST | `/api/v1/crews` | 크루 생성. 생성자는 `OWNER` 멤버가 된다. `imageMediaId` 전달 시 호출자 소유 READY CREW IMAGE 만 연결 |
+| GET | `/api/v1/crews/{extId}` | 크루 상세. 기본 정보, 대표 이미지, 대표 암장, owner, 내 가입 상태 |
+| PATCH | `/api/v1/crews/{extId}` | 크루 기본 정보/대표 이미지 수정 (`OWNER`/`ADMIN`). `clearImage=true` 로 대표 이미지 해제 |
+| GET | `/api/v1/crews/{extId}/meetups?size=` | 크루 예정 모임 목록. 시작 시각 오름차순 |
+| POST | `/api/v1/crews/{extId}/meetups` | 크루 모임 생성 (`OWNER`/`ADMIN`). Body: `{ title, description?, startsAt, endsAt?, location?, capacity? }` |
 | POST | `/api/v1/crews/{extId}/join-requests` | 가입 요청 생성. 같은 사용자는 여러 크루에 가입 요청 가능, 같은 크루의 대기 요청은 1개 |
 | DELETE | `/api/v1/crews/{extId}/join-requests/me` | 내 대기 가입 요청 취소 |
 | GET | `/api/v1/crews/{extId}/join-requests?status=PENDING&cursor=&size=` | 가입 요청 목록 (`OWNER`/`ADMIN`) |
@@ -255,7 +257,7 @@
 ### 미디어 (`/api/v1/media`)
 | Method | Path | 설명 |
 | --- | --- | --- |
-| POST | `/api/v1/media/presign` | UPLOADING 행 생성 + S3 presigned PUT URL. Body: `{ kind, usage?, mime, byteSize }`. `usage` 는 `ATTEMPT`(기본), `AVATAR`, `POSTER` 중 하나이며 프로필 이미지는 `AVATAR` 로 업로드한 READY IMAGE 만 연결 가능. |
+| POST | `/api/v1/media/presign` | UPLOADING 행 생성 + S3 presigned PUT URL. Body: `{ kind, usage?, mime, byteSize }`. `usage` 는 `ATTEMPT`(기본), `AVATAR`, `POSTER`, `CREW` 중 하나이며 프로필/크루 이미지는 각각 `AVATAR`/`CREW` READY IMAGE 만 연결 가능. |
 | POST | `/api/v1/media/{id}/complete` | S3 PUT 성공 후 호출 → READY. Body: `{ byteSize, width, height, durationMs, attachAsPosterForVideoId? }`. `attachAsPosterForVideoId` 는 **IMAGE** 완료 시에만 의미 있음: 해당 id 의 **VIDEO** 미디어(이미 READY, 동일 소유자)에 본 이미지를 대표 썸네일(`media_video_thumbnails`)로 연결. 생략·null 시 기존과 동일. |
 
 클라이언트 흐름: `presign` → `PUT` presigned URL → `complete`. 동영상 사용자 지정 포스터는 **비디오 `complete` 후** 포스터 이미지를 presign→PUT→`complete` 하며 `attachAsPosterForVideoId` 에 비디오 미디어 numeric `id` 를 넣는다.
