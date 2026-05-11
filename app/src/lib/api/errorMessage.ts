@@ -32,9 +32,14 @@ const CODE_TO_KEY: Record<string, MessageKey> = {
   MEDIA_MIME_NOT_ALLOWED: 'error.mediaMimeNotAllowed',
   MEDIA_SIZE_INVALID: 'error.mediaSizeInvalid',
   MEDIA_KIND_INVALID: 'error.mediaMimeNotAllowed',
+  MEDIA_USAGE_INVALID: 'error.mediaUsageInvalid',
   MEDIA_FORBIDDEN: 'error.mediaForbidden',
   MEDIA_NOT_FOUND: 'error.mediaNotFound',
   MEDIA_INVALID_STATE: 'error.mediaInvalidState',
+  AVATAR_MEDIA_NOT_FOUND: 'error.avatarMediaNotFound',
+  AVATAR_MEDIA_FORBIDDEN: 'error.avatarMediaForbidden',
+  AVATAR_MEDIA_INVALID: 'error.avatarMediaInvalid',
+  INVALID_AVATAR_REQUEST: 'error.avatarInvalidRequest',
 };
 
 export function toUserMessage(err: unknown): string {

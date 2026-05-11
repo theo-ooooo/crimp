@@ -11,10 +11,12 @@ import {
 import { useNavigation } from '@react-navigation/native';
 
 import { PrimaryButton, SecondaryButton } from '@/components/common/primitives';
+import { ProfileAvatarEditSection } from '@/components/profile/ProfileAvatarEditSection';
 import { useMeQuery } from '@/hooks/queries/useMe';
 import { useUpdateProfile } from '@/hooks/queries/useUpdateProfile';
 import { toUserMessage } from '@/lib/api/errorMessage';
 import { t } from '@/lib/i18n';
+import { shouldInitializeProfileEditDraft } from '@/lib/profile/profileEditDraft';
 import type { UpdateProfileBody } from '@/lib/schemas/me';
 import {
   fontFamily,
@@ -49,16 +51,33 @@ export default function ProfileEditScreen(): JSX.Element {
   const [nickname, setNickname] = useState('');
   const [bio, setBio] = useState('');
   const [levelSelf, setLevelSelf] = useState(0);
+  const [initializedUserExtId, setInitializedUserExtId] = useState<string | null>(
+    null,
+  );
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!me) {
+    if (!__DEV__) {
+      return;
+    }
+    console.warn('[profile/edit/trace]', {
+      event: 'screen-mounted',
+      hasAccessToken: Boolean(accessToken),
+    });
+  }, [accessToken]);
+
+  useEffect(() => {
+    if (
+      !me ||
+      !shouldInitializeProfileEditDraft(initializedUserExtId, me.extId)
+    ) {
       return;
     }
     setNickname(me.nickname ?? '');
     setBio(me.bio ?? '');
     setLevelSelf(clampLevel(me.levelSelf ?? 0));
-  }, [me]);
+    setInitializedUserExtId(me.extId);
+  }, [initializedUserExtId, me]);
 
   useEffect(() => {
     if (!updateMutation.error) {
@@ -120,6 +139,18 @@ export default function ProfileEditScreen(): JSX.Element {
     });
   };
 
+  const updateAvatar = async (avatarMediaId: number) => {
+    const updated = await updateMutation.mutateAsync({ avatarMediaId });
+    logProfileAvatarSaveResult(updated.avatarMediaId ?? null, updated.avatarUrl ?? null);
+    setToastMessage(t('profile.edit.avatarSaved'));
+  };
+
+  const clearAvatar = async () => {
+    await updateMutation.mutateAsync({ clearAvatar: true });
+    setToastMessage(t('profile.edit.avatarCleared'));
+  };
+
+
   if (meQuery.error) {
     return (
       <View style={styles.container}>
@@ -151,6 +182,19 @@ export default function ProfileEditScreen(): JSX.Element {
         <Text style={styles.eyebrow}>{t('profile.title')}</Text>
         <Text style={styles.title}>{t('profile.edit.title')}</Text>
       </View>
+
+      <ProfileAvatarEditSection
+        accessToken={accessToken ?? ''}
+        avatarUrl={me.avatarUrl}
+        nickname={nickname || me.nickname || t('home.nicknameFallback')}
+        disabled={updateMutation.isPending || !accessToken}
+        onAvatarUploaded={updateAvatar}
+        onAvatarCleared={clearAvatar}
+        onError={(err) => {
+          setToastMessage(typeof err === 'string' ? err : toUserMessage(err));
+        }}
+      />
+
 
       <Field
         label={t('profile.nickname')}
@@ -234,6 +278,21 @@ export default function ProfileEditScreen(): JSX.Element {
     </View>
   );
 }
+
+function logProfileAvatarSaveResult(
+  avatarMediaId: number | null,
+  avatarUrl: string | null,
+): void {
+  if (!__DEV__) {
+    return;
+  }
+  console.warn('[profile/avatar]', {
+    event: 'profile-saved',
+    avatarMediaId,
+    hasAvatarUrl: Boolean(avatarUrl),
+  });
+}
+
 
 function Field({
   label,

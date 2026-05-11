@@ -9,7 +9,13 @@ export type CapturedMedia = {
   /** 로컬 파일 URI (`file://...` 또는 `/var/...` 형태). */
   uri: string;
   /** 업로드 시 사용할 Content-Type. */
-  mime: 'image/jpeg' | 'image/heic' | 'video/mp4' | 'video/quicktime';
+  mime:
+    | 'image/jpeg'
+    | 'image/png'
+    | 'image/heic'
+    | 'image/webp'
+    | 'video/mp4'
+    | 'video/quicktime';
   /** 파일 크기. presigned URL 의 서명에 박힘 — 다른 크기로 PUT 시 S3 거부. */
   byteSize: number;
   /** 이미지 가로 픽셀. 영상은 vision-camera 4/5 가 직접 노출하지 않아 null 가능. */

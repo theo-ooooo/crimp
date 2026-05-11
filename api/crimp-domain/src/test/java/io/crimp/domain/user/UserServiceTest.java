@@ -1,17 +1,39 @@
 package io.crimp.domain.user;
 
+import io.crimp.common.config.AppProperties;
+import io.crimp.core.entity.crew.Crew;
+import io.crimp.core.entity.crew.CrewJoinRequest;
+import io.crimp.core.entity.crew.CrewMember;
+import io.crimp.core.entity.enums.CrewJoinRequestStatus;
+import io.crimp.core.entity.enums.CrewLevelBand;
+import io.crimp.core.entity.enums.CrewMemberRole;
+import io.crimp.core.entity.enums.CrewMemberStatus;
+import io.crimp.core.entity.enums.CrewStyle;
+import io.crimp.core.entity.enums.MediaKind;
+import io.crimp.core.entity.enums.MediaStatus;
+import io.crimp.core.entity.enums.MediaUsage;
+import io.crimp.core.entity.enums.UserStatus;
 import io.crimp.core.entity.enums.GymStatus;
 import io.crimp.core.entity.gym.Gym;
+import io.crimp.core.entity.media.MediaAsset;
+import io.crimp.core.entity.media.MediaImageVariant;
 import io.crimp.core.entity.user.Profile;
 import io.crimp.core.entity.user.User;
+import io.crimp.core.repository.crew.CrewJoinRequestRepository;
+import io.crimp.core.repository.crew.CrewMemberRepository;
+import io.crimp.core.repository.crew.CrewRepository;
 import io.crimp.core.repository.gym.GymRepository;
+import io.crimp.core.repository.media.MediaAssetRepository;
+import io.crimp.core.repository.media.MediaImageVariantRepository;
 import io.crimp.core.repository.user.ProfileRepository;
 import io.crimp.core.repository.user.UserRepository;
+import io.crimp.domain.auth.RefreshTokenStore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -27,6 +49,12 @@ class UserServiceTest {
     private UserRepository userRepo;
     private ProfileRepository profileRepo;
     private GymRepository gymRepo;
+    private RefreshTokenStore refreshTokenStore;
+    private CrewJoinRequestRepository crewJoinRequestRepo;
+    private CrewMemberRepository crewMemberRepo;
+    private CrewRepository crewRepo;
+    private MediaAssetRepository mediaAssetRepo;
+    private MediaImageVariantRepository mediaImageVariantRepo;
     private UserService service;
 
     @BeforeEach
@@ -34,7 +62,15 @@ class UserServiceTest {
         userRepo = mock(UserRepository.class);
         profileRepo = mock(ProfileRepository.class);
         gymRepo = mock(GymRepository.class);
-        service = new UserService(userRepo, profileRepo, gymRepo);
+        refreshTokenStore = mock(RefreshTokenStore.class);
+        crewJoinRequestRepo = mock(CrewJoinRequestRepository.class);
+        crewMemberRepo = mock(CrewMemberRepository.class);
+        crewRepo = mock(CrewRepository.class);
+        mediaAssetRepo = mock(MediaAssetRepository.class);
+        mediaImageVariantRepo = mock(MediaImageVariantRepository.class);
+        service = new UserService(userRepo, profileRepo, gymRepo, refreshTokenStore,
+                crewJoinRequestRepo, crewMemberRepo, crewRepo,
+                mediaAssetRepo, mediaImageVariantRepo, appProps());
     }
 
     @Test
@@ -49,6 +85,7 @@ class UserServiceTest {
         ProfileView view = service.getMe(1L);
         assertThat(view.extId()).isEqualTo("01HUUUUUUU");
         assertThat(view.nickname()).isEqualTo("crimper_abc");
+        assertThat(view.nicknameConfigured()).isFalse();
         assertThat(view.bio()).isEqualTo("hi");
     }
 
@@ -56,6 +93,17 @@ class UserServiceTest {
     void getMe_userNotFound_throws() {
         when(userRepo.findById(99L)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.getMe(99L))
+                .isInstanceOf(UserException.class)
+                .satisfies(e -> assertThat(((UserException) e).code()).isEqualTo("USER_NOT_FOUND"));
+    }
+
+    @Test
+    void getMe_deletedUser_throws_notFound() {
+        User user = user(1L, "01HDELETED_");
+        user.deleteAccount();
+        when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> service.getMe(1L))
                 .isInstanceOf(UserException.class)
                 .satisfies(e -> assertThat(((UserException) e).code()).isEqualTo("USER_NOT_FOUND"));
     }
@@ -85,9 +133,11 @@ class UserServiceTest {
         User user = user(1L, "01HU");
         Profile profile = Profile.create(1L, "old_nick");
         Gym gym = gym(9L, "01HGYM_NEW", "더클라임 강남", "더클라임");
+        MediaAsset avatar = readyAvatarImage(7L, 1L, "media/users/1/avatar/image/avatar.jpg");
         when(userRepo.findById(1L)).thenReturn(Optional.of(user));
         when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
         when(profileRepo.existsByNickname("new_nick")).thenReturn(false);
+        when(mediaAssetRepo.findById(7L)).thenReturn(Optional.of(avatar));
         // numeric id 직접 전달 (호환 모드) — 결과 뷰 빌드 시 resolveMainGym 이 findById 로 조회.
         when(gymRepo.findById(9L)).thenReturn(Optional.of(gym));
 
@@ -95,12 +145,34 @@ class UserServiceTest {
         ProfileView view = service.updateMyProfile(1L, cmd);
 
         assertThat(view.nickname()).isEqualTo("new_nick");
+        assertThat(view.nicknameConfigured()).isTrue();
         assertThat(view.bio()).isEqualTo("new bio");
         assertThat(view.levelSelf()).isEqualTo((byte) 4);
         assertThat(view.mainGymId()).isEqualTo(9L);
         assertThat(view.avatarMediaId()).isEqualTo(7L);
+        assertThat(view.avatarUrl()).isNull();
         assertThat(view.mainGym()).isNotNull();
         assertThat(view.mainGym().extId()).isEqualTo("01HGYM_NEW");
+    }
+
+    @Test
+    void updateMyProfile_avatarUrl_prefersImageVariantPath() {
+        User user = user(1L, "01HU");
+        Profile profile = Profile.create(1L, "old_nick");
+        MediaAsset avatar = readyAvatarImage(7L, 1L, "media/users/1/avatar/image/avatar.jpg");
+        MediaImageVariant variant = mock(MediaImageVariant.class);
+        when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+        when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
+        when(mediaAssetRepo.findById(7L)).thenReturn(Optional.of(avatar));
+        when(variant.getPath()).thenReturn("media/users/1/avatar/image/avatar.webp");
+        when(mediaImageVariantRepo.findFirstByMediaIdAndStatusAndPrimaryTrueOrderByIdDesc(7L, MediaStatus.READY))
+                .thenReturn(Optional.of(variant));
+
+        var cmd = new UpdateProfileCommand(null, null, null, null, null, false, 7L);
+        ProfileView view = service.updateMyProfile(1L, cmd);
+
+        assertThat(view.avatarMediaId()).isEqualTo(7L);
+        assertThat(view.avatarUrl()).isEqualTo("https://cdn.crimp.test/media/users/1/avatar/image/avatar.webp");
     }
 
     @Test
@@ -125,9 +197,53 @@ class UserServiceTest {
         when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
 
         var cmd = new UpdateProfileCommand("mine", "bio only", null, null, null, false, null);
-        service.updateMyProfile(1L, cmd);
+        ProfileView view = service.updateMyProfile(1L, cmd);
 
         verify(profileRepo, never()).existsByNickname(any());
+        assertThat(view.nicknameConfigured()).isTrue();
+    }
+
+    @Test
+    void updateMyProfile_same_nickname_with_leading_trailing_space_skipsExistsCheck() {
+        User user = user(1L, "01HU");
+        Profile profile = Profile.create(1L, "mine");
+        when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+        when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
+
+        var cmd = new UpdateProfileCommand("  mine  ", null, null, null, null, false, null);
+        ProfileView view = service.updateMyProfile(1L, cmd);
+
+        verify(profileRepo, never()).existsByNickname(any());
+        assertThat(view.nickname()).isEqualTo("mine");
+        assertThat(view.nicknameConfigured()).isTrue();
+    }
+
+    @Test
+    void updateMyProfile_trims_nickname_when_changing() {
+        User user = user(1L, "01HU");
+        Profile profile = Profile.create(1L, "old");
+        when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+        when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
+        when(profileRepo.existsByNickname("new_nick")).thenReturn(false);
+
+        var cmd = new UpdateProfileCommand("  new_nick  ", null, null, null, null, false, null);
+        ProfileView view = service.updateMyProfile(1L, cmd);
+
+        verify(profileRepo).existsByNickname("new_nick");
+        assertThat(view.nickname()).isEqualTo("new_nick");
+    }
+
+    @Test
+    void updateMyProfile_nickname_too_short_after_trim_throws() {
+        User user = user(1L, "01HU");
+        Profile profile = Profile.create(1L, "old");
+        when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+        when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
+
+        var cmd = new UpdateProfileCommand(" a ", null, null, null, null, false, null);
+        assertThatThrownBy(() -> service.updateMyProfile(1L, cmd))
+                .isInstanceOf(UserException.class)
+                .satisfies(e -> assertThat(((UserException) e).code()).isEqualTo("INVALID_NICKNAME"));
     }
 
     @Test
@@ -308,6 +424,215 @@ class UserServiceTest {
         assertThat(view.mainGym()).isNull();
     }
 
+    @Test
+    void getMe_doesNotExposeAvatarUrl_whenStoredAvatarBelongsToAnotherUser() {
+        User user = user(1L, "01HU");
+        Profile profile = Profile.create(1L, "kk");
+        profile.updateAvatar(10L);
+        when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+        when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
+        when(mediaAssetRepo.findById(10L)).thenReturn(Optional.of(readyAvatarImage(10L, 2L, "media/users/2/avatar/image/a.png")));
+
+        ProfileView view = service.getMe(1L);
+
+        assertThat(view.avatarMediaId()).isEqualTo(10L);
+        assertThat(view.avatarUrl()).isNull();
+    }
+
+    @Test
+    void updateMyProfile_avatarMediaId_requires_owned_ready_image_and_variant_for_url() {
+        User user = user(1L, "01HU");
+        Profile profile = Profile.create(1L, "kk");
+        MediaAsset avatar = readyAvatarImage(10L, 1L, "media/users/1/avatar/image/a.png");
+        MediaImageVariant variant = mock(MediaImageVariant.class);
+        when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+        when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
+        when(mediaAssetRepo.findById(10L)).thenReturn(Optional.of(avatar));
+        when(variant.getPath()).thenReturn("media/users/1/avatar/image/a.webp");
+        when(mediaImageVariantRepo.findFirstByMediaIdAndStatusAndPrimaryTrueOrderByIdDesc(10L, MediaStatus.READY))
+                .thenReturn(Optional.of(variant));
+
+        ProfileView view = service.updateMyProfile(
+                1L,
+                new UpdateProfileCommand(null, null, null, null, null, false, 10L));
+
+        assertThat(view.avatarMediaId()).isEqualTo(10L);
+        assertThat(view.avatarUrl()).isEqualTo("https://cdn.crimp.test/media/users/1/avatar/image/a.webp");
+    }
+
+    @Test
+    void updateMyProfile_avatarMediaId_otherOwner_throws() {
+        User user = user(1L, "01HU");
+        Profile profile = Profile.create(1L, "kk");
+        when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+        when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
+        when(mediaAssetRepo.findById(10L)).thenReturn(Optional.of(readyAvatarImage(10L, 2L, "media/users/2/avatar/image/a.png")));
+
+        assertThatThrownBy(() -> service.updateMyProfile(
+                1L,
+                new UpdateProfileCommand(null, null, null, null, null, false, 10L)))
+                .isInstanceOf(UserException.class)
+                .satisfies(e -> assertThat(((UserException) e).code()).isEqualTo("AVATAR_MEDIA_FORBIDDEN"));
+    }
+
+    @Test
+    void updateMyProfile_avatarMediaId_nonReadyImage_throws() {
+        User user = user(1L, "01HU");
+        Profile profile = Profile.create(1L, "kk");
+        MediaAsset uploading = MediaAsset.createUploading("01HAVATAR", 1L, MediaKind.IMAGE, "image/jpeg", "media/a.jpg");
+        setField(uploading, "id", 10L);
+        when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+        when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
+        when(mediaAssetRepo.findById(10L)).thenReturn(Optional.of(uploading));
+
+        assertThatThrownBy(() -> service.updateMyProfile(
+                1L,
+                new UpdateProfileCommand(null, null, null, null, null, false, 10L)))
+                .isInstanceOf(UserException.class)
+                .satisfies(e -> assertThat(((UserException) e).code()).isEqualTo("AVATAR_MEDIA_INVALID"));
+    }
+
+    @Test
+    void updateMyProfile_avatarMediaId_attemptUsage_throws() {
+        User user = user(1L, "01HU");
+        Profile profile = Profile.create(1L, "kk");
+        when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+        when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
+        when(mediaAssetRepo.findById(10L)).thenReturn(Optional.of(readyImage(10L, 1L, "media/users/1/attempt/image/a.png")));
+
+        assertThatThrownBy(() -> service.updateMyProfile(
+                1L,
+                new UpdateProfileCommand(null, null, null, null, null, false, 10L)))
+                .isInstanceOf(UserException.class)
+                .satisfies(e -> assertThat(((UserException) e).code()).isEqualTo("AVATAR_MEDIA_INVALID"));
+    }
+
+    @Test
+    void updateMyProfile_clearAvatar_sets_null() {
+        User user = user(1L, "01HU");
+        Profile profile = Profile.create(1L, "kk");
+        profile.updateAvatar(10L);
+        when(userRepo.findById(1L)).thenReturn(Optional.of(user));
+        when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
+
+        ProfileView view = service.updateMyProfile(
+                1L,
+                new UpdateProfileCommand(null, null, null, null, null, false, true, null));
+
+        assertThat(view.avatarMediaId()).isNull();
+        assertThat(view.avatarUrl()).isNull();
+    }
+
+    @Test
+    void updateMyProfile_avatarMediaId_and_clearAvatar_both_set_throws_validation() {
+        assertThatThrownBy(() -> service.updateMyProfile(
+                1L,
+                new UpdateProfileCommand(null, null, null, null, null, false, true, 10L)))
+                .isInstanceOf(UserException.class)
+                .satisfies(e -> assertThat(((UserException) e).code()).isEqualTo("INVALID_AVATAR_REQUEST"));
+        verify(userRepo, never()).findById(any());
+    }
+
+    @Test
+    void deleteMe_marksDeleted_andClearsRefreshTokens() {
+        User user = user(1L, "01HDELETE__");
+        setField(user, "emailHash", "hash");
+        setField(user, "email", "a@b.com".getBytes());
+        CrewJoinRequest request = CrewJoinRequest.builder()
+                .extId("01JREQ")
+                .crewId(55L)
+                .userId(1L)
+                .build();
+        when(userRepo.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(crewJoinRequestRepo.findAllByUserIdAndStatus(1L, CrewJoinRequestStatus.PENDING))
+                .thenReturn(List.of(request));
+
+        service.deleteMe(1L);
+
+        assertThat(user.getStatus()).isEqualTo(UserStatus.DELETED);
+        assertThat(user.isDeleted()).isTrue();
+        assertThat(user.getEmail()).isNull();
+        assertThat(user.getEmailHash()).isNull();
+        assertThat(request.getStatus()).isEqualTo(CrewJoinRequestStatus.CANCELED);
+        verify(refreshTokenStore).deleteAllForUser(1L);
+    }
+
+    @Test
+    void deleteMe_marksActiveCrewMembershipsLeft_andDecrementsCrewCounts() {
+        User user = user(1L, "01HDELETE__");
+        CrewMember member = CrewMember.create(55L, 1L, CrewMemberRole.MEMBER, CrewMemberStatus.ACTIVE);
+        Crew crew = crew(55L, "01JCREW", 12);
+        when(userRepo.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(crewJoinRequestRepo.findAllByUserIdAndStatus(1L, CrewJoinRequestStatus.PENDING))
+                .thenReturn(List.of());
+        when(crewMemberRepo.findCrewIdsByUserIdAndStatus(1L, CrewMemberStatus.ACTIVE))
+                .thenReturn(List.of(55L));
+        when(crewRepo.findAllByIdInForUpdate(List.of(55L))).thenReturn(List.of(crew));
+        when(crewMemberRepo.findAllByUserIdAndStatus(1L, CrewMemberStatus.ACTIVE))
+                .thenReturn(List.of(member));
+
+        service.deleteMe(1L);
+
+        assertThat(member.getStatus()).isEqualTo(CrewMemberStatus.LEFT);
+        assertThat(crew.getMemberCount()).isEqualTo(11);
+        assertThat(user.getStatus()).isEqualTo(UserStatus.DELETED);
+    }
+
+    @Test
+    void deleteMe_rechecksActiveMembershipsAfterCrewLock_beforeDecrementingCounts() {
+        User user = user(1L, "01HDELETE__");
+        Crew crew = crew(55L, "01JCREW", 12);
+        when(userRepo.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(crewJoinRequestRepo.findAllByUserIdAndStatus(1L, CrewJoinRequestStatus.PENDING))
+                .thenReturn(List.of());
+        when(crewMemberRepo.findCrewIdsByUserIdAndStatus(1L, CrewMemberStatus.ACTIVE))
+                .thenReturn(List.of(55L));
+        when(crewRepo.findAllByIdInForUpdate(List.of(55L))).thenReturn(List.of(crew));
+        when(crewMemberRepo.findAllByUserIdAndStatus(1L, CrewMemberStatus.ACTIVE))
+                .thenReturn(List.of());
+
+        service.deleteMe(1L);
+
+        assertThat(crew.getMemberCount()).isEqualTo(12);
+        assertThat(user.getStatus()).isEqualTo(UserStatus.DELETED);
+    }
+
+    @Test
+    void deleteMe_softDeletesCrew_whenLeavingSoleOwnerMembership() {
+        User user = user(1L, "01HDELETE__");
+        CrewMember member = CrewMember.create(55L, 1L, CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE);
+        Crew crew = crew(55L, "01JCREW", 12);
+        when(userRepo.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(crewJoinRequestRepo.findAllByUserIdAndStatus(1L, CrewJoinRequestStatus.PENDING))
+                .thenReturn(List.of());
+        when(crewMemberRepo.findCrewIdsByUserIdAndStatus(1L, CrewMemberStatus.ACTIVE))
+                .thenReturn(List.of(55L));
+        when(crewRepo.findAllByIdInForUpdate(List.of(55L))).thenReturn(List.of(crew));
+        when(crewMemberRepo.findAllByUserIdAndStatus(1L, CrewMemberStatus.ACTIVE))
+                .thenReturn(List.of(member));
+        when(crewMemberRepo.countByCrewIdAndRoleAndStatus(55L, CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE))
+                .thenReturn(1L);
+
+        service.deleteMe(1L);
+
+        assertThat(member.getStatus()).isEqualTo(CrewMemberStatus.LEFT);
+        assertThat(crew.getMemberCount()).isEqualTo(11);
+        assertThat(crew.isDeleted()).isTrue();
+        assertThat(user.getStatus()).isEqualTo(UserStatus.DELETED);
+    }
+
+    @Test
+    void deleteMe_alreadyDeleted_isIdempotent_andClearsRefreshTokens() {
+        User user = user(1L, "01HDELETE__");
+        user.deleteAccount();
+        when(userRepo.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+
+        service.deleteMe(1L);
+
+        assertThat(user.getStatus()).isEqualTo(UserStatus.DELETED);
+        verify(refreshTokenStore).deleteAllForUser(1L);
+    }
+
     // --- helpers ---
 
     private static User user(long id, String extId) {
@@ -316,12 +641,59 @@ class UserServiceTest {
         return u;
     }
 
+    private static Crew crew(long id, String extId, int memberCount) {
+        Crew crew = Crew.builder()
+                .extId(extId)
+                .ownerUserId(7L)
+                .name("크루")
+                .summary("요약")
+                .description("설명")
+                .region("서울")
+                .levelBand(CrewLevelBand.ALL)
+                .style(CrewStyle.BOULDERING)
+                .memberCount(memberCount)
+                .build();
+        setField(crew, "id", id);
+        return crew;
+    }
+
     private static Gym gym(long id, String extId, String name, String brand) {
         Gym g = Gym.create(extId, name, "주소", new BigDecimal("37.5"), new BigDecimal("127.0"));
         setField(g, "id", id);
         if (brand != null) setField(g, "brand", brand);
         setField(g, "status", GymStatus.ACTIVE);
         return g;
+    }
+
+    private static MediaAsset readyImage(long id, long ownerUserId, String s3Key) {
+        MediaAsset asset = MediaAsset.createUploading("01HMEDIA" + id, ownerUserId, MediaKind.IMAGE, "image/jpeg", s3Key);
+        setField(asset, "id", id);
+        asset.markReady();
+        assertThat(asset.getStatus()).isEqualTo(MediaStatus.READY);
+        return asset;
+    }
+
+    private static MediaAsset readyAvatarImage(long id, long ownerUserId, String s3Key) {
+        MediaAsset asset = MediaAsset.createUploading(
+                "01HMEDIA" + id,
+                ownerUserId,
+                MediaKind.IMAGE,
+                MediaUsage.AVATAR,
+                "image/jpeg",
+                s3Key);
+        setField(asset, "id", id);
+        asset.markReady();
+        assertThat(asset.getStatus()).isEqualTo(MediaStatus.READY);
+        assertThat(asset.getUsage()).isEqualTo(MediaUsage.AVATAR);
+        return asset;
+    }
+
+    private static AppProperties appProps() {
+        return new AppProperties(
+                "Crimp",
+                "test",
+                new AppProperties.Auth(900, 1209600, "crimp-test"),
+                new AppProperties.Media("https://cdn.crimp.test", 600));
     }
 
     private static void setField(Object target, String name, Object value) {

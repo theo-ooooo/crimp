@@ -3,6 +3,7 @@ package io.crimp.api.scheduling;
 import io.crimp.api.admin.AdminGymSyncController;
 import io.crimp.domain.gym.sync.DryRunResult;
 import io.crimp.domain.gym.sync.GymSyncGridPreset;
+import io.crimp.domain.gym.sync.GymSyncRateLimitException;
 import io.crimp.domain.gym.sync.GymSyncRegion;
 import io.crimp.domain.gym.sync.GymSyncService;
 import org.slf4j.Logger;
@@ -79,6 +80,10 @@ public class GymSyncScheduler {
                 log.warn("[gym-sync-scheduler] region={} failed: {}: {}",
                         region.label(), e.getClass().getSimpleName(), e.getMessage());
                 failed++;
+                if (e instanceof GymSyncRateLimitException) {
+                    log.warn("[gym-sync-scheduler] stop after rate limit; nextRegion={}", region.label());
+                    break;
+                }
             }
         }
         log.info("[gym-sync-scheduler] done ok={} failed={}", ok, failed);

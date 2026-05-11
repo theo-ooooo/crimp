@@ -55,6 +55,14 @@ export function makeGymSearchStyles(theme: Theme) {
     content: {
       paddingHorizontal: space[5],
       paddingBottom: space[10],
+      gap: space[3],
+    },
+    headerStack: {
+      gap: space[4],
+      paddingTop: space[2],
+    },
+    titleBlock: {
+      gap: space[1],
     },
     flexContent: {
       flexGrow: 1,
@@ -81,46 +89,148 @@ export function makeGymSearchStyles(theme: Theme) {
       paddingVertical: space[4],
       alignItems: 'center',
     },
-  });
-}
-
-export function makeGymCardStyles(theme: Theme) {
-  return StyleSheet.create({
-    card: {
-      padding: space[4],
-      borderRadius: radius.lg,
-      backgroundColor: theme.subtle,
-      gap: space[2],
-      ...shadow.xs,
+    title: {
+      fontFamily,
+      fontSize: fontSize.h1,
+      fontWeight: fontWeight.extrabold,
+      color: theme.text,
+      letterSpacing: letterSpacing.h1,
     },
-    pressed: {
-      opacity: 0.85,
-    },
-    topRow: {
+    sectionHeader: {
       flexDirection: 'row',
-      alignItems: 'baseline',
+      alignItems: 'center',
       justifyContent: 'space-between',
       gap: space[2],
     },
-    name: {
-      flex: 1,
+    sectionTitle: {
       fontFamily,
       fontSize: fontSize.title,
       fontWeight: fontWeight.bold,
       color: theme.text,
       letterSpacing: letterSpacing.title,
     },
+    sortChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space[1],
+      paddingHorizontal: space[3],
+      paddingVertical: space[2],
+      borderRadius: radius.full,
+      backgroundColor: theme.subtle,
+    },
+    sortChipText: {
+      fontFamily,
+      fontSize: 13,
+      fontWeight: fontWeight.semibold,
+      color: theme.text2,
+    },
+    mapSection: {
+      gap: space[3],
+    },
+    mapLabelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    mapLabel: {
+      fontFamily,
+      fontSize: fontSize.title,
+      fontWeight: fontWeight.bold,
+      color: theme.text,
+      letterSpacing: letterSpacing.title,
+    },
+    mapSub: {
+      fontFamily,
+      fontSize: 13,
+      fontWeight: fontWeight.medium,
+      color: theme.text3,
+    },
+  });
+}
+
+export function makeGymCardStyles(theme: Theme) {
+  return StyleSheet.create({
+    card: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space[3],
+      padding: space[4],
+      borderRadius: radius.lg,
+      backgroundColor: theme.subtle,
+      ...shadow.xs,
+    },
+    pressed: {
+      opacity: 0.85,
+    },
+    avatar: {
+      width: 56,
+      height: 56,
+      borderRadius: radius.lg,
+      backgroundColor: theme.accent.soft,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+    },
+    avatarText: {
+      fontFamily,
+      fontSize: fontSize.title,
+      fontWeight: fontWeight.extrabold,
+      color: theme.text,
+      letterSpacing: letterSpacing.title,
+    },
+    body: {
+      flex: 1,
+      minWidth: 0,
+      gap: space[1],
+    },
+    topRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: space[2],
+    },
+    name: {
+      flex: 1,
+      fontFamily,
+      fontSize: 17,
+      fontWeight: fontWeight.bold,
+      color: theme.text,
+      letterSpacing: letterSpacing.title,
+    },
     brand: {
       fontFamily,
-      fontSize: fontSize.caption,
-      fontWeight: fontWeight.semibold,
-      color: theme.accent.ink,
+      fontSize: 12,
+      fontWeight: fontWeight.bold,
+      color: theme.semantic.success,
+      paddingHorizontal: space[2],
+      paddingVertical: 2,
+      borderRadius: radius.full,
+      backgroundColor: '#DDF5EE',
+      overflow: 'hidden',
     },
     address: {
       fontFamily,
       fontSize: 13,
       fontWeight: fontWeight.medium,
       color: theme.text3,
+    },
+    metaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space[2],
+      flexWrap: 'wrap',
+    },
+    metaText: {
+      fontFamily,
+      fontSize: 12,
+      fontWeight: fontWeight.semibold,
+      color: theme.text2,
+    },
+    metaDot: {
+      width: 4,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: theme.text4,
     },
   });
 }

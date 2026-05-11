@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import BootSplash from 'react-native-bootsplash';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -7,6 +7,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { useMeQuery } from '@/hooks/queries/useMe';
+import { NicknamePromptModal } from '@/components/profile/NicknamePromptModal';
 import { t } from './src/lib/i18n';
 import { shouldShowOnboardingGate } from './src/lib/onboardingGate';
 import { fontFamily, fontSize } from './src/lib/tokens';
@@ -51,7 +52,6 @@ export default function App(): JSX.Element {
   const accessToken = useTokenStore((s) => s.accessToken);
 
   useEffect(() => {
-    // SecureStore 교체 전까지는 인-메모리 스토리지를 hydrate 한다 (TODO: 후속 PR).
     useTokenStore
       .getState()
       .hydrate()
@@ -66,10 +66,11 @@ export default function App(): JSX.Element {
   // 개발 빌드만 console.warn 으로 native bridge 문제 가시화. 운영 로깅(Sentry/Crashlytics)
   // 도입 시 이 경로에 함께 연결.
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated) {
+      return;
+    }
     BootSplash.hide({ fade: true }).catch((err) => {
       if (__DEV__) {
-        // eslint-disable-next-line no-console
         console.warn('[bootsplash] hide failed', err);
       }
     });
@@ -113,12 +114,23 @@ function AppRouter({
 }): JSX.Element {
   const meQuery = useMeQuery(accessToken);
   const onboardingDismissed = useOnboardingStore((s) => s.dismissedThisSession);
+  const [nicknamePromptDismissed, setNicknamePromptDismissed] = useState(false);
+
+  useEffect(() => {
+    setNicknamePromptDismissed(false);
+  }, [accessToken]);
+
+  const needsNicknamePrompt =
+    accessToken !== null &&
+    meQuery.data !== undefined &&
+    meQuery.data.nicknameConfigured === false &&
+    !nicknamePromptDismissed;
 
   const needsOnboarding = shouldShowOnboardingGate({
     accessToken,
     me: meQuery.data,
     onboardingDismissed,
-  });
+  }) && !needsNicknamePrompt;
 
   return (
     <View style={styles.fill}>
@@ -173,6 +185,13 @@ function AppRouter({
           <OnboardingGymScreen />
         </View>
       ) : null}
+
+      <NicknamePromptModal
+        accessToken={accessToken}
+        initialNickname={meQuery.data?.nickname ?? ''}
+        visible={needsNicknamePrompt}
+        onDismiss={() => setNicknamePromptDismissed(true)}
+      />
     </View>
   );
 }

@@ -4,6 +4,7 @@ import io.crimp.core.entity.enums.GymStatus;
 import io.crimp.core.entity.gym.Gym;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface GymRepository extends JpaRepository<Gym, Long>, GymRepositoryCustom {
@@ -11,4 +12,6 @@ public interface GymRepository extends JpaRepository<Gym, Long>, GymRepositoryCu
     Optional<Gym> findByExtId(String extId);
 
     Optional<Gym> findByExtIdAndStatus(String extId, GymStatus status);
+
+    List<Gym> findAllByStatus(GymStatus status);
 }

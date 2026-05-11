@@ -25,6 +25,15 @@ import {
   type LikeToggleResponse,
 } from '@/lib/schemas/feed';
 import {
+  CrewDetailSchema,
+  CrewListSchema,
+  type CreateCrewJoinRequestBody,
+  type CrewDetail,
+  type CrewLevelBand,
+  type CrewList,
+  type CrewStyle,
+} from '@/lib/schemas/crew';
+import {
   GymDetailSchema,
   GymListSchema,
   RouteListSchema,
@@ -103,13 +112,13 @@ export function exchangeOauthCode(
  * `POST /api/v1/auth/refresh` — refresh 토큰으로 access·refresh 재발급.
  */
 export function refreshTokens(
-  refreshToken: string,
+  refreshToken: string | null,
   signal?: AbortSignal,
 ): Promise<TokenResponse> {
   return apiRequest({
     method: 'POST',
     path: '/api/v1/auth/refresh',
-    body: { refreshToken },
+    body: refreshToken ? { refreshToken } : undefined,
     schema: TokenResponseSchema,
     signal,
   });
@@ -119,13 +128,13 @@ export function refreshTokens(
  * `POST /api/v1/auth/logout` — refresh 토큰 폐기 (Redis 블랙리스트). 204 No Content.
  */
 export function logout(
-  refreshToken: string,
+  refreshToken: string | null,
   signal?: AbortSignal,
 ): Promise<void> {
   return apiRequest({
     method: 'POST',
     path: '/api/v1/auth/logout',
-    body: { refreshToken },
+    body: refreshToken ? { refreshToken } : undefined,
     schema: z.void(),
     signal,
   });
@@ -151,7 +160,7 @@ export function fetchMe(accessToken: string, signal?: AbortSignal): Promise<Me> 
     method: 'GET',
     path: '/api/v1/me',
     accessToken,
-    schema: MeSchema,
+    schema: MeSchema as z.ZodType<Me>,
     signal,
   });
 }
@@ -170,6 +179,10 @@ export function fetchMe(accessToken: string, signal?: AbortSignal): Promise<Me> 
  * 서버 에러:
  *   - 404 `MAIN_GYM_NOT_FOUND` — extId 미일치 / 비활성 암장.
  *   - 400 `INVALID_MAIN_GYM_REQUEST` — clearMainGym + 다른 main gym 필드 동시 set.
+ *   - 400 `INVALID_AVATAR_REQUEST` — clearAvatar + avatarMediaId 동시 set.
+ *   - 400 `AVATAR_MEDIA_INVALID` — READY IMAGE 가 아닌 미디어.
+ *   - 403 `AVATAR_MEDIA_FORBIDDEN` — 다른 유저 소유 미디어.
+ *   - 404 `AVATAR_MEDIA_NOT_FOUND` — 존재하지 않는 미디어.
  */
 export interface UpdateProfileBody {
   nickname?: string;
@@ -178,6 +191,7 @@ export interface UpdateProfileBody {
   mainGymId?: number;
   mainGymExtId?: string;
   clearMainGym?: boolean;
+  clearAvatar?: boolean;
   avatarMediaId?: number;
 }
 
@@ -191,7 +205,7 @@ export function updateMyProfile(
     path: '/api/v1/me/profile',
     accessToken,
     body,
-    schema: MeSchema,
+    schema: MeSchema as z.ZodType<Me>,
     signal,
   });
 }
@@ -442,6 +456,101 @@ export function fetchGym(
     schema: GymDetailSchema,
     signal,
   });
+}
+
+// ===== Crews =====
+
+export type CrewListFilters = {
+  q?: string | null;
+  region?: string | null;
+  gymExtId?: string | null;
+  levelBand?: CrewLevelBand | null;
+  style?: CrewStyle | null;
+};
+
+/**
+ * `GET /api/v1/crews` — 공개 크루 목록 (Bearer 필요, 커서 페이지네이션).
+ */
+export function fetchCrews(
+  accessToken: string,
+  cursor?: number | null,
+  filters: CrewListFilters = {},
+  size?: number,
+  signal?: AbortSignal,
+): Promise<CrewList> {
+  const params = new URLSearchParams();
+  if (cursor !== undefined && cursor !== null) {
+    params.set('cursor', String(cursor));
+  }
+  if (filters.q) params.set('q', filters.q);
+  if (filters.region) params.set('region', filters.region);
+  if (filters.gymExtId) params.set('gymExtId', filters.gymExtId);
+  if (filters.levelBand) params.set('levelBand', filters.levelBand);
+  if (filters.style) params.set('style', filters.style);
+  if (size !== undefined) {
+    params.set('size', String(size));
+  }
+  const qs = params.toString();
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/crews${qs ? `?${qs}` : ''}`,
+    accessToken,
+    schema: CrewListSchema,
+    signal,
+  });
+}
+
+/**
+ * `GET /api/v1/crews/{extId}` — 크루 상세.
+ */
+export function fetchCrew(
+  accessToken: string,
+  extId: string,
+  signal?: AbortSignal,
+): Promise<CrewDetail> {
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/crews/${encodeURIComponent(extId)}`,
+    accessToken,
+    schema: CrewDetailSchema,
+    signal,
+  });
+}
+
+/**
+ * `POST /api/v1/crews/{extId}/join-requests` — 가입 요청 생성.
+ */
+export function requestCrewJoin(
+  accessToken: string,
+  crewExtId: string,
+  body: CreateCrewJoinRequestBody,
+  signal?: AbortSignal,
+): Promise<void> {
+  return apiRequest({
+    method: 'POST',
+    path: `/api/v1/crews/${encodeURIComponent(crewExtId)}/join-requests`,
+    accessToken,
+    body,
+    schema: z.unknown(),
+    signal,
+  }).then(() => undefined);
+}
+
+/**
+ * `DELETE /api/v1/crews/{extId}/join-requests/me` — 내 대기 가입 요청 취소.
+ */
+export function cancelMyCrewJoinRequest(
+  accessToken: string,
+  crewExtId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  return apiRequest({
+    method: 'DELETE',
+    path: `/api/v1/crews/${encodeURIComponent(crewExtId)}/join-requests/me`,
+    accessToken,
+    schema: z.unknown(),
+    signal,
+  }).then(() => undefined);
 }
 
 // ===== Feed =====

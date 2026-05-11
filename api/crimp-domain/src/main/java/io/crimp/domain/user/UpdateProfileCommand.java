@@ -14,7 +14,13 @@ package io.crimp.domain.user;
  * <p>서비스 단에서 {@code clearMainGym=true} 와 {@code mainGymExtId}/{@code mainGymId} 동시 set 은
  * 검증 에러로 거부한다.
  *
- * <p>다른 평범한 필드(nickname/bio/levelSelf/avatarMediaId)는 null 이면 "변경하지 않음" 의미.
+ * <p>아바타 변경:
+ * <ul>
+ *   <li>{@code avatarMediaId} — 본인 소유 READY IMAGE 미디어를 프로필 이미지로 연결.
+ *   <li>{@code clearAvatar=true} — 프로필 이미지를 명시 해제.
+ * </ul>
+ *
+ * <p>다른 평범한 필드(nickname/bio/levelSelf)는 null 이면 "변경하지 않음" 의미.
  */
 public record UpdateProfileCommand(
         String nickname,
@@ -23,5 +29,17 @@ public record UpdateProfileCommand(
         Long mainGymId,
         String mainGymExtId,
         boolean clearMainGym,
+        boolean clearAvatar,
         Long avatarMediaId
-) {}
+) {
+    public UpdateProfileCommand(
+            String nickname,
+            String bio,
+            Byte levelSelf,
+            Long mainGymId,
+            String mainGymExtId,
+            boolean clearMainGym,
+            Long avatarMediaId) {
+        this(nickname, bio, levelSelf, mainGymId, mainGymExtId, clearMainGym, false, avatarMediaId);
+    }
+}

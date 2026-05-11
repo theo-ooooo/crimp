@@ -1,5 +1,5 @@
-import React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Image, Pressable, Text, View } from 'react-native';
 
 import { CrimpIcon, Skeleton } from '@/components/common/primitives';
 import { t } from '@/lib/i18n';
@@ -25,13 +25,28 @@ export function ProfileHeaderRow({
   const nickname = me?.nickname ?? t('home.nicknameFallback');
   const initial = nickname.trim().slice(0, 1) || '?';
   const bio = me?.bio ?? null;
+  const avatarUrl = me?.avatarUrl ?? null;
+  const [avatarFailed, setAvatarFailed] = useState(false);
+
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [avatarUrl]);
 
   return (
     <View style={styles.headerRow}>
       <View style={styles.avatar}>
-        <Text style={styles.avatarText} accessibilityLabel={nickname}>
-          {initial}
-        </Text>
+        {avatarUrl && !avatarFailed ? (
+          <Image
+            source={{ uri: avatarUrl }}
+            style={styles.avatarImage}
+            accessibilityLabel={nickname}
+            onError={() => setAvatarFailed(true)}
+          />
+        ) : (
+          <Text style={styles.avatarText} accessibilityLabel={nickname}>
+            {initial}
+          </Text>
+        )}
       </View>
       <View style={styles.headerRowBody}>
         <View style={styles.nicknameRow}>

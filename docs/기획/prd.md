@@ -80,7 +80,9 @@
 - **암장 동기화 운영화** — `@Scheduled` 트리거 + admin POST API + `gym_sync_log` 감사 테이블 (인프라는 #84/#85 에서 완료, 트리거·관측 미구현)
 - **HttpOnly 쿠키 전환** — 베타 전 보안 필수
 - **카메라 실 캡처 (F5)** — vision-camera + S3 presigned + hold-color 컬럼
-- 크루 개설/가입 (지역·수준·스타일별)
+- **프로필 이미지 업로드** — 기존 media presign/complete 흐름 재사용, `profiles.avatar_media_id` 연결, 앱·웹 프로필 편집 UI
+- **계정 탈퇴** — app/web 탈퇴 진입점, soft delete + 30일 복구 정책, refresh token 폐기, 공개 컨텐츠 익명화/삭제 정책 확정
+- **크루 개설/가입** — 지역·수준·스타일별 공개 크루 탐색과 가입 요청/승인. 상세 범위는 [crew.md](./crew.md).
 - 파트너 매칭 베타 (날짜·암장·레벨)
 - 영상 타임라인 주석
 - BottomTabs 정식 도입 (web — 현재 entry card 임시)
@@ -184,7 +186,7 @@ Phase 1 MVP 에서는 **수익화 비활성**. Phase 2 부터 단계적 도입.
 3. **카메라 실 캡처 (F5)** — M4·M5 의 미완 (vision-camera + S3 presigned + hold-color)
 4. **BottomTabs 웹 정식 도입** — Stack header 중복 정리 + 5탭 일관
 5. **Apple/Google OAuth** — M1 의 후속 (베타 전 중요도 중)
-6. **크루 개설/가입 기초** — Phase 1.5 우선순위 (베타 후 활성화 핵심)
+6. **크루 개설/가입 기초** — Phase 1.5 우선순위 (베타 후 활성화 핵심). [crew.md](./crew.md) v0.1 작성.
 
 GATE 1 승인 후 → **/설계시작 (GATE 2)**.
 

@@ -79,7 +79,6 @@ export function useLogout() {
   return useMutation<void, Error, void>({
     mutationFn: async () => {
       const refresh = useTokenStore.getState().refreshToken;
-      if (!refresh) return;
       await logoutRequest(refresh);
     },
     onSettled: () => {

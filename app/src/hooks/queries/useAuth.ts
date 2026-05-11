@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 
-import { exchangeOauth, logout as logoutEndpoint } from '@/lib/api';
+import { deleteMe, exchangeOauth, logout as logoutEndpoint } from '@/lib/api';
 import type { OauthProvider, TokenResponse } from '@/lib/schemas/auth';
 import type { RootStackParamList } from '@/navigation/types';
 import { useOnboardingStore } from '@/store/onboardingStore';
@@ -38,6 +38,13 @@ export function useLogout() {
   const qc = useQueryClient();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
+  const clearAuthState = useCallback(async () => {
+    await clear();
+    useOnboardingStore.getState().reset();
+    qc.clear();
+    navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+  }, [clear, qc, navigation]);
+
   return useCallback(async () => {
     if (refreshToken) {
       try {
@@ -46,9 +53,28 @@ export function useLogout() {
         /* 네트워크/서버 실패는 무시 — 로컬 상태 정리는 계속 진행 */
       }
     }
-    await clear();
-    useOnboardingStore.getState().reset();
-    qc.clear();
-    navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
-  }, [refreshToken, clear, qc, navigation]);
+    await clearAuthState();
+  }, [refreshToken, clearAuthState]);
+}
+
+export function useDeleteAccount() {
+  const accessToken = useTokenStore((s) => s.accessToken);
+  const clear = useTokenStore((s) => s.clear);
+  const qc = useQueryClient();
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+
+  return useMutation<void, Error>({
+    mutationFn: async () => {
+      if (!accessToken) {
+        throw new Error('Missing access token');
+      }
+      await deleteMe(accessToken);
+    },
+    onSuccess: async () => {
+      await clear();
+      useOnboardingStore.getState().reset();
+      qc.clear();
+      navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+    },
+  });
 }

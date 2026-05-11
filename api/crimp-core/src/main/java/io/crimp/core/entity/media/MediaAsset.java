@@ -2,6 +2,7 @@ package io.crimp.core.entity.media;
 
 import io.crimp.core.entity.enums.MediaKind;
 import io.crimp.core.entity.enums.MediaStatus;
+import io.crimp.core.entity.enums.MediaUsage;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -38,56 +39,49 @@ public class MediaAsset {
     @Column(name = "status", nullable = false)
     private MediaStatus status;
 
+    @Column(name = "usage_type", nullable = false)
+    private MediaUsage usage;
+
     @Column(name = "mime", nullable = false, length = 80)
-    private String mime;
+    private String originalMime;
 
     @Column(name = "byte_size")
-    private Long byteSize;
+    private Long originalByteSize;
 
-    @Column(name = "width")
-    private Integer width;
-
-    @Column(name = "height")
-    private Integer height;
-
-    @Column(name = "duration_ms")
-    private Integer durationMs;
-
-    @Column(name = "s3_key", nullable = false, length = 500)
-    private String s3Key;
-
-    @Column(name = "cdn_url", length = 500)
-    private String cdnUrl;
-
-    @Column(name = "thumbnail_cdn_url", length = 500)
-    private String thumbnailCdnUrl;
-
-    @Column(name = "variants", columnDefinition = "json")
-    private String variantsJson;
+    @Column(name = "original_path", nullable = false, length = 500)
+    private String originalPath;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    private MediaAsset(String extId, Long ownerUserId, MediaKind kind, String mime, String s3Key) {
+    private MediaAsset(String extId, Long ownerUserId, MediaKind kind, MediaUsage usage, String originalMime, String originalPath) {
         this.extId = extId;
         this.ownerUserId = ownerUserId;
         this.kind = kind;
         this.status = MediaStatus.UPLOADING;
-        this.mime = mime;
-        this.s3Key = s3Key;
+        this.usage = usage;
+        this.originalMime = originalMime;
+        this.originalPath = originalPath;
     }
 
-    public static MediaAsset createUploading(String extId, Long ownerUserId, MediaKind kind, String mime, String s3Key) {
-        return new MediaAsset(extId, ownerUserId, kind, mime, s3Key);
+    public static MediaAsset createUploading(String extId, Long ownerUserId, MediaKind kind, String mime, String originalPath) {
+        return createUploading(extId, ownerUserId, kind, MediaUsage.ATTEMPT, mime, originalPath);
+    }
+
+    public static MediaAsset createUploading(
+            String extId,
+            Long ownerUserId,
+            MediaKind kind,
+            MediaUsage usage,
+            String mime,
+            String originalPath) {
+        return new MediaAsset(extId, ownerUserId, kind, usage, mime, originalPath);
     }
 
     public void markProcessing() { this.status = MediaStatus.PROCESSING; }
-    public void markReady(String cdnUrl, String thumbnailCdnUrl, String variantsJson) {
+    public void markReady() {
         this.status = MediaStatus.READY;
-        this.cdnUrl = cdnUrl;
-        this.thumbnailCdnUrl = thumbnailCdnUrl;
-        this.variantsJson = variantsJson;
     }
     public void markFailed() { this.status = MediaStatus.FAILED; }
 
@@ -95,10 +89,7 @@ public class MediaAsset {
      * 업로드 완료 후 클라가 보고하는 메타데이터 적용 (PR #90, F5). null 인 필드는 변경하지 않음 —
      * 영상은 width/height 가 클라 측 plugin 에 따라 누락될 수 있고, 이미지는 durationMs 가 항상 null.
      */
-    public void applyUploadedMeta(Long byteSize, Integer width, Integer height, Integer durationMs) {
-        if (byteSize != null) this.byteSize = byteSize;
-        if (width != null) this.width = width;
-        if (height != null) this.height = height;
-        if (durationMs != null) this.durationMs = durationMs;
+    public void applyUploadedMeta(Long byteSize) {
+        if (byteSize != null) this.originalByteSize = byteSize;
     }
 }

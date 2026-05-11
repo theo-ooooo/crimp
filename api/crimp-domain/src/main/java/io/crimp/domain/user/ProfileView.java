@@ -11,8 +11,10 @@ package io.crimp.domain.user;
 public record ProfileView(
         String extId,
         String nickname,
+        boolean nicknameConfigured,
         String bio,
         Long avatarMediaId,
+        String avatarUrl,
         Byte levelSelf,
         Long mainGymId,
         MainGymView mainGym

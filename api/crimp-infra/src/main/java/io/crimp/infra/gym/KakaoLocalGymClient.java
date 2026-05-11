@@ -2,6 +2,7 @@ package io.crimp.infra.gym;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.crimp.domain.gym.sync.GymSyncRateLimitException;
 import io.crimp.domain.gym.sync.GymSyncSource;
 import io.crimp.domain.gym.sync.RemoteGym;
 import io.crimp.infra.auth.KakaoProperties;
@@ -14,11 +15,13 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.math.BigDecimal;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -35,9 +38,9 @@ import java.util.Map;
  * <p>{@code crimp-infra/auth/KakaoProperties} 의 {@code restApiKey} 를 그대로 재사용한다
  * — OAuth 흐름과 동일 앱·동일 키.
  *
- * <p>외부 호출 실패는 {@link KakaoLocalException} 으로 wrap. 어댑터가 일부 페이지 실패
- * 시에는 그 페이지만 스킵하고 누적 결과를 반환 — 단일 페이지 오류로 전체 동기화가
- * 막히는 사고를 방지.
+ * <p>인증/요청 오류 같은 4xx 는 {@link KakaoLocalException} 으로 즉시 실패시킨다.
+ * 네트워크 오류나 일시적인 서버 오류로 일부 페이지가 실패한 경우에는 그 페이지만
+ * 스킵하고 누적 결과를 반환 — 단일 페이지 오류로 전체 동기화가 막히는 사고를 방지.
  */
 @Component
 @Profile("!test")
@@ -92,7 +95,7 @@ public class KakaoLocalGymClient implements GymSyncSource {
         int maxPages = props.resolvedMaxPages();
         int beforeCount = byExternalKey.size();
         for (int page = 1; page <= maxPages; page++) {
-            String uri = UriComponentsBuilder
+            URI uri = UriComponentsBuilder
                     .fromHttpUrl(props.resolvedBaseUrl())
                     .path(props.resolvedKeywordSearchPath())
                     .queryParam("query", keyword)
@@ -101,14 +104,20 @@ public class KakaoLocalGymClient implements GymSyncSource {
                     .queryParam("radius", radiusMeters)
                     .queryParam("size", props.resolvedPageSize())
                     .queryParam("page", page)
+                    .queryParam("sort", "distance")
+                    .build()
                     .encode()
-                    .toUriString();
+                    .toUri();
 
             try {
+                sleepBeforeRequest();
                 ResponseEntity<KeywordResponse> resp = restTemplate.exchange(
                         uri, HttpMethod.GET, request, KeywordResponse.class);
                 KeywordResponse body = resp.getBody();
                 if (body == null || body.documents() == null) break;
+                log.debug("[gym-sync/kakao] keyword='{}' page={} docs={} total={} pageable={} isEnd={} uri={}",
+                        keyword, page, body.documents().size(), body.metaTotalCount(),
+                        body.metaPageableCount(), body.metaIsEnd(), uri);
                 for (Document d : body.documents()) {
                     // [reviewer I1] x/y 가 비어있으면 (0,0) 좌표가 DB 에 들어가는 회귀를 막기 위해
                     // 해당 document 스킵. Kakao 응답에 좌표가 없으면 매장 위치 자체를 신뢰할 수 없음.
@@ -124,7 +133,21 @@ public class KakaoLocalGymClient implements GymSyncSource {
                     // putIfAbsent — 이미 다른 키워드 호출에서 들어왔으면 첫 매칭 유지.
                     byExternalKey.putIfAbsent(d.id(), toRemoteGym(d));
                 }
-                if (body.meta() != null && Boolean.TRUE.equals(body.meta().isEnd())) break;
+                if (Boolean.TRUE.equals(body.metaIsEnd())) break;
+            } catch (HttpStatusCodeException e) {
+                if (e.getStatusCode().is4xxClientError()) {
+                    String body = summarize(e.getResponseBodyAsString());
+                    if (isKakaoLimitExceeded(body)) {
+                        throw new GymSyncRateLimitException("Kakao Local API limit exceeded: status="
+                                + e.getStatusCode().value() + " body=" + body);
+                    }
+                    throw new KakaoLocalException("Kakao Local API 요청 실패: status="
+                            + e.getStatusCode().value() + " body=" + body);
+                }
+                log.warn("[gym-sync/kakao] keyword='{}' page {} failed for ({},{}): status={} body={}",
+                        keyword, page, lat, lng, e.getStatusCode().value(), summarize(e.getResponseBodyAsString()));
+                // 5xx 는 일시 오류일 수 있으므로 기존 partial-result 정책 유지.
+                break;
             } catch (RestClientException e) {
                 log.warn("[gym-sync/kakao] keyword='{}' page {} failed for ({},{}): {}",
                         keyword, page, lat, lng, e.getMessage());
@@ -146,6 +169,24 @@ public class KakaoLocalGymClient implements GymSyncSource {
         String addr = d.roadAddressName() != null && !d.roadAddressName().isBlank()
                 ? d.roadAddressName() : d.addressName();
         return new RemoteGym(d.id(), d.placeName(), brand, addr, lat, lng, d.phone());
+    }
+
+    private void sleepBeforeRequest() {
+        long delayMs = props.resolvedRequestDelayMs();
+        if (delayMs <= 0) return;
+        try {
+            Thread.sleep(delayMs);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new KakaoLocalException("Kakao Local API request delay interrupted");
+        }
+    }
+
+    private static boolean isKakaoLimitExceeded(String body) {
+        return body != null
+                && (body.contains("API limit has been exceeded")
+                || body.contains("\"code\":-10")
+                || body.contains("\"code\": -10"));
     }
 
     /**
@@ -172,11 +213,29 @@ public class KakaoLocalGymClient implements GymSyncSource {
         return placeName;
     }
 
+    private static String summarize(String body) {
+        if (body == null || body.isBlank()) return "";
+        String compact = body.replaceAll("\\s+", " ").trim();
+        if (compact.length() <= 200) return compact;
+        return compact.substring(0, 200) + "...";
+    }
+
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record KeywordResponse(
             List<Document> documents,
             Meta meta
     ) {
+        Integer metaTotalCount() {
+            return meta != null ? meta.totalCount() : null;
+        }
+
+        Integer metaPageableCount() {
+            return meta != null ? meta.pageableCount() : null;
+        }
+
+        Boolean metaIsEnd() {
+            return meta != null ? meta.isEnd() : null;
+        }
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -193,7 +252,9 @@ public class KakaoLocalGymClient implements GymSyncSource {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Meta(
-            @JsonProperty("is_end") Boolean isEnd
+            @JsonProperty("is_end") Boolean isEnd,
+            @JsonProperty("total_count") Integer totalCount,
+            @JsonProperty("pageable_count") Integer pageableCount
     ) {
     }
 

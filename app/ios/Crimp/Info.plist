@@ -41,6 +41,8 @@
 	<string>영상 촬영 시 사운드를 함께 기록하기 위해 마이크가 필요합니다.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>촬영한 사진/영상을 갤러리에 저장하려면 사진 라이브러리 접근이 필요합니다.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>프로필 이미지 선택과 촬영한 사진/영상 저장을 위해 사진 라이브러리 접근이 필요합니다.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>BootSplash</string>
 	<key>UIRequiredDeviceCapabilities</key>

@@ -19,6 +19,12 @@ importers:
       '@invertase/react-native-apple-authentication':
         specifier: ^2.5.1
         version: 2.5.1
+      '@react-native-community/geolocation':
+        specifier: ^3.4.0
+        version: 3.4.0(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1)
+      '@react-native-community/slider':
+        specifier: ^5.2.0
+        version: 5.2.0
       '@react-native-seoul/kakao-login':
         specifier: 5.4.2
         version: 5.4.2(patch_hash=da3kmoryi6shvcjqhzo3ed7gg4)(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1)
@@ -58,9 +64,21 @@ importers:
       react-native-config:
         specifier: ^1.6.1
         version: 1.6.1(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1)
+      react-native-create-thumbnail:
+        specifier: ^2.2.0
+        version: 2.2.0
+      react-native-fs:
+        specifier: ^2.20.0
+        version: 2.20.0(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))
       react-native-get-random-values:
         specifier: ^1.11.0
         version: 1.11.0(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))
+      react-native-image-picker:
+        specifier: ^8.2.1
+        version: 8.2.1(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1)
+      react-native-keychain:
+        specifier: ^10.0.0
+        version: 10.0.0
       react-native-permissions:
         specifier: ^5.5.1
         version: 5.5.1(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1)
@@ -73,9 +91,15 @@ importers:
       react-native-svg:
         specifier: ^15.15.4
         version: 15.15.4(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1)
+      react-native-video:
+        specifier: ^6.19.2
+        version: 6.19.2(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1)
       react-native-vision-camera:
         specifier: ^4
         version: 4.7.3(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1)
+      react-native-webview:
+        specifier: ^13.16.1
+        version: 13.16.1(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1)
       zod:
         specifier: 3.23.8
         version: 3.23.8
@@ -1062,6 +1086,16 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
+  '@react-native-community/geolocation@3.4.0':
+    resolution: {integrity: sha512-bzZH89/cwmpkPMKKveoC72C4JH0yF4St5Ceg/ZM9pA1SqX9MlRIrIrrOGZ/+yi++xAvFDiYfihtn9TvXWU9/rA==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      react: '*'
+      react-native: '*'
+
+  '@react-native-community/slider@5.2.0':
+    resolution: {integrity: sha512-484sH8aWEaSjxaZ7HT3YZ8CKDcNes2synko1vdEz5DFEdvKAduxKJTj22L/qBMD7rtIkfbX69DMzWDAGbOAV6w==}
+
   '@react-native-seoul/kakao-login@5.4.2':
     resolution: {integrity: sha512-7uaJYo3VW6dey1pLqI8w+fHpd0AWBDe/dffhFKSjN0Dp0R1kgVRlZHHWthzqdqDTDe+AIlDOR8ORm5twpCrsqA==}
     peerDependencies:
@@ -1604,6 +1638,9 @@ packages:
 
   bare-url@2.4.2:
     resolution: {integrity: sha512-/9a2j4ac6ckpmAHvod/ob7x439OAHst/drc2Clnq+reRYd/ovddwcF4LfoxHyNk5AuGBnPg+HqFjmE/Zpq6v0A==}
+
+  base-64@0.1.0:
+    resolution: {integrity: sha512-Y5gU45svrR5tI2Vt/X9GPd3L0HNIKzGu202EjxrXMpuc2V2CiKgemAbUUsqYmZJvPtCXoUKjNZwBJzsNScUbXA==}
 
   base64-js@1.5.1:
     resolution: {integrity: sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==}
@@ -3552,16 +3589,38 @@ packages:
       react-native-windows:
         optional: true
 
+  react-native-create-thumbnail@2.2.0:
+    resolution: {integrity: sha512-zrwVYWMpeMEGIYO1jgwUMBpSpIzMR7Z2gkSANVlf9BFZLRw017k7CfjttvDhCHjsxNNDb7+V8uJaNwIGdTpz/g==}
+
+  react-native-fs@2.20.0:
+    resolution: {integrity: sha512-VkTBzs7fIDUiy/XajOSNk0XazFE9l+QlMAce7lGuebZcag5CnjszB+u4BdqzwaQOdcYb5wsJIsqq4kxInIRpJQ==}
+    peerDependencies:
+      react-native: '*'
+      react-native-windows: '*'
+    peerDependenciesMeta:
+      react-native-windows:
+        optional: true
+
   react-native-get-random-values@1.11.0:
     resolution: {integrity: sha512-4BTbDbRmS7iPdhYLRcz3PGFIpFJBwNZg9g42iwa2P6FOv9vZj/xJc678RZXnLNZzd0qd7Q3CCF6Yd+CU2eoXKQ==}
     peerDependencies:
       react-native: '>=0.56'
+
+  react-native-image-picker@8.2.1:
+    resolution: {integrity: sha512-FBeGYJGFDjMdGCcyubDJgBAPCQ4L1D3hwLXyUU91jY9ahOZMTbluceVvRmrEKqnDPFJ0gF1NVhJ0nr1nROFLdg==}
+    peerDependencies:
+      react: '*'
+      react-native: '*'
 
   react-native-is-edge-to-edge@1.3.1:
     resolution: {integrity: sha512-NIXU/iT5+ORyCc7p0z2nnlkouYKX425vuU1OEm6bMMtWWR9yvb+Xg5AZmImTKoF9abxCPqrKC3rOZsKzUYgYZA==}
     peerDependencies:
       react: '*'
       react-native: '*'
+
+  react-native-keychain@10.0.0:
+    resolution: {integrity: sha512-YzPKSAnSzGEJ12IK6CctNLU79T1W15WDrElRQ+1/FsOazGX9ucFPTQwgYe8Dy8jiSEDJKM4wkVa3g4lD2Z+Pnw==}
+    engines: {node: '>=16'}
 
   react-native-permissions@5.5.1:
     resolution: {integrity: sha512-nTKFoj47b6EXNqbbg+8VFwBWMpxF1/UTbrNBLpXkWpt005pH4BeFv/NwpcC1iNhToKBrxQD+5kI0z6+kTYoYWA==}
@@ -3591,6 +3650,12 @@ packages:
       react: '*'
       react-native: '*'
 
+  react-native-video@6.19.2:
+    resolution: {integrity: sha512-gh5dBMGSHywKr8+p4azRXrFQgT+QTmS1tI4sz6kVRjSENORfsrGGLQzmyo/7S9m+ZOTLWQJ3h8ONaXxR4F2Fcw==}
+    peerDependencies:
+      react: '*'
+      react-native: '*'
+
   react-native-vision-camera@4.7.3:
     resolution: {integrity: sha512-g1/neOyjSqn1kaAa2FxI/qp5KzNvPcF0bnQw6NntfbxH6tm0+8WFZszlgb5OV+iYlB6lFUztCbDtyz5IpL47OA==}
     peerDependencies:
@@ -3606,6 +3671,12 @@ packages:
         optional: true
       react-native-worklets-core:
         optional: true
+
+  react-native-webview@13.16.1:
+    resolution: {integrity: sha512-If0eHhoEdOYDcHsX+xBFwHMbWBGK1BvGDQDQdVkwtSIXiq1uiqjkpWVP2uQ1as94J0CzvFE9PUNDuhiX0Z6ubw==}
+    peerDependencies:
+      react: '*'
+      react-native: '*'
 
   react-native@0.75.4:
     resolution: {integrity: sha512-Jehg4AMNIAXu9cn0/1jbTCoNg3tc+t6EekwucCalN8YoRmxGd/PY6osQTI/5fSAM40JQ4O8uv8Qg09Ycpb5sxQ==}
@@ -4208,6 +4279,9 @@ packages:
     resolution: {integrity: sha512-Pp6GSwGP/NrPIrxVFAIkOQeyw8lFenOHijQWkUTrDvrF4ALqylP2C/KCkeS9dpUM3KvYRQhna5vt7IL95+ZQ9w==}
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
+  utf8@3.0.0:
+    resolution: {integrity: sha512-E8VjFIQ/TyQgp+TZfS6l8yp/xWppSAHzidGiRrqe4bK4XP9pTRyKFgGJpO3SN7zdX4DeomTrwaseCHovfpFcqQ==}
 
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
@@ -5750,6 +5824,13 @@ snapshots:
       - typescript
       - utf-8-validate
 
+  '@react-native-community/geolocation@3.4.0(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1)':
+    dependencies:
+      react: 18.3.1
+      react-native: 0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3)
+
+  '@react-native-community/slider@5.2.0': {}
+
   '@react-native-seoul/kakao-login@5.4.2(patch_hash=da3kmoryi6shvcjqhzo3ed7gg4)(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1)':
     dependencies:
       dooboolab-welcome: 1.3.2
@@ -6495,6 +6576,8 @@ snapshots:
   bare-url@2.4.2:
     dependencies:
       bare-path: 3.0.0
+
+  base-64@0.1.0: {}
 
   base64-js@1.5.1: {}
 
@@ -8851,15 +8934,30 @@ snapshots:
       react: 18.3.1
       react-native: 0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3)
 
+  react-native-create-thumbnail@2.2.0: {}
+
+  react-native-fs@2.20.0(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3)):
+    dependencies:
+      base-64: 0.1.0
+      react-native: 0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3)
+      utf8: 3.0.0
+
   react-native-get-random-values@1.11.0(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3)):
     dependencies:
       fast-base64-decode: 1.0.0
+      react-native: 0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3)
+
+  react-native-image-picker@8.2.1(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1):
+    dependencies:
+      react: 18.3.1
       react-native: 0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3)
 
   react-native-is-edge-to-edge@1.3.1(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1):
     dependencies:
       react: 18.3.1
       react-native: 0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3)
+
+  react-native-keychain@10.0.0: {}
 
   react-native-permissions@5.5.1(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1):
     dependencies:
@@ -8886,8 +8984,20 @@ snapshots:
       react-native: 0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3)
       warn-once: 0.1.1
 
+  react-native-video@6.19.2(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1):
+    dependencies:
+      react: 18.3.1
+      react-native: 0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3)
+
   react-native-vision-camera@4.7.3(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1):
     dependencies:
+      react: 18.3.1
+      react-native: 0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3)
+
+  react-native-webview@13.16.1(react-native@0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3))(react@18.3.1):
+    dependencies:
+      escape-string-regexp: 4.0.0
+      invariant: 2.2.4
       react: 18.3.1
       react-native: 0.75.4(@babel/core@7.25.8)(@babel/preset-env@7.25.8(@babel/core@7.25.8))(@types/react@18.3.12)(react@18.3.1)(typescript@5.6.3)
 
@@ -9630,6 +9740,8 @@ snapshots:
     dependencies:
       react: 18.3.1
     optional: true
+
+  utf8@3.0.0: {}
 
   util-deprecate@1.0.2: {}
 

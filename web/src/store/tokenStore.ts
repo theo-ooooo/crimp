@@ -4,81 +4,77 @@ import { useSyncExternalStore } from 'react';
 import { create } from 'zustand';
 
 /**
- * 임시 개발용 토큰 스토어.
+ * 웹 인증 상태 스토어.
  *
- * TODO: 실제 프로덕션 배포 전에 아래 이슈를 해결해야 한다.
- *   1. Access/refresh token 을 `localStorage` 에 평문 저장하는 것은 XSS 에 취약하다.
- *   2. refresh token 회전·쿠키(HttpOnly) 기반 방식으로 교체할 예정.
- *   3. 현재 구현은 로컬 개발 편의용으로만 사용한다.
- *
- * 구현 메모:
- * - SSR 환경에서는 `window`/`localStorage` 접근이 불가능하므로 hydration 전에는
- *   항상 `null` 을 반환한다. 클라이언트 마운트 이후 `hydrate()` 호출이 필요하다.
- * - access · refresh 토큰은 항상 함께 저장/삭제한다 (`setTokens` / `clear`).
- *   `setAccessToken` 은 단독 갱신 (refresh 회전 응답 등) 시 사용.
+ * 백엔드는 로그인/refresh 응답에 HttpOnly access/refresh 쿠키를 함께 발행한다.
+ * 웹은 토큰을 localStorage/sessionStorage 에 저장하지 않고, 현재 탭에서 받은 access
+ * token 만 메모리에 보관한다. refresh token 은 JS 에 보관하지 않고 HttpOnly 쿠키
+ * fallback 만 사용한다.
  */
-const ACCESS_KEY = 'crimp.accessToken';
-const REFRESH_KEY = 'crimp.refreshToken';
+export const COOKIE_AUTH_ACCESS_TOKEN = '__crimp_cookie_auth__';
+
+export function isCookieAuthAccessToken(token: string | null | undefined): boolean {
+  return token === COOKIE_AUTH_ACCESS_TOKEN;
+}
+
+const LEGACY_ACCESS_KEY = 'crimp.accessToken';
+const LEGACY_REFRESH_KEY = 'crimp.refreshToken';
 
 export interface TokenState {
   accessToken: string | null;
   refreshToken: string | null;
+  cookieAuthCandidate: boolean;
   hydrated: boolean;
   hydrate: () => void;
   setAccessToken: (token: string | null) => void;
   /**
-   * access·refresh 를 한 번에 저장 (로그인·refresh 응답 후 호출).
-   * 단독 setter (`setRefreshToken`) 는 의도적으로 노출하지 않는다 —
-   * refresh 토큰만 갱신되는 정상 흐름이 없어 access 와 분리해 저장하면 일관성 깨짐.
+   * 로그인·refresh 응답 후 access token 만 메모리에 둔다.
+   * refresh token 은 백엔드가 발행한 HttpOnly 쿠키만 사용한다.
    */
   setTokens: (tokens: { accessToken: string; refreshToken: string }) => void;
+  markCookieAuthenticated: () => void;
   clear: () => void;
 }
 
-function readKey(key: string): string | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function writeKey(key: string, value: string | null): void {
+function clearLegacyPlaintextTokens(): void {
   if (typeof window === 'undefined') return;
   try {
-    if (value === null) {
-      window.localStorage.removeItem(key);
-    } else {
-      window.localStorage.setItem(key, value);
-    }
+    window.localStorage.removeItem(LEGACY_ACCESS_KEY);
+    window.localStorage.removeItem(LEGACY_REFRESH_KEY);
   } catch {
-    // storage quota / disabled storage 등은 무시.
+    // storage disabled 환경에서는 쿠키 인증만 계속 진행한다.
   }
 }
 
 export const useTokenStore = create<TokenState>((set) => ({
   accessToken: null,
   refreshToken: null,
+  cookieAuthCandidate: false,
   hydrated: false,
   hydrate: () => {
-    const access = readKey(ACCESS_KEY);
-    const refresh = readKey(REFRESH_KEY);
-    set({ accessToken: access, refreshToken: refresh, hydrated: true });
+    clearLegacyPlaintextTokens();
+    set({
+      accessToken: null,
+      refreshToken: null,
+      cookieAuthCandidate: true,
+      hydrated: true,
+    });
   },
   setAccessToken: (token) => {
-    writeKey(ACCESS_KEY, token);
-    set({ accessToken: token });
+    set({ accessToken: token, cookieAuthCandidate: false });
   },
-  setTokens: ({ accessToken, refreshToken }) => {
-    writeKey(ACCESS_KEY, accessToken);
-    writeKey(REFRESH_KEY, refreshToken);
-    set({ accessToken, refreshToken });
+  setTokens: ({ accessToken }) => {
+    set({ accessToken, refreshToken: null, cookieAuthCandidate: false });
+  },
+  markCookieAuthenticated: () => {
+    set({
+      accessToken: COOKIE_AUTH_ACCESS_TOKEN,
+      refreshToken: null,
+      cookieAuthCandidate: false,
+    });
   },
   clear: () => {
-    writeKey(ACCESS_KEY, null);
-    writeKey(REFRESH_KEY, null);
-    set({ accessToken: null, refreshToken: null });
+    set({ accessToken: null, refreshToken: null, cookieAuthCandidate: false });
   },
 }));
 
@@ -100,5 +96,12 @@ export function useRefreshToken(): string | null {
   const subscribe = useTokenStore.subscribe;
   const getSnapshot = () => useTokenStore.getState().refreshToken;
   const getServerSnapshot = () => null;
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+}
+
+export function useCookieAuthCandidate(): boolean {
+  const subscribe = useTokenStore.subscribe;
+  const getSnapshot = () => useTokenStore.getState().cookieAuthCandidate;
+  const getServerSnapshot = () => false;
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }

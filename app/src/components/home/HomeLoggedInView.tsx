@@ -6,6 +6,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   CrimpIcon,
   PrimaryButton,
+  SecondaryButton,
   Skeleton,
 } from '@/components/common/primitives';
 import { useMeQuery } from '@/hooks/queries/useMe';
@@ -123,6 +124,12 @@ export function HomeLoggedInView({
       >
         {t('home.ctaStartSession')}
       </PrimaryButton>
+      <SecondaryButton
+        onPress={() => navigation.navigate('GymSearch')}
+        accessibilityLabel={t('home.ctaFindGym')}
+      >
+        {t('home.ctaFindGym')}
+      </SecondaryButton>
 
       {stats && stats.totalSessions === 0 ? (
         <View style={styles.emptyBlock}>

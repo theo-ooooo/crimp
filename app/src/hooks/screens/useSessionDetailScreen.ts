@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Alert, Platform } from 'react-native';
 
 import { useAttemptsQuery } from '@/hooks/queries/useAttempts';
@@ -7,11 +7,24 @@ import { toUserMessage } from '@/lib/api/errorMessage';
 import { ApiError } from '@/lib/api/errors';
 import type { CapturedMedia } from '@/lib/camera/types';
 import { t } from '@/lib/i18n';
-import { MediaUploadError, uploadCapturedMedia } from '@/lib/media/upload';
+import {
+  MediaUploadError,
+  uploadCapturedMedia,
+  uploadVideoWithOptionalPoster,
+} from '@/lib/media/upload';
 import type { Attempt } from '@/lib/schemas/attempt';
 import type { CameraMode } from '@/components/common/session';
 
-export function useSessionDetailScreen(accessToken: string, extId: string) {
+type PendingMediaUpload = {
+  media: CapturedMedia;
+  poster: CapturedMedia | null;
+};
+
+export function useSessionDetailScreen(
+  accessToken: string,
+  extId: string,
+  onSessionEnded?: () => void,
+) {
   const sessionQuery = useSessionQuery(accessToken, extId);
   const attemptsQuery = useAttemptsQuery(accessToken, extId);
   const endSession = useEndSession(accessToken);
@@ -26,6 +39,10 @@ export function useSessionDetailScreen(accessToken: string, extId: string) {
     'idle',
   );
   const [uploadedMediaId, setUploadedMediaId] = useState<number | null>(null);
+  const [pendingMediaUpload, setPendingMediaUpload] = useState<PendingMediaUpload | null>(null);
+  const [mediaUploadError, setMediaUploadError] = useState<string | null>(null);
+  const [videoAwaitingPoster, setVideoAwaitingPoster] = useState<CapturedMedia | null>(null);
+  const pendingVideoForPosterRef = useRef<CapturedMedia | null>(null);
 
   const session = sessionQuery.data;
   const attempts: Attempt[] = attemptsQuery.data?.items ?? [];
@@ -41,8 +58,22 @@ export function useSessionDetailScreen(accessToken: string, extId: string) {
   // 보관하다 onDismiss 안에서 flush. Android 는 nested Modal 허용이라 즉시 실행.
   const pendingCameraModeRef = useRef<CameraMode | null>(null);
   const pendingLogReopenRef = useRef<boolean>(false);
+  // (PR #123) 비디오 캡처 → 카메라 dismiss → VideoPosterModal 시리얼라이즈.
+  // CameraSheet 가 닫히는 동안 VideoPosterModal 을 present 하면 iOS 가 거절 →
+  // 모달 자체가 안 떠 사용자가 "선택 불가능" 으로 인식.
+  const pendingPosterAfterCameraRef = useRef<CapturedMedia | null>(null);
+  // VideoPosterModal 이 닫힌 후 LogAttemptSheet 를 다시 띄울지 플래그.
+  const pendingLogReopenAfterPosterRef = useRef<boolean>(false);
 
   const openCamera = (mode: CameraMode) => {
+    // [PR #123 리뷰 I7] 카메라 새 세션 진입 시 이전 흐름의 pending ref 를 모두 초기화한다.
+    // 사용자가 비디오 캡처 → poster 모달 도중 앱 백그라운드 → 복귀 → onCameraDismissed 미발화 →
+    // pendingPosterAfterCameraRef 가 stale 로 남는 케이스를 방어. 다음 카메라 오픈 시 stale ref
+    // 가 잘못된 시점에 flush 되는 것을 차단.
+    pendingPosterAfterCameraRef.current = null;
+    pendingLogReopenAfterPosterRef.current = false;
+    pendingVideoForPosterRef.current = null;
+    pendingLogReopenRef.current = false;
     if (Platform.OS === 'android') {
       setCameraMode(mode);
       setLogSheetOpen(false);
@@ -80,13 +111,109 @@ export function useSessionDetailScreen(accessToken: string, extId: string) {
   };
 
   const onCameraDismissed = () => {
+    // 비디오 캡처 후 포스터 선택 모달 → 카메라 닫힘이 끝난 시점에 시리얼라이즈로 띄움.
+    if (pendingPosterAfterCameraRef.current) {
+      const captured = pendingPosterAfterCameraRef.current;
+      pendingPosterAfterCameraRef.current = null;
+      setVideoAwaitingPoster(captured);
+      return;
+    }
     if (pendingLogReopenRef.current) {
       pendingLogReopenRef.current = false;
       setLogSheetOpen(true);
     }
   };
 
+  // VideoPosterModal 이 닫힌 후 LogAttemptSheet 를 시리얼라이즈로 띄움 (iOS).
+  const onPosterModalDismissed = () => {
+    if (pendingLogReopenAfterPosterRef.current) {
+      pendingLogReopenAfterPosterRef.current = false;
+      setLogSheetOpen(true);
+    }
+  };
+
+  const runMediaUpload = useCallback(
+    async (upload: PendingMediaUpload) => {
+      setPendingMediaUpload(upload);
+      setMediaUploadError(null);
+      setMediaPhase('compressing');
+      try {
+        const completed =
+          upload.media.kind === 'VIDEO'
+            ? await uploadVideoWithOptionalPoster(accessToken, upload.media, upload.poster, {
+                onPhase: (phase) => setMediaPhase(phase),
+              })
+            : await uploadCapturedMedia(accessToken, upload.media, {
+                onPhase: (phase) => setMediaPhase(phase),
+              });
+        setUploadedMediaId(completed.id);
+        setPendingMediaUpload(null);
+        setMediaUploadError(null);
+      } catch (e) {
+        const body = describeMediaUploadFailure(e);
+        setMediaUploadError(body);
+        Alert.alert(t('session.log.uploadFailed'), body);
+      } finally {
+        setMediaPhase('idle');
+      }
+    },
+    [accessToken],
+  );
+
+  const retryMediaUpload = useCallback(() => {
+    if (!pendingMediaUpload || mediaPhase !== 'idle') {
+      return;
+    }
+    runMediaUpload(pendingMediaUpload).catch(() => {});
+  }, [pendingMediaUpload, mediaPhase, runMediaUpload]);
+
+  const clearMediaAttachment = useCallback(() => {
+    setUploadedMediaId(null);
+    setPendingMediaUpload(null);
+    setMediaUploadError(null);
+  }, []);
+
+  const onPosterUploadRequest = useCallback(
+    (poster: CapturedMedia | null) => {
+      const v = pendingVideoForPosterRef.current;
+      pendingVideoForPosterRef.current = null;
+      // iOS 는 VideoPosterModal 이 dismiss 되는 동안 LogAttemptSheet 를 또 띄우면 거절 —
+      // pending 플래그 두고 onPosterModalDismissed 에서 띄움. Android 는 nested OK 라 즉시.
+      if (Platform.OS === 'ios') {
+        pendingLogReopenAfterPosterRef.current = true;
+      }
+      setVideoAwaitingPoster(null);
+      if (Platform.OS === 'android') {
+        setLogSheetOpen(true);
+      }
+      if (!v) {
+        return;
+      }
+      runMediaUpload({ media: v, poster }).catch(() => {});
+    },
+    [runMediaUpload],
+  );
+
   const handleCaptured = async (captured: CapturedMedia) => {
+    if (captured.kind === 'VIDEO') {
+      pendingVideoForPosterRef.current = captured;
+      if (Platform.OS === 'ios') {
+        // iOS: CameraSheet dismiss 가 끝난 뒤에 VideoPosterModal 을 띄움.
+        // 동시 present 시 iOS RCTModalHostViewController 가 거절 → 모달이 안 떠
+        // 사용자가 "선택 불가능" 으로 인식하던 회귀 차단.
+        pendingLogReopenRef.current = false;
+        pendingPosterAfterCameraRef.current = captured;
+        setCameraOpen(false);
+        setLogSheetOpen(false);
+        return;
+      }
+      // Android: nested modal 허용이라 즉시 전환.
+      setCameraOpen(false);
+      setLogSheetOpen(false);
+      setVideoAwaitingPoster(captured);
+      return;
+    }
+
     if (Platform.OS === 'ios') {
       pendingLogReopenRef.current = true;
     }
@@ -94,37 +221,19 @@ export function useSessionDetailScreen(accessToken: string, extId: string) {
     if (Platform.OS === 'android') {
       setLogSheetOpen(true);
     }
-    setMediaPhase('compressing');
-    try {
-      const completed = await uploadCapturedMedia(accessToken, captured, {
-        onPhase: (phase) => setMediaPhase(phase),
-      });
-      setUploadedMediaId(completed.id);
-    } catch (e) {
-      let body: string;
-      if (e instanceof ApiError) {
-        body = toUserMessage(e);
-      } else if (e instanceof MediaUploadError) {
-        body =
-          e.phase === 'local-read'
-            ? t('error.uploadLocalRead')
-            : e.phase === 'network'
-              ? t('error.uploadNetwork')
-              : t('error.uploadS3');
-      } else {
-        body = t('session.log.uploadFailedRetry');
-      }
-      Alert.alert(t('session.log.uploadFailed'), body);
-    } finally {
-      setMediaPhase('idle');
-    }
+    await runMediaUpload({ media: captured, poster: null });
   };
 
   const endSessionAction = () => {
     if (!session) {
       return;
     }
-    endSession.endSession(session.extId).catch(() => {});
+    endSession
+      .endSession(session.extId)
+      .then(() => {
+        onSessionEnded?.();
+      })
+      .catch(() => {});
   };
 
   return {
@@ -142,12 +251,31 @@ export function useSessionDetailScreen(accessToken: string, extId: string) {
     setCameraMode,
     mediaPhase,
     uploadedMediaId,
-    setUploadedMediaId,
+    mediaUploadError,
+    retryMediaUpload,
+    clearMediaAttachment,
     openCamera,
     closeCamera,
     onLogSheetDismissed,
     onCameraDismissed,
     handleCaptured,
     endSessionAction,
+    videoAwaitingPoster,
+    onPosterUploadRequest,
+    onPosterModalDismissed,
   };
+}
+
+function describeMediaUploadFailure(e: unknown): string {
+  if (e instanceof ApiError) {
+    return toUserMessage(e);
+  }
+  if (e instanceof MediaUploadError) {
+    return e.phase === 'local-read'
+      ? t('error.uploadLocalRead')
+      : e.phase === 'network'
+        ? t('error.uploadNetwork')
+        : t('error.uploadS3');
+  }
+  return t('session.log.uploadFailedRetry');
 }

@@ -17,10 +17,13 @@ import java.util.List;
  *                     케이스는 {@link #queryKeywords} 사용 권장.
  * @param queryKeywords (다중) 매장 검색 키워드 목록 (PR #111). 비어있으면 {@link #queryKeyword}
  *                      한 개로 fallback. Kakao 가 같은 매장을 여러 표기로 등록하는 케이스를
- *                      포괄하기 위해 ["클라이밍", "볼더링", "암벽"] 등 다중 호출 후 union dedup.
+ *                      포괄하기 위해 ["더클라임", "클라이밍파크", "볼더프렌즈"] 등
+ *                      브랜드/상호명 중심 다중 호출 후 union dedup.
  * @param pageSize 1 호출당 결과 수. Kakao 최대 15.
  * @param maxPages 한 좌표·키워드 호출에서 최대 몇 페이지까지 가져올지 (페이지네이션).
- *                 PR #111 기본값 3 → 5 상향 (밀집 지역 누락 회피).
+ *                 Kakao Local keyword search 의 page 허용 범위는 1..45 이므로 그 이상은 45로 제한.
+ * @param requestDelayMs Kakao Local 요청 사이 지연(ms). 기본 0. 운영에서 짧은 rate limit 에
+ *                       걸리면 100~300ms 정도로 조정한다.
  */
 @ConfigurationProperties(prefix = "app.gym-sync.kakao-local")
 public record KakaoLocalProperties(
@@ -30,11 +33,13 @@ public record KakaoLocalProperties(
         String queryKeyword,
         List<String> queryKeywords,
         Integer pageSize,
-        Integer maxPages
+        Integer maxPages,
+        Long requestDelayMs
 ) {
 
     private static final List<String> DEFAULT_KEYWORDS = List.of(
-            "클라이밍", "볼더링", "암벽", "클라이밍짐"
+            "더클라임", "클라이밍파크", "볼더프렌즈", "손상원클라이밍", "서울숲클라이밍",
+            "손상원", "비블럭", "오프더월", "캐치스톤", "웨이브락", "오프더월클라이밍"
     );
 
     public String resolvedBaseUrl() {
@@ -78,6 +83,13 @@ public record KakaoLocalProperties(
     }
 
     public int resolvedMaxPages() {
-        return maxPages != null && maxPages > 0 ? maxPages : 5;
+        if (maxPages == null || maxPages <= 0) {
+            return 2;
+        }
+        return Math.min(maxPages, 45);
+    }
+
+    public long resolvedRequestDelayMs() {
+        return requestDelayMs != null && requestDelayMs > 0 ? requestDelayMs : 0L;
     }
 }

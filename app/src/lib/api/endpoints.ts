@@ -25,11 +25,45 @@ import {
   type LikeToggleResponse,
 } from '@/lib/schemas/feed';
 import {
+  CrewDetailSchema,
+  CrewJoinRequestListSchema,
+  CrewJoinRequestSchema,
+  CrewListSchema,
+  CrewMemberListSchema,
+  CrewMeetupListSchema,
+  CrewMeetupSchema,
+  MeetupParticipantListSchema,
+  MeetupParticipantSchema,
+  type CreateCrewBody,
+  type CreateCrewJoinRequestBody,
+  type CreateCrewMeetupBody,
+  type CrewDetail,
+  type CrewJoinRequest,
+  type CrewJoinRequestList,
+  type CrewJoinRequestStatus,
+  type CrewList,
+  type CrewMemberList,
+  type CrewMeetup,
+  type CrewMeetupList,
+  type CrewLevelBand,
+  type CrewStyle,
+  type JoinMeetupBody,
+  type MeetupListFilters,
+  type MeetupParticipant,
+  type MeetupParticipantList,
+  type UpdateCrewBody,
+  type UpdateCrewMeetupBody,
+} from '@/lib/schemas/crew';
+import {
   GymDetailSchema,
+  GymActiveSessionsSchema,
   GymListSchema,
+  GymRecentActivitySchema,
   RouteListSchema,
   type GymDetail,
+  type GymActiveSessions,
   type GymList,
+  type GymRecentActivity,
   type RouteList,
 } from '@/lib/schemas/gym';
 import {
@@ -41,6 +75,7 @@ import {
   PresignResponseSchema,
   type CompleteResponse,
   type MediaKind,
+  type MediaUsage,
   type PresignResponse,
 } from '@/lib/schemas/media';
 import { MeSchema, type Me, type UpdateProfileBody } from '@/lib/schemas/me';
@@ -57,7 +92,7 @@ import {
 import { apiRequest } from './client';
 
 function buildQueryString(
-  entries: Array<[key: string, value: string | number | null | undefined]>,
+  entries: Array<[key: string, value: string | number | boolean | null | undefined]>,
 ): string {
   const parts: string[] = [];
   for (const [key, value] of entries) {
@@ -142,7 +177,21 @@ export function fetchMe(
     method: 'GET',
     path: '/api/v1/me',
     accessToken,
-    schema: MeSchema,
+    schema: MeSchema as z.ZodType<Me>,
+    signal,
+  });
+}
+
+/** `DELETE /api/v1/me` — 내 계정 탈퇴. 서버에서 계정을 soft-delete 하고 refresh token 을 폐기한다. */
+export function deleteMe(
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  return apiRequest({
+    method: 'DELETE',
+    path: '/api/v1/me',
+    accessToken,
+    schema: z.void(),
     signal,
   });
 }
@@ -167,7 +216,7 @@ export function updateMyProfile(
     path: '/api/v1/me/profile',
     accessToken,
     body,
-    schema: MeSchema,
+    schema: MeSchema as z.ZodType<Me>,
     signal,
   });
 }
@@ -434,6 +483,431 @@ export function fetchGymRoutes(
   });
 }
 
+/** `GET /api/v1/gyms/{gymExtId}/recent-activity?size=` — 최근 활동 N건. */
+export function fetchGymRecentActivity(
+  gymExtId: string,
+  size?: number,
+  signal?: AbortSignal,
+): Promise<GymRecentActivity> {
+  const qs = buildQueryString([
+    ['size', size],
+  ]);
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/gyms/${encodeURIComponent(gymExtId)}/recent-activity${qs ? `?${qs}` : ''}`,
+    schema: GymRecentActivitySchema,
+    signal,
+  });
+}
+
+/** `GET /api/v1/gyms/{gymExtId}/active-sessions` — 현재 운동중 현황. */
+export function fetchGymActiveSessions(
+  gymExtId: string,
+  signal?: AbortSignal,
+): Promise<GymActiveSessions> {
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/gyms/${encodeURIComponent(gymExtId)}/active-sessions`,
+    schema: GymActiveSessionsSchema,
+    signal,
+  });
+}
+
+// ===== Crews =====
+
+export type CrewListFilters = {
+  q?: string;
+  region?: string;
+  gymExtId?: string;
+  levelBand?: CrewLevelBand;
+  style?: CrewStyle;
+};
+
+/** `GET /api/v1/crews` — 공개 크루 목록. 인증 사용자 기준 myStatus 포함. */
+export function fetchCrews(
+  accessToken: string,
+  cursor?: number | null,
+  filters: CrewListFilters = {},
+  size?: number,
+  signal?: AbortSignal,
+): Promise<CrewList> {
+  const qs = buildQueryString([
+    ['cursor', cursor],
+    ['q', filters.q && filters.q.length > 0 ? filters.q : undefined],
+    ['region', filters.region && filters.region.length > 0 ? filters.region : undefined],
+    ['gymExtId', filters.gymExtId && filters.gymExtId.length > 0 ? filters.gymExtId : undefined],
+    ['levelBand', filters.levelBand],
+    ['style', filters.style],
+    ['size', size],
+  ]);
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/crews${qs ? `?${qs}` : ''}`,
+    accessToken,
+    schema: CrewListSchema as z.ZodType<CrewList>,
+    signal,
+  });
+}
+
+/** `GET /api/v1/crews/{extId}` — 크루 상세. */
+export function fetchCrew(
+  accessToken: string,
+  extId: string,
+  signal?: AbortSignal,
+): Promise<CrewDetail> {
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/crews/${encodeURIComponent(extId)}`,
+    accessToken,
+    schema: CrewDetailSchema as z.ZodType<CrewDetail>,
+    signal,
+  });
+}
+
+/** `POST /api/v1/crews` — 크루 생성. */
+export function createCrew(
+  accessToken: string,
+  body: CreateCrewBody,
+  signal?: AbortSignal,
+): Promise<CrewDetail> {
+  return apiRequest({
+    method: 'POST',
+    path: '/api/v1/crews',
+    accessToken,
+    body,
+    schema: CrewDetailSchema as z.ZodType<CrewDetail>,
+    signal,
+  });
+}
+
+/** `PATCH /api/v1/crews/{extId}` — 크루 기본 정보 수정. */
+export function updateCrew(
+  accessToken: string,
+  extId: string,
+  body: UpdateCrewBody,
+  signal?: AbortSignal,
+): Promise<CrewDetail> {
+  return apiRequest({
+    method: 'PATCH',
+    path: `/api/v1/crews/${encodeURIComponent(extId)}`,
+    accessToken,
+    body,
+    schema: CrewDetailSchema as z.ZodType<CrewDetail>,
+    signal,
+  });
+}
+
+/** `POST /api/v1/crews/{extId}/join-requests` — 가입 요청 생성. */
+export function requestCrewJoin(
+  accessToken: string,
+  crewExtId: string,
+  body: CreateCrewJoinRequestBody,
+  signal?: AbortSignal,
+): Promise<CrewJoinRequest> {
+  return apiRequest({
+    method: 'POST',
+    path: `/api/v1/crews/${encodeURIComponent(crewExtId)}/join-requests`,
+    accessToken,
+    body,
+    schema: CrewJoinRequestSchema,
+    signal,
+  });
+}
+
+/** `DELETE /api/v1/crews/{extId}/join-requests/me` — 내 대기 가입 요청 취소. */
+export function cancelMyCrewJoinRequest(
+  accessToken: string,
+  crewExtId: string,
+  signal?: AbortSignal,
+): Promise<CrewJoinRequest> {
+  return apiRequest({
+    method: 'DELETE',
+    path: `/api/v1/crews/${encodeURIComponent(crewExtId)}/join-requests/me`,
+    accessToken,
+    schema: CrewJoinRequestSchema,
+    signal,
+  });
+}
+
+/** `GET /api/v1/crews/{extId}/join-requests` — 가입 요청 목록. OWNER/ADMIN 전용. */
+export function fetchCrewJoinRequests(
+  accessToken: string,
+  crewExtId: string,
+  status?: CrewJoinRequestStatus,
+  cursor?: number | null,
+  size?: number,
+  signal?: AbortSignal,
+): Promise<CrewJoinRequestList> {
+  const qs = buildQueryString([
+    ['status', status],
+    ['cursor', cursor],
+    ['size', size],
+  ]);
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/crews/${encodeURIComponent(crewExtId)}/join-requests${qs ? `?${qs}` : ''}`,
+    accessToken,
+    schema: CrewJoinRequestListSchema,
+    signal,
+  });
+}
+
+export function decideCrewJoinRequest(
+  accessToken: string,
+  crewExtId: string,
+  requestExtId: string,
+  decision: 'approve' | 'reject',
+  signal?: AbortSignal,
+): Promise<CrewJoinRequest> {
+  return apiRequest({
+    method: 'POST',
+    path: `/api/v1/crews/${encodeURIComponent(crewExtId)}/join-requests/${encodeURIComponent(requestExtId)}:${decision}`,
+    accessToken,
+    schema: CrewJoinRequestSchema,
+    signal,
+  });
+}
+
+/** `GET /api/v1/crews/{extId}/members` — ACTIVE 멤버 목록. */
+export function fetchCrewMembers(
+  accessToken: string,
+  crewExtId: string,
+  cursor?: number | null,
+  size?: number,
+  signal?: AbortSignal,
+): Promise<CrewMemberList> {
+  const qs = buildQueryString([
+    ['cursor', cursor],
+    ['size', size],
+  ]);
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/crews/${encodeURIComponent(crewExtId)}/members${qs ? `?${qs}` : ''}`,
+    accessToken,
+    schema: CrewMemberListSchema,
+    signal,
+  });
+}
+
+/** `DELETE /api/v1/crews/{extId}/members/me` — 내 크루 탈퇴. */
+export function leaveCrew(
+  accessToken: string,
+  crewExtId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  return apiRequest({
+    method: 'DELETE',
+    path: `/api/v1/crews/${encodeURIComponent(crewExtId)}/members/me`,
+    accessToken,
+    schema: z.void(),
+    signal,
+  });
+}
+
+/** `DELETE /api/v1/crews/{extId}/members/{userExtId}` — 관리자 멤버 탈퇴 처리. */
+export function removeCrewMember(
+  accessToken: string,
+  crewExtId: string,
+  userExtId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  return apiRequest({
+    method: 'DELETE',
+    path: `/api/v1/crews/${encodeURIComponent(crewExtId)}/members/${encodeURIComponent(userExtId)}`,
+    accessToken,
+    schema: z.void(),
+    signal,
+  });
+}
+
+/** `GET /api/v1/crews/{extId}/meetups` — 크루 모임 목록. */
+export function fetchCrewMeetups(
+  accessToken: string,
+  crewExtId: string,
+  size?: number,
+  signal?: AbortSignal,
+): Promise<CrewMeetupList> {
+  const qs = buildQueryString([['size', size]]);
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/crews/${encodeURIComponent(crewExtId)}/meetups${qs ? `?${qs}` : ''}`,
+    accessToken,
+    schema: CrewMeetupListSchema as z.ZodType<CrewMeetupList>,
+    signal,
+  });
+}
+
+/** `POST /api/v1/crews/{extId}/meetups` — 크루 모임 생성. */
+export function createCrewMeetup(
+  accessToken: string,
+  crewExtId: string,
+  body: CreateCrewMeetupBody,
+  signal?: AbortSignal,
+): Promise<CrewMeetup> {
+  return apiRequest({
+    method: 'POST',
+    path: `/api/v1/crews/${encodeURIComponent(crewExtId)}/meetups`,
+    accessToken,
+    body,
+    schema: CrewMeetupSchema as z.ZodType<CrewMeetup>,
+    signal,
+  });
+}
+
+/** `GET /api/v1/meetups` — 전체 모임 목록. */
+export function fetchMeetups(
+  accessToken: string,
+  size?: number,
+  filters?: MeetupListFilters,
+  signal?: AbortSignal,
+): Promise<CrewMeetupList> {
+  const qs = buildQueryString([
+    ['size', size],
+    ['near', filters?.near === true ? true : undefined],
+    ['lat', filters?.lat],
+    ['lng', filters?.lng],
+    ['levelBand', filters?.levelBand],
+    ['style', filters?.style],
+    ['outdoor', filters?.outdoor === true ? true : undefined],
+  ]);
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/meetups${qs ? `?${qs}` : ''}`,
+    accessToken,
+    schema: CrewMeetupListSchema as z.ZodType<CrewMeetupList>,
+    signal,
+  });
+}
+
+/** `GET /api/v1/meetups/{extId}` — 모임 상세. */
+export function fetchMeetup(
+  accessToken: string,
+  extId: string,
+  signal?: AbortSignal,
+): Promise<CrewMeetup> {
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/meetups/${encodeURIComponent(extId)}`,
+    accessToken,
+    schema: CrewMeetupSchema as z.ZodType<CrewMeetup>,
+    signal,
+  });
+}
+
+/** `PATCH /api/v1/meetups/{extId}` — 모임 수정. */
+export function updateMeetup(
+  accessToken: string,
+  extId: string,
+  body: UpdateCrewMeetupBody,
+  signal?: AbortSignal,
+): Promise<CrewMeetup> {
+  return apiRequest({
+    method: 'PATCH',
+    path: `/api/v1/meetups/${encodeURIComponent(extId)}`,
+    accessToken,
+    body,
+    schema: CrewMeetupSchema as z.ZodType<CrewMeetup>,
+    signal,
+  });
+}
+
+/** `POST /api/v1/meetups` — 독립/크루 모임 생성. */
+export function createMeetup(
+  accessToken: string,
+  body: CreateCrewMeetupBody,
+  signal?: AbortSignal,
+): Promise<CrewMeetup> {
+  return apiRequest({
+    method: 'POST',
+    path: '/api/v1/meetups',
+    accessToken,
+    body,
+    schema: CrewMeetupSchema as z.ZodType<CrewMeetup>,
+    signal,
+  });
+}
+
+/** `POST /api/v1/meetups/{extId}/participants/me` — 내 모임 참여/참여 요청. */
+export function joinMeetup(
+  accessToken: string,
+  extId: string,
+  body?: JoinMeetupBody,
+  signal?: AbortSignal,
+): Promise<CrewMeetup> {
+  return apiRequest({
+    method: 'POST',
+    path: `/api/v1/meetups/${encodeURIComponent(extId)}/participants/me`,
+    accessToken,
+    body: body ?? {},
+    schema: CrewMeetupSchema as z.ZodType<CrewMeetup>,
+    signal,
+  });
+}
+
+/** `DELETE /api/v1/meetups/{extId}/participants/me` — 내 모임 참여 취소. */
+export function leaveMeetup(
+  accessToken: string,
+  extId: string,
+  signal?: AbortSignal,
+): Promise<CrewMeetup> {
+  return apiRequest({
+    method: 'DELETE',
+    path: `/api/v1/meetups/${encodeURIComponent(extId)}/participants/me`,
+    accessToken,
+    schema: CrewMeetupSchema as z.ZodType<CrewMeetup>,
+    signal,
+  });
+}
+
+/** `DELETE /api/v1/meetups/{extId}` — 모임 삭제. */
+export function deleteMeetup(
+  accessToken: string,
+  extId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  return apiRequest({
+    method: 'DELETE',
+    path: `/api/v1/meetups/${encodeURIComponent(extId)}`,
+    accessToken,
+    schema: z.void(),
+    signal,
+  });
+}
+
+/** `GET /api/v1/meetups/{extId}/participants` — 모임 참여자/요청 목록. */
+export function fetchMeetupParticipants(
+  accessToken: string,
+  extId: string,
+  status?: 'ACTIVE' | 'PENDING',
+  signal?: AbortSignal,
+): Promise<MeetupParticipantList> {
+  const qs = buildQueryString([['status', status]]);
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/meetups/${encodeURIComponent(extId)}/participants${qs ? `?${qs}` : ''}`,
+    accessToken,
+    schema: MeetupParticipantListSchema as z.ZodType<MeetupParticipantList>,
+    signal,
+  });
+}
+
+/** `POST /api/v1/meetups/{extId}/participants/{userExtId}:approve|reject` — 모임 참여 요청 결정. */
+export function decideMeetupParticipant(
+  accessToken: string,
+  extId: string,
+  userExtId: string,
+  decision: 'approve' | 'reject',
+  signal?: AbortSignal,
+): Promise<MeetupParticipant> {
+  return apiRequest({
+    method: 'POST',
+    path: `/api/v1/meetups/${encodeURIComponent(extId)}/participants/${encodeURIComponent(userExtId)}:${decision}`,
+    accessToken,
+    schema: MeetupParticipantSchema as z.ZodType<MeetupParticipant>,
+    signal,
+  });
+}
+
 // ===== Social (좋아요·댓글) =====
 
 /**
@@ -531,7 +1005,7 @@ export function deleteComment(
  */
 export function presignMedia(
   accessToken: string,
-  body: { kind: MediaKind; mime: string; byteSize: number },
+  body: { kind: MediaKind; usage?: MediaUsage; mime: string; byteSize: number },
   signal?: AbortSignal,
 ): Promise<PresignResponse> {
   return apiRequest({
@@ -545,8 +1019,8 @@ export function presignMedia(
 }
 
 /**
- * `POST /api/v1/media/{id}/complete` — S3 PUT 성공 후 호출. UPLOADING → READY 전환 +
- * cdnUrl 채워짐. 본인 소유 X 시 403, UPLOADING 외 상태에서 호출 시 409.
+ * `POST /api/v1/media/{id}/complete` — S3 PUT 성공 후 호출. UPLOADING → READY 전환.
+ * 대표 variant 가 준비된 경우에만 cdnUrl 이 채워짐. 본인 소유 X 시 403, UPLOADING 외 상태에서 호출 시 409.
  */
 export function completeMedia(
   accessToken: string,
@@ -556,6 +1030,8 @@ export function completeMedia(
     width: number | null;
     height: number | null;
     durationMs: number | null;
+    /** IMAGE 완료 시: 이 id 의 VIDEO(이미 READY)에 대표 썸네일로 연결 */
+    attachAsPosterForVideoId?: number;
   },
   signal?: AbortSignal,
 ): Promise<CompleteResponse> {

@@ -34,6 +34,11 @@ export const GymItemSchema = z.object({
   address: z.string().nullable(),
   lat: z.number().nullable(),
   lng: z.number().nullable(),
+  rating: z.number().nullable(),
+  sendCount: z.number(),
+  monthlyUserCount: z.number(),
+  // [PR-G1] 검색이 lat/lng query param 으로 호출됐을 때만 채워짐 (m). 미사용 시 null.
+  distanceMeters: z.number().nullable(),
 });
 
 export type GymItem = z.infer<typeof GymItemSchema>;
@@ -58,6 +63,9 @@ export const GymDetailSchema = z.object({
   openingHoursJson: z.string().nullable(),
   settingCycleDays: z.number().int().nullable(),
   featuresJson: z.string().nullable(),
+  rating: z.number().nullable(),
+  sendCount: z.number(),
+  monthlyUserCount: z.number(),
 });
 
 export type GymDetail = z.infer<typeof GymDetailSchema>;
@@ -84,3 +92,36 @@ export const RouteListSchema = z.object({
 });
 
 export type RouteList = z.infer<typeof RouteListSchema>;
+
+// ===== Gym 현재 세션 / 최근 활동 =====
+
+export const GymActiveSessionsBucketSchema = z.object({
+  grade: z.string(),
+  count: z.number(),
+});
+
+export type GymActiveSessionsBucket = z.infer<typeof GymActiveSessionsBucketSchema>;
+
+export const GymActiveSessionsSchema = z.object({
+  activeUsers: z.number(),
+  gradeBuckets: z.array(GymActiveSessionsBucketSchema),
+});
+
+export type GymActiveSessions = z.infer<typeof GymActiveSessionsSchema>;
+
+export const GymRecentActivityItemSchema = z.object({
+  userExtId: z.string().nullable().optional(),
+  nickname: z.string(),
+  avatarColorHue: z.number(),
+  gradeValue: z.string(),
+  result: z.enum(['SEND', 'FLASH', 'ONSIGHT', 'TRY', 'FAIL']),
+  loggedAt: z.string(),
+});
+
+export type GymRecentActivityItem = z.infer<typeof GymRecentActivityItemSchema>;
+
+export const GymRecentActivitySchema = z.object({
+  items: z.array(GymRecentActivityItemSchema),
+});
+
+export type GymRecentActivity = z.infer<typeof GymRecentActivitySchema>;

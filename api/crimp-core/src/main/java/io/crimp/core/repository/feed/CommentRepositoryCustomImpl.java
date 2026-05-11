@@ -3,6 +3,7 @@ package io.crimp.core.repository.feed;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.Projections;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import io.crimp.core.entity.enums.UserStatus;
 import io.crimp.core.entity.feed.QComment;
 import io.crimp.core.entity.user.QProfile;
 import io.crimp.core.entity.user.QUser;
@@ -50,7 +51,8 @@ public class CommentRepositoryCustomImpl implements CommentRepositoryCustom {
                         p.nickname,
                         c.content,
                         c.createdAt,
-                        parent.extId))
+                        parent.extId,
+                        u.deletedAt.isNotNull().or(u.status.eq(UserStatus.DELETED))))
                 .from(c)
                 .join(u).on(c.userId.eq(u.id))
                 .leftJoin(p).on(p.userId.eq(u.id))

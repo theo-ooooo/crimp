@@ -11,7 +11,7 @@ import { useTokenStore } from '@/store/tokenStore';
  *
  * - Query client 는 컴포넌트 마운트 시 1회만 생성해 Fast Refresh 간 유지.
  * - Devtools 는 개발 환경(`process.env.NODE_ENV === 'development'`)에서만 마운트.
- * - Mount 직후 token store 를 hydrate 해 localStorage 값을 클라이언트 상태에 반영.
+ * - Mount 직후 token store 를 hydrate 해 HttpOnly 쿠키 인증 시도 상태를 만든다.
  */
 export function QueryProvider({ children }: { children: ReactNode }): JSX.Element {
   const [queryClient] = useState(

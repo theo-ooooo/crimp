@@ -8,6 +8,7 @@ import io.crimp.api.security.CrimpPrincipal;
 import io.crimp.common.response.ApiResponse;
 import io.crimp.core.entity.enums.MediaKind;
 import io.crimp.core.entity.enums.MediaStatus;
+import io.crimp.core.entity.enums.MediaUsage;
 import io.crimp.domain.media.MediaException;
 import io.crimp.domain.media.MediaService;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,17 +45,18 @@ class MediaControllerTest {
 
     @Test
     void presign_image_jpeg_returnsUploadUrl() {
-        when(service.presignUpload(eq(7L), eq(MediaKind.IMAGE), eq("image/jpeg"), eq(12345L)))
+        when(service.presignUpload(eq(7L), eq(MediaKind.IMAGE), eq(MediaUsage.AVATAR), eq("image/jpeg"), eq(12345L)))
                 .thenReturn(new MediaService.PresignResult(
                         42L, "01HMEDIA", "https://s3.test/presigned",
                         "media/2026-04-28/01HMEDIA.jpg",
-                        Instant.parse("2026-04-28T14:00:00Z"), "image/jpeg"));
+                        Instant.parse("2026-04-28T14:00:00Z"), "image/jpeg", MediaUsage.AVATAR));
 
-        PresignResponse res = controller.presign(USER, new PresignRequest("IMAGE", "image/jpeg", 12345L));
+        PresignResponse res = controller.presign(USER, new PresignRequest("IMAGE", "AVATAR", "image/jpeg", 12345L));
 
         assertThat(res.id()).isEqualTo(42L);
         assertThat(res.uploadUrl()).isEqualTo("https://s3.test/presigned");
-        assertThat(res.s3Key()).startsWith("media/");
+        assertThat(res.originalPath()).startsWith("media/");
+        assertThat(res.usage()).isEqualTo("AVATAR");
     }
 
     @Test
@@ -67,23 +69,30 @@ class MediaControllerTest {
 
     @Test
     void complete_returnsCdnUrl_andS3Key() {
-        when(service.completeUpload(eq(42L), eq(7L), eq(12345L), eq(1920), eq(1080), eq(null)))
+        when(service.completeUpload(eq(42L), eq(7L), eq(12345L), eq(1920), eq(1080), eq(null), eq(null)))
                 .thenReturn(new MediaService.CompleteResult(
                         42L, "01HMEDIA", MediaKind.IMAGE, MediaStatus.READY,
-                        "image/jpeg", 12345L, 1920, 1080, null,
+                        MediaUsage.ATTEMPT, "image/jpeg", 12345L, 1920, 1080, null,
                         "media/2026-04-28/01HMEDIA.jpg",
+                        "media/2026-04-28/01HMEDIA.jpg",
+                        "https://cdn.test/media/2026-04-28/01HMEDIA.jpg",
+                        "https://cdn.test/media/2026-04-28/01HMEDIA.jpg",
                         "https://cdn.test/media/2026-04-28/01HMEDIA.jpg", null,
                         Instant.parse("2026-04-28T13:00:00Z")));
 
         CompleteResponse res = controller.complete(USER, 42L,
-                new CompleteRequest(12345L, 1920, 1080, null));
+                new CompleteRequest(12345L, 1920, 1080, null, null));
 
         assertThat(res.id()).isEqualTo(42L);
         assertThat(res.status()).isEqualTo("READY");
         assertThat(res.cdnUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA.jpg");
-        // [PR #90 리뷰 I1] s3Key 가 응답에 포함되어야 함.
+        // s3Key 는 기존 앱 호환 alias 로 유지, 신규 필드는 originalPath.
         assertThat(res.s3Key()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
-        verify(service).completeUpload(42L, 7L, 12345L, 1920, 1080, null);
+        assertThat(res.originalPath()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
+        assertThat(res.originalUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA.jpg");
+        assertThat(res.variantPath()).isEqualTo("media/2026-04-28/01HMEDIA.jpg");
+        assertThat(res.variantUrl()).isEqualTo("https://cdn.test/media/2026-04-28/01HMEDIA.jpg");
+        verify(service).completeUpload(42L, 7L, 12345L, 1920, 1080, null, null);
     }
 
     @Test

@@ -15,6 +15,7 @@ import java.time.Instant;
  * @param content         댓글 본문
  * @param createdAt       작성 시각
  * @param parentExtId     부모 댓글 ext_id (top-level 이면 null)
+ * @param userDeleted     작성자 계정 탈퇴 여부
  */
 public record CommentRow(
         long commentId,
@@ -24,5 +25,6 @@ public record CommentRow(
         String userNickname,
         String content,
         Instant createdAt,
-        String parentExtId
+        String parentExtId,
+        boolean userDeleted
 ) {}

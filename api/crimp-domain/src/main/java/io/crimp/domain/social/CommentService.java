@@ -28,6 +28,8 @@ import java.util.Optional;
 @Profile("!test")
 public class CommentService {
 
+    private static final String DELETED_USER_NICKNAME = "탈퇴사용자";
+    private static final int DELETED_USER_AVATAR_HUE = 0;
     private static final int DEFAULT_PAGE_SIZE = 20;
     private static final int MAX_PAGE_SIZE = 50;
     private static final int MAX_CONTENT_LENGTH = 1000;
@@ -163,6 +165,16 @@ public class CommentService {
     }
 
     private static CommentView toView(CommentRow row) {
+        if (row.userDeleted()) {
+            return new CommentView(
+                    row.commentExtId(),
+                    null,
+                    DELETED_USER_NICKNAME,
+                    DELETED_USER_AVATAR_HUE,
+                    row.content(),
+                    row.createdAt(),
+                    row.parentExtId());
+        }
         return new CommentView(
                 row.commentExtId(),
                 row.userExtId(),

@@ -4,6 +4,7 @@ import {
   BackHandler,
   Easing,
   Modal as RNModal,
+  Platform,
   Pressable,
   StyleSheet,
   View,
@@ -60,6 +61,8 @@ export type CrimpModalProps = {
    * 부활시키도록 타입에서 제거. 기본 'fade' 도 fade + 가벼운 translateY 를 같이 한다.
    */
   animationType?: 'fade' | 'none';
+  /** exit 애니메이션이 끝나 RN Modal 이 완전히 내려간 직후 호출. */
+  onDismissed?: () => void;
   testID?: string;
 };
 
@@ -76,6 +79,7 @@ export function CrimpModal({
   dismissOnBackdrop,
   contentStyle,
   animationType = 'fade',
+  onDismissed,
   testID,
 }: CrimpModalProps): JSX.Element | null {
   const theme = useTokens();
@@ -104,12 +108,17 @@ export function CrimpModal({
   // 있음. visible 변경 시 use*Ref.current 는 최신 값을 보장.
   const reducedMotionRef = useRef(reducedMotion);
   const animationTypeRef = useRef(animationType);
+  const onDismissedRef = useRef(onDismissed);
+  const pendingNativeDismissRef = useRef(false);
   useEffect(() => {
     reducedMotionRef.current = reducedMotion;
   }, [reducedMotion]);
   useEffect(() => {
     animationTypeRef.current = animationType;
   }, [animationType]);
+  useEffect(() => {
+    onDismissedRef.current = onDismissed;
+  }, [onDismissed]);
 
   useEffect(() => {
     const useReduced = reducedMotionRef.current || animationTypeRef.current === 'none';
@@ -151,6 +160,11 @@ export function CrimpModal({
       }),
     ]).start(({ finished }) => {
       if (finished) {
+        if (Platform.OS === 'ios') {
+          pendingNativeDismissRef.current = true;
+        } else {
+          onDismissedRef.current?.();
+        }
         setMounted(false);
       }
     });
@@ -188,11 +202,20 @@ export function CrimpModal({
   const contentVariantStyle =
     variant === 'centered' ? styles.centered : styles.fullscreen;
 
+  const handleNativeDismiss = () => {
+    if (!pendingNativeDismissRef.current) {
+      return;
+    }
+    pendingNativeDismissRef.current = false;
+    onDismissedRef.current?.();
+  };
+
   return (
     <RNModal
       visible
       transparent
       animationType="none"
+      onDismiss={handleNativeDismiss}
       onRequestClose={onRequestClose}
       statusBarTranslucent
       testID={testID}

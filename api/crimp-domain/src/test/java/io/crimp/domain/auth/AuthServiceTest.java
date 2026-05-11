@@ -107,6 +107,34 @@ class AuthServiceTest {
     }
 
     @Test
+    void exchange_existingDeletedUser_createsFreshUserAndRelinksIdentity() {
+        OauthUserInfo info = new OauthUserInfo(OauthProvider.KAKAO, "kakao-uid-1", "a@b.com", null);
+        when(kakaoVerifier.verify("valid-token")).thenReturn(info);
+
+        OauthIdentity identity = OauthIdentity.link(10L, OauthProvider.KAKAO, "kakao-uid-1");
+        setField(identity, "userId", 10L);
+        when(oauthRepo.findByProviderAndProviderUid(OauthProvider.KAKAO, "kakao-uid-1"))
+                .thenReturn(Optional.of(identity));
+
+        User existing = User.create("01HXXXXXXX", "hash", null);
+        setField(existing, "id", 10L);
+        existing.deleteAccount();
+        when(userRepo.findById(10L)).thenReturn(Optional.of(existing));
+        when(userRepo.save(any(User.class))).thenAnswer(inv -> {
+            User u = inv.getArgument(0);
+            setField(u, "id", 77L);
+            return u;
+        });
+
+        AuthTokens tokens = service.exchange(OauthProvider.KAKAO, "valid-token");
+
+        assertThat(tokens.accessToken()).isNotBlank();
+        assertThat(identity.getUserId()).isEqualTo(77L);
+        verify(userRepo).save(any(User.class));
+        verify(oauthRepo).save(identity);
+    }
+
+    @Test
     void exchange_new_user_createsUserAndIdentity() {
         OauthUserInfo info = new OauthUserInfo(OauthProvider.KAKAO, "new-uid", "n@b.com", null);
         when(kakaoVerifier.verify("valid-token")).thenReturn(info);
@@ -171,6 +199,38 @@ class AuthServiceTest {
         assertThat(tokens.accessToken()).isNotBlank();
         assertThat(tokens.refreshToken()).isNotBlank();
         verify(userRepo, never()).save(any());
+    }
+
+    @Test
+    void exchangeCode_existingDeletedUser_createsFreshUserAndRelinksIdentity() {
+        when(kakaoExchanger.exchange("auth-code-1", "https://app/callback"))
+                .thenReturn("verified-id-token");
+
+        OauthUserInfo info = new OauthUserInfo(OauthProvider.KAKAO, "kakao-uid-1", "a@b.com", null);
+        when(kakaoVerifier.verify("verified-id-token")).thenReturn(info);
+
+        OauthIdentity identity = OauthIdentity.link(10L, OauthProvider.KAKAO, "kakao-uid-1");
+        setField(identity, "userId", 10L);
+        when(oauthRepo.findByProviderAndProviderUid(OauthProvider.KAKAO, "kakao-uid-1"))
+                .thenReturn(Optional.of(identity));
+
+        User existing = User.create("01HXXXXXXX", "hash", null);
+        setField(existing, "id", 10L);
+        existing.deleteAccount();
+        when(userRepo.findById(10L)).thenReturn(Optional.of(existing));
+        when(userRepo.save(any(User.class))).thenAnswer(inv -> {
+            User u = inv.getArgument(0);
+            setField(u, "id", 88L);
+            return u;
+        });
+
+        AuthTokens tokens = service.exchangeCode(
+                OauthProvider.KAKAO, "auth-code-1", "https://app/callback");
+
+        assertThat(tokens.accessToken()).isNotBlank();
+        assertThat(identity.getUserId()).isEqualTo(88L);
+        verify(userRepo).save(any(User.class));
+        verify(oauthRepo).save(identity);
     }
 
     @Test
@@ -252,6 +312,21 @@ class AuthServiceTest {
         AuthTokens rotated = service.refresh(initial.refreshToken());
         assertThat(rotated.refreshToken()).isNotEqualTo(initial.refreshToken());
         assertThat(refreshStore.size()).isEqualTo(1); // 이전 삭제 + 새 추가 = 여전히 1
+    }
+
+    @Test
+    void refresh_deletedUser_throws_AUTH_ACCOUNT_DELETED() {
+        stubNewLogin("uid-1", 42L);
+        AuthTokens initial = service.exchange(OauthProvider.KAKAO, "token");
+
+        User user = User.create("01HUUUUUUU", null, null);
+        setField(user, "id", 42L);
+        user.deleteAccount();
+        when(userRepo.findById(42L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> service.refresh(initial.refreshToken()))
+                .isInstanceOf(AuthException.class)
+                .satisfies(e -> assertThat(((AuthException) e).code()).isEqualTo("AUTH_ACCOUNT_DELETED"));
     }
 
     @Test
@@ -373,7 +448,8 @@ class AuthServiceTest {
 
     @Test
     void exchange_apple_rawNoncePassedAsTokenNonce_throws_AUTH_INVALID() {
-        // 흔한 클라 버그 시나리오 — Apple 인데 hashing 을 안 거치고 raw 를 비교하면 mismatch.
+        // Native/id_token 직접 교환 경로는 raw nonce 를 허용하지 않는다. 토큰의 hashed nonce
+        // 클레임을 요청 nonce 로 재전송하는 replay 우회를 막기 위함.
         String rawNonce = "client-original-nonce";
 
         OauthIdTokenVerifier appleVerifier = mock(OauthIdTokenVerifier.class);
@@ -461,6 +537,36 @@ class AuthServiceTest {
         when(userRepo.save(any(User.class))).thenAnswer(inv -> {
             User u = inv.getArgument(0);
             setField(u, "id", 99L);
+            return u;
+        });
+
+        AuthTokens tokens = svc.exchangeCode(
+                OauthProvider.APPLE, "apple-code", "https://web/cb", rawNonce);
+        assertThat(tokens.accessToken()).isNotBlank();
+    }
+
+    @Test
+    void exchangeCode_apple_rawNonce_passes_for_web_code_flow() {
+        // Apple Web OIDC code flow 는 id_token nonce 에 raw nonce 를 그대로 돌려줄 수 있다.
+        String rawNonce = "client-apple-nonce";
+
+        OauthIdTokenVerifier appleVerifier = mock(OauthIdTokenVerifier.class);
+        when(appleVerifier.supports()).thenReturn(OauthProvider.APPLE);
+        when(appleVerifier.verify("apple-id-token")).thenReturn(
+                new OauthUserInfo(OauthProvider.APPLE, "apple-uid-raw", null, rawNonce));
+
+        OauthCodeExchanger appleExchanger = mock(OauthCodeExchanger.class);
+        when(appleExchanger.supports()).thenReturn(OauthProvider.APPLE);
+        when(appleExchanger.isConfigured()).thenReturn(true);
+        when(appleExchanger.exchange("apple-code", "https://web/cb")).thenReturn("apple-id-token");
+
+        AuthService svc = serviceWithAppleCodeFlow(appleVerifier, appleExchanger);
+
+        when(oauthRepo.findByProviderAndProviderUid(OauthProvider.APPLE, "apple-uid-raw"))
+                .thenReturn(Optional.empty());
+        when(userRepo.save(any(User.class))).thenAnswer(inv -> {
+            User u = inv.getArgument(0);
+            setField(u, "id", 100L);
             return u;
         });
 

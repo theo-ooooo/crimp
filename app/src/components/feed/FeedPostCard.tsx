@@ -1,6 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  FlatList,
+  Image,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -9,6 +12,7 @@ import {
   type PressableStateCallbackType,
   type ViewStyle,
 } from 'react-native';
+import Video from 'react-native-video';
 
 import {
   CrimpIcon,
@@ -130,6 +134,7 @@ export function FeedPostCard({
   const theme = useTokens();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const likeMutation = useLikeToggleMutation(accessToken ?? null);
+  const [avatarFailed, setAvatarFailed] = useState(false);
 
   const avatarBg = hueToBg(item.avatarColorHue);
   // F4: surrogate pair (예: 이모지 닉네임) 를 안전하게 첫 글리프 추출.
@@ -179,6 +184,10 @@ export function FeedPostCard({
 
   const heartColor = item.liked ? theme.semantic.danger : theme.text2;
 
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [item.avatarUrl]);
+
   return (
     <View
       style={styles.card}
@@ -187,9 +196,18 @@ export function FeedPostCard({
       {/* 헤더: 아바타 · 닉네임/메타 · ResultMark */}
       <View style={styles.header}>
         <View style={[styles.avatar, { backgroundColor: avatarBg }]}>
-          <Text style={styles.avatarChar} allowFontScaling={false}>
-            {avatarChar}
-          </Text>
+          {item.avatarUrl && !avatarFailed ? (
+            <Image
+              source={{ uri: item.avatarUrl }}
+              style={styles.avatarImage}
+              onError={() => setAvatarFailed(true)}
+              accessibilityIgnoresInvertColors
+            />
+          ) : (
+            <Text style={styles.avatarChar} allowFontScaling={false}>
+              {avatarChar}
+            </Text>
+          )}
         </View>
         <View style={styles.headerBody}>
           <Text style={styles.nickname} numberOfLines={1}>
@@ -220,6 +238,11 @@ export function FeedPostCard({
       {/* 본문 */}
       {item.note ? (
         <Text style={styles.note}>{item.note}</Text>
+      ) : null}
+
+      {/* (PR-F3) 미디어 — 비디오는 풀스크린 모달 재생, 이미지는 정적 표시 (lightbox 후속). */}
+      {item.mediaUrls.length > 0 ? (
+        <FeedCardMedia mediaUrls={item.mediaUrls} styles={styles} />
       ) : null}
 
       {/* 푸터: 좋아요 / 댓글 */}
@@ -281,6 +304,160 @@ function pressableFooterStyle({
   return pressed ? { opacity: 0.6 } : {};
 }
 
+/**
+ * (PR-F3) 피드 카드 미디어 — RN 측.
+ *
+ * - 단일: 카드 가득찬 4:5 이미지/비디오 썸네일.
+ * - 다중: 가로 FlatList (snap pagingEnabled). 카드 폭 280pt 씩.
+ * - 비디오 탭 → 풀스크린 Modal 의 react-native-video 로 재생.
+ *
+ * 모달은 카드별 useState 로 보유하지만, 빠른 연속 탭 시 iOS 의 "already presenting"
+ * 거절을 막기 위해 모듈 스코프 락 (videoModalLock) 으로 동시에 열리지 않도록 1차 가드.
+ * 단일 모달 매니저로의 전면 리팩토링은 별도 PR (F5 후속).
+ */
+let videoModalLock = false;
+
+function FeedCardMedia({
+  mediaUrls,
+  styles,
+}: {
+  mediaUrls: FeedItem['mediaUrls'];
+  styles: ReturnType<typeof makeStyles>;
+}): JSX.Element {
+  // 풀스크린 비디오 재생용 — 카드 단위에서 한 번에 한 개만 재생.
+  const [activeVideo, setActiveVideo] = useState<string | null>(null);
+
+  const closeVideo = () => {
+    videoModalLock = false;
+    setActiveVideo(null);
+  };
+
+  const onTilePress = (m: FeedItem['mediaUrls'][number]) => {
+    if (m.kind === 'VIDEO') {
+      // 다른 카드의 모달이 열려있는 중이면 무시 — iOS 동시 present 거절 회피.
+      if (videoModalLock) {
+        return;
+      }
+      videoModalLock = true;
+      setActiveVideo(m.url);
+    }
+    // 이미지 lightbox 는 후속 — 현재는 탭 무동작.
+  };
+
+  const single = mediaUrls.length === 1;
+  const Body =
+    single && mediaUrls[0] ? (
+      <View style={styles.mediaSingle}>
+        <FeedMediaTile media={mediaUrls[0]} styles={styles} onPress={onTilePress} />
+      </View>
+    ) : (
+      <FlatList
+        data={mediaUrls}
+        keyExtractor={(m, i) => `${m.url}-${i}`}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.mediaListContent}
+        renderItem={({ item: m }) => (
+          <View style={styles.mediaMultiCell}>
+            <FeedMediaTile media={m} styles={styles} onPress={onTilePress} />
+          </View>
+        )}
+      />
+    );
+
+  return (
+    <>
+      {Body}
+      <Modal
+        visible={activeVideo !== null}
+        transparent={false}
+        animationType="fade"
+        onRequestClose={() => closeVideo()}
+        statusBarTranslucent
+        supportedOrientations={['portrait', 'landscape']}
+      >
+        <View style={styles.videoModalRoot}>
+          {activeVideo ? (
+            <Video
+              source={{ uri: activeVideo }}
+              style={StyleSheet.absoluteFill}
+              controls
+              resizeMode="contain"
+              paused={false}
+              onError={() => closeVideo()}
+            />
+          ) : null}
+          <Pressable
+            onPress={() => closeVideo()}
+            accessibilityRole="button"
+            accessibilityLabel="닫기"
+            hitSlop={12}
+            style={styles.videoModalClose}
+          >
+            <Text style={styles.videoModalCloseGlyph} allowFontScaling={false}>
+              ✕
+            </Text>
+          </Pressable>
+        </View>
+      </Modal>
+    </>
+  );
+}
+
+function FeedMediaTile({
+  media,
+  styles,
+  onPress,
+}: {
+  media: FeedItem['mediaUrls'][number];
+  styles: ReturnType<typeof makeStyles>;
+  onPress?: (media: FeedItem['mediaUrls'][number]) => void;
+}): JSX.Element {
+  if (media.kind === 'VIDEO') {
+    const thumb = media.thumbnailUrl;
+    return (
+      <Pressable
+        onPress={() => onPress?.(media)}
+        style={[styles.mediaTile, thumb ? undefined : styles.mediaVideoPlaceholder]}
+        accessibilityRole="button"
+        accessibilityLabel="동영상 재생"
+      >
+        {thumb ? (
+          <Image
+            source={{ uri: thumb }}
+            style={styles.mediaImage}
+            resizeMode="cover"
+            accessibilityIgnoresInvertColors
+          />
+        ) : null}
+        <View style={styles.mediaPlayOverlay} pointerEvents="none">
+          <View style={styles.mediaPlayDot}>
+            <Text style={styles.mediaPlayGlyph} allowFontScaling={false}>
+              ▶
+            </Text>
+          </View>
+        </View>
+      </Pressable>
+    );
+  }
+  // 이미지 — 탭 동작 없음 (lightbox 후속). View 로 감싸 안드로이드 ripple 오인 차단.
+  return (
+    <View
+      style={styles.mediaTile}
+      accessibilityRole="image"
+      accessibilityLabel="사진"
+    >
+      <Image
+        source={{ uri: media.url }}
+        style={styles.mediaImage}
+        resizeMode="cover"
+        accessibilityIgnoresInvertColors
+      />
+    </View>
+  );
+}
+
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     card: {
@@ -304,6 +481,11 @@ function makeStyles(theme: Theme) {
       borderRadius: radius.full,
       alignItems: 'center',
       justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    avatarImage: {
+      width: '100%',
+      height: '100%',
     },
     avatarChar: {
       fontFamily,
@@ -349,6 +531,75 @@ function makeStyles(theme: Theme) {
       color: theme.text,
       lineHeight: 21, // 14 * 1.5
       letterSpacing: -0.14,
+    },
+    mediaSingle: {
+      borderRadius: radius.lg,
+      overflow: 'hidden',
+      backgroundColor: theme.subtle,
+    },
+    mediaListContent: {
+      gap: space[2],
+    },
+    mediaMultiCell: {
+      width: 280,
+      borderRadius: radius.lg,
+      overflow: 'hidden',
+      backgroundColor: theme.subtle,
+    },
+    mediaTile: {
+      aspectRatio: 4 / 5,
+      width: '100%',
+      position: 'relative',
+    },
+    mediaImage: {
+      width: '100%',
+      height: '100%',
+    },
+    mediaVideoPlaceholder: {
+      // 트랜스코드/썸네일 전까지 비디오 카드는 placeholder + ▶ 만 — 빈 검정/회색 박스 방지.
+      backgroundColor: theme.subtle,
+    },
+    mediaPlayOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    mediaPlayDot: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: 'rgba(0,0,0,0.55)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    mediaPlayGlyph: {
+      fontFamily,
+      fontSize: 22,
+      color: '#FFFFFF',
+      includeFontPadding: false,
+      // ▶ 글리프가 좌측 정렬돼 보이는 시각 효과 보정.
+      marginLeft: 3,
+    },
+    videoModalRoot: {
+      flex: 1,
+      backgroundColor: '#000000',
+    },
+    videoModalClose: {
+      position: 'absolute',
+      top: space[10],
+      right: space[4],
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: 'rgba(0,0,0,0.55)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    videoModalCloseGlyph: {
+      fontFamily,
+      fontSize: 18,
+      color: '#FFFFFF',
+      includeFontPadding: false,
     },
     footer: {
       flexDirection: 'row',

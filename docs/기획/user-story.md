@@ -65,6 +65,29 @@
 
 ---
 
+### US-AUTH-04: 계정 탈퇴 (Phase 1.5)
+
+> **As a** 클라이머
+> **I want** 앱/웹에서 계정을 탈퇴할 수 있고
+> **So that** 더 이상 서비스를 쓰지 않을 때 내 계정과 개인정보 처리를 직접 요청할 수 있다.
+
+**Acceptance Criteria**
+- [ ] app/web 프로필 또는 설정 화면에 탈퇴 진입점 제공
+- [ ] 탈퇴 전 확인 모달: 되돌릴 수 있는 기간, 삭제/익명화 범위, 재로그인 영향 안내
+- [ ] 백엔드 `DELETE /api/v1/me` 또는 `POST /api/v1/me:delete` 구현
+- [ ] refresh token 폐기 + 로컬 토큰 정리 + 로그인 화면 reset
+- [ ] `users.status=DELETED` soft delete 및 30일 복구 정책 확정
+- [x] 공개 피드/댓글/암장 최근 활동 처리 정책 확정: 컨텐츠는 유지하고 작성자 식별 정보만 익명화
+- [ ] 시도 상세/미디어 보관·삭제 범위 확정
+
+**정책 메모**
+- Phase 1.5 기본안: 사용자 계정은 soft delete, 인증 식별자 재사용은 복구 기간 동안 차단.
+- 공개 피드/댓글/암장 최근 활동에 노출된 컨텐츠는 유지하고 작성자만 익명화한다.
+- 익명화 응답 정책: `userExtId=null` 또는 필드 누락, 닉네임 `탈퇴사용자`, `avatarColorHue=0`, 프로필 이미지 URL 비노출.
+- 앱/웹 contract 는 공개 작성자 extId 를 nullable 로 받는다.
+
+---
+
 ## 프로필 (M2)
 
 ### US-PROF-01: 내 암장 설정
@@ -76,9 +99,9 @@
 **Acceptance Criteria**
 - [x] 백엔드: Profile.mainGymId 컬럼 + PATCH /api/v1/me/profile
 - [x] web: `/me` MainGymSection 완료
-- [ ] app: ProfileScreen MainGymPickerModal 보완 (암장 검색·선택·해제 UI)
+- [x] app: ProfileScreen MainGymPickerModal 보완 (암장 검색·선택·해제 UI)
 
-**진척**: web 완료 / app 일부 — Phase 1 must-fix
+**진척**: web/app 완료 — Phase 1 must-fix 해소
 
 ---
 
@@ -92,6 +115,26 @@
 - [ ] PATCH /api/v1/me/profile 의 nickname/bio/levelSelf 모두 web/app UI 지원
 - [ ] 닉네임 중복 검증
 - [ ] 자가 등급 슬라이더 (V0~V12)
+
+---
+
+### US-PROF-03: 프로필 이미지 업로드 (Phase 1.5)
+
+> **As a** 클라이머
+> **I want** 내 프로필 이미지를 직접 업로드하고 변경할 수 있고
+> **So that** 피드/암장 활동/댓글에서 나를 쉽게 알아볼 수 있다.
+
+**Acceptance Criteria**
+- [ ] app/web 프로필 편집 화면에서 이미지 선택·촬영·삭제 지원
+- [ ] 업로드는 기존 media presign/complete 흐름 재사용
+- [ ] 완료된 이미지 media id 를 `profiles.avatar_media_id` 에 연결
+- [ ] 이미지 제한: 정사각형 crop 권장, 최대 해상도/용량 제한, JPEG/WebP 변환 정책 확정
+- [ ] `GET /api/v1/me`, `GET /api/v1/users/{extId}`, 피드/댓글/암장 최근활동 응답에 avatar URL 노출
+- [ ] 실패 시 기존 아바타 유지, 업로드 중 저장 버튼 중복 방지
+
+**정책 메모**
+- 기본 placeholder 는 기존 이니셜/색상 아바타를 유지한다.
+- 탈퇴 시 avatar media 는 비공개 처리 또는 삭제 대상으로 포함한다.
 
 ---
 
@@ -208,6 +251,53 @@
 
 ---
 
+## 크루 (Phase 1.5)
+
+### US-CREW-01: 공개 크루 탐색
+
+> **As a** 현우, 지수
+> **I want** 지역·암장·레벨·스타일로 크루를 찾아보고
+> **So that** 나와 맞는 등반 모임에 안전하게 합류할 수 있다.
+
+**Acceptance Criteria**
+- [ ] `GET /api/v1/crews` 목록은 필터(`q`, `region`, `gymExtId`, `levelBand`, `style`)와 커서 페이지네이션을 지원한다.
+- [ ] 목록/상세는 멤버 수, 정원, 대표 암장, 레벨, 스타일, 내 상태(`NONE/PENDING/MEMBER/OWNER/ADMIN`)를 표시한다.
+- [ ] App/Web 에 크루 목록과 상세 화면을 제공한다.
+- [ ] 비공개/초대제 크루는 v0.1 에서 생성·노출하지 않는다.
+
+**기획/설계**: [crew.md](./crew.md), [../설계/sequence/crew.md](../설계/sequence/crew.md)
+
+---
+
+### US-CREW-02: 크루 개설·수정
+
+> **As a** 크루장
+> **I want** 크루 이름, 소개, 대표 암장, 레벨, 스타일, 정원을 설정하고
+> **So that** 우리 크루와 맞는 사람을 받을 수 있다.
+
+**Acceptance Criteria**
+- [ ] 로그인 사용자는 `POST /api/v1/crews` 로 공개 크루를 생성할 수 있다.
+- [ ] 생성자는 자동으로 `OWNER` 멤버가 된다.
+- [ ] `OWNER`/`ADMIN` 만 `PATCH /api/v1/crews/{extId}` 로 기본 정보를 수정할 수 있다.
+- [ ] `homeGymExtId` 는 ACTIVE 암장만 허용한다.
+
+---
+
+### US-CREW-03: 가입 요청 승인제
+
+> **As a** 클라이머
+> **I want** 크루에 가입 요청을 보내고 승인을 기다릴 수 있고
+> **So that** 크루장이 멤버 구성을 관리할 수 있다.
+
+**Acceptance Criteria**
+- [ ] 비멤버는 `POST /api/v1/crews/{extId}/join-requests` 로 가입 요청을 만들 수 있다.
+- [ ] 같은 크루에 동시 `PENDING` 요청은 1개만 허용한다.
+- [ ] 크루장/관리자는 요청 목록을 보고 승인/거절할 수 있다.
+- [ ] 승인 시 `crew_members` 에 `MEMBER` 로 추가되고 요청은 `APPROVED` 가 된다.
+- [ ] 정원이 찬 크루는 가입 요청 또는 승인 시 `CREW_CAPACITY_FULL` 로 막는다.
+
+---
+
 ## 비기능 (Cross-cutting)
 
 ### US-NFR-01: 토큰 보안
@@ -241,9 +331,10 @@
 
 ## Phase 1.5 후속 백로그 요약
 
-스토리는 별도 추가하지 않고 PRD §6.2 항목으로 관리.
+크루는 `US-CREW-01`~`03` 으로 기초 스토리를 추가했고, 나머지는 PRD §6.2 항목으로 관리.
 
-- 크루 / 파트너 매칭
+- 크루 개설/가입 — [crew.md](./crew.md), `US-CREW-01`~`03`
+- 파트너 매칭
 - 영상 타임라인 주석
 - BottomTabs 정식 (web)
 - 크루 가입률·D30 KPI 측정 인프라

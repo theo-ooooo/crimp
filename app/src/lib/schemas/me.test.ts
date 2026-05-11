@@ -17,6 +17,7 @@ describe('MeSchema', () => {
   const fullMe = {
     extId: '01J9USR0000000000000000001',
     nickname: '서지우',
+    nicknameConfigured: true,
     bio: '취미 클라이밍 1년차',
     levelSelf: 5,
     mainGymId: 1042,
@@ -26,17 +27,20 @@ describe('MeSchema', () => {
       brand: '클라임파크',
     },
     avatarMediaId: 99,
+    avatarUrl: 'https://cdn.crimp.test/media/users/1/image/avatar.webp',
   };
 
   it('parses a fully-populated Me response', () => {
     const parsed = MeSchema.parse(fullMe);
     expect(parsed.extId).toBe(fullMe.extId);
     expect(parsed.nickname).toBe('서지우');
+    expect(parsed.nicknameConfigured).toBe(true);
     expect(parsed.mainGymId).toBe(1042);
     expect(parsed.mainGym?.extId).toBe(VALID_GYM_EXT_ID);
     expect(parsed.mainGym?.name).toBe('클라임파크 강남점');
     expect(parsed.mainGym?.brand).toBe('클라임파크');
     expect(parsed.levelSelf).toBe(5);
+    expect(parsed.avatarUrl).toBe(fullMe.avatarUrl);
   });
 
   it('parses a Me where nullable keys are explicit null', () => {
@@ -48,6 +52,7 @@ describe('MeSchema', () => {
       mainGymId: null,
       mainGym: null,
       avatarMediaId: null,
+      avatarUrl: null,
     });
     expect(parsed.nickname).toBeNull();
     expect(parsed.mainGymId).toBeNull();
@@ -59,6 +64,7 @@ describe('MeSchema', () => {
     const parsed = MeSchema.parse({ extId: fullMe.extId });
     expect(parsed.extId).toBe(fullMe.extId);
     expect(parsed.nickname).toBeUndefined();
+    expect(parsed.nicknameConfigured).toBe(false);
     expect(parsed.mainGymId).toBeUndefined();
     expect(parsed.mainGym).toBeUndefined();
   });
@@ -124,6 +130,20 @@ describe('UpdateProfileBodySchema', () => {
   it('accepts clearMainGym=true', () => {
     const parsed = UpdateProfileBodySchema.parse({ clearMainGym: true });
     expect(parsed.clearMainGym).toBe(true);
+  });
+
+  it('accepts clearAvatar=true', () => {
+    const parsed = UpdateProfileBodySchema.parse({ clearAvatar: true });
+    expect(parsed.clearAvatar).toBe(true);
+  });
+
+  it('rejects clearAvatar=true combined with avatarMediaId', () => {
+    expect(() =>
+      UpdateProfileBodySchema.parse({
+        clearAvatar: true,
+        avatarMediaId: 1,
+      }),
+    ).toThrow();
   });
 
   it('rejects clearMainGym=true combined with mainGymExtId (백엔드 INVALID_MAIN_GYM_REQUEST 사전 차단)', () => {

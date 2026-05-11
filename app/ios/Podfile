@@ -73,5 +73,6 @@ target 'Crimp' do
         File.write(path, contents + "\nKAKAO_APP_KEY = #{kakao_app_key}\n")
       end
     end
+
   end
 end

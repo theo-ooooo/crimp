@@ -20,9 +20,10 @@ export const MainGymViewSchema = z.object({
 
 export type MainGymView = z.infer<typeof MainGymViewSchema>;
 
-export const MeSchema = z.object({
+const MeWireSchema = z.object({
   extId: z.string(),
   nickname: z.string().nullable().optional(),
+  nicknameConfigured: z.boolean().optional(),
   bio: z.string().nullable().optional(),
   // 백엔드 Byte 계약 범위 (-128~127). 음수는 비즈니스상 기대치 아님 — 표시 시 UI clamp.
   levelSelf: z.number().int().min(-128).max(127).nullable().optional(),
@@ -30,7 +31,13 @@ export const MeSchema = z.object({
   mainGymId: z.number().nullable().optional(),
   mainGym: MainGymViewSchema.nullable().optional(),
   avatarMediaId: z.number().nullable().optional(),
+  avatarUrl: z.string().url().nullable().optional(),
 });
+
+export const MeSchema = MeWireSchema.transform((value) => ({
+  ...value,
+  nicknameConfigured: value.nicknameConfigured ?? false,
+}));
 
 export type Me = z.infer<typeof MeSchema>;
 
@@ -45,7 +52,8 @@ export type Me = z.infer<typeof MeSchema>;
  * - `clearMainGym`    : true 면 주 암장 해제. mainGymExtId/mainGymId 와 동시 set 은 백엔드가
  *                       `INVALID_MAIN_GYM_REQUEST` (400) 로 거부.
  * - `mainGymId`       : 내부 PK 호환 경로. 신규 클라는 사용하지 않는다.
- * - `avatarMediaId`   : 미디어 PK. 본 PR 에서는 사용하지 않지만 계약 보존.
+ * - `avatarMediaId`   : 미디어 PK. 서버가 본인 소유 READY IMAGE 인지 검증.
+ * - `clearAvatar`     : true 면 프로필 이미지 해제. avatarMediaId 와 동시 설정 불가.
  *
  * 클라에서 zod 로 길이를 강제해 의미 없는 왕복을 줄인다.
  */
@@ -57,6 +65,7 @@ export const UpdateProfileBodySchema = z
     mainGymId: z.number().int().nullable().optional(),
     mainGymExtId: z.string().length(26).optional(),
     clearMainGym: z.boolean().optional(),
+    clearAvatar: z.boolean().optional(),
     avatarMediaId: z.number().int().nullable().optional(),
   })
   .strict()
@@ -70,6 +79,18 @@ export const UpdateProfileBodySchema = z
       message:
         'clearMainGym 과 mainGymExtId/mainGymId 는 동시에 설정할 수 없습니다.',
       path: ['clearMainGym'],
+    },
+  )
+  .refine(
+    (b) =>
+      !(
+        b.clearAvatar === true &&
+        b.avatarMediaId !== undefined &&
+        b.avatarMediaId !== null
+      ),
+    {
+      message: 'clearAvatar 과 avatarMediaId 는 동시에 설정할 수 없습니다.',
+      path: ['clearAvatar'],
     },
   );
 

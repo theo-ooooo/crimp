@@ -31,19 +31,37 @@ export const GymSearchCard = React.memo(function GymSearchCard({
   const renderContent = ({ pressed }: PressableStateCallbackType) => {
     const pressedStyle: ViewStyle | null =
       pressed && !reducedMotion ? styles.pressed : null;
+    const avatarText = Array.from(gym.name)[0] ?? 'G';
+    const distanceText = formatDistance(gym.distanceMeters);
+    const ratingText = gym.rating !== null ? `★ ${gym.rating.toFixed(1)}` : null;
+    const friendText = `${gym.monthlyUserCount}명 다녀감`;
     return (
       <View style={[styles.card, pressedStyle]}>
-        <View style={styles.topRow}>
-          <Text style={styles.name} numberOfLines={1}>
-            {gym.name}
-          </Text>
-          <Text style={styles.brand} numberOfLines={1}>
-            {gym.brand ?? t('gym.list.brandFallback')}
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText} allowFontScaling={false}>
+            {avatarText}
           </Text>
         </View>
-        <Text style={styles.address} numberOfLines={2}>
-          {gym.address ?? t('gym.list.addressFallback')}
-        </Text>
+        <View style={styles.body}>
+          <View style={styles.topRow}>
+            <Text style={styles.name} numberOfLines={1}>
+              {gym.name}
+            </Text>
+            <Text style={styles.brand} numberOfLines={1}>
+              {gym.brand ?? t('gym.list.brandFallback')}
+            </Text>
+          </View>
+          <Text style={styles.address} numberOfLines={1}>
+            {gym.address ?? t('gym.list.addressFallback')}
+          </Text>
+          <View style={styles.metaRow}>
+            {distanceText ? <Text style={styles.metaText}>{distanceText}</Text> : null}
+            {distanceText && (ratingText || friendText) ? <View style={styles.metaDot} /> : null}
+            {ratingText ? <Text style={styles.metaText}>{ratingText}</Text> : null}
+            {(ratingText || distanceText) && friendText ? <View style={styles.metaDot} /> : null}
+            <Text style={styles.metaText}>{friendText}</Text>
+          </View>
+        </View>
       </View>
     );
   };
@@ -58,3 +76,13 @@ export const GymSearchCard = React.memo(function GymSearchCard({
     </Pressable>
   );
 });
+
+function formatDistance(distanceMeters: number | null): string | null {
+  if (distanceMeters === null || Number.isNaN(distanceMeters)) {
+    return null;
+  }
+  if (distanceMeters < 1000) {
+    return `${Math.round(distanceMeters)}m`;
+  }
+  return `${(distanceMeters / 1000).toFixed(distanceMeters >= 10000 ? 0 : 1)}km`;
+}

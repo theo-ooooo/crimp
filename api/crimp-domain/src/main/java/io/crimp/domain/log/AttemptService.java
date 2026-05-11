@@ -4,11 +4,15 @@ import io.crimp.common.id.UlidGenerator;
 import io.crimp.core.entity.enums.AttemptResult;
 import io.crimp.core.entity.enums.PostVisibility;
 import io.crimp.core.entity.feed.FeedPost;
+import io.crimp.core.entity.feed.PostMedia;
 import io.crimp.core.entity.log.ClimbingSession;
 import io.crimp.core.entity.log.SessionAttempt;
 import io.crimp.core.repository.feed.FeedPostRepository;
+import io.crimp.core.repository.feed.PostMediaRepository;
 import io.crimp.core.repository.log.ClimbingSessionRepository;
 import io.crimp.core.repository.log.SessionAttemptRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +24,8 @@ import java.util.Set;
 @Service
 @org.springframework.context.annotation.Profile("!test")
 public class AttemptService {
+
+    private static final Logger log = LoggerFactory.getLogger(AttemptService.class);
 
     /**
      * 시도 자동 게시 트리거 결과 코드 — 성공한 시도만 피드에 노출한다.
@@ -39,14 +45,17 @@ public class AttemptService {
     private final ClimbingSessionRepository sessionRepository;
     private final SessionAttemptRepository attemptRepository;
     private final FeedPostRepository feedPostRepository;
+    private final PostMediaRepository postMediaRepository;
 
     public AttemptService(
             ClimbingSessionRepository sessionRepository,
             SessionAttemptRepository attemptRepository,
-            FeedPostRepository feedPostRepository) {
+            FeedPostRepository feedPostRepository,
+            PostMediaRepository postMediaRepository) {
         this.sessionRepository = sessionRepository;
         this.attemptRepository = attemptRepository;
         this.feedPostRepository = feedPostRepository;
+        this.postMediaRepository = postMediaRepository;
     }
 
     @Transactional
@@ -69,7 +78,8 @@ public class AttemptService {
                 cmd.result(),
                 attemptCount,
                 loggedAt);
-        if (cmd.gymId() != null) attempt.updateGymId(cmd.gymId());
+        Long gymId = cmd.gymId() != null ? cmd.gymId() : session.getGymId();
+        if (gymId != null) attempt.updateGymId(gymId);
         if (cmd.gradeValue() != null) attempt.updateGradeValue(cmd.gradeValue());
         if (cmd.gradeNumeric() != null) attempt.updateGradeNumeric(cmd.gradeNumeric());
         if (cmd.mediaId() != null) attempt.updateMediaId(cmd.mediaId());
@@ -91,6 +101,10 @@ public class AttemptService {
      * SEND/FLASH/ONSIGHT 시도에 대해 1:1 FeedPost 생성. 이미 attempt_id 로 게시된 row 가 있으면
      * 멱등 skip. 동일 attempt 가 두 번 들어오는 일은 정상 흐름에서는 없지만, 재시도/리플레이를
      * defense-in-depth 로 가드.
+     *
+     * <p>{@code attempt.mediaId} 가 있으면 동일 트랜잭션에서 {@code post_media} 도 INSERT —
+     * 이게 빠지면 피드 응답의 {@code mediaUrls} 가 항상 빈 배열로 떨어진다 (실제 staging
+     * 회귀 사례). attempt 는 단일 media_id 만 들고 있으므로 seq=0 고정.
      */
     private void autoPublishToFeed(SessionAttempt attempt, long userId) {
         if (!AUTO_PUBLISH_RESULTS.contains(attempt.getResult())) {
@@ -108,6 +122,14 @@ public class AttemptService {
                 attempt.getGymId(),
                 PostVisibility.PUBLIC);
         feedPostRepository.save(post);
+        boolean linked = false;
+        if (attempt.getMediaId() != null) {
+            postMediaRepository.save(PostMedia.attach(post.getId(), attempt.getMediaId(), 0));
+            linked = true;
+        }
+        // 회귀 진단 가시성 — 다음 번 post_media 누락이 발생해도 로그 한 줄로 식별 가능.
+        log.info("[feed] auto-publish post={} attempt={} media={} linked={}",
+                post.getId(), attempt.getId(), attempt.getMediaId(), linked);
     }
 
     @Transactional(readOnly = true)
@@ -120,12 +142,19 @@ public class AttemptService {
     @Transactional
     public AttemptView update(long userId, String attemptExtId, UpdateAttemptCommand cmd) {
         SessionAttempt attempt = fetchOwnedAttempt(userId, attemptExtId);
+        ClimbingSession session = sessionRepository.findById(attempt.getSessionId())
+                .orElseThrow(() -> new SessionException("ATTEMPT_NOT_FOUND",
+                        "Attempt " + attemptExtId + " not found"));
         if (cmd.attempts() != null && (cmd.attempts() < 1 || cmd.attempts() > SessionAttempt.MAX_ATTEMPTS)) {
             throw new SessionException("ATTEMPT_INVALID",
                     "attempts must be between 1 and " + SessionAttempt.MAX_ATTEMPTS);
         }
         if (cmd.routeId() != null) attempt.updateRoute(cmd.routeId());
-        if (cmd.gymId() != null) attempt.updateGymId(cmd.gymId());
+        if (cmd.gymId() != null) {
+            attempt.updateGymId(cmd.gymId());
+        } else if (attempt.getGymId() == null && session.getGymId() != null) {
+            attempt.updateGymId(session.getGymId());
+        }
         if (cmd.gradeValue() != null) attempt.updateGradeValue(cmd.gradeValue());
         if (cmd.gradeNumeric() != null) attempt.updateGradeNumeric(cmd.gradeNumeric());
         if (cmd.result() != null) attempt.updateResult(cmd.result());
@@ -139,9 +168,6 @@ public class AttemptService {
         // I1: result PATCH 가 자동 게시 정책에 영향. SEND/FLASH/ONSIGHT 로 전환되면 신규 게시,
         // 반대로 FAIL/TRY 로 전환되면 기존 게시를 soft-delete 하여 피드에서 숨긴다.
         // 같은 result 유지면 멱등(autoPublishToFeed 의 findByAttemptId 가드).
-        ClimbingSession session = sessionRepository.findById(attempt.getSessionId())
-                .orElseThrow(() -> new SessionException("ATTEMPT_NOT_FOUND",
-                        "Attempt " + attemptExtId + " not found"));
         if (AUTO_PUBLISH_RESULTS.contains(attempt.getResult())) {
             autoPublishToFeed(attempt, session.getUserId());
         } else {

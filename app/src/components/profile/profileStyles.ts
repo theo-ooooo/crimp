@@ -61,6 +61,11 @@ export function makeProfileStyles(theme: Theme) {
       backgroundColor: theme.accent.base,
       alignItems: 'center',
       justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    avatarImage: {
+      width: '100%',
+      height: '100%',
     },
     avatarText: {
       fontFamily,
@@ -294,6 +299,27 @@ export function makeProfileStyles(theme: Theme) {
       fontSize: fontSize.body,
       fontWeight: fontWeight.semibold,
       color: theme.text2,
+      letterSpacing: letterSpacing.body,
+    },
+    deleteAccountButton: {
+      paddingVertical: space[3],
+      paddingHorizontal: space[4],
+      borderRadius: radius.lg,
+      backgroundColor: withAlpha(theme.semantic.danger, 0.08),
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    deleteAccountButtonPressed: {
+      opacity: 0.85,
+    },
+    deleteAccountButtonDisabled: {
+      opacity: 0.5,
+    },
+    deleteAccountButtonLabel: {
+      fontFamily,
+      fontSize: fontSize.body,
+      fontWeight: fontWeight.semibold,
+      color: theme.semantic.danger,
       letterSpacing: letterSpacing.body,
     },
     errorBox: {

@@ -35,13 +35,13 @@ class KakaoOAuthClientTest {
 
     private KakaoProperties propsWithSecret() {
         return new KakaoProperties(
-                "test-client-id", "https://kauth.kakao.com", "https://x/jwks.json",
+                "test-native-client-id", "test-web-client-id", "https://kauth.kakao.com", "https://x/jwks.json",
                 "test-rest-api-key", "test-client-secret", TOKEN_URI, List.of());
     }
 
     private KakaoProperties propsNoSecret() {
         return new KakaoProperties(
-                "test-client-id", "https://kauth.kakao.com", "https://x/jwks.json",
+                "test-native-client-id", "test-web-client-id", "https://kauth.kakao.com", "https://x/jwks.json",
                 "test-rest-api-key", "", TOKEN_URI, List.of());
     }
 
@@ -148,7 +148,7 @@ class KakaoOAuthClientTest {
     void exchangeCode_throwsWhenRestApiKeyMissing() {
         RestTemplate rt = mock(RestTemplate.class);
         KakaoProperties props = new KakaoProperties(
-                "client", "iss", "jwks", "", "", TOKEN_URI, List.of());
+                "client", null, "iss", "jwks", "", "", TOKEN_URI, List.of());
         KakaoOAuthClient client = new KakaoOAuthClient(rt, props);
 
         assertThatThrownBy(() -> client.exchangeCode("c", "https://app/cb"))

@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
-  Image,
   Linking,
   Modal,
   Platform,
@@ -20,10 +19,15 @@ import {
 } from 'react-native-vision-camera';
 
 import { CrimpIcon } from '@/components/common/primitives';
+import { AlbumSavePromptOverlay } from '@/components/common/session/AlbumSavePromptOverlay';
+import { CameraPermissionFallback } from '@/components/common/session/CameraPermissionFallback';
 import { CameraPermissionIntro } from '@/components/common/session/CameraPermissionIntro';
+import { CapturePreview } from '@/components/common/session/CapturePreview';
 import { useCameraEntryPermissions } from '@/hooks/permissions/useCameraEntryPermissions';
+import { saveCapturedMediaToAlbum } from '@/lib/camera/albumSave';
 import { measureFileBytes, readImageMeta, type DetectedImageMime } from '@/lib/camera/measure';
 import type { CapturedMedia } from '@/lib/camera/types';
+import { readVideoDurationMs, videoDurationSecondsToMs } from '@/lib/camera/videoMeta';
 import { t } from '@/lib/i18n';
 import {
   fontFamily,
@@ -73,6 +77,9 @@ export type CameraSheetProps = {
 
 const CAMERA_BG = '#000000';
 const CAMERA_FG = '#FFFFFF';
+const MAX_RECORDING_SECONDS = 600;
+
+type RecordingPhase = 'idle' | 'recording' | 'stopping' | 'processing';
 
 export function CameraSheet({
   visible,
@@ -165,12 +172,19 @@ export function CameraSheet({
     visibleRef.current = visible;
   }, [visible]);
 
-  const [recording, setRecording] = useState(false);
+  const [recordingPhase, setRecordingPhase] = useState<RecordingPhase>('idle');
+  const recordingPhaseRef = useRef<RecordingPhase>('idle');
   const [busy, setBusy] = useState(false);
+  const [cameraInitialized, setCameraInitialized] = useState(false);
+  const [previewStarted, setPreviewStarted] = useState(false);
   // [PR #97, F5 PR-5] 캡처 직후 자동 업로드 대신 미리보기 + 사용/다시촬영 분기.
   // pending != null 이면 viewfinder 위로 preview 오버레이가 떠 있는 상태.
   // "사용" 으로만 onCaptured 가 발동, "다시촬영" 은 pending 만 비우고 viewfinder 복귀.
   const [pending, setPending] = useState<CapturedMedia | null>(null);
+  const [savingAlbum, setSavingAlbum] = useState(false);
+  const [albumPromptVisible, setAlbumPromptVisible] = useState(false);
+  const [albumSaveErrorVisible, setAlbumSaveErrorVisible] = useState(false);
+  const albumPromptMediaRef = useRef<CapturedMedia | null>(null);
   // [PR #97 리뷰 I1] handleConfirm 더블탭 가드. 같은 렌더 클로저에서 두 번의 onPress 가
   // 들어와 둘 다 `pending !== null` 체크를 통과해 onCaptured 가 2회 발동 → 부모 업로드
   // 중복 시작을 차단. 동기 ref 라 setState 의 다음 렌더 반영을 기다리지 않아도 됨.
@@ -184,6 +198,25 @@ export function CameraSheet({
   const maxDurationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // 영상 모드인데 mic 권한이 없으면 사운드 없이 녹화 — 권한 요청은 시트 진입 시 한 번 시도.
   const audioEnabled = mode === 'video' && micPerm.hasPermission;
+  const cameraReady = Boolean(cameraPerm.hasPermission && device && cameraInitialized && previewStarted);
+  const recording = recordingPhase === 'recording';
+  const videoBusy = recordingPhase === 'stopping' || recordingPhase === 'processing';
+  const videoShutterDisabled = recording ? false : videoBusy || !cameraReady;
+  const photoShutterDisabled = busy || !cameraReady;
+  const shutterDisabled = mode === 'photo' ? photoShutterDisabled : videoShutterDisabled;
+  const shutterBusy = mode === 'photo' ? busy : videoBusy;
+
+  const setVideoPhase = useCallback((phase: RecordingPhase) => {
+    recordingPhaseRef.current = phase;
+    setRecordingPhase(phase);
+  }, []);
+
+  const clearMaxDurationTimer = useCallback(() => {
+    if (maxDurationTimerRef.current) {
+      clearTimeout(maxDurationTimerRef.current);
+      maxDurationTimerRef.current = null;
+    }
+  }, []);
 
   // [PR #100] 인트로 모달이 권한 요청을 책임지므로 본 useEffect 는 인트로가 닫힌 뒤
   // (introDismissed=true) 에만 vision-camera 의 자체 훅으로 세부 보정을 수행.
@@ -211,37 +244,43 @@ export function CameraSheet({
     }
   }, [visible, introDismissed]);
 
+  useEffect(() => {
+    setCameraInitialized(false);
+    setPreviewStarted(false);
+  }, [device?.id, mode]);
+
   // 시트 닫힐 때 녹화 중이면 중단 — cancelRequestedRef 를 세팅해 onRecordingFinished 가
   // onCaptured 를 발동하지 않도록 표시. pending preview 도 함께 폐기 (시트 재진입 시
   // 이전 캡처가 그대로 떠 있는 회귀 차단).
   useEffect(() => {
-    if (!visible && recording) {
+    if (!visible && recordingPhase !== 'idle') {
       cancelRequestedRef.current = true;
-      cameraRef.current?.stopRecording().catch(() => undefined);
-      setRecording(false);
-      // (PR #115 후속) 시트 닫힘 → max-duration 타이머도 함께 정리.
-      if (maxDurationTimerRef.current) {
-        clearTimeout(maxDurationTimerRef.current);
-        maxDurationTimerRef.current = null;
+      if (recordingPhase === 'recording') {
+        cameraRef.current?.stopRecording().catch(() => undefined);
       }
+      setVideoPhase('idle');
+      clearMaxDurationTimer();
     }
     if (!visible && pending) {
       setPending(null);
     }
-  }, [visible, recording, pending]);
+    if (!visible) {
+      albumPromptMediaRef.current = null;
+      setAlbumPromptVisible(false);
+      setAlbumSaveErrorVisible(false);
+      setSavingAlbum(false);
+    }
+  }, [visible, recordingPhase, pending, setVideoPhase, clearMaxDurationTimer]);
 
   // unmount 시 잔류 타이머 정리.
   useEffect(() => {
     return () => {
-      if (maxDurationTimerRef.current) {
-        clearTimeout(maxDurationTimerRef.current);
-        maxDurationTimerRef.current = null;
-      }
+      clearMaxDurationTimer();
     };
-  }, []);
+  }, [clearMaxDurationTimer]);
 
   const handlePhoto = useCallback(async () => {
-    if (busy || !cameraRef.current) return;
+    if (busy || !cameraReady || !cameraRef.current) return;
     setBusy(true);
     try {
       const photo = await cameraRef.current.takePhoto({ flash: 'off' });
@@ -271,114 +310,156 @@ export function CameraSheet({
     } finally {
       setBusy(false);
     }
-  }, [busy]);
+  }, [busy, cameraReady]);
 
   const handleStartRecording = useCallback(() => {
-    if (busy || !cameraRef.current) return;
-    setBusy(true);
-    setRecording(true);
+    if (busy || !cameraReady || recordingPhaseRef.current !== 'idle' || !cameraRef.current) return;
+    setVideoPhase('recording');
     cancelRequestedRef.current = false;
-    // (PR #115 후속) 10분 자동 컷오프 — vision-camera 의 maxDuration 옵션 사용.
-    // Apple Photo 의 ProRes / 일반 사용자 영상 기준 10분이 합리적 상한 (S3/CloudFront 비용 +
-    // FeedPost video duration 상한 동시 충족). 한도 도달 시 vision-camera 가 자동으로
-    // onRecordingFinished 호출.
-    const MAX_RECORDING_SECONDS = 600;
-    cameraRef.current.startRecording({
-      onRecordingFinished: async (video) => {
-        try {
-          // [PR #91 리뷰 I3] 시트 닫힘으로 강제 종료된 녹화면 onCaptured 발동 X.
-          if (cancelRequestedRef.current) return;
+    try {
+      cameraRef.current.startRecording({
+        onRecordingFinished: async (video) => {
+          setVideoPhase('processing');
+          try {
+            // [PR #91 리뷰 I3] 시트 닫힘으로 강제 종료된 녹화면 onCaptured 발동 X.
+            if (cancelRequestedRef.current) return;
 
-          const uri = video.path.startsWith('file://') ? video.path : `file://${video.path}`;
-          const byteSize = await measureFileBytes(uri);
-          // 영상 확장자는 vision-camera v4 가 platform 기본값(iOS=.mov, Android=.mp4) 으로
-          // 정확히 저장하므로 확장자 추정이 신뢰 가능.
-          const mime: CapturedMedia['mime'] = video.path.toLowerCase().endsWith('.mov')
-            ? 'video/quicktime'
-            : 'video/mp4';
-          // [PR #97 F5 PR-5] onCaptured 즉시 발동 → setPending 으로 변경 (사진과 동일).
-          // [I1] 새 캡처마다 confirmingRef 리셋.
-          confirmingRef.current = false;
-          setPending({
-            kind: 'VIDEO',
-            uri,
-            mime,
-            byteSize,
-            width: null,
-            height: null,
-            durationMs: Math.round(video.duration * 1000),
-          });
-        } catch (e) {
-          Alert.alert(t('session.log.cameraError'), describeError(e));
-        } finally {
-          setBusy(false);
-          setRecording(false);
-          cancelRequestedRef.current = false;
-          if (maxDurationTimerRef.current) {
-            clearTimeout(maxDurationTimerRef.current);
-            maxDurationTimerRef.current = null;
+            const uri = video.path.startsWith('file://') ? video.path : `file://${video.path}`;
+            const [byteSize, metaDurationMs] = await Promise.all([
+              measureFileBytes(uri),
+              readVideoDurationMs(uri).catch(() => null),
+            ]);
+            const cameraDurationMs = videoDurationSecondsToMs(video.duration);
+            const durationMs = metaDurationMs ?? cameraDurationMs;
+            // 영상 확장자는 vision-camera v4 가 platform 기본값(iOS=.mov, Android=.mp4) 으로
+            // 정확히 저장하므로 확장자 추정이 신뢰 가능.
+            const mime: CapturedMedia['mime'] = video.path.toLowerCase().endsWith('.mov')
+              ? 'video/quicktime'
+              : 'video/mp4';
+            // [PR #97 F5 PR-5] onCaptured 즉시 발동 → setPending 으로 변경 (사진과 동일).
+            // [I1] 새 캡처마다 confirmingRef 리셋.
+            confirmingRef.current = false;
+            setPending({
+              kind: 'VIDEO',
+              uri,
+              mime,
+              byteSize,
+              width: null,
+              height: null,
+              durationMs,
+            });
+          } catch (e) {
+            Alert.alert(t('session.log.cameraError'), describeError(e));
+          } finally {
+            setVideoPhase('idle');
+            cancelRequestedRef.current = false;
+            clearMaxDurationTimer();
           }
-        }
-      },
-      onRecordingError: (err: CameraCaptureError) => {
-        setBusy(false);
-        setRecording(false);
-        cancelRequestedRef.current = false;
-        if (maxDurationTimerRef.current) {
-          clearTimeout(maxDurationTimerRef.current);
-          maxDurationTimerRef.current = null;
-        }
-        Alert.alert(t('session.log.cameraError'), err.message);
-      },
-    });
+        },
+        onRecordingError: (err: CameraCaptureError) => {
+          setVideoPhase('idle');
+          cancelRequestedRef.current = false;
+          clearMaxDurationTimer();
+          Alert.alert(t('session.log.cameraError'), err.message);
+        },
+      });
+    } catch (e) {
+      setVideoPhase('idle');
+      cancelRequestedRef.current = false;
+      Alert.alert(t('session.log.cameraError'), describeError(e));
+      return;
+    }
     // vision-camera 4.x 의 RecordVideoOptions 에 maxDuration 미지원 → JS 측 setTimeout
     // 으로 자동 stopRecording 트리거. 10분 도달 시 onRecordingFinished 가 호출되어
     // 정상 캡처 흐름으로 흡수됨 (잘리지 않은 만큼 저장).
     maxDurationTimerRef.current = setTimeout(() => {
       maxDurationTimerRef.current = null;
+      if (recordingPhaseRef.current !== 'recording') {
+        return;
+      }
+      setVideoPhase('stopping');
       cameraRef.current?.stopRecording().catch(() => undefined);
     }, MAX_RECORDING_SECONDS * 1000);
-  }, [busy]);
+  }, [busy, cameraReady, setVideoPhase, clearMaxDurationTimer]);
 
   const handleStopRecording = useCallback(async () => {
-    if (!cameraRef.current) return;
+    if (!cameraRef.current || recordingPhaseRef.current !== 'recording') return;
+    setVideoPhase('stopping');
+    clearMaxDurationTimer();
     try {
       await cameraRef.current.stopRecording();
     } catch (e) {
+      setVideoPhase('idle');
       Alert.alert(t('session.log.cameraError'), describeError(e));
     }
     // recording 상태와 busy 해제는 onRecordingFinished 콜백에서 일어남.
-  }, []);
+  }, [setVideoPhase, clearMaxDurationTimer]);
 
   const handleShoot = useCallback(() => {
     if (mode === 'photo') {
       void handlePhoto();
       return;
     }
-    if (recording) {
+    if (recordingPhase === 'recording') {
       void handleStopRecording();
-    } else {
+    } else if (recordingPhase === 'idle') {
       handleStartRecording();
     }
-  }, [mode, recording, handlePhoto, handleStartRecording, handleStopRecording]);
+  }, [mode, recordingPhase, handlePhoto, handleStartRecording, handleStopRecording]);
 
-  // [PR #97 F5 PR-5] 미리보기 액션. "사용" 은 setPending(null) → onCaptured 순서가 중요 —
-  // 부모가 onCaptured 안에서 setCameraOpen(false) 를 호출하므로 visible 이 false 가 되며,
-  // 그 시점에는 이미 pending 이 비어있어 위쪽 useEffect 의 cleanup 이 no-op. 반대 순서면
-  // 부모 close → useEffect 가 setPending(null) 을 한 번 더 — 결과는 같지만 노이즈.
+  const finishCapture = useCallback(
+    (captured: CapturedMedia) => {
+      setSavingAlbum(false);
+      setAlbumPromptVisible(false);
+      setAlbumSaveErrorVisible(false);
+      albumPromptMediaRef.current = null;
+      setPending(null);
+      onCaptured(captured);
+    },
+    [onCaptured],
+  );
+
+  // [PR #97 F5 PR-5] 미리보기 액션. "사용" 을 누르면 앨범 저장 여부를 한 번 더 묻고,
+  // 저장/건너뛰기 모두 기존 onCaptured 업로드 흐름으로 이어진다.
   const handleConfirm = useCallback(() => {
     // [PR #97 리뷰 I1] 더블탭 가드 — 같은 클로저 두 번 진입 시 confirmingRef 가 동기적으로
     // 두 번째 호출을 차단해 onCaptured 중복 발동 방지.
     if (!pending || confirmingRef.current) return;
     confirmingRef.current = true;
     const captured = pending;
-    setPending(null);
-    onCaptured(captured);
-  }, [pending, onCaptured]);
+    albumPromptMediaRef.current = captured;
+    setAlbumSaveErrorVisible(false);
+    setAlbumPromptVisible(true);
+  }, [pending]);
 
   const handleRetake = useCallback(() => {
+    albumPromptMediaRef.current = null;
+    setAlbumPromptVisible(false);
+    setAlbumSaveErrorVisible(false);
+    setSavingAlbum(false);
+    confirmingRef.current = false;
     setPending(null);
   }, []);
+
+  const handleAlbumSkip = useCallback(() => {
+    const captured = albumPromptMediaRef.current;
+    if (!captured || savingAlbum) return;
+    finishCapture(captured);
+  }, [finishCapture, savingAlbum]);
+
+  const handleAlbumSave = useCallback(async () => {
+    const captured = albumPromptMediaRef.current;
+    if (!captured || savingAlbum) return;
+    setAlbumSaveErrorVisible(false);
+    setSavingAlbum(true);
+    try {
+      await saveCapturedMediaToAlbum(captured);
+      finishCapture(captured);
+    } catch {
+      setSavingAlbum(false);
+      setAlbumSaveErrorVisible(true);
+    }
+  }, [finishCapture, savingAlbum]);
 
   // [PR #100, F5 PR-B] 인트로 표시 결정 — entryPerms.ready 가 true 이고 (OS 응답 도착)
   // needsIntro 가 true (denied 인 권한 1개 이상) 인 경우만. introDismissed 면 사용자가
@@ -446,7 +527,7 @@ export function CameraSheet({
             accessibilityRole="button"
             accessibilityLabel={t('session.log.cameraFlip')}
             hitSlop={8}
-            disabled={recording}
+            disabled={recordingPhase !== 'idle'}
           >
             <CrimpIcon.flip size={20} color={CAMERA_FG} />
           </Pressable>
@@ -458,6 +539,7 @@ export function CameraSheet({
           <CapturePreview
             media={pending}
             styles={styles}
+            savingAlbum={savingAlbum}
             onRetake={handleRetake}
             onConfirm={handleConfirm}
           />
@@ -466,7 +548,7 @@ export function CameraSheet({
             {/* Viewfinder */}
             <View style={styles.viewfinder}>
               {!cameraPerm.hasPermission ? (
-                <PermissionFallback
+                <CameraPermissionFallback
                   styles={styles}
                   onRetry={() => cameraPerm.requestPermission()}
                   onOpenSettings={() => Linking.openSettings()}
@@ -486,7 +568,18 @@ export function CameraSheet({
                     video={mode === 'video'}
                     audio={audioEnabled}
                     zoom={zoom}
+                    onInitialized={() => setCameraInitialized(true)}
+                    onPreviewStarted={() => setPreviewStarted(true)}
+                    onPreviewStopped={() => setPreviewStarted(false)}
                   />
+                  {!cameraReady && !recording ? (
+                    <View style={styles.cameraReadyOverlay} pointerEvents="none">
+                      <ActivityIndicator color={CAMERA_FG} />
+                      <Text style={styles.cameraReadyText}>
+                        {t('session.log.cameraPreparing')}
+                      </Text>
+                    </View>
+                  ) : null}
                   {/* focus reticle */}
                   <View style={styles.reticle} pointerEvents="none" />
                   {/* mode indicator */}
@@ -532,7 +625,7 @@ export function CameraSheet({
 
               <Pressable
                 onPress={handleShoot}
-                disabled={busy && !recording}
+                disabled={shutterDisabled}
                 style={styles.shutter}
                 accessibilityRole="button"
                 accessibilityLabel={
@@ -540,9 +633,13 @@ export function CameraSheet({
                     ? t('session.log.cameraVideoTitle')
                     : t('session.log.cameraPhotoTitle')
                 }
+                accessibilityState={{
+                  disabled: shutterDisabled,
+                  busy: shutterBusy,
+                }}
               >
                 <View style={styles.shutterRing} />
-                {busy && !recording ? (
+                {(!cameraReady && !recording) || shutterBusy ? (
                   <ActivityIndicator color={CAMERA_FG} />
                 ) : (
                   <View
@@ -574,131 +671,15 @@ export function CameraSheet({
           onAllow={handlePermAllow}
           onSkip={handlePermSkip}
         />
+        <AlbumSavePromptOverlay
+          visible={albumPromptVisible}
+          saving={savingAlbum}
+          errorVisible={albumSaveErrorVisible}
+          onSave={handleAlbumSave}
+          onSkip={handleAlbumSkip}
+        />
       </View>
     </Modal>
-  );
-}
-
-/**
- * 캡처 미리보기 — 사용/다시촬영 분기 (PR #97, F5 PR-5).
- *
- * <p>이미지: 전체 화면 `<Image>` (resizeMode=contain) — vision-camera 로 받은 file:// URI
- * 그대로 표시.
- * <p>영상: 재생 라이브러리(react-native-video / expo-video)가 아직 미도입이라 Phase 1 은
- * 메타(길이·크기) + "재생은 다음 업데이트" 안내. 사용자는 다시촬영 여부만 결정하면 됨 —
- * 녹화 직후라 '뭐 찍었는지' 는 본인이 알고 있음.
- */
-function CapturePreview({
-  media,
-  styles,
-  onRetake,
-  onConfirm,
-}: {
-  media: CapturedMedia;
-  styles: ReturnType<typeof makeStyles>;
-  onRetake: () => void;
-  onConfirm: () => void;
-}) {
-  const isImage = media.kind === 'IMAGE';
-  // [PR #97 리뷰 I3] 미디어 영역 사진/영상 명시 — 보이스오버 사용자가 무엇을 미리보고 있는지 인식.
-  const mediaA11y = isImage
-    ? t('session.log.capturePreviewPhotoA11y')
-    : t('session.log.capturePreviewVideoA11y');
-  return (
-    <>
-      <View
-        style={styles.previewMediaWrap}
-        // [PR #98 리뷰] role="image" 는 사진 브랜치에만 — 영상 브랜치는 메타 패널이라
-        // image 라고 선언하면 의미 불일치. 영상은 라벨만으로 컨텍스트 전달.
-        accessibilityRole={isImage ? 'image' : undefined}
-        accessibilityLabel={mediaA11y}
-      >
-        {isImage ? (
-          <Image
-            source={{ uri: media.uri }}
-            style={styles.previewMedia}
-            resizeMode="contain"
-            accessibilityIgnoresInvertColors
-          />
-        ) : (
-          <View style={styles.previewVideoBox}>
-            <View style={styles.previewVideoIcon}>
-              <CrimpIcon.play size={42} color={CAMERA_FG} />
-            </View>
-            <Text style={styles.previewVideoMeta}>{formatVideoMeta(media)}</Text>
-            <Text style={styles.previewVideoNote}>
-              {t('session.log.capturePreviewVideoNoPlayback')}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      <View style={styles.previewActions}>
-        {/* [PR #97 리뷰 I3] header role — 보이스오버가 컨텍스트 헤더로 인식. */}
-        <Text style={styles.previewTitle} accessibilityRole="header">
-          {t('session.log.capturePreviewTitle')}
-        </Text>
-        <View style={styles.previewButtonRow}>
-          <Pressable
-            onPress={onRetake}
-            style={[styles.previewBtn, styles.previewBtnGhost]}
-            accessibilityRole="button"
-            accessibilityLabel={t('session.log.capturePreviewRetake')}
-          >
-            <Text style={styles.previewBtnGhostLabel}>
-              {t('session.log.capturePreviewRetake')}
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={onConfirm}
-            style={[styles.previewBtn, styles.previewBtnPrimary]}
-            accessibilityRole="button"
-            accessibilityLabel={t('session.log.capturePreviewConfirm')}
-          >
-            <Text style={styles.previewBtnPrimaryLabel}>
-              {t('session.log.capturePreviewConfirm')}
-            </Text>
-          </Pressable>
-        </View>
-      </View>
-    </>
-  );
-}
-
-/**
- * [PR #97 리뷰 I2] 단위 하드코딩 → i18n 템플릿 분리. ko/en 양쪽에 `{{seconds}}`/`{{mb}}`
- * placeholder 가 정의돼 있어 locale 별 단위 표기/순서 자유. 코드는 코드베이스 관습대로
- * `.replace('{{key}}', value)` 로 치환 (FeedPostCard 등과 동일 패턴).
- */
-function formatVideoMeta(media: CapturedMedia): string {
-  const seconds = media.durationMs ? Math.round(media.durationMs / 1000) : 0;
-  const mb = (media.byteSize / (1024 * 1024)).toFixed(1);
-  return t('session.log.capturePreviewVideoMeta')
-    .replace('{{seconds}}', String(seconds))
-    .replace('{{mb}}', mb);
-}
-
-function PermissionFallback({
-  styles,
-  onRetry,
-  onOpenSettings,
-}: {
-  styles: ReturnType<typeof makeStyles>;
-  onRetry: () => void;
-  onOpenSettings: () => void;
-}) {
-  return (
-    <View style={styles.fallbackBox}>
-      <Text style={styles.fallbackTitle}>{t('session.log.cameraPermissionTitle')}</Text>
-      <Text style={styles.fallbackBody}>{t('session.log.cameraPermissionBody')}</Text>
-      <Pressable onPress={onRetry} style={styles.fallbackBtn} accessibilityRole="button">
-        <Text style={styles.fallbackBtnLabel}>{t('session.log.cameraPermissionRetry')}</Text>
-      </Pressable>
-      {/* [PR #91 리뷰 I4] 영구 거부 사용자도 진행할 수 있도록 시스템 설정 진입 보조 버튼. */}
-      <Pressable onPress={onOpenSettings} style={styles.fallbackBtnGhost} accessibilityRole="button">
-        <Text style={styles.fallbackBtnGhostLabel}>{t('session.log.cameraPermissionSettings')}</Text>
-      </Pressable>
-    </View>
   );
 }
 
@@ -735,6 +716,8 @@ function resolvePhotoMime(detected: DetectedImageMime | null, path: string): Cap
   if (Platform.OS === 'ios') return 'image/heic';
   return 'image/jpeg';
 }
+
+export type CameraSheetStyles = ReturnType<typeof makeStyles>;
 
 function makeStyles(theme: Theme) {
   const recBg = withAlpha(theme.semantic.danger, 0.92);
@@ -819,6 +802,19 @@ function makeStyles(theme: Theme) {
     modeLabel: {
       fontFamily,
       fontSize: 12,
+      fontWeight: fontWeight.bold,
+      color: CAMERA_FG,
+    },
+    cameraReadyOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: space[2],
+      backgroundColor: withAlpha(CAMERA_BG, 0.24),
+    },
+    cameraReadyText: {
+      fontFamily,
+      fontSize: 13,
       fontWeight: fontWeight.bold,
       color: CAMERA_FG,
     },
@@ -958,21 +954,18 @@ function makeStyles(theme: Theme) {
       width: '100%',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingHorizontal: space[6],
-      gap: space[3],
-    },
-    previewVideoIcon: {
-      width: 88,
-      height: 88,
-      borderRadius: 44,
-      backgroundColor: glassBg,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: space[2],
+      position: 'relative',
     },
     previewVideoMeta: {
+      position: 'absolute',
+      bottom: space[4],
+      alignSelf: 'center',
+      paddingHorizontal: space[3],
+      paddingVertical: space[2],
+      borderRadius: radius.full,
+      backgroundColor: overlayBg,
       fontFamily,
-      fontSize: 16,
+      fontSize: 13,
       fontWeight: fontWeight.bold,
       color: CAMERA_FG,
     },
@@ -1017,6 +1010,9 @@ function makeStyles(theme: Theme) {
     },
     previewBtnPrimary: {
       backgroundColor: CAMERA_FG,
+    },
+    previewBtnDisabled: {
+      opacity: 0.55,
     },
     previewBtnPrimaryLabel: {
       fontFamily,

@@ -83,13 +83,42 @@ sequenceDiagram
 | --- | --- |
 | Provider idToken 검증 실패 | 401 `AUTH_INVALID` |
 | 네트워크 타임아웃 | 503 `DEPENDENCY_UNAVAILABLE` (Provider) |
-| 탈퇴 상태 사용자 복구 | `users.status=9(DELETED)` 30일 이내면 복구 옵션 제시 |
+| 탈퇴 상태 사용자 재가입 | 기존 `users.status=9(DELETED)` 행은 부활시키지 않고 새 user 생성 후 `oauth_identities` 를 새 user 로 재연결 |
 | 이메일 중복(타 provider) | 동일 email_hash 있으면 연결 제안 화면 (Phase 1.5) |
 | Apple 첫 로그인만 email 제공 | 최초 로그인 시 email 저장, 이후 Apple은 email 미제공 허용 |
+
+## 4.1 계정 탈퇴 (Phase 1.5)
+
+```mermaid
+sequenceDiagram
+    participant App
+    participant API
+    participant DB
+    participant Redis
+    participant Storage
+
+    App->>API: DELETE /api/v1/me
+    API->>DB: users.status=DELETED, deleted_at=now()
+    API->>DB: profiles 개인정보성 필드 비노출/초기화 정책 적용
+    API->>Redis: refresh token/session key 폐기
+    API->>Storage: avatar/private media 비공개 처리 또는 삭제 예약
+    API-->>App: 204
+    App->>App: 로컬 토큰 제거 + 로그인 화면 reset
+```
+
+계정 탈퇴 후 같은 OAuth 계정으로 다시 로그인하면 기존 soft-deleted `users` 행을 부활시키지 않고 새 `users` 행을 생성한다. 기존 `oauth_identities` 행은 새 user 로 재연결한다. 탈퇴 시 `users.email/email_hash` 는 비워 같은 이메일의 재가입을 막지 않는다.
+
+정책 기본안:
+- 탈퇴 후 같은 OAuth 계정 로그인은 복구가 아니라 신규 가입으로 처리한다.
+- 기존 `oauth_identities` 는 provider 식별자 중복을 피하기 위해 유지하고, 신규 user 생성 직후 해당 user 로 재연결한다.
+- 공개 피드/댓글/시도 기록은 서비스 무결성을 위해 작성자 익명화 우선, 법적/정책상 삭제 요청 범위는 별도 약관에서 확정한다.
+- `profiles.avatar_media_id` 로 연결된 프로필 이미지는 즉시 비노출하고, 보관 기간 만료 후 삭제 대상으로 예약한다.
 
 ## 5. 보안 고려
 
 - idToken 서명 검증: JWKS 캐싱(1시간), `kid` 매핑
-- `aud`는 앱 ClientID, `iss`는 provider 고정값 화이트리스트
+- `aud`는 provider별 앱 키를 명시적으로 분리해 검증한다. Kakao는
+  `KAKAO_NATIVE_CLIENT_ID`(모바일 SDK), `KAKAO_WEB_CLIENT_ID`(JavaScript SDK),
+  `KAKAO_REST_API_KEY`(웹 code 교환)를 각각 허용한다.
 - Refresh 회전 시 이전 토큰을 그레이스 없이 즉시 만료
 - 감사 로그: 로그인 성공·실패, 이상 IP(지리적 점프) 플래그

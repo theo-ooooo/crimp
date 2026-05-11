@@ -15,6 +15,7 @@ import jakarta.validation.constraints.Size;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -54,6 +55,7 @@ public class UserController {
                 req.mainGymId(),
                 req.mainGymExtId(),
                 req.clearMainGym() != null && req.clearMainGym(),
+                req.clearAvatar() != null && req.clearAvatar(),
                 req.avatarMediaId());
         return MeResponse.of(userService.updateMyProfile(principal.userId(), cmd));
     }
@@ -65,6 +67,12 @@ public class UserController {
                 meStatsService.getStats(principal.userId(), AppTimeZone.KST));
     }
 
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> deleteMe(@AuthenticationPrincipal CrimpPrincipal principal) {
+        userService.deleteMe(principal.userId());
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/users/{extId}")
     public PublicUserResponse getPublic(@PathVariable String extId) {
         return PublicUserResponse.of(userService.getPublicProfile(extId));
@@ -73,8 +81,9 @@ public class UserController {
     @ExceptionHandler(UserException.class)
     public ResponseEntity<ApiResponse<Void>> handleUser(UserException e) {
         int status = switch (e.code()) {
-            case "USER_NOT_FOUND", "PROFILE_MISSING", "MAIN_GYM_NOT_FOUND" -> 404;
+            case "USER_NOT_FOUND", "PROFILE_MISSING", "MAIN_GYM_NOT_FOUND", "AVATAR_MEDIA_NOT_FOUND" -> 404;
             case "NICKNAME_TAKEN" -> 409;
+            case "AVATAR_MEDIA_FORBIDDEN" -> 403;
             default -> 400;
         };
         return ResponseEntity.status(status).body(ApiResponse.failure(ErrorBody.of(e.code(), e.getMessage())));
@@ -92,6 +101,13 @@ public class UserController {
      *   <li>{@code clearMainGym=true} — 주 암장 명시 해제 (null 로 설정).
      *   <li>{@code clearMainGym=true} 와 mainGymExtId/mainGymId 동시 set 은 400 (INVALID_MAIN_GYM_REQUEST).
      * </ul>
+     *
+     * <p>프로필 이미지 변경:
+     * <ul>
+     *   <li>{@code avatarMediaId} — 본인 소유 READY IMAGE 미디어 id.
+     *   <li>{@code clearAvatar=true} — 이미지 명시 해제.
+     *   <li>둘을 동시에 set 하면 400 (INVALID_AVATAR_REQUEST).
+     * </ul>
      */
     public record UpdateProfileRequest(
             @Size(min = 2, max = 30) String nickname,
@@ -102,27 +118,32 @@ public class UserController {
             // @Size 는 null 에 대해서는 bypass 되므로 optional 의미는 유지.
             @Size(min = 26, max = 26) String mainGymExtId,
             Boolean clearMainGym,
+            Boolean clearAvatar,
             Long avatarMediaId
     ) {}
 
     public record MeResponse(
             String extId,
             String nickname,
+            boolean nicknameConfigured,
             String bio,
             Byte levelSelf,
             Long mainGymId,
             MainGymResponse mainGym,
-            Long avatarMediaId
+            Long avatarMediaId,
+            String avatarUrl
     ) {
         static MeResponse of(ProfileView v) {
             return new MeResponse(
                     v.extId(),
                     v.nickname(),
+                    v.nicknameConfigured(),
                     v.bio(),
                     v.levelSelf(),
                     v.mainGymId(),
                     MainGymResponse.of(v.mainGym()),
-                    v.avatarMediaId());
+                    v.avatarMediaId(),
+                    v.avatarUrl());
         }
     }
 
@@ -146,11 +167,12 @@ public class UserController {
             String nickname,
             String bio,
             Byte levelSelf,
-            Long avatarMediaId
+            Long avatarMediaId,
+            String avatarUrl
     ) {
         static PublicUserResponse of(ProfileView v) {
             // 공개 프로필은 mainGymId 제외 (프라이버시: 다른 유저에게 본인 주 암장 노출 여부는 Phase 1.5 설정으로)
-            return new PublicUserResponse(v.extId(), v.nickname(), v.bio(), v.levelSelf(), v.avatarMediaId());
+            return new PublicUserResponse(v.extId(), v.nickname(), v.bio(), v.levelSelf(), v.avatarMediaId(), v.avatarUrl());
         }
     }
 

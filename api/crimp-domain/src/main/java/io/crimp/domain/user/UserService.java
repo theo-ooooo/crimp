@@ -1,14 +1,36 @@
 package io.crimp.domain.user;
 
+import io.crimp.common.config.AppProperties;
+import io.crimp.core.entity.crew.Crew;
+import io.crimp.core.entity.crew.CrewMember;
+import io.crimp.core.entity.enums.MediaKind;
+import io.crimp.core.entity.enums.MediaStatus;
+import io.crimp.core.entity.enums.MediaUsage;
+import io.crimp.core.entity.enums.CrewJoinRequestStatus;
+import io.crimp.core.entity.enums.CrewMemberRole;
+import io.crimp.core.entity.enums.CrewMemberStatus;
 import io.crimp.core.entity.enums.GymStatus;
+import io.crimp.core.entity.enums.UserStatus;
+import io.crimp.core.repository.crew.CrewMemberRepository;
+import io.crimp.core.repository.crew.CrewRepository;
+import io.crimp.core.repository.crew.CrewJoinRequestRepository;
 import io.crimp.core.entity.gym.Gym;
+import io.crimp.core.entity.media.MediaAsset;
+import io.crimp.core.entity.media.MediaImageVariant;
 import io.crimp.core.entity.user.Profile;
 import io.crimp.core.entity.user.User;
 import io.crimp.core.repository.gym.GymRepository;
+import io.crimp.core.repository.media.MediaAssetRepository;
+import io.crimp.core.repository.media.MediaImageVariantRepository;
 import io.crimp.core.repository.user.ProfileRepository;
 import io.crimp.core.repository.user.UserRepository;
+import io.crimp.domain.auth.RefreshTokenStore;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @org.springframework.context.annotation.Profile("!test")
@@ -17,17 +39,42 @@ public class UserService {
     private final UserRepository userRepo;
     private final ProfileRepository profileRepo;
     private final GymRepository gymRepo;
+    private final RefreshTokenStore refreshTokenStore;
+    private final CrewJoinRequestRepository crewJoinRequestRepo;
+    private final CrewMemberRepository crewMemberRepo;
+    private final CrewRepository crewRepo;
+    private final MediaAssetRepository mediaAssetRepo;
+    private final MediaImageVariantRepository mediaImageVariantRepo;
+    private final AppProperties appProperties;
 
-    public UserService(UserRepository userRepo, ProfileRepository profileRepo, GymRepository gymRepo) {
+    public UserService(
+            UserRepository userRepo,
+            ProfileRepository profileRepo,
+            GymRepository gymRepo,
+            RefreshTokenStore refreshTokenStore,
+            CrewJoinRequestRepository crewJoinRequestRepo,
+            CrewMemberRepository crewMemberRepo,
+            CrewRepository crewRepo,
+            MediaAssetRepository mediaAssetRepo,
+            MediaImageVariantRepository mediaImageVariantRepo,
+            AppProperties appProperties) {
         this.userRepo = userRepo;
         this.profileRepo = profileRepo;
         this.gymRepo = gymRepo;
+        this.refreshTokenStore = refreshTokenStore;
+        this.crewJoinRequestRepo = crewJoinRequestRepo;
+        this.crewMemberRepo = crewMemberRepo;
+        this.crewRepo = crewRepo;
+        this.mediaAssetRepo = mediaAssetRepo;
+        this.mediaImageVariantRepo = mediaImageVariantRepo;
+        this.appProperties = appProperties;
     }
 
     @Transactional(readOnly = true)
     public ProfileView getMe(long userId) {
         User user = userRepo.findById(userId)
                 .orElseThrow(() -> new UserException("USER_NOT_FOUND", "User " + userId + " not found"));
+        requireActive(user);
         var profile = profileRepo.findById(userId)
                 .orElseThrow(() -> new UserException("PROFILE_MISSING", "Profile for user " + userId + " missing"));
         return toView(user, profile);
@@ -37,6 +84,7 @@ public class UserService {
     public ProfileView getPublicProfile(String extId) {
         User user = userRepo.findByExtId(extId)
                 .orElseThrow(() -> new UserException("USER_NOT_FOUND", "User " + extId + " not found"));
+        requireActive(user);
         var profile = profileRepo.findById(user.getId())
                 .orElseThrow(() -> new UserException("PROFILE_MISSING", "Profile missing for " + extId));
         // I4: PublicUserResponse 는 mainGym 정보를 노출하지 않으므로 resolve 호출은 낭비.
@@ -48,18 +96,24 @@ public class UserService {
     public ProfileView updateMyProfile(long userId, UpdateProfileCommand cmd) {
         // 주 암장 관련 입력 사전 검증: 명시 해제와 신규 지정은 상호 배타.
         validateMainGymInput(cmd);
+        validateAvatarInput(cmd);
 
         User user = userRepo.findById(userId)
                 .orElseThrow(() -> new UserException("USER_NOT_FOUND", "User " + userId + " not found"));
+        requireActive(user);
         var profile = profileRepo.findById(userId)
                 .orElseThrow(() -> new UserException("PROFILE_MISSING", "Profile for user " + userId + " missing"));
 
         if (cmd.nickname() != null) {
-            if (!cmd.nickname().equals(profile.getNickname())
-                    && profileRepo.existsByNickname(cmd.nickname())) {
-                throw new UserException("NICKNAME_TAKEN", "Nickname already taken: " + cmd.nickname());
+            String trimmed = cmd.nickname().trim();
+            if (trimmed.length() < 2 || trimmed.length() > 30) {
+                throw new UserException("INVALID_NICKNAME", "Nickname must be 2-30 characters after trim");
             }
-            profile.updateNickname(cmd.nickname());
+            if (!trimmed.equals(profile.getNickname())
+                    && profileRepo.existsByNickname(trimmed)) {
+                throw new UserException("NICKNAME_TAKEN", "Nickname already taken: " + trimmed);
+            }
+            profile.updateNickname(trimmed);
         }
         if (cmd.bio() != null) profile.updateBio(cmd.bio());
         if (cmd.levelSelf() != null) profile.updateLevel(cmd.levelSelf());
@@ -81,9 +135,60 @@ public class UserService {
             profile.updateMainGym(cmd.mainGymId());
         }
 
-        if (cmd.avatarMediaId() != null) profile.updateAvatar(cmd.avatarMediaId());
+        if (cmd.clearAvatar()) {
+            profile.updateAvatar(null);
+        } else if (cmd.avatarMediaId() != null) {
+            validateAvatarMedia(userId, cmd.avatarMediaId());
+            profile.updateAvatar(cmd.avatarMediaId());
+        }
 
         return toView(user, profile);
+    }
+
+    @Transactional
+    public void deleteMe(long userId) {
+        User user = userRepo.findByIdForUpdate(userId)
+                .orElseThrow(() -> new UserException("USER_NOT_FOUND", "User " + userId + " not found"));
+        if (user.getStatus() == UserStatus.DELETED || user.isDeleted()) {
+            refreshTokenStore.deleteAllForUser(userId);
+            return;
+        }
+        crewJoinRequestRepo.findAllByUserIdAndStatus(userId, CrewJoinRequestStatus.PENDING)
+                .forEach(request -> request.cancel(userId));
+        leaveActiveCrewMemberships(userId);
+        user.deleteAccount();
+        refreshTokenStore.deleteAllForUser(userId);
+    }
+
+    private void leaveActiveCrewMemberships(long userId) {
+        var crewIds = crewMemberRepo.findCrewIdsByUserIdAndStatus(userId, CrewMemberStatus.ACTIVE);
+        if (crewIds.isEmpty()) {
+            return;
+        }
+        Map<Long, Crew> crewsById = crewRepo.findAllByIdInForUpdate(crewIds)
+                .stream()
+                .collect(Collectors.toMap(Crew::getId, Function.identity()));
+        var memberships = crewMemberRepo.findAllByUserIdAndStatus(userId, CrewMemberStatus.ACTIVE);
+        for (CrewMember member : memberships) {
+            Crew crew = crewsById.get(member.getCrewId());
+            boolean archiveCrew = crew != null
+                    && member.getRole() == CrewMemberRole.OWNER
+                    && crewMemberRepo.countByCrewIdAndRoleAndStatus(
+                    member.getCrewId(), CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE) <= 1;
+            member.leave();
+            if (crew != null) {
+                crew.decrementMemberCount();
+                if (archiveCrew) {
+                    crew.softDelete();
+                }
+            }
+        }
+    }
+
+    private static void requireActive(User user) {
+        if (user.getStatus() == UserStatus.DELETED || user.isDeleted()) {
+            throw new UserException("USER_NOT_FOUND", "User " + user.getId() + " not found");
+        }
     }
 
     /**
@@ -109,13 +214,37 @@ public class UserService {
         }
     }
 
+    private static void validateAvatarInput(UpdateProfileCommand cmd) {
+        if (cmd.clearAvatar() && cmd.avatarMediaId() != null) {
+            throw new UserException(
+                    "INVALID_AVATAR_REQUEST",
+                    "clearAvatar cannot be combined with avatarMediaId");
+        }
+    }
+
+    private void validateAvatarMedia(long userId, long avatarMediaId) {
+        MediaAsset asset = mediaAssetRepo.findById(avatarMediaId)
+                .orElseThrow(() -> new UserException("AVATAR_MEDIA_NOT_FOUND", "Avatar media not found: " + avatarMediaId));
+        if (!asset.getOwnerUserId().equals(userId)) {
+            throw new UserException("AVATAR_MEDIA_FORBIDDEN", "Avatar media belongs to another user: " + avatarMediaId);
+        }
+        if (asset.getKind() != MediaKind.IMAGE
+                || asset.getStatus() != MediaStatus.READY
+                || asset.getUsage() != MediaUsage.AVATAR) {
+            throw new UserException("AVATAR_MEDIA_INVALID", "Avatar media must be a READY AVATAR IMAGE: " + avatarMediaId);
+        }
+    }
+
     private ProfileView toView(User user, Profile profile) {
         ProfileView.MainGymView mainGym = resolveMainGym(profile.getMainGymId());
+        MediaAsset avatar = resolveAvatar(profile.getAvatarMediaId(), user.getId());
         return new ProfileView(
                 user.getExtId(),
                 profile.getNickname(),
+                profile.isNicknameConfigured(),
                 profile.getBio(),
                 profile.getAvatarMediaId(),
+                resolveAvatarUrl(avatar),
                 profile.getLevelSelf(),
                 profile.getMainGymId(),
                 mainGym
@@ -125,12 +254,15 @@ public class UserService {
     /**
      * 공개 프로필용 변환 — mainGym 정보를 항상 null 로 둔다 (PublicUserResponse 미노출).
      */
-    private static ProfileView toViewWithoutMainGym(User user, Profile profile) {
+    private ProfileView toViewWithoutMainGym(User user, Profile profile) {
+        MediaAsset avatar = resolveAvatar(profile.getAvatarMediaId(), user.getId());
         return new ProfileView(
                 user.getExtId(),
                 profile.getNickname(),
+                profile.isNicknameConfigured(),
                 profile.getBio(),
                 profile.getAvatarMediaId(),
+                resolveAvatarUrl(avatar),
                 profile.getLevelSelf(),
                 profile.getMainGymId(),
                 null
@@ -146,5 +278,32 @@ public class UserService {
         return gymRepo.findById(mainGymId)
                 .map(g -> new ProfileView.MainGymView(g.getExtId(), g.getName(), g.getBrand()))
                 .orElse(null);
+    }
+
+    private MediaAsset resolveAvatar(Long avatarMediaId, Long ownerUserId) {
+        if (avatarMediaId == null) return null;
+        return mediaAssetRepo.findById(avatarMediaId)
+                .filter(a -> a.getOwnerUserId().equals(ownerUserId))
+                .filter(a -> a.getKind() == MediaKind.IMAGE)
+                .filter(a -> a.getStatus() == MediaStatus.READY)
+                .filter(a -> a.getUsage() == MediaUsage.AVATAR)
+                .orElse(null);
+    }
+
+    private String resolveAvatarUrl(MediaAsset avatar) {
+        if (avatar == null) return null;
+        String cdnBaseUrl = appProperties.media().cdnBaseUrl();
+        if (cdnBaseUrl == null || cdnBaseUrl.isBlank()) return null;
+        String variantPath = mediaImageVariantRepo
+                .findFirstByMediaIdAndStatusAndPrimaryTrueOrderByIdDesc(avatar.getId(), MediaStatus.READY)
+                .map(MediaImageVariant::getPath)
+                .orElse(null);
+        return variantPath == null ? null : joinUrl(cdnBaseUrl, variantPath);
+    }
+
+    private static String joinUrl(String baseUrl, String path) {
+        String base = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+        String key = path.startsWith("/") ? path.substring(1) : path;
+        return base + "/" + key;
     }
 }

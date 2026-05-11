@@ -4,6 +4,7 @@ import io.crimp.core.entity.enums.AttemptResult;
 
 import java.time.Instant;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -26,4 +27,15 @@ public interface SessionAttemptRepositoryCustom {
      * 정렬: gradeNumeric DESC, loggedAt DESC (동률 시 최근 시도 우선).
      */
     Optional<String> findTopGradeValueByUserId(long userId, Collection<AttemptResult> results);
+
+    /** 특정 gym 의 최근 활동 N건. 최신 loggedAt DESC, 동률 시 id DESC. */
+    List<GymRecentActivityRow> findRecentActivityByGymId(long gymId, int limit);
+
+    /**
+     * 특정 gym 의 active session 들과 최신 그레이드 attempt.
+     *
+     * <p>세션 1건당 1개 이상의 attempt row 가 있을 수 있으므로, 서비스는 sessionId 기준으로
+     * 첫 row 를 latest graded attempt 로 해석한다.
+     */
+    List<GymActiveSessionRow> findActiveSessionsByGymId(long gymId);
 }

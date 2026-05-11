@@ -22,10 +22,14 @@ export {
   fetchGyms,
   fetchGym,
   fetchGymRoutes,
+  fetchCrews,
+  fetchCrew,
+  requestCrewJoin,
+  cancelMyCrewJoinRequest,
   fetchFeed,
   togglePostLike,
   fetchComments,
   createComment,
   deleteComment,
 } from './endpoints';
-export type { UpdateProfileBody } from './endpoints';
+export type { CrewListFilters, UpdateProfileBody } from './endpoints';

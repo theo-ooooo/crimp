@@ -25,6 +25,7 @@
     "feed": "Feed",
     "sessions": "Sessions",
     "gyms": "Gyms",
+    "crews": "Crews",
     "profile": "Profile"
   },
   "auth": {
@@ -121,6 +122,14 @@
       "saving": "Saving...",
       "errorTitle": "Failed to save profile"
     },
+    "nicknamePrompt": {
+      "eyebrow": "First setup",
+      "title": "Set your nickname",
+      "body": "You're still using the default nickname. Pick the name people will see in feeds and comments.",
+      "nicknameHelp": "Nickname must be 2-30 characters.",
+      "saveCta": "Save nickname",
+      "laterCta": "Later"
+    },
     "mainGym": {
       "title": "My gym",
       "unset": "Not set",
@@ -160,9 +169,19 @@
     },
     "start": {
       "title": "New session",
+      "question": "Where are you starting?",
       "subtitle": "Tell us the gym and start time",
       "gymNameLabel": "Gym name",
       "gymNamePlaceholder": "e.g. ClimbPark Gangnam",
+      "mainGymLabel": "Main gym",
+      "useMainGymCta": "Start at main gym",
+      "useOtherGymCta": "Another gym",
+      "searchPlaceholder": "Search by gym name or address",
+      "clearSearch": "Clear search",
+      "searchErrorTitle": "Failed to load gyms",
+      "searchEmptyTitle": "No gyms found",
+      "searchEmptyBody": "Try another keyword.",
+      "loadMore": "Load more",
       "startedAtLabel": "Start time",
       "submit": "Start",
       "submitting": "Starting...",
@@ -313,6 +332,10 @@
     "gymNotFound": "Gym not found.",
     "mainGymNotFound": "The selected gym is no longer available.",
     "mainGymInvalid": "Main gym request is invalid.",
+    "avatarMediaNotFound": "We could not find that profile image. Please choose it again.",
+    "avatarMediaForbidden": "You can only use your own image as a profile image.",
+    "avatarMediaInvalid": "Only uploaded images can be used as profile images.",
+    "avatarInvalidRequest": "The profile image request is invalid.",
     "attemptInvalid": "Attempt data is invalid.",
     "generic": "Request failed."
   }

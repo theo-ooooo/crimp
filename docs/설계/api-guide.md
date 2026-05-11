@@ -39,6 +39,9 @@
 
 - Access: 15분, Refresh: 14일
 - Refresh는 Redis에 `refresh:{userId}:{jti}` 저장, 로테이션 방식
+- Kakao OAuth 키는 앱/웹/서버를 분리한다. 모바일 SDK audience 는
+  `KAKAO_NATIVE_CLIENT_ID`, 웹 JavaScript SDK audience 는 `KAKAO_WEB_CLIENT_ID`,
+  authorization code 교환의 token endpoint `client_id` 는 `KAKAO_REST_API_KEY` 를 쓴다.
 - code 교환 엔드포인트는 provider REST API 키가 환경 변수 (`KAKAO_REST_API_KEY` 등) 로
   설정되지 않았을 때 `KAKAO_OAUTH_NOT_CONFIGURED` (HTTP 503) 으로 명시 응답한다.
 
@@ -168,8 +171,10 @@
 ### 사용자 (`/api/v1/me`, `/api/v1/users`)
 | Method | Path | 설명 |
 | --- | --- | --- |
-| GET | `/api/v1/me` | 내 정보. 응답에 `mainGymId`(numeric, 호환) 와 `mainGym: { extId, name, brand }`(해석된 lightweight 객체, 미설정 시 null/누락) 를 함께 반환. |
-| PATCH | `/api/v1/me/profile` | 프로필 수정. 주 암장은 `mainGymExtId: String` (권장) / `mainGymId: number` (호환) / `clearMainGym: true` (명시 해제) 중 하나로 표현. 두 변경 입력을 동시에 set 하면 400 (`INVALID_MAIN_GYM_REQUEST`), `mainGymExtId` 가 존재하지 않는 ULID 면 404 (`MAIN_GYM_NOT_FOUND`). |
+| GET | `/api/v1/me` | 내 정보. 응답에 `nicknameConfigured`(사용자가 닉네임을 직접 저장했는지), `mainGymId`(numeric, 호환), `mainGym: { extId, name, brand }`(해석된 lightweight 객체, 미설정 시 null/누락), `avatarMediaId`, `avatarUrl` 을 함께 반환. `avatarUrl` 은 CDN 설정이 있고 연결된 미디어가 READY IMAGE 일 때만 내려간다. |
+| PATCH | `/api/v1/me/profile` | 프로필 수정. 주 암장은 `mainGymExtId: String` (권장) / `mainGymId: number` (호환) / `clearMainGym: true` (명시 해제) 중 하나로 표현. 두 변경 입력을 동시에 set 하면 400 (`INVALID_MAIN_GYM_REQUEST`), `mainGymExtId` 가 존재하지 않는 ULID 면 404 (`MAIN_GYM_NOT_FOUND`). 프로필 이미지는 `avatarMediaId` 또는 `clearAvatar: true` 로 연결/해제한다. `avatarMediaId` 는 본인 소유 READY IMAGE 만 허용하며, 위반 시 `AVATAR_MEDIA_*` 에러를 반환한다. |
+| POST | `/api/v1/me/profile/avatar` | Phase 1.5 후보. 프로필 이미지 업로드 편의 endpoint. 기본안은 기존 `/media/presign` → PUT → `/media/complete` 후 `PATCH /me/profile { avatarMediaId }` 재사용이며, UX 단순화를 위해 래핑 endpoint 도 검토한다. |
+| DELETE | `/api/v1/me` | 계정 탈퇴. 204 응답. refresh token 전체 폐기, `users.status=DELETED` soft delete, 이후 내 정보/공개 프로필 조회·수정 및 기존 refresh 재발급을 차단한다. 같은 OAuth 계정으로 다시 로그인하면 기존 user 를 부활시키지 않고 새 user 를 생성하며 `oauth_identities` 를 새 user 로 재연결한다. 기존 공개 컨텐츠는 유지하되 작성자 식별 정보는 익명화한다. |
 | GET | `/api/v1/users/{extId}` | 타 사용자 프로필 |
 | POST | `/api/v1/users/{extId}:follow` | 팔로우 |
 | DELETE | `/api/v1/users/{extId}:follow` | 언팔로우 |
@@ -177,9 +182,10 @@
 ### 암장·루트 (`/api/v1/gyms`, `/api/v1/routes`)
 | Method | Path | 설명 |
 | --- | --- | --- |
-| GET | `/api/v1/gyms` | 암장 검색 (좌표·키워드·브랜드) |
+| GET | `/api/v1/gyms` | 암장 검색 (`q`, `brand`, `lat`, `lng`, `cursor`, `size`). `lat`/`lng` 둘 다 있으면 거리순 정렬 + `distanceMeters` 포함 |
 | GET | `/api/v1/gyms/{extId}` | 암장 상세 |
 | GET | `/api/v1/gyms/{extId}/routes` | 루트 목록 (활성, 인증 필요, 커서 페이지네이션 `?cursor=&size=`, id DESC) |
+| GET | `/api/v1/gyms/{extId}/recent-activity` | 암장 최근 활동. 탈퇴 사용자 활동은 `userExtId=null`, `nickname=탈퇴사용자`, `avatarColorHue=0` 으로 익명화한다. |
 | GET | `/api/v1/routes/{extId}` | 루트 상세 |
 
 ### 등반 기록 (`/api/v1/sessions`, `/api/v1/attempts`)
@@ -199,7 +205,7 @@
 ### 피드 (`/api/v1/feed`, `/api/v1/feed-posts`, `/api/v1/comments`)
 | Method | Path | 설명 |
 | --- | --- | --- |
-| GET | `/api/v1/feed?filter=popular\|my-gym\|friends&cursor=&size=` | 피드 (popular 기본 / my-gym = Profile.mainGymId / friends = Follow 기반). items.extId 는 **feed_post.ext_id** (V908 후 의미 전환), liked / likes / comments 실데이터. |
+| GET | `/api/v1/feed?filter=popular\|my-gym\|friends&cursor=&size=` | 피드 (popular 기본 / my-gym = Profile.mainGymId / friends = Follow 기반). items.extId 는 **feed_post.ext_id** (V908 후 의미 전환), liked / likes / comments 실데이터. 탈퇴 사용자 게시글은 유지하되 작성자 `userExtId=null`, `userNickname=탈퇴사용자`, `avatarColorHue=0`, `avatarUrl=null` 로 익명화한다. |
 | POST | `/api/v1/feed-posts/{extId}/like` | 좋아요 추가 (멱등) → `{ liked: true, likeCount: N }` |
 | DELETE | `/api/v1/feed-posts/{extId}/like` | 좋아요 취소 (멱등) → `{ liked: false, likeCount: N }` |
 | GET | `/api/v1/feed-posts/{extId}/comments?cursor=&size=` | 댓글 목록 (Comment.id ASC, forward 페이지네이션) |
@@ -215,12 +221,51 @@
 > 인 시도가 기록되면 동일 트랜잭션에서 `feed_posts` 행이 자동 생성된다 (`visibility=PUBLIC`,
 > `attempt_id` UNIQUE 1:1, V908). `FAIL`/`TRY` 는 게시되지 않는다.
 
+> **탈퇴 사용자 표시 정책**: 공개 피드/댓글/암장 최근 활동은 기록 자체를 유지한다. 작성자가 탈퇴한 경우
+> `userExtId` 는 `null` 또는 `@JsonInclude(NON_NULL)` 에 의해 누락될 수 있고, 닉네임은
+> `탈퇴사용자`, `avatarColorHue=0`, 프로필 이미지 URL 은 `null/누락` 으로 응답한다. 앱/웹 스키마는
+> 작성자 extId nullable 을 허용해야 한다.
+
+### 크루 (`/api/v1/crews`) — Phase 1.5
+
+현재 구현된 API:
+
+| Method | Path | 설명 |
+| --- | --- | --- |
+| GET | `/api/v1/crews?q=&region=&gymExtId=&levelBand=&style=&cursor=&size=` | 공개 크루 목록. 지역·대표 암장·레벨·스타일 필터, 커서 페이지네이션. 응답에는 `imageMediaId`, `imageUrl`, `memberCount`, `capacity`, `joinPolicy`, `myStatus`, `nextMeetup`, `memberPreview` 포함 |
+| POST | `/api/v1/crews` | 크루 생성. 생성자는 `OWNER` 멤버가 된다. `imageMediaId` 전달 시 호출자 소유 READY CREW IMAGE 만 연결 |
+| GET | `/api/v1/crews/{extId}` | 크루 상세. 기본 정보, 대표 이미지, 대표 암장, owner, 내 가입 상태 |
+| PATCH | `/api/v1/crews/{extId}` | 크루 기본 정보/대표 이미지 수정 (`OWNER`/`ADMIN`). `clearImage=true` 로 대표 이미지 해제 |
+| GET | `/api/v1/meetups?size=&near=&lat=&lng=&levelBand=&style=&outdoor=` | 전체 예정 모임 목록. 크루 소속 여부와 무관하게 시작 시각 오름차순. `near=true` 는 클라이언트 현재 위치 좌표(`lat`,`lng`) 기준 거리순, `levelBand`/`style` 은 연결된 크루 기준, `outdoor=true` 는 외벽/아웃도어 키워드 기준 |
+| POST | `/api/v1/meetups` | 독립 모임 또는 크루 모임 생성. Body: `{ title, description?, startsAt, endsAt?, crewExtId?, gymExtId?, location?, capacity?, joinPolicy? }`. 생성자는 자동 참여 |
+| GET | `/api/v1/meetups/{extId}` | 모임 상세. 장소, 크루, 참여 방식, 참여 인원, 내 참여 상태, 방장(`host`), 내 관리 가능 여부(`canManage`) 포함 |
+| PATCH | `/api/v1/meetups/{extId}` | 모임 수정. 시작 전 모임만 가능. 독립 모임은 방장, 크루 모임은 방장 또는 크루 `OWNER`/`ADMIN` 가능 |
+| POST | `/api/v1/meetups/{extId}/participants/me` | 내 모임 참여. Body: `{ message? }`. `joinPolicy=OPEN` 은 즉시 `JOINED`, `APPROVAL` 은 요청 메시지와 함께 `PENDING` 요청 상태 |
+| DELETE | `/api/v1/meetups/{extId}/participants/me` | 내 모임 참여/요청 취소 |
+| DELETE | `/api/v1/meetups/{extId}` | 모임 취소. 시작 전 모임만 가능. 독립 모임은 방장, 크루 모임은 방장 또는 크루 `OWNER`/`ADMIN` 가능. 취소된 모임은 목록/상세에서 제외 |
+| GET | `/api/v1/meetups/{extId}/participants?status=ACTIVE\|PENDING` | 모임 참여자/요청 목록. `ACTIVE` 는 참여자 목록, `PENDING` 은 승인 대기 요청이며 모임 관리자만 조회 |
+| POST | `/api/v1/meetups/{extId}/participants/{userExtId}:approve` | 승인제 모임 참여 요청 승인. 모임 관리자만 가능 |
+| POST | `/api/v1/meetups/{extId}/participants/{userExtId}:reject` | 승인제 모임 참여 요청 거절. 모임 관리자만 가능 |
+| GET | `/api/v1/crews/{extId}/meetups?size=` | 크루 예정 모임 목록. 시작 시각 오름차순 |
+| POST | `/api/v1/crews/{extId}/meetups` | 크루 모임 생성 (`OWNER`/`ADMIN`). Body: `{ title, description?, startsAt, endsAt?, gymExtId?, location?, capacity?, joinPolicy? }` |
+| POST | `/api/v1/crews/{extId}/join-requests` | 가입 요청 생성. 같은 사용자는 여러 크루에 가입 요청 가능, 같은 크루의 대기 요청은 1개 |
+| DELETE | `/api/v1/crews/{extId}/join-requests/me` | 내 대기 가입 요청 취소 |
+| GET | `/api/v1/crews/{extId}/join-requests?status=PENDING&cursor=&size=` | 가입 요청 목록 (`OWNER`/`ADMIN`) |
+| POST | `/api/v1/crews/{extId}/join-requests/{requestExtId}:approve` | 가입 요청 승인. 승인 시 ACTIVE 멤버 추가 |
+| POST | `/api/v1/crews/{extId}/join-requests/{requestExtId}:reject` | 가입 요청 거절 |
+| GET | `/api/v1/crews/{extId}/members?cursor=&size=` | ACTIVE 멤버 목록. userExtId, nickname, role, joinedAt 포함 |
+| DELETE | `/api/v1/crews/{extId}/members/me` | 크루 탈퇴. `crew_members.status=LEFT`, 마지막 `OWNER` 는 탈퇴 불가 |
+| DELETE | `/api/v1/crews/{extId}/members/{userExtId}` | 멤버 탈퇴 처리 (`OWNER`/`ADMIN`). `OWNER` 는 제거 불가, `ADMIN` 은 다른 `ADMIN` 제거 불가 |
+
+상세 설계: [../기획/crew.md](../기획/crew.md), [sequence/crew.md](./sequence/crew.md).
+
 ### 미디어 (`/api/v1/media`)
 | Method | Path | 설명 |
 | --- | --- | --- |
-| POST | `/api/v1/media:prepareUpload` | S3 presigned PUT URL 발급 |
-| POST | `/api/v1/media:confirmUpload` | 업로드 완료 통지 (클라→서버) |
-| GET | `/api/v1/media/{extId}` | 미디어 상태 조회 |
+| POST | `/api/v1/media/presign` | UPLOADING 행 생성 + S3 presigned PUT URL. Body: `{ kind, usage?, mime, byteSize }`. `usage` 는 `ATTEMPT`(기본), `AVATAR`, `POSTER`, `CREW` 중 하나이며 프로필/크루 이미지는 각각 `AVATAR`/`CREW` READY IMAGE 만 연결 가능. |
+| POST | `/api/v1/media/{id}/complete` | S3 PUT 성공 후 호출 → READY. Body: `{ byteSize, width, height, durationMs, attachAsPosterForVideoId? }`. `attachAsPosterForVideoId` 는 **IMAGE** 완료 시에만 의미 있음: 해당 id 의 **VIDEO** 미디어(이미 READY, 동일 소유자)에 본 이미지를 대표 썸네일(`media_video_thumbnails`)로 연결. 생략·null 시 기존과 동일. |
+
+클라이언트 흐름: `presign` → `PUT` presigned URL → `complete`. 동영상 사용자 지정 포스터는 **비디오 `complete` 후** 포스터 이미지를 presign→PUT→`complete` 하며 `attachAsPosterForVideoId` 에 비디오 미디어 numeric `id` 를 넣는다.
 
 ## 12. 오픈 이슈
 

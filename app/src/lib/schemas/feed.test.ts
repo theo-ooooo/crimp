@@ -47,6 +47,7 @@ describe('FeedItemSchema', () => {
     userExtId: '01J9ZX5K8000ABCDEFGHIJKLMN',
     userNickname: '서지우',
     avatarColorHue: 250,
+    avatarUrl: 'https://cdn.crimp.test/media/users/1/avatar/image/avatar.webp',
     gymName: '서울볼더스 성수',
     result: 'SEND',
     gradeValue: 'V5',
@@ -57,12 +58,14 @@ describe('FeedItemSchema', () => {
     comments: 6,
     liked: false,
     loggedAt: '2026-04-25T07:00:00Z',
+    mediaUrls: [],
   };
 
   it('parses a full item', () => {
     const parsed = FeedItemSchema.parse(fullItem);
     expect(parsed.extId).toBe(fullItem.extId);
     expect(parsed.avatarColorHue).toBe(250);
+    expect(parsed.avatarUrl).toBe(fullItem.avatarUrl);
     expect(parsed.gymName).toBe('서울볼더스 성수');
     expect(parsed.gradeNumeric).toBe(5);
     expect(parsed.liked).toBe(false);
@@ -86,6 +89,7 @@ describe('FeedItemSchema', () => {
       comments: 0,
       liked: false,
       loggedAt: fullItem.loggedAt,
+      mediaUrls: [],
     };
     const parsed = FeedItemSchema.parse(partial);
     expect(parsed.gymName).toBeUndefined();
@@ -110,6 +114,20 @@ describe('FeedItemSchema', () => {
     expect(parsed.gradeNumeric).toBeNull();
     expect(parsed.holdColor).toBeNull();
     expect(parsed.note).toBeNull();
+  });
+
+  it('parses a deleted-user item with null author id', () => {
+    const parsed = FeedItemSchema.parse({
+      ...fullItem,
+      userExtId: null,
+      userNickname: '탈퇴사용자',
+      avatarColorHue: 0,
+      avatarUrl: null,
+    });
+
+    expect(parsed.userExtId).toBeNull();
+    expect(parsed.userNickname).toBe('탈퇴사용자');
+    expect(parsed.avatarUrl).toBeNull();
   });
 
   it('rejects out-of-range avatarColorHue', () => {
@@ -163,6 +181,7 @@ describe('FeedListSchema', () => {
           comments: 0,
           liked: false,
           loggedAt: '2026-04-25T00:00:00Z',
+          mediaUrls: [],
         },
       ],
       page: { nextCursor: 12345, size: 20 },
@@ -241,6 +260,18 @@ describe('CommentSchema', () => {
     const parsed = CommentSchema.parse(partial);
     expect(parsed.userNickname).toBeUndefined();
     expect(parsed.parentExtId).toBeUndefined();
+  });
+
+  it('parses a deleted-user comment with null author id', () => {
+    const parsed = CommentSchema.parse({
+      ...fullComment,
+      userExtId: null,
+      userNickname: '탈퇴사용자',
+      avatarColorHue: 0,
+    });
+
+    expect(parsed.userExtId).toBeNull();
+    expect(parsed.userNickname).toBe('탈퇴사용자');
   });
 
   it('rejects invalid avatarColorHue', () => {

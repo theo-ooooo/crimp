@@ -2,6 +2,7 @@ package io.crimp.domain.auth;
 
 import io.crimp.common.id.UlidGenerator;
 import io.crimp.core.entity.enums.OauthProvider;
+import io.crimp.core.entity.enums.UserStatus;
 import io.crimp.core.entity.user.OauthIdentity;
 import io.crimp.core.entity.user.Profile;
 import io.crimp.core.entity.user.User;
@@ -69,13 +70,21 @@ public class AuthService {
      * <p>{@code expectedNonce} 는 client 가 OAuth authorize 요청 시 생성·전송한 원본 nonce.
      * provider 별 비교 규칙:
      * <ul>
-     *   <li>Apple: id_token 에는 SHA-256(원본) hex 가 박혀 있으므로 동일 해시 후 비교.</li>
+     *   <li>Apple native: id_token 에는 SHA-256(원본) hex 가 박혀 있으므로 동일 해시 후 비교.</li>
      *   <li>Kakao: id_token 에 원본이 그대로 박히므로 평문 비교.</li>
      * </ul>
      * {@code expectedNonce} 가 null/blank 이면 검증을 건너뛴다 (구버전 클라 호환).
      */
     @Transactional
     public AuthTokens exchange(OauthProvider provider, String idToken, String expectedNonce) {
+        return exchangeVerifiedIdToken(provider, idToken, expectedNonce, false);
+    }
+
+    private AuthTokens exchangeVerifiedIdToken(
+            OauthProvider provider,
+            String idToken,
+            String expectedNonce,
+            boolean allowAppleRawNonce) {
         OauthIdTokenVerifier verifier = verifiers.get(provider);
         if (verifier == null) {
             throw new AuthException("AUTH_PROVIDER_UNSUPPORTED", "Unsupported provider: " + provider);
@@ -87,13 +96,13 @@ public class AuthService {
             throw new AuthException("AUTH_INVALID", "ID token verification failed: " + e.getMessage());
         }
 
-        verifyNonce(provider, expectedNonce, info.nonce());
+        verifyNonce(provider, expectedNonce, info.nonce(), allowAppleRawNonce);
 
         User user = oauthIdentityRepository
                 .findByProviderAndProviderUid(info.provider(), info.providerUid())
-                .map(id -> userRepository.findById(id.getUserId())
-                        .orElseThrow(() -> new AuthException("AUTH_USER_MISSING", "Linked user not found")))
+                .map(id -> resolveLinkedUserOrCreateFresh(info, id))
                 .orElseGet(() -> createUser(info));
+        requireActive(user);
         user.markLoggedIn();
 
         return issueTokens(user);
@@ -139,7 +148,11 @@ public class AuthService {
         if (idToken == null || idToken.isBlank()) {
             throw new AuthException("AUTH_INVALID", "Provider returned empty id_token");
         }
-        return exchange(provider, idToken, expectedNonce);
+        return exchangeVerifiedIdToken(
+                provider,
+                idToken,
+                expectedNonce,
+                provider == OauthProvider.APPLE);
     }
 
     @Transactional(readOnly = true)
@@ -163,6 +176,7 @@ public class AuthService {
 
         User user = userRepository.findById(parsed.userId())
                 .orElseThrow(() -> new AuthException("AUTH_USER_MISSING", "User not found"));
+        requireActive(user);
         return issueTokens(user);
     }
 
@@ -177,13 +191,30 @@ public class AuthService {
     }
 
     private User createUser(OauthUserInfo info) {
+        User user = createUserRecord(info);
+        oauthIdentityRepository.save(
+                OauthIdentity.link(user.getId(), info.provider(), info.providerUid()));
+        return user;
+    }
+
+    private User resolveLinkedUserOrCreateFresh(OauthUserInfo info, OauthIdentity identity) {
+        User linked = userRepository.findById(identity.getUserId())
+                .orElseThrow(() -> new AuthException("AUTH_USER_MISSING", "Linked user not found"));
+        if (linked.getStatus() != UserStatus.DELETED && !linked.isDeleted()) {
+            return linked;
+        }
+        User fresh = createUserRecord(info);
+        identity.relinkTo(fresh.getId());
+        oauthIdentityRepository.save(identity);
+        return fresh;
+    }
+
+    private User createUserRecord(OauthUserInfo info) {
         String extId = UlidGenerator.next();
         byte[] emailBytes = info.email() != null ? info.email().getBytes(StandardCharsets.UTF_8) : null;
         String emailHash = info.email() != null ? hash(info.email().toLowerCase()) : null;
         User user = User.create(extId, emailHash, emailBytes);
         userRepository.save(user);
-        oauthIdentityRepository.save(
-                OauthIdentity.link(user.getId(), info.provider(), info.providerUid()));
         // 기본 닉네임은 user.id 기반 — DB BIGINT AUTO_INCREMENT 가 유일성 보장. 온보딩 UI 에서 유저가 변경.
         String defaultNickname = "crimper_" + user.getId();
         profileRepository.save(Profile.create(user.getId(), defaultNickname));
@@ -205,6 +236,12 @@ public class AuthService {
                 jwtProperties.accessTtlSeconds(), jwtProperties.refreshTtlSeconds());
     }
 
+    private static void requireActive(User user) {
+        if (user.getStatus() == UserStatus.DELETED || user.isDeleted()) {
+            throw new AuthException("AUTH_ACCOUNT_DELETED", "Account is deleted");
+        }
+    }
+
     private static String hash(String value) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
@@ -218,14 +255,19 @@ public class AuthService {
      * (PR #112) provider 별 규약에 맞춰 client 가 보낸 원본 nonce 와 id_token 의 nonce 클레임을 비교.
      *
      * <ul>
-     *   <li>Apple: id_token 의 nonce 는 SHA-256(원본) 의 hex. 명세상 소문자지만, provider 가 향후
-     *       대문자로 바꿀 가능성에 대비해 비교 시 토큰 측 값을 lowercase 로 정규화 (PR #112 리뷰 I3).</li>
+     *   <li>Apple native: SHA-256(원본) hex. hex 값은 대소문자 차이를 정규화한다.</li>
+     *   <li>Apple web code flow: 원본 nonce 로 내려올 수 있어 {@code exchangeCode} 경로에서만
+     *       raw 일치를 추가 허용한다.</li>
      *   <li>Kakao: id_token 의 nonce 는 원본 그대로. 평문 비교.</li>
      * </ul>
      * client 가 nonce 를 보내지 않은 경우 (null/blank) 검증을 건너뛴다 — 구버전 클라 호환.
      * client 가 nonce 를 보냈지만 id_token 에 클레임이 없거나 일치하지 않으면 {@code AUTH_INVALID}.
      */
-    private static void verifyNonce(OauthProvider provider, String expectedRaw, String tokenNonce) {
+    private static void verifyNonce(
+            OauthProvider provider,
+            String expectedRaw,
+            String tokenNonce,
+            boolean allowAppleRawNonce) {
         if (expectedRaw == null || expectedRaw.isBlank()) {
             return;
         }
@@ -236,8 +278,12 @@ public class AuthService {
         String actual;
         switch (provider) {
             case APPLE -> {
-                expected = hash(expectedRaw);
-                actual = tokenNonce.toLowerCase(Locale.ROOT);
+                String actualApple = tokenNonce.toLowerCase(Locale.ROOT);
+                if (hash(expectedRaw).equals(actualApple)
+                        || (allowAppleRawNonce && expectedRaw.equals(tokenNonce))) {
+                    return;
+                }
+                throw new AuthException("AUTH_INVALID", "nonce mismatch");
             }
             case KAKAO -> {
                 expected = expectedRaw;

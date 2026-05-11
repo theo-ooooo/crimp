@@ -90,11 +90,11 @@ app:
     oauth:
       kakao:
         # OIDC ID Token 검증 (모바일/JS SDK 가 직접 발급한 id_token)
-        # client-id 는 모바일 네이티브 앱 키. id_token 의 aud 는 SDK 초기화에 쓴 키와
-        # 동일하게 박히므로 웹 code flow(REST 키)·기타 클라이언트(JS 키)도 함께 허용해야
-        # 한다. rest-api-key 는 자동으로 audience 집합에 포함되며, 그 외 키는
-        # additional-audiences 에 콤마로 나열한다 (예: KAKAO_ADDITIONAL_AUDIENCES=js-key,...)
-        client-id: ${KAKAO_CLIENT_ID:placeholder-kakao-client-id}
+        # Kakao id_token 의 aud 는 SDK 초기화/authorize 에 사용한 앱 키가 그대로 들어간다.
+        # 앱(native), 웹(JavaScript), 서버 code exchange(REST)를 한 client-id 로 뭉개지 말고
+        # 각각 분리한다. KAKAO_CLIENT_ID 는 구버전 env 호환용으로 native-client-id fallback 만 담당.
+        native-client-id: ${KAKAO_NATIVE_CLIENT_ID:${KAKAO_CLIENT_ID:placeholder-kakao-native-client-id}}
+        web-client-id: ${KAKAO_WEB_CLIENT_ID:}
         additional-audiences: ${KAKAO_ADDITIONAL_AUDIENCES:}
         issuer: https://kauth.kakao.com
         jwks-uri: https://kauth.kakao.com/.well-known/jwks.json
@@ -161,17 +161,27 @@ app:
       default-radius-meters: 5000
       # 매장 검색 키워드 (단일 — PR #110 까지의 호환성). PR #111 부터는 query-keywords 우선.
       query-keyword: 클라이밍
-      # (PR #111) 다중 키워드 — Kakao 가 같은 매장을 다른 표기 (클라이밍/볼더링/암벽) 로 등록하는
-      # 케이스를 포괄. 각 키워드별로 호출 후 Kakao place id 기준 union dedup.
+      # (PR #111) 다중 키워드 — Kakao Local 은 일반 분류어보다 실제 브랜드/상호명 검색의
+      # 재현율이 높다. 일반 키워드는 비암장 결과가 섞이므로 검증된 브랜드/상호명만 고정한다.
+      # 각 키워드별로 호출 후 Kakao place id 기준 union dedup.
       query-keywords:
-        - 클라이밍
-        - 볼더링
-        - 암벽
-        - 클라이밍짐
-      # 한 호출당 응답 사이즈 (Kakao 상한 15) 와 페이지네이션 한도. PR #111 — max-pages 3 → 5
-      # 상향 (밀집 지역 누락 회피). 좌표·키워드당 최대 75건.
+        - 더클라임
+        - 클라이밍파크
+        - 볼더프렌즈
+        - 손상원클라이밍
+        - 서울숲클라이밍
+        - 손상원
+        - 비블럭
+        - 오프더월
+        - 캐치스톤
+        - 웨이브락
+        - 오프더월클라이밍
+      # 한 호출당 응답 사이즈 (Kakao 상한 15) 와 페이지네이션 한도.
+      # 서울 25개 구 × 다중 키워드 호출은 Kakao short limit 에 쉽게 걸리므로 기본은 작게 둔다.
       page-size: 15
-      max-pages: 5
+      max-pages: ${KAKAO_LOCAL_MAX_PAGES:2}
+      # Kakao Local 요청 사이 지연(ms). short limit 발생 시 100~300ms 정도로 조정.
+      request-delay-ms: ${KAKAO_LOCAL_REQUEST_DELAY_MS:0}
     # PR #110 — cron 스케줄러. 기본 비활성. 환경 변수로 활성/cron 갱신 가능:
     #   GYM_SYNC_SCHEDULER_ENABLED=true GYM_SYNC_SCHEDULER_CRON="0 0 4 * * MON"
     # cron 표기는 Spring (sec min hour day month weekday). 기본 매주 월 04:00 zone 기준.
@@ -179,6 +189,11 @@ app:
       enabled: ${GYM_SYNC_SCHEDULER_ENABLED:false}
       cron: ${GYM_SYNC_SCHEDULER_CRON:0 0 4 * * MON}
       zone: ${GYM_SYNC_SCHEDULER_ZONE:UTC}
+  gym-stats:
+    scheduler:
+      enabled: ${GYM_STATS_SCHEDULER_ENABLED:true}
+      cron: ${GYM_STATS_SCHEDULER_CRON:0 30 4 * * *}
+      zone: ${GYM_STATS_SCHEDULER_ZONE:UTC}
 
 logging:
   level:

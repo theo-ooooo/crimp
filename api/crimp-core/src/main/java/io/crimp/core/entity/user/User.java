@@ -61,4 +61,11 @@ public class User extends SoftDeletableEntity {
     public void markLoggedIn() {
         this.lastLoginAt = Instant.now();
     }
+
+    public void deleteAccount() {
+        this.email = null;
+        this.emailHash = null;
+        this.status = UserStatus.DELETED;
+        softDelete();
+    }
 }

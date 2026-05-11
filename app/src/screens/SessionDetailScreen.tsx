@@ -1,14 +1,17 @@
-import { useRoute, type RouteProp } from '@react-navigation/native';
-import React, { useMemo } from 'react';
 import {
-} from 'react-native';
+  useNavigation,
+  useRoute,
+  type RouteProp,
+} from '@react-navigation/native';
+import React, { useMemo } from 'react';
 
 import { AuthHydrationGate } from '@/components/common/screen/AuthHydrationGate';
 import { SessionDetailBody } from '@/components/session-detail/SessionDetailBody';
 import { makeSessionDetailStyles } from '@/components/session-detail/sessionDetailStyles';
 import { useSessionDetailScreen } from '@/hooks/screens/useSessionDetailScreen';
+import { navigateHomeAfterSessionEnd } from '@/lib/navigation/sessionEndNavigation';
 import { useTokens } from '@/lib/useTokens';
-import type { RootStackParamList } from '@/navigation/types';
+import type { RootStackNavigationProp, RootStackParamList } from '@/navigation/types';
 import { useTokenStore } from '@/store/tokenStore';
 
 /**
@@ -21,6 +24,7 @@ import { useTokenStore } from '@/store/tokenStore';
 export default function SessionDetailScreen(): JSX.Element {
   const theme = useTokens();
   const route = useRoute<RouteProp<RootStackParamList, 'SessionDetail'>>();
+  const navigation = useNavigation<RootStackNavigationProp<'SessionDetail'>>();
   const { extId } = route.params;
   const hydrated = useTokenStore((s) => s.hydrated);
   const accessToken = useTokenStore((s) => s.accessToken);
@@ -40,6 +44,7 @@ export default function SessionDetailScreen(): JSX.Element {
           styles={styles}
           bgColor={theme.bg}
           textColor={theme.text}
+          onSessionEnded={() => navigateHomeAfterSessionEnd(navigation)}
         />
       )}
     </AuthHydrationGate>
@@ -52,44 +57,56 @@ function SessionDetailLoggedInContainer({
   styles,
   bgColor,
   textColor,
+  onSessionEnded,
 }: {
   accessToken: string;
   extId: string;
   styles: ReturnType<typeof makeSessionDetailStyles>;
   bgColor: string;
   textColor: string;
+  onSessionEnded: () => void;
 }): JSX.Element {
-  const detail = useSessionDetailScreen(accessToken, extId);
+  const detail = useSessionDetailScreen(accessToken, extId, onSessionEnded);
 
   return (
     <SessionDetailBody
       styles={styles}
       bgColor={bgColor}
-      textColor={textColor}
-      session={detail.session ?? null}
-      attempts={detail.attempts}
-      sessionLoading={detail.sessionQuery.isLoading}
-      sessionError={detail.sessionQuery.error ?? null}
-      attemptsLoading={detail.attemptsQuery.isLoading}
-      attemptsError={detail.attemptsQuery.error ?? null}
-      isOngoing={detail.isOngoing}
-      extId={extId}
-      accessToken={accessToken}
-      logSheetOpen={detail.logSheetOpen}
-      setLogSheetOpen={detail.setLogSheetOpen}
-      cameraOpen={detail.cameraOpen}
-      cameraMode={detail.cameraMode}
-      onCameraMode={detail.openCamera}
-      closeCamera={detail.closeCamera}
-      onLogSheetDismissed={detail.onLogSheetDismissed}
-      onCameraDismissed={detail.onCameraDismissed}
-      onCaptured={detail.handleCaptured}
-      mediaPhase={detail.mediaPhase}
-      uploadedMediaId={detail.uploadedMediaId}
-      onClearMedia={() => detail.setUploadedMediaId(null)}
-      onEndSession={detail.endSessionAction}
-      endPending={detail.endSession.isPending}
-      endError={detail.endSession.error ?? null}
+      sessionState={{
+        session: detail.session ?? null,
+        loading: detail.sessionQuery.isLoading,
+        error: detail.sessionQuery.error ?? null,
+        isOngoing: detail.isOngoing,
+        onEnd: detail.endSessionAction,
+        endPending: detail.endSession.isPending,
+        endError: detail.endSession.error ?? null,
+      }}
+      attemptsState={{
+        attempts: detail.attempts,
+        loading: detail.attemptsQuery.isLoading,
+        error: detail.attemptsQuery.error ?? null,
+      }}
+      logFlow={{
+        extId,
+        accessToken,
+        logSheetOpen: detail.logSheetOpen,
+        setLogSheetOpen: detail.setLogSheetOpen,
+        cameraOpen: detail.cameraOpen,
+        cameraMode: detail.cameraMode,
+        onCameraMode: detail.openCamera,
+        closeCamera: detail.closeCamera,
+        onLogSheetDismissed: detail.onLogSheetDismissed,
+        onCameraDismissed: detail.onCameraDismissed,
+        onCaptured: detail.handleCaptured,
+        videoAwaitingPoster: detail.videoAwaitingPoster,
+        onPosterUploadRequest: detail.onPosterUploadRequest,
+        onPosterModalDismissed: detail.onPosterModalDismissed,
+        mediaPhase: detail.mediaPhase,
+        uploadedMediaId: detail.uploadedMediaId,
+        mediaUploadError: detail.mediaUploadError,
+        onRetryMediaUpload: detail.retryMediaUpload,
+        onClearMedia: detail.clearMediaAttachment,
+      }}
     />
   );
 }

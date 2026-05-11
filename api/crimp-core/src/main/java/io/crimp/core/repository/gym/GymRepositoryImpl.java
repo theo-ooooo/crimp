@@ -44,4 +44,16 @@ public class GymRepositoryImpl implements GymRepositoryCustom {
         List<Gym> content = hasNext ? rows.subList(0, pageSize) : rows;
         return new SliceImpl<>(content, pageable, hasNext);
     }
+
+    @Override
+    public List<Gym> searchAllForDistance(String keyword, String brand) {
+        QGym gym = QGym.gym;
+        BooleanBuilder where = new BooleanBuilder(gym.status.eq(GymStatus.ACTIVE));
+        if (keyword != null) where.and(gym.name.contains(keyword));
+        if (brand != null) where.and(gym.brand.eq(brand));
+        return jpaQueryFactory
+                .selectFrom(gym)
+                .where(where)
+                .fetch();
+    }
 }

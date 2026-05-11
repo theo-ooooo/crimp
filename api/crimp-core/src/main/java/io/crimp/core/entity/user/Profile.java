@@ -25,6 +25,9 @@ public class Profile {
     @Column(name = "nickname", nullable = false, length = 30, unique = true)
     private String nickname;
 
+    @Column(name = "nickname_configured", nullable = false)
+    private boolean nicknameConfigured;
+
     @Column(name = "bio", length = 300)
     private String bio;
 
@@ -44,13 +47,17 @@ public class Profile {
     private Profile(Long userId, String nickname) {
         this.userId = userId;
         this.nickname = nickname;
+        this.nicknameConfigured = false;
     }
 
     public static Profile create(Long userId, String nickname) {
         return new Profile(userId, nickname);
     }
 
-    public void updateNickname(String nickname) { this.nickname = nickname; }
+    public void updateNickname(String nickname) {
+        this.nickname = nickname;
+        this.nicknameConfigured = true;
+    }
     public void updateBio(String bio) { this.bio = bio; }
     public void updateAvatar(Long avatarMediaId) { this.avatarMediaId = avatarMediaId; }
     public void updateLevel(Byte levelSelf) { this.levelSelf = levelSelf; }
