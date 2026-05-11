@@ -709,7 +709,7 @@ export function fetchCrewMeetups(
     method: 'GET',
     path: `/api/v1/crews/${encodeURIComponent(crewExtId)}/meetups${qs ? `?${qs}` : ''}`,
     accessToken,
-    schema: CrewMeetupListSchema,
+    schema: CrewMeetupListSchema as z.ZodType<CrewMeetupList>,
     signal,
   });
 }
@@ -726,7 +726,7 @@ export function createCrewMeetup(
     path: `/api/v1/crews/${encodeURIComponent(crewExtId)}/meetups`,
     accessToken,
     body,
-    schema: CrewMeetupSchema,
+    schema: CrewMeetupSchema as z.ZodType<CrewMeetup>,
     signal,
   });
 }
@@ -742,7 +742,22 @@ export function fetchMeetups(
     method: 'GET',
     path: `/api/v1/meetups${qs ? `?${qs}` : ''}`,
     accessToken,
-    schema: CrewMeetupListSchema,
+    schema: CrewMeetupListSchema as z.ZodType<CrewMeetupList>,
+    signal,
+  });
+}
+
+/** `GET /api/v1/meetups/{extId}` — 모임 상세. */
+export function fetchMeetup(
+  accessToken: string,
+  extId: string,
+  signal?: AbortSignal,
+): Promise<CrewMeetup> {
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/meetups/${encodeURIComponent(extId)}`,
+    accessToken,
+    schema: CrewMeetupSchema as z.ZodType<CrewMeetup>,
     signal,
   });
 }
@@ -758,7 +773,37 @@ export function createMeetup(
     path: '/api/v1/meetups',
     accessToken,
     body,
-    schema: CrewMeetupSchema,
+    schema: CrewMeetupSchema as z.ZodType<CrewMeetup>,
+    signal,
+  });
+}
+
+/** `POST /api/v1/meetups/{extId}/participants/me` — 내 모임 참여/참여 요청. */
+export function joinMeetup(
+  accessToken: string,
+  extId: string,
+  signal?: AbortSignal,
+): Promise<CrewMeetup> {
+  return apiRequest({
+    method: 'POST',
+    path: `/api/v1/meetups/${encodeURIComponent(extId)}/participants/me`,
+    accessToken,
+    schema: CrewMeetupSchema as z.ZodType<CrewMeetup>,
+    signal,
+  });
+}
+
+/** `DELETE /api/v1/meetups/{extId}/participants/me` — 내 모임 참여 취소. */
+export function leaveMeetup(
+  accessToken: string,
+  extId: string,
+  signal?: AbortSignal,
+): Promise<CrewMeetup> {
+  return apiRequest({
+    method: 'DELETE',
+    path: `/api/v1/meetups/${encodeURIComponent(extId)}/participants/me`,
+    accessToken,
+    schema: CrewMeetupSchema as z.ZodType<CrewMeetup>,
     signal,
   });
 }

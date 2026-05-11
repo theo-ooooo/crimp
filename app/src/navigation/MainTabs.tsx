@@ -24,6 +24,7 @@ import FeedScreen from '@/screens/FeedScreen';
 import GymDetailScreen from '@/screens/GymDetailScreen';
 import GymMapScreen from '@/screens/GymMapScreen';
 import GymSearchScreen from '@/screens/GymSearchScreen';
+import MeetupDetailScreen from '@/screens/MeetupDetailScreen';
 import MeetupListScreen from '@/screens/MeetupListScreen';
 import ProfileEditScreen from '@/screens/ProfileEditScreen';
 import HomeScreen from '@/screens/HomeScreen';
@@ -148,6 +149,11 @@ function MeetupsTabStack(): JSX.Element {
         options={{ title: t('crew.meetup.formTitle') }}
       />
       <MeetupsStack.Screen
+        name="MeetupDetail"
+        component={MeetupDetailScreen}
+        options={{ title: t('meetup.detail.title') }}
+      />
+      <MeetupsStack.Screen
         name="GymSearch"
         component={GymSearchScreen}
         options={{ headerShown: false, title: t('gym.list.title') }}
@@ -193,6 +199,11 @@ function CrewsTabStack(): JSX.Element {
         name="MeetupForm"
         component={CrewMeetupFormScreen}
         options={{ title: t('crew.meetup.formTitle') }}
+      />
+      <CrewsStack.Screen
+        name="MeetupDetail"
+        component={MeetupDetailScreen}
+        options={{ title: t('meetup.detail.title') }}
       />
       <CrewsStack.Screen
         name="GymSearch"

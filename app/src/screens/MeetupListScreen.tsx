@@ -22,7 +22,6 @@ import {
   fontWeight,
   letterSpacing,
   radius,
-  shadow,
   space,
   type Theme,
 } from '@/lib/tokens';
@@ -59,14 +58,16 @@ function MeetupListContent({ accessToken }: { accessToken: string }): JSX.Elemen
   const navigation = useNavigation<RootStackNavigationProp<'MeetupList'>>();
   const meetupsQuery = useMeetupsQuery(accessToken, 30);
 
-  const renderItem: ListRenderItem<CrewMeetup> = ({ item }) => <MeetupCard meetup={item} />;
+  const renderItem: ListRenderItem<CrewMeetup> = ({ item }) => (
+    <MeetupCard meetup={item} onPress={() => navigation.navigate('MeetupDetail', { extId: item.extId })} />
+  );
 
   const header = (
     <View style={styles.headerStack}>
       <View style={styles.titleRow}>
         <View style={styles.titleBlock}>
+          <Text style={styles.eyebrow}>MEETUP</Text>
           <Text style={styles.title}>{t('meetup.list.title')}</Text>
-          <Text style={styles.subtitle}>{t('meetup.list.subtitle')}</Text>
         </View>
         <Pressable
           onPress={() => navigation.navigate('MeetupForm')}
@@ -74,8 +75,17 @@ function MeetupListContent({ accessToken }: { accessToken: string }): JSX.Elemen
           accessibilityLabel={t('crew.meetup.createCta')}
           style={({ pressed }) => [styles.createButton, pressed ? styles.pressed : null]}
         >
-          <CrimpIcon.plus size={18} color={theme.accent.on} />
+          <CrimpIcon.plus size={20} color={theme.bg} />
         </Pressable>
+      </View>
+      <View style={styles.quickTabs}>
+        {['전체', '근처', '입문', '중급', '리드', '외벽'].map((label, index) => (
+          <View key={label} style={[styles.quickTab, index === 0 ? styles.quickTabActive : null]}>
+            <Text style={[styles.quickTabText, index === 0 ? styles.quickTabTextActive : null]}>
+              {label}
+            </Text>
+          </View>
+        ))}
       </View>
     </View>
   );
@@ -114,24 +124,41 @@ function MeetupListContent({ accessToken }: { accessToken: string }): JSX.Elemen
   );
 }
 
-function MeetupCard({ meetup }: { meetup: CrewMeetup }): JSX.Element {
+function MeetupCard({ meetup, onPress }: { meetup: CrewMeetup; onPress: () => void }): JSX.Element {
   const theme = useTokens();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   return (
-    <View style={styles.card}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={({ pressed }) => [styles.card, pressed ? styles.pressed : null]}
+    >
       <View style={styles.dateBox}>
         <Text style={styles.dateMonth}>{formatMonthDay(meetup.startsAt).month}</Text>
         <Text style={styles.dateDay}>{formatMonthDay(meetup.startsAt).day}</Text>
       </View>
       <View style={styles.cardBody}>
-        <Text style={styles.cardTitle}>{meetup.title}</Text>
-        <Text style={styles.cardMeta}>{formatTime(meetup.startsAt)}</Text>
+        <View style={styles.cardTopRow}>
+          <Text style={styles.cardTitle} numberOfLines={1}>{meetup.title}</Text>
+          <Text style={styles.liveBadge}>{meetup.joinPolicy === 'OPEN' ? 'OPEN' : '승인'}</Text>
+        </View>
+        <Text style={styles.cardMeta}>{meetup.crewName ?? t('meetup.detail.crewLabel')} · {formatTime(meetup.startsAt)}</Text>
         <Text style={styles.cardMeta} numberOfLines={1}>
           {meetup.gymName ?? meetup.location ?? t('crew.meetup.noGymSelected')}
         </Text>
-        {meetup.crewName ? <Text style={styles.cardChip}>{meetup.crewName}</Text> : null}
+        <View style={styles.progressRow}>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: capacityPercent(meetup.participantCount, meetup.capacity) }]} />
+          </View>
+          <Text style={styles.progressText}>{participantValue(meetup.participantCount, meetup.capacity)}</Text>
+        </View>
       </View>
-    </View>
+      <View style={styles.joinPill}>
+        <Text style={styles.joinPillText}>
+          {meetup.myParticipation === 'JOINED' ? '참여중' : meetup.myParticipation === 'PENDING' ? '대기' : '참여'}
+        </Text>
+      </View>
+    </Pressable>
   );
 }
 
@@ -166,6 +193,17 @@ function formatTime(value: string): string {
   }).format(new Date(value));
 }
 
+function participantValue(count: number, capacity: number | null): string {
+  return capacity == null ? String(count) : `${count}/${capacity}`;
+}
+
+function capacityPercent(count: number, capacity: number | null): `${number}%` {
+  if (capacity == null || capacity <= 0) {
+    return '42%';
+  }
+  return `${Math.min(100, Math.max(6, Math.round((count / capacity) * 100)))}%`;
+}
+
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: theme.bg },
@@ -184,6 +222,12 @@ function makeStyles(theme: Theme) {
       gap: space[3],
     },
     titleBlock: { flex: 1, gap: space[1] },
+    eyebrow: {
+      fontFamily,
+      fontSize: fontSize.caption,
+      fontWeight: fontWeight.extrabold,
+      color: theme.text3,
+    },
     title: {
       fontFamily,
       fontSize: fontSize.h1,
@@ -201,23 +245,50 @@ function makeStyles(theme: Theme) {
       width: 40,
       height: 40,
       borderRadius: radius.full,
-      backgroundColor: theme.accent.base,
+      backgroundColor: theme.text,
       alignItems: 'center',
       justifyContent: 'center',
     },
+    quickTabs: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: space[2],
+    },
+    quickTab: {
+      minHeight: 34,
+      borderRadius: radius.full,
+      backgroundColor: theme.chip,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: space[4],
+    },
+    quickTabActive: {
+      backgroundColor: theme.text,
+    },
+    quickTabText: {
+      fontFamily,
+      fontSize: fontSize.caption,
+      fontWeight: fontWeight.extrabold,
+      color: theme.text2,
+    },
+    quickTabTextActive: {
+      color: theme.bg,
+    },
     card: {
       flexDirection: 'row',
+      alignItems: 'center',
       gap: space[3],
-      borderRadius: radius.lg,
+      borderRadius: radius.xl,
       backgroundColor: theme.subtle,
       padding: space[4],
-      ...shadow.xs,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.hairline,
     },
     dateBox: {
       width: 58,
       height: 64,
       borderRadius: radius.lg,
-      backgroundColor: theme.bg,
+      backgroundColor: theme.accent.base,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -235,6 +306,11 @@ function makeStyles(theme: Theme) {
       includeFontPadding: false,
     },
     cardBody: { flex: 1, minWidth: 0, gap: space[1] },
+    cardTopRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space[2],
+    },
     cardTitle: {
       fontFamily,
       fontSize: fontSize.title,
@@ -248,17 +324,55 @@ function makeStyles(theme: Theme) {
       fontWeight: fontWeight.medium,
       color: theme.text2,
     },
-    cardChip: {
-      alignSelf: 'flex-start',
-      marginTop: space[1],
+    liveBadge: {
+      flexShrink: 0,
+      overflow: 'hidden',
       borderRadius: radius.full,
-      backgroundColor: theme.chip,
+      backgroundColor: theme.accent.base,
       paddingHorizontal: space[2],
-      paddingVertical: space[1],
       fontFamily,
-      fontSize: 11,
-      fontWeight: fontWeight.bold,
-      color: theme.text3,
+      fontSize: 10,
+      fontWeight: fontWeight.extrabold,
+      color: theme.accent.on,
+    },
+    progressRow: {
+      marginTop: space[2],
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space[3],
+    },
+    progressTrack: {
+      flex: 1,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: theme.hairline,
+      overflow: 'hidden',
+    },
+    progressFill: {
+      height: '100%',
+      borderRadius: 2,
+      backgroundColor: theme.text,
+    },
+    progressText: {
+      fontFamily,
+      fontSize: fontSize.caption,
+      fontWeight: fontWeight.extrabold,
+      color: theme.text2,
+    },
+    joinPill: {
+      minWidth: 48,
+      minHeight: 36,
+      borderRadius: radius.full,
+      backgroundColor: theme.text,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: space[3],
+    },
+    joinPillText: {
+      fontFamily,
+      fontSize: fontSize.caption,
+      fontWeight: fontWeight.extrabold,
+      color: theme.bg,
     },
     stateCard: {
       borderRadius: radius.xl,

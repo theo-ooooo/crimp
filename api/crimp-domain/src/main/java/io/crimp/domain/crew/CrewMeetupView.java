@@ -14,5 +14,8 @@ public record CrewMeetupView(
         String gymName,
         String location,
         Integer capacity,
+        String joinPolicy,
+        Integer participantCount,
+        String myParticipation,
         Instant createdAt
 ) {}

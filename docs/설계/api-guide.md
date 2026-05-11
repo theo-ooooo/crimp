@@ -237,9 +237,12 @@
 | GET | `/api/v1/crews/{extId}` | 크루 상세. 기본 정보, 대표 이미지, 대표 암장, owner, 내 가입 상태 |
 | PATCH | `/api/v1/crews/{extId}` | 크루 기본 정보/대표 이미지 수정 (`OWNER`/`ADMIN`). `clearImage=true` 로 대표 이미지 해제 |
 | GET | `/api/v1/meetups?size=` | 전체 예정 모임 목록. 크루 소속 여부와 무관하게 시작 시각 오름차순 |
-| POST | `/api/v1/meetups` | 독립 모임 또는 크루 모임 생성. Body: `{ title, description?, startsAt, endsAt?, crewExtId?, gymExtId?, location?, capacity? }` |
+| POST | `/api/v1/meetups` | 독립 모임 또는 크루 모임 생성. Body: `{ title, description?, startsAt, endsAt?, crewExtId?, gymExtId?, location?, capacity?, joinPolicy? }` |
+| GET | `/api/v1/meetups/{extId}` | 모임 상세. 장소, 크루, 참여 방식, 참여 인원, 내 참여 상태 포함 |
+| POST | `/api/v1/meetups/{extId}/participants/me` | 내 모임 참여. `joinPolicy=OPEN` 은 즉시 `JOINED`, `APPROVAL` 은 `PENDING` 요청 상태 |
+| DELETE | `/api/v1/meetups/{extId}/participants/me` | 내 모임 참여/요청 취소 |
 | GET | `/api/v1/crews/{extId}/meetups?size=` | 크루 예정 모임 목록. 시작 시각 오름차순 |
-| POST | `/api/v1/crews/{extId}/meetups` | 크루 모임 생성 (`OWNER`/`ADMIN`). Body: `{ title, description?, startsAt, endsAt?, gymExtId?, location?, capacity? }` |
+| POST | `/api/v1/crews/{extId}/meetups` | 크루 모임 생성 (`OWNER`/`ADMIN`). Body: `{ title, description?, startsAt, endsAt?, gymExtId?, location?, capacity?, joinPolicy? }` |
 | POST | `/api/v1/crews/{extId}/join-requests` | 가입 요청 생성. 같은 사용자는 여러 크루에 가입 요청 가능, 같은 크루의 대기 요청은 1개 |
 | DELETE | `/api/v1/crews/{extId}/join-requests/me` | 내 대기 가입 요청 취소 |
 | GET | `/api/v1/crews/{extId}/join-requests?status=PENDING&cursor=&size=` | 가입 요청 목록 (`OWNER`/`ADMIN`) |

@@ -76,7 +76,8 @@ class MeetupControllerTest {
                                 null,
                                 "01JGYM00000000000000000000",
                                 null,
-                                8))))
+                                8,
+                                "OPEN"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value(true))
                 .andExpect(jsonPath("$.data.extId").value("01JMEETUP"));
@@ -97,7 +98,8 @@ class MeetupControllerTest {
                                 null,
                                 null,
                                 "강남",
-                                8))))
+                                8,
+                                "OPEN"))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(false))
                 .andExpect(jsonPath("$.error.code").value("INVALID_CREW_MEETUP_REQUEST"));
@@ -116,6 +118,9 @@ class MeetupControllerTest {
                 "더클라임 강남점",
                 "더클라임 강남점",
                 8,
+                "OPEN",
+                0,
+                "NONE",
                 Instant.parse("2026-05-11T00:00:00Z"));
     }
 

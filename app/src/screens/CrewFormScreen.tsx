@@ -1,5 +1,5 @@
-import { useNavigation } from '@react-navigation/native';
-import React, { useMemo, useState } from 'react';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Chip, PrimaryButton } from '@/components/common/primitives';
 import { AuthHydrationGate } from '@/components/common/screen/AuthHydrationGate';
-import { useCreateCrew } from '@/hooks/queries/useCrews';
+import { useCreateCrew, useCrewQuery, useUpdateCrew } from '@/hooks/queries/useCrews';
 import type { CapturedMedia } from '@/lib/camera/types';
 import { readImageMeta, type DetectedImageMime } from '@/lib/camera/measure';
 import {
@@ -38,7 +38,7 @@ import {
 import { useTokens } from '@/lib/useTokens';
 import type { CreateCrewBody, CrewLevelBand, CrewStyle } from '@/lib/schemas/crew';
 import { uploadCrewImage, type UploadPhase } from '@/lib/media/upload';
-import type { RootStackNavigationProp } from '@/navigation/types';
+import type { RootStackNavigationProp, RootStackParamList } from '@/navigation/types';
 import { useTokenStore } from '@/store/tokenStore';
 
 export default function CrewFormScreen(): JSX.Element {
@@ -46,6 +46,7 @@ export default function CrewFormScreen(): JSX.Element {
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const hydrated = useTokenStore((s) => s.hydrated);
   const accessToken = useTokenStore((s) => s.accessToken);
+  const route = useRoute<RouteProp<RootStackParamList, 'CrewForm'>>();
 
   return (
     <AuthHydrationGate
@@ -56,18 +57,21 @@ export default function CrewFormScreen(): JSX.Element {
     >
       {(token) => (
         <SafeAreaView style={styles.safeArea} edges={['top']}>
-          <CrewFormContent accessToken={token} />
+          <CrewFormContent accessToken={token} extId={route.params?.extId} />
         </SafeAreaView>
       )}
     </AuthHydrationGate>
   );
 }
 
-function CrewFormContent({ accessToken }: { accessToken: string }): JSX.Element {
+function CrewFormContent({ accessToken, extId }: { accessToken: string; extId?: string }): JSX.Element {
   const theme = useTokens();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const navigation = useNavigation<RootStackNavigationProp<'CrewForm'>>();
   const createCrew = useCreateCrew(accessToken);
+  const updateCrew = useUpdateCrew(accessToken);
+  const crewQuery = useCrewQuery(accessToken, extId);
+  const editing = Boolean(extId);
   const [name, setName] = useState('');
   const [summary, setSummary] = useState('');
   const [description, setDescription] = useState('');
@@ -79,6 +83,24 @@ function CrewFormContent({ accessToken }: { accessToken: string }): JSX.Element 
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [uploadPhase, setUploadPhase] = useState<UploadPhase | null>(null);
   const [validation, setValidation] = useState<string | null>(null);
+  const [initialized, setInitialized] = useState(false);
+
+  useEffect(() => {
+    const crew = crewQuery.data;
+    if (!crew || initialized) {
+      return;
+    }
+    setName(crew.name);
+    setSummary(crew.summary ?? '');
+    setDescription(crew.description ?? '');
+    setRegion(crew.region ?? '');
+    setCapacityText(crew.capacity == null ? '' : String(crew.capacity));
+    setLevelBand(crew.levelBand);
+    setStyle(crew.style);
+    setImageMediaId(crew.imageMediaId ?? null);
+    setImagePreviewUrl(crew.imageUrl ?? null);
+    setInitialized(true);
+  }, [crewQuery.data, initialized]);
 
   const submit = () => {
     const trimmedName = name.trim();
@@ -110,6 +132,26 @@ function CrewFormContent({ accessToken }: { accessToken: string }): JSX.Element 
       imageMediaId,
     };
 
+    if (editing && extId) {
+      updateCrew.mutate({
+        extId,
+        body: {
+          summary: body.summary,
+          description: body.description,
+          region: body.region,
+          levelBand,
+          style,
+          capacity,
+          imageMediaId,
+        },
+      }, {
+        onSuccess: (updated) => {
+          navigation.replace('CrewDetail', { extId: updated.extId });
+        },
+      });
+      return;
+    }
+
     createCrew.mutate(body, {
       onSuccess: (created) => {
         navigation.replace('CrewDetail', { extId: created.extId });
@@ -117,8 +159,19 @@ function CrewFormContent({ accessToken }: { accessToken: string }): JSX.Element 
     });
   };
 
-  const busy = createCrew.isPending || uploadPhase !== null;
-  const error = validation ?? (createCrew.error ? toUserMessage(createCrew.error) : null);
+  const busy = createCrew.isPending || updateCrew.isPending || uploadPhase !== null;
+  const error = validation
+    ?? (crewQuery.error ? toUserMessage(crewQuery.error) : null)
+    ?? (createCrew.error ? toUserMessage(createCrew.error) : null)
+    ?? (updateCrew.error ? toUserMessage(updateCrew.error) : null);
+
+  if (editing && crewQuery.isLoading) {
+    return (
+      <View style={styles.loadingBox}>
+        <ActivityIndicator color={theme.accent.base} />
+      </View>
+    );
+  }
 
   return (
     <ScrollView
@@ -127,8 +180,8 @@ function CrewFormContent({ accessToken }: { accessToken: string }): JSX.Element 
       keyboardShouldPersistTaps="handled"
     >
       <View style={styles.titleBlock}>
-        <Text style={styles.title}>{t('crew.form.title')}</Text>
-        <Text style={styles.subtitle}>{t('crew.form.subtitle')}</Text>
+        <Text style={styles.title}>{editing ? t('crew.form.editTitle') : t('crew.form.title')}</Text>
+        <Text style={styles.subtitle}>{editing ? t('crew.form.editSubtitle') : t('crew.form.subtitle')}</Text>
       </View>
 
       <View style={styles.card}>
@@ -156,8 +209,12 @@ function CrewFormContent({ accessToken }: { accessToken: string }): JSX.Element 
           autoCapitalize="none"
           autoCorrect={false}
           maxLength={30}
-          editable={!busy}
+          editable={!busy && !editing}
+          selectTextOnFocus={!editing}
         />
+        {editing ? (
+          <Text style={styles.help}>{t('crew.form.nameLockedHelp')}</Text>
+        ) : null}
 
         <FieldLabel label={t('crew.form.summaryLabel')} />
         <TextInput
@@ -218,7 +275,7 @@ function CrewFormContent({ accessToken }: { accessToken: string }): JSX.Element 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       <PrimaryButton onPress={submit} disabled={busy}>
-        {busy ? t('crew.form.creating') : t('crew.form.createCta')}
+        {busy ? t('crew.form.creating') : editing ? t('crew.form.saveCta') : t('crew.form.createCta')}
       </PrimaryButton>
       {busy ? (
         <View style={styles.pendingRow}>
@@ -525,6 +582,12 @@ function makeStyles(theme: Theme) {
       minHeight: 24,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    loadingBox: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.bg,
     },
   });
 }

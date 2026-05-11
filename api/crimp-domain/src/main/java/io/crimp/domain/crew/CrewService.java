@@ -6,6 +6,7 @@ import io.crimp.core.entity.crew.Crew;
 import io.crimp.core.entity.crew.CrewJoinRequest;
 import io.crimp.core.entity.crew.CrewMeetup;
 import io.crimp.core.entity.crew.CrewMember;
+import io.crimp.core.entity.crew.MeetupParticipant;
 import io.crimp.core.entity.enums.CrewJoinPolicy;
 import io.crimp.core.entity.enums.CrewJoinRequestStatus;
 import io.crimp.core.entity.enums.CrewMemberRole;
@@ -16,6 +17,8 @@ import io.crimp.core.entity.enums.GymStatus;
 import io.crimp.core.entity.enums.MediaKind;
 import io.crimp.core.entity.enums.MediaStatus;
 import io.crimp.core.entity.enums.MediaUsage;
+import io.crimp.core.entity.enums.MeetupJoinPolicy;
+import io.crimp.core.entity.enums.MeetupParticipantStatus;
 import io.crimp.core.entity.gym.Gym;
 import io.crimp.core.entity.media.MediaAsset;
 import io.crimp.core.entity.media.MediaImageVariant;
@@ -26,6 +29,7 @@ import io.crimp.core.repository.crew.CrewMemberRow;
 import io.crimp.core.repository.crew.CrewMeetupRepository;
 import io.crimp.core.repository.crew.CrewRepository;
 import io.crimp.core.repository.crew.CrewSearchRow;
+import io.crimp.core.repository.crew.MeetupParticipantRepository;
 import io.crimp.core.repository.gym.GymRepository;
 import io.crimp.core.repository.media.MediaAssetRepository;
 import io.crimp.core.repository.media.MediaImageVariantRepository;
@@ -50,6 +54,7 @@ public class CrewService {
     private final CrewJoinRequestRepository crewJoinRequestRepository;
     private final CrewMemberRepository crewMemberRepository;
     private final CrewMeetupRepository crewMeetupRepository;
+    private final MeetupParticipantRepository meetupParticipantRepository;
     private final GymRepository gymRepository;
     private final MediaAssetRepository mediaAssetRepository;
     private final MediaImageVariantRepository mediaImageVariantRepository;
@@ -58,6 +63,7 @@ public class CrewService {
     public CrewService(CrewRepository crewRepository, CrewJoinRequestRepository crewJoinRequestRepository,
                        CrewMemberRepository crewMemberRepository,
                        CrewMeetupRepository crewMeetupRepository,
+                       MeetupParticipantRepository meetupParticipantRepository,
                        GymRepository gymRepository,
                        MediaAssetRepository mediaAssetRepository,
                        MediaImageVariantRepository mediaImageVariantRepository,
@@ -66,6 +72,7 @@ public class CrewService {
         this.crewJoinRequestRepository = crewJoinRequestRepository;
         this.crewMemberRepository = crewMemberRepository;
         this.crewMeetupRepository = crewMeetupRepository;
+        this.meetupParticipantRepository = meetupParticipantRepository;
         this.gymRepository = gymRepository;
         this.mediaAssetRepository = mediaAssetRepository;
         this.mediaImageVariantRepository = mediaImageVariantRepository;
@@ -118,11 +125,9 @@ public class CrewService {
                 .orElseThrow(() -> new CrewException("CREW_NOT_FOUND", "Crew " + crewExtId + " not found"));
         requireAdmin(crew.getId(), actorUserId);
 
-        String name = command.name() == null
-                ? crew.getName()
-                : requireLength(command.name(), 2, 30, "INVALID_CREW_REQUEST", "Crew name must be 2-30 characters");
-        if (!name.equals(crew.getName()) && crewRepository.existsByName(name)) {
-            throw new CrewException("CREW_NAME_TAKEN", "Crew name already taken: " + name);
+        String name = crew.getName();
+        if (command.name() != null && !command.name().trim().equals(name)) {
+            throw new CrewException("INVALID_CREW_REQUEST", "Crew name cannot be changed");
         }
 
         String summary = command.summary() == null ? crew.getSummary() : trimOptional(command.summary(), 120, "summary");
@@ -156,6 +161,7 @@ public class CrewService {
         Gym gym = resolveMeetupGym(command.gymExtId());
         String location = gym == null ? trimOptional(command.location(), 100, "location") : gym.getName();
         Short capacity = parseCapacity(command.capacity());
+        MeetupJoinPolicy joinPolicy = parseEnum(MeetupJoinPolicy.class, command.joinPolicy(), "INVALID_CREW_MEETUP_REQUEST");
         if (command.startsAt() == null) {
             throw new CrewException("INVALID_CREW_MEETUP_REQUEST", "startsAt is required");
         }
@@ -177,9 +183,10 @@ public class CrewService {
                 .endsAt(command.endsAt())
                 .location(location)
                 .capacity(capacity)
+                .joinPolicy(joinPolicy)
                 .build();
         crewMeetupRepository.saveAndFlush(meetup);
-        return toMeetupView(meetup);
+        return toMeetupView(meetup, actorUserId);
     }
 
     @Transactional(readOnly = true)
@@ -190,7 +197,7 @@ public class CrewService {
                 .findByCrewIdAndDeletedAtIsNullAndStartsAtGreaterThanEqualOrderByStartsAtAscIdAsc(
                         crew.getId(), Instant.now(), PageRequest.of(0, pageSize))
                 .stream()
-                .map(this::toMeetupView)
+                .map(meetup -> toMeetupView(meetup, viewerUserId))
                 .toList();
     }
 
@@ -201,8 +208,56 @@ public class CrewService {
                 .findByDeletedAtIsNullAndStartsAtGreaterThanEqualOrderByStartsAtAscIdAsc(
                         Instant.now(), PageRequest.of(0, pageSize))
                 .stream()
-                .map(this::toMeetupView)
+                .map(meetup -> toMeetupView(meetup, viewerUserId))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public CrewMeetupView getMeetup(Long viewerUserId, String meetupExtId) {
+        return toMeetupView(findActiveMeetup(meetupExtId), viewerUserId);
+    }
+
+    @Transactional
+    public CrewMeetupView joinMeetup(Long actorUserId, String meetupExtId) {
+        CrewMeetup meetup = findActiveMeetup(meetupExtId);
+        if (meetup.getStartsAt().isBefore(Instant.now().minusSeconds(MEETUP_START_CLOCK_SKEW_SECONDS))) {
+            throw new CrewException("MEETUP_CLOSED", "Meetup already started");
+        }
+        if (meetupParticipantRepository.existsByMeetupIdAndUserIdAndStatus(
+                meetup.getId(), actorUserId, MeetupParticipantStatus.ACTIVE)
+                || meetupParticipantRepository.existsByMeetupIdAndUserIdAndStatus(
+                        meetup.getId(), actorUserId, MeetupParticipantStatus.PENDING)) {
+            return toMeetupView(meetup, actorUserId);
+        }
+        MeetupParticipantStatus nextStatus = meetup.getJoinPolicy() == MeetupJoinPolicy.APPROVAL
+                ? MeetupParticipantStatus.PENDING
+                : MeetupParticipantStatus.ACTIVE;
+        if (meetup.getCapacity() != null
+                && meetupParticipantRepository.countByMeetupIdAndStatus(
+                        meetup.getId(), MeetupParticipantStatus.ACTIVE) >= meetup.getCapacity()) {
+            throw new CrewException("MEETUP_CAPACITY_FULL", "Meetup capacity is full");
+        }
+        MeetupParticipant participant = meetupParticipantRepository
+                .findByMeetupIdAndUserId(meetup.getId(), actorUserId)
+                .orElse(null);
+        if (participant == null) {
+            meetupParticipantRepository.save(MeetupParticipant.join(meetup.getId(), actorUserId, nextStatus));
+        } else {
+            participant.reactivate(nextStatus);
+        }
+        meetupParticipantRepository.flush();
+        return toMeetupView(meetup, actorUserId);
+    }
+
+    @Transactional
+    public CrewMeetupView leaveMeetup(Long actorUserId, String meetupExtId) {
+        CrewMeetup meetup = findActiveMeetup(meetupExtId);
+        MeetupParticipant participant = meetupParticipantRepository
+                .findByMeetupIdAndUserId(meetup.getId(), actorUserId)
+                .orElseThrow(() -> new CrewException("MEETUP_PARTICIPANT_NOT_FOUND", "Meetup participant not found"));
+        participant.cancel();
+        meetupParticipantRepository.flush();
+        return toMeetupView(meetup, actorUserId);
     }
 
     @Transactional
@@ -473,9 +528,20 @@ public class CrewService {
         return variantPath == null ? null : joinUrl(cdnBaseUrl, variantPath);
     }
 
-    private CrewMeetupView toMeetupView(CrewMeetup meetup) {
+    private CrewMeetup findActiveMeetup(String meetupExtId) {
+        return crewMeetupRepository.findByExtIdAndDeletedAtIsNull(meetupExtId)
+                .orElseThrow(() -> new CrewException("MEETUP_NOT_FOUND", "Meetup " + meetupExtId + " not found"));
+    }
+
+    private CrewMeetupView toMeetupView(CrewMeetup meetup, Long viewerUserId) {
         Crew crew = meetup.getCrewId() == null ? null : crewRepository.findById(meetup.getCrewId()).orElse(null);
         Gym gym = meetup.getGymId() == null ? null : gymRepository.findById(meetup.getGymId()).orElse(null);
+        int participantCount = (int) meetupParticipantRepository.countByMeetupIdAndStatus(
+                meetup.getId(), MeetupParticipantStatus.ACTIVE);
+        String myParticipation = meetupParticipantRepository.existsByMeetupIdAndUserIdAndStatus(
+                meetup.getId(), viewerUserId, MeetupParticipantStatus.ACTIVE) ? "JOINED"
+                : meetupParticipantRepository.existsByMeetupIdAndUserIdAndStatus(
+                        meetup.getId(), viewerUserId, MeetupParticipantStatus.PENDING) ? "PENDING" : "NONE";
         return new CrewMeetupView(
                 meetup.getExtId(),
                 meetup.getTitle(),
@@ -488,6 +554,9 @@ public class CrewService {
                 gym == null ? null : gym.getName(),
                 meetup.getLocation(),
                 meetup.getCapacity() == null ? null : meetup.getCapacity().intValue(),
+                meetup.getJoinPolicy().name(),
+                participantCount,
+                myParticipation,
                 meetup.getCreatedAt());
     }
 

@@ -1,8 +1,11 @@
 package io.crimp.core.entity.crew;
 
+import io.crimp.core.entity.enums.MeetupJoinPolicy;
 import io.crimp.core.base.SoftDeletableEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -55,9 +58,14 @@ public class CrewMeetup extends SoftDeletableEntity {
     @Column(name = "capacity")
     private Short capacity;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "join_policy", nullable = false, length = 20)
+    private MeetupJoinPolicy joinPolicy;
+
     @Builder
     private CrewMeetup(String extId, Long crewId, Long createdBy, Long gymId, String title, String description,
-                       Instant startsAt, Instant endsAt, String location, Short capacity) {
+                       Instant startsAt, Instant endsAt, String location, Short capacity,
+                       MeetupJoinPolicy joinPolicy) {
         this.extId = extId;
         this.crewId = crewId;
         this.createdBy = createdBy;
@@ -68,5 +76,6 @@ public class CrewMeetup extends SoftDeletableEntity {
         this.endsAt = endsAt;
         this.location = location;
         this.capacity = capacity;
+        this.joinPolicy = joinPolicy == null ? MeetupJoinPolicy.OPEN : joinPolicy;
     }
 }

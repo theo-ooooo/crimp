@@ -345,6 +345,7 @@
     "detail": {
       "title": "크루 상세",
       "errorTitle": "크루를 불러오지 못했어요",
+      "editCta": "크루 수정",
       "memberLabel": "멤버",
       "ownerLabel": "오너",
       "infoTitle": "기본 정보",
@@ -382,12 +383,16 @@
     },
     "form": {
       "title": "크루 만들기",
+      "editTitle": "크루 수정",
       "subtitle": "공개 크루의 기본 정보를 설정합니다.",
+      "editSubtitle": "크루 이름은 변경할 수 없고 소개와 운영 정보는 수정할 수 있습니다.",
       "createCta": "크루 만들기",
+      "saveCta": "변경 저장",
       "creating": "만드는 중...",
       "nameLabel": "크루 이름",
       "namePlaceholder": "예: 강남 퇴근볼더",
       "nameValidation": "크루 이름은 2~30자로 입력해 주세요.",
+      "nameLockedHelp": "크루 이름은 생성 후 변경할 수 없습니다.",
       "summaryLabel": "짧은 소개",
       "summaryPlaceholder": "예: 평일 저녁 강남권 V3~V6",
       "descriptionLabel": "소개",
@@ -427,12 +432,32 @@
     }
   },
   "meetup": {
+    "joinPolicy": {
+      "OPEN": "바로참여",
+      "APPROVAL": "승인제"
+    },
     "list": {
-      "title": "모임",
+      "title": "오늘 같이 붙어요",
       "subtitle": "크루와 상관없이 참여할 수 있는 등반 모임을 찾아보세요.",
       "emptyTitle": "아직 표시할 모임이 없어요",
       "emptyBody": "첫 모임을 만들거나 나중에 다시 확인해 주세요.",
       "errorTitle": "모임을 불러오지 못했어요"
+    },
+    "detail": {
+      "title": "모임 상세",
+      "errorTitle": "모임을 불러오지 못했어요",
+      "infoTitle": "모임 정보",
+      "joinPolicyLabel": "참여 방식",
+      "participantsLabel": "참여",
+      "participantCount": "참여 {{count}}명",
+      "crewLabel": "크루",
+      "descriptionFallback": "아직 상세 내용이 없습니다.",
+      "joinCta": "참여하기",
+      "requestCta": "참여 요청",
+      "leaveCta": "참여 취소",
+      "cancelRequestCta": "요청 취소",
+      "leaveConfirmTitle": "참여를 취소할까요?",
+      "leaveConfirmBody": "다시 참여하거나 요청할 수 있습니다."
     }
   },
   "profile": {

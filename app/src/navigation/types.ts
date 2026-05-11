@@ -82,8 +82,9 @@ export type RootStackParamList = {
    */
   CrewList: undefined;
   CrewDetail: { extId: string };
-  CrewForm: undefined;
+  CrewForm: { extId?: string } | undefined;
   MeetupList: undefined;
+  MeetupDetail: { extId: string };
   MeetupForm:
     | {
         crewExtId?: string;

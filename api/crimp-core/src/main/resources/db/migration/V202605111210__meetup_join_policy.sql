@@ -1,0 +1,4 @@
+-- V202605111210: 모임 참여 방식
+
+ALTER TABLE meetups
+  ADD COLUMN join_policy VARCHAR(20) NOT NULL DEFAULT 'OPEN' AFTER capacity;

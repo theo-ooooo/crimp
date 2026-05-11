@@ -345,6 +345,7 @@
     "detail": {
       "title": "Crew detail",
       "errorTitle": "Failed to load crew",
+      "editCta": "Edit crew",
       "memberLabel": "Members",
       "ownerLabel": "Owner",
       "infoTitle": "Info",
@@ -382,12 +383,16 @@
     },
     "form": {
       "title": "Create crew",
+      "editTitle": "Edit crew",
       "subtitle": "Set up the basics for a public crew.",
+      "editSubtitle": "Crew names cannot be changed. You can update the summary and details.",
       "createCta": "Create crew",
+      "saveCta": "Save changes",
       "creating": "Creating...",
       "nameLabel": "Crew name",
       "namePlaceholder": "e.g. Gangnam after-work boulder",
       "nameValidation": "Crew name must be 2-30 characters.",
+      "nameLockedHelp": "Crew names cannot be changed after creation.",
       "summaryLabel": "Short summary",
       "summaryPlaceholder": "e.g. Weekday evenings, V3-V6",
       "descriptionLabel": "Description",
@@ -427,12 +432,32 @@
     }
   },
   "meetup": {
+    "joinPolicy": {
+      "OPEN": "Open join",
+      "APPROVAL": "Approval"
+    },
     "list": {
-      "title": "Meetups",
+      "title": "Climb together today",
       "subtitle": "Find climbing meetups you can join with or without a crew.",
       "emptyTitle": "No meetups yet",
       "emptyBody": "Create the first meetup or check back later.",
       "errorTitle": "Failed to load meetups"
+    },
+    "detail": {
+      "title": "Meetup detail",
+      "errorTitle": "Failed to load meetup",
+      "infoTitle": "Meetup info",
+      "joinPolicyLabel": "Join policy",
+      "participantsLabel": "Participants",
+      "participantCount": "{{count}} joined",
+      "crewLabel": "Crew",
+      "descriptionFallback": "No details yet.",
+      "joinCta": "Join",
+      "requestCta": "Request to join",
+      "leaveCta": "Cancel participation",
+      "cancelRequestCta": "Cancel request",
+      "leaveConfirmTitle": "Cancel participation?",
+      "leaveConfirmBody": "You can join or request again later."
     }
   },
   "profile": {

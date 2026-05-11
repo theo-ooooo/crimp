@@ -19,6 +19,7 @@ import io.crimp.core.repository.crew.CrewMemberRow;
 import io.crimp.core.repository.crew.CrewMeetupRepository;
 import io.crimp.core.repository.crew.CrewRepository;
 import io.crimp.core.repository.crew.CrewSearchRow;
+import io.crimp.core.repository.crew.MeetupParticipantRepository;
 import io.crimp.core.repository.gym.GymRepository;
 import io.crimp.core.repository.media.MediaAssetRepository;
 import io.crimp.core.repository.media.MediaImageVariantRepository;
@@ -48,6 +49,7 @@ class CrewServiceTest {
     private CrewJoinRequestRepository crewJoinRequestRepository;
     private CrewMemberRepository crewMemberRepository;
     private CrewMeetupRepository crewMeetupRepository;
+    private MeetupParticipantRepository meetupParticipantRepository;
     private GymRepository gymRepository;
     private MediaAssetRepository mediaAssetRepository;
     private MediaImageVariantRepository mediaImageVariantRepository;
@@ -59,6 +61,7 @@ class CrewServiceTest {
         crewJoinRequestRepository = mock(CrewJoinRequestRepository.class);
         crewMemberRepository = mock(CrewMemberRepository.class);
         crewMeetupRepository = mock(CrewMeetupRepository.class);
+        meetupParticipantRepository = mock(MeetupParticipantRepository.class);
         gymRepository = mock(GymRepository.class);
         mediaAssetRepository = mock(MediaAssetRepository.class);
         mediaImageVariantRepository = mock(MediaImageVariantRepository.class);
@@ -67,6 +70,7 @@ class CrewServiceTest {
                 crewJoinRequestRepository,
                 crewMemberRepository,
                 crewMeetupRepository,
+                meetupParticipantRepository,
                 gymRepository,
                 mediaAssetRepository,
                 mediaImageVariantRepository,
@@ -148,10 +152,10 @@ class CrewServiceTest {
                 .thenReturn(Optional.of(row(55L, "01JCREW", CrewMemberRole.OWNER, CrewMemberStatus.ACTIVE, null)));
 
         service.update(7L, "01JCREW", new UpdateCrewCommand(
-                "새 크루", "새 요약", null, null, null, false,
+                null, "새 요약", null, null, null, false,
                 null, false, "ADVANCED", "LEAD", null, true));
 
-        assertThat(crew.getName()).isEqualTo("새 크루");
+        assertThat(crew.getName()).isEqualTo("기존 크루");
         assertThat(crew.getSummary()).isEqualTo("새 요약");
         assertThat(crew.getLevelBand()).isEqualTo(CrewLevelBand.ADVANCED);
         assertThat(crew.getStyle()).isEqualTo(CrewStyle.LEAD);
@@ -401,7 +405,7 @@ class CrewServiceTest {
         assertThatThrownBy(() -> service.createMeetup(7L, null, new CreateCrewMeetupCommand(
                 "퇴근 볼더링", null,
                 Instant.now().minusSeconds(120), null,
-                null, "강남", 8)))
+                null, "강남", 8, "OPEN")))
                 .isInstanceOf(CrewException.class)
                 .satisfies(e -> assertThat(((CrewException) e).code()).isEqualTo("INVALID_CREW_MEETUP_REQUEST"));
     }
@@ -419,6 +423,8 @@ class CrewServiceTest {
         when(crewMeetupRepository.findByDeletedAtIsNullAndStartsAtGreaterThanEqualOrderByStartsAtAscIdAsc(
                 any(Instant.class), any(Pageable.class)))
                 .thenReturn(List.of(meetup));
+        when(meetupParticipantRepository.countByMeetupIdAndStatus(any(), any())).thenReturn(0L);
+        when(meetupParticipantRepository.existsByMeetupIdAndUserIdAndStatus(any(), any(), any())).thenReturn(false);
 
         List<CrewMeetupView> result = service.listAllMeetups(7L, 10);
 

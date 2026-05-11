@@ -235,10 +235,11 @@ public class CrewController {
     public ResponseEntity<ApiResponse<Void>> handleCrew(CrewException e) {
         HttpStatus status = switch (e.code()) {
             case "CREW_NOT_FOUND", "CREW_HOME_GYM_NOT_FOUND", "CREW_JOIN_REQUEST_NOT_FOUND",
-                    "CREW_MEMBER_NOT_FOUND", "CREW_IMAGE_MEDIA_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+                    "CREW_MEMBER_NOT_FOUND", "CREW_IMAGE_MEDIA_NOT_FOUND",
+                    "MEETUP_NOT_FOUND", "MEETUP_PARTICIPANT_NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "CREW_FORBIDDEN", "CREW_IMAGE_MEDIA_FORBIDDEN" -> HttpStatus.FORBIDDEN;
             case "CREW_NAME_TAKEN", "CREW_LIMIT_EXCEEDED", "CREW_ALREADY_MEMBER",
-                    "CREW_JOIN_REQUEST_PENDING", "CREW_CAPACITY_FULL" -> HttpStatus.CONFLICT;
+                    "CREW_JOIN_REQUEST_PENDING", "CREW_CAPACITY_FULL", "MEETUP_CAPACITY_FULL" -> HttpStatus.CONFLICT;
             case "CREW_OWNER_LEAVE_BLOCKED" -> HttpStatus.UNPROCESSABLE_ENTITY;
             default -> HttpStatus.BAD_REQUEST;
         };
@@ -291,10 +292,12 @@ public class CrewController {
             Instant endsAt,
             @Size(min = 26, max = 26) String gymExtId,
             @Size(max = 100) String location,
-            @Min(2) @Max(200) Integer capacity
+            @Min(2) @Max(200) Integer capacity,
+            String joinPolicy
     ) {
         CreateCrewMeetupCommand toCommand() {
-            return new CreateCrewMeetupCommand(title, description, startsAt, endsAt, gymExtId, location, capacity);
+            return new CreateCrewMeetupCommand(title, description, startsAt, endsAt, gymExtId, location, capacity,
+                    joinPolicy);
         }
     }
 
@@ -324,12 +327,16 @@ public class CrewController {
             String gymName,
             String location,
             Integer capacity,
+            String joinPolicy,
+            Integer participantCount,
+            String myParticipation,
             Instant createdAt
     ) {
         static CrewMeetupItem of(CrewMeetupView v) {
             return new CrewMeetupItem(v.extId(), v.title(), v.description(), v.startsAt(), v.endsAt(),
                     v.crewExtId(), v.crewName(), v.gymExtId(), v.gymName(),
-                    v.location(), v.capacity(), v.createdAt());
+                    v.location(), v.capacity(), v.joinPolicy(), v.participantCount(), v.myParticipation(),
+                    v.createdAt());
         }
     }
 

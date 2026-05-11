@@ -42,6 +42,10 @@ erDiagram
     users ||--o{ crew_members : joins
     crews ||--o{ crew_join_requests : receives
     users ||--o{ crew_join_requests : requests
+    crews ||--o{ meetups : schedules
+    users ||--o{ meetups : creates
+    meetups ||--o{ meetup_participants : has
+    users ||--o{ meetup_participants : joins
 ```
 
 ## 3. 테이블 정의
@@ -458,6 +462,7 @@ CREATE TABLE meetups (
   ends_at     TIMESTAMP NULL,
   location    VARCHAR(100) NULL,
   capacity    SMALLINT UNSIGNED NULL,
+  join_policy VARCHAR(20) NOT NULL DEFAULT 'OPEN', -- OPEN, APPROVAL
   created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   deleted_at  TIMESTAMP NULL,
@@ -471,6 +476,22 @@ CREATE TABLE meetups (
   CONSTRAINT fk_meetups_creator FOREIGN KEY (created_by) REFERENCES users(id),
   CONSTRAINT fk_meetups_gym FOREIGN KEY (gym_id) REFERENCES gyms(id),
   CONSTRAINT chk_meetups_capacity CHECK (capacity IS NULL OR capacity BETWEEN 2 AND 200)
+);
+```
+
+### 3.18 meetup_participants (Phase 1.5)
+```sql
+CREATE TABLE meetup_participants (
+  meetup_id  BIGINT UNSIGNED NOT NULL,
+  user_id    BIGINT UNSIGNED NOT NULL,
+  status     VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', -- PENDING, ACTIVE, CANCELED
+  joined_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (meetup_id, user_id),
+  KEY idx_meetup_participants_user (user_id, status, joined_at DESC),
+  KEY idx_meetup_participants_meetup_status (meetup_id, status),
+  CONSTRAINT fk_meetup_participants_meetup FOREIGN KEY (meetup_id) REFERENCES meetups(id),
+  CONSTRAINT fk_meetup_participants_user FOREIGN KEY (user_id) REFERENCES users(id)
 );
 ```
 
@@ -503,6 +524,9 @@ CREATE TABLE meetups (
 | V202605071100 | `V202605071100__media_type_tables.sql` | 이미지/비디오 전용 메타, variant, 비디오 썸네일 테이블 분리 |
 | V202605071200 | `V202605071200__media_asset_base_cleanup.sql` | media_assets 를 공통 원본 자산 컬럼만 남기도록 정리 |
 | V202605081000 | `V202605081000__init_crews.sql` | crews, crew_members, crew_join_requests |
+| V202605111100 | `V202605111100__crew_images_and_meetups.sql` | crews.image_media_id, meetups |
+| V202605111200 | `V202605111200__meetup_participants.sql` | meetup_participants |
+| V202605111210 | `V202605111210__meetup_join_policy.sql` | meetups.join_policy |
 
 ## 7. 오픈 이슈
 

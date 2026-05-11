@@ -18,7 +18,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -58,14 +60,39 @@ public class MeetupController {
         return MeetupItem.of(crewService.createMeetup(principal.userId(), req.crewExtId(), req.toCommand()));
     }
 
+    @Operation(summary = "모임 상세", description = "모임 상세와 내 참여 상태를 조회한다.")
+    @GetMapping("/{extId}")
+    public MeetupItem detail(
+            @AuthenticationPrincipal CrimpPrincipal principal,
+            @PathVariable String extId) {
+        return MeetupItem.of(crewService.getMeetup(principal.userId(), extId));
+    }
+
+    @Operation(summary = "모임 참여", description = "바로참여 모임은 참여 완료, 승인제 모임은 참여 요청으로 처리한다.")
+    @PostMapping("/{extId}/participants/me")
+    public MeetupItem join(
+            @AuthenticationPrincipal CrimpPrincipal principal,
+            @PathVariable String extId) {
+        return MeetupItem.of(crewService.joinMeetup(principal.userId(), extId));
+    }
+
+    @Operation(summary = "모임 참여 취소", description = "내 모임 참여 또는 참여 요청을 취소한다.")
+    @DeleteMapping("/{extId}/participants/me")
+    public MeetupItem leave(
+            @AuthenticationPrincipal CrimpPrincipal principal,
+            @PathVariable String extId) {
+        return MeetupItem.of(crewService.leaveMeetup(principal.userId(), extId));
+    }
+
     @ExceptionHandler(CrewException.class)
     public ResponseEntity<ApiResponse<Void>> handleCrew(CrewException e) {
         HttpStatus status = switch (e.code()) {
             case "CREW_NOT_FOUND", "CREW_HOME_GYM_NOT_FOUND", "CREW_JOIN_REQUEST_NOT_FOUND",
-                    "CREW_MEMBER_NOT_FOUND", "CREW_IMAGE_MEDIA_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+                    "CREW_MEMBER_NOT_FOUND", "CREW_IMAGE_MEDIA_NOT_FOUND",
+                    "MEETUP_NOT_FOUND", "MEETUP_PARTICIPANT_NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "CREW_FORBIDDEN", "CREW_IMAGE_MEDIA_FORBIDDEN" -> HttpStatus.FORBIDDEN;
             case "CREW_NAME_TAKEN", "CREW_LIMIT_EXCEEDED", "CREW_ALREADY_MEMBER",
-                    "CREW_JOIN_REQUEST_PENDING", "CREW_CAPACITY_FULL" -> HttpStatus.CONFLICT;
+                    "CREW_JOIN_REQUEST_PENDING", "CREW_CAPACITY_FULL", "MEETUP_CAPACITY_FULL" -> HttpStatus.CONFLICT;
             case "CREW_OWNER_LEAVE_BLOCKED" -> HttpStatus.UNPROCESSABLE_ENTITY;
             default -> HttpStatus.BAD_REQUEST;
         };
@@ -80,10 +107,12 @@ public class MeetupController {
             @Size(min = 26, max = 26) String crewExtId,
             @Size(min = 26, max = 26) String gymExtId,
             @Size(max = 100) String location,
-            @Min(2) @Max(200) Integer capacity
+            @Min(2) @Max(200) Integer capacity,
+            String joinPolicy
     ) {
         CreateCrewMeetupCommand toCommand() {
-            return new CreateCrewMeetupCommand(title, description, startsAt, endsAt, gymExtId, location, capacity);
+            return new CreateCrewMeetupCommand(title, description, startsAt, endsAt, gymExtId, location, capacity,
+                    joinPolicy);
         }
     }
 
@@ -101,11 +130,15 @@ public class MeetupController {
             String gymName,
             String location,
             Integer capacity,
+            String joinPolicy,
+            Integer participantCount,
+            String myParticipation,
             Instant createdAt
     ) {
         static MeetupItem of(CrewMeetupView v) {
             return new MeetupItem(v.extId(), v.title(), v.description(), v.startsAt(), v.endsAt(),
-                    v.crewExtId(), v.crewName(), v.gymExtId(), v.gymName(), v.location(), v.capacity(), v.createdAt());
+                    v.crewExtId(), v.crewName(), v.gymExtId(), v.gymName(), v.location(), v.capacity(),
+                    v.joinPolicy(), v.participantCount(), v.myParticipation(), v.createdAt());
         }
     }
 }

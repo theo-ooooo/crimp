@@ -17,7 +17,10 @@ import {
   fetchCrewMembers,
   fetchCrewMeetups,
   fetchCrews,
+  fetchMeetup,
   fetchMeetups,
+  joinMeetup,
+  leaveMeetup as leaveMeetupApi,
   leaveCrew,
   requestCrewJoin,
   updateCrew,
@@ -62,6 +65,10 @@ export function crewMeetupsQueryKey(extId: string) {
 
 export function meetupsQueryKey() {
   return ['meetups'] as const;
+}
+
+export function meetupQueryKey(extId: string) {
+  return ['meetup', extId] as const;
 }
 
 export function useCrewsQuery(
@@ -321,6 +328,23 @@ export function useMeetupsQuery(accessToken: string | null, size?: number) {
   });
 }
 
+export function useMeetupQuery(accessToken: string | null, extId: string | null | undefined) {
+  return useQuery<CrewMeetup>({
+    queryKey: extId ? meetupQueryKey(extId) : (['meetup', '__none__'] as const),
+    queryFn: ({ signal }) => {
+      if (!accessToken) {
+        return Promise.reject(new Error('access token is required'));
+      }
+      if (!extId) {
+        return Promise.reject(new Error('meetup extId is required'));
+      }
+      return fetchMeetup(accessToken, extId, signal);
+    },
+    enabled: Boolean(accessToken && extId),
+    retry: 0,
+  });
+}
+
 export function useCreateMeetup(accessToken: string | null) {
   const qc = useQueryClient();
   return useMutation<CrewMeetup, Error, CreateCrewMeetupBody>({
@@ -332,9 +356,47 @@ export function useCreateMeetup(accessToken: string | null) {
     },
     onSuccess: (created) => {
       qc.invalidateQueries({ queryKey: meetupsQueryKey() });
+      qc.setQueryData(meetupQueryKey(created.extId), created);
       if (created.crewExtId) {
         qc.invalidateQueries({ queryKey: crewMeetupsQueryKey(created.crewExtId) });
       }
     },
   });
+}
+
+export function useJoinMeetup(accessToken: string | null) {
+  const qc = useQueryClient();
+  return useMutation<CrewMeetup, Error, string>({
+    mutationFn: (extId) => {
+      if (!accessToken) {
+        return Promise.reject(new Error('access token is required'));
+      }
+      return joinMeetup(accessToken, extId);
+    },
+    onSuccess: (updated) => invalidateMeetupCaches(qc, updated),
+  });
+}
+
+export function useLeaveMeetup(accessToken: string | null) {
+  const qc = useQueryClient();
+  return useMutation<CrewMeetup, Error, string>({
+    mutationFn: (extId) => {
+      if (!accessToken) {
+        return Promise.reject(new Error('access token is required'));
+      }
+      return leaveMeetupApi(accessToken, extId);
+    },
+    onSuccess: (updated) => invalidateMeetupCaches(qc, updated),
+  });
+}
+
+function invalidateMeetupCaches(
+  qc: ReturnType<typeof useQueryClient>,
+  updated: CrewMeetup,
+) {
+  qc.setQueryData(meetupQueryKey(updated.extId), updated);
+  qc.invalidateQueries({ queryKey: meetupsQueryKey() });
+  if (updated.crewExtId) {
+    qc.invalidateQueries({ queryKey: crewMeetupsQueryKey(updated.crewExtId) });
+  }
 }

@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  Pressable,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,7 +29,6 @@ import {
   fontWeight,
   letterSpacing,
   radius,
-  shadow,
   space,
   type Theme,
 } from '@/lib/tokens';
@@ -114,30 +114,21 @@ function CrewDetailContent({
 
   const pending = requestJoin.isPending || cancelJoin.isPending || leaveCrew.isPending;
   const mutationError = requestJoin.error ?? cancelJoin.error ?? leaveCrew.error;
-  const avatarText = Array.from(crew.name)[0] ?? 'C';
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.hero}>
-        <View style={styles.heroTop}>
-          <View style={styles.avatar}>
-            {crew.imageUrl ? (
-              <Image source={{ uri: crew.imageUrl }} style={styles.avatarImage} />
-            ) : (
-              <Text style={styles.avatarText} allowFontScaling={false}>{avatarText}</Text>
-            )}
-          </View>
-          <View style={styles.heroBody}>
-            <View style={styles.badgeRow}>
-              <StatusBadge status={crew.myStatus} />
-              <InfoChip label={joinPolicyLabel(crew.joinPolicy)} />
-            </View>
-            <Text style={styles.heroTitle}>{crew.name}</Text>
-            <Text style={styles.heroSummary}>
-              {crew.summary ?? t('crew.common.summaryFallback')}
-            </Text>
-          </View>
+        <View style={styles.badgeRow}>
+          <StatusBadge status={crew.myStatus} />
+          <InfoChip label={joinPolicyLabel(crew.joinPolicy)} />
         </View>
+        <Text style={styles.heroTitle}>{crew.name}</Text>
+        <Text style={styles.heroSummary}>
+          {crew.summary ?? t('crew.common.summaryFallback')}
+        </Text>
+        {crew.imageUrl ? (
+          <Image source={{ uri: crew.imageUrl }} style={styles.heroImage} />
+        ) : null}
         <View style={styles.statGrid}>
           <StatCard label={t('crew.detail.memberLabel')} value={memberValue(crew)} />
           <StatCard label={t('crew.detail.ownerLabel')} value={crew.owner.nickname ?? t('home.nicknameFallback')} />
@@ -146,6 +137,11 @@ function CrewDetailContent({
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{t('crew.detail.infoTitle')}</Text>
+        {crew.myStatus === 'OWNER' || crew.myStatus === 'ADMIN' ? (
+          <SecondaryButton onPress={() => navigation.navigate('CrewForm', { extId: crew.extId })}>
+            {t('crew.detail.editCta')}
+          </SecondaryButton>
+        ) : null}
         <View style={styles.metaWrap}>
           <InfoChip label={crew.region ?? t('crew.common.regionFallback')} />
           <InfoChip label={crew.homeGym?.name ?? t('crew.common.homeGymFallback')} />
@@ -215,11 +211,19 @@ function CrewDetailContent({
         ) : meetupsQuery.data?.items.length ? (
           <View style={styles.meetupList}>
             {meetupsQuery.data.items.map((meetup) => (
-              <View key={meetup.extId} style={styles.meetupItem}>
+              <Pressable
+                key={meetup.extId}
+                onPress={() => navigation.navigate('MeetupDetail', { extId: meetup.extId })}
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.meetupItem, pressed ? styles.cardPressed : null]}
+              >
                 <Text style={styles.meetupTitle}>{meetup.title}</Text>
                 <Text style={styles.meetupMeta}>{formatMeetupTime(meetup.startsAt)}</Text>
                 {meetup.location ? <Text style={styles.meetupMeta}>{meetup.location}</Text> : null}
-              </View>
+                <Text style={styles.meetupMeta}>
+                  {t('meetup.detail.participantCount').replace('{{count}}', String(meetup.participantCount))}
+                </Text>
+              </Pressable>
             ))}
           </View>
         ) : (
@@ -359,8 +363,8 @@ function formatMeetupTime(value: string): string {
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     content: {
-      paddingHorizontal: space[5],
-      paddingTop: space[3],
+      paddingHorizontal: 0,
+      paddingTop: 0,
       paddingBottom: space[10],
       gap: space[3],
       backgroundColor: theme.bg,
@@ -370,43 +374,12 @@ function makeStyles(theme: Theme) {
       backgroundColor: theme.bg,
     },
     hero: {
-      borderRadius: radius.xl,
-      backgroundColor: theme.subtle,
-      padding: space[5],
-      gap: space[3],
-      ...shadow.xs,
-    },
-    heroTop: {
-      flexDirection: 'row',
-      gap: space[4],
-      alignItems: 'center',
-    },
-    avatar: {
-      width: 72,
-      height: 72,
-      borderRadius: 36,
+      borderRadius: 0,
       backgroundColor: theme.accent.base,
-      alignItems: 'center',
-      justifyContent: 'center',
-      flexShrink: 0,
-      overflow: 'hidden',
-    },
-    avatarImage: {
-      width: '100%',
-      height: '100%',
-    },
-    avatarText: {
-      fontFamily,
-      fontSize: 28,
-      fontWeight: fontWeight.extrabold,
-      letterSpacing: -1.12,
-      color: theme.accent.on,
-      includeFontPadding: false,
-    },
-    heroBody: {
-      flex: 1,
-      minWidth: 0,
-      gap: space[1],
+      padding: space[5],
+      paddingTop: space[8],
+      paddingBottom: space[6],
+      gap: space[2],
     },
     badgeRow: {
       flexDirection: 'row',
@@ -415,17 +388,25 @@ function makeStyles(theme: Theme) {
     },
     heroTitle: {
       fontFamily,
-      fontSize: 22,
+      fontSize: 30,
       fontWeight: fontWeight.extrabold,
-      color: theme.text,
-      letterSpacing: -0.66,
+      color: theme.accent.on,
+      letterSpacing: letterSpacing.h1,
     },
     heroSummary: {
       fontFamily,
       fontSize: 13,
       fontWeight: fontWeight.medium,
-      color: theme.text3,
+      color: theme.accent.on,
       lineHeight: 19,
+      opacity: 0.82,
+      marginBottom: space[2],
+    },
+    heroImage: {
+      width: '100%',
+      height: 136,
+      borderRadius: radius.lg,
+      marginVertical: space[2],
     },
     statGrid: {
       flexDirection: 'row',
@@ -434,7 +415,7 @@ function makeStyles(theme: Theme) {
     statCard: {
       flex: 1,
       borderRadius: radius.lg,
-      backgroundColor: theme.bg,
+      backgroundColor: 'rgba(255, 255, 255, 0.34)',
       padding: space[4],
       gap: space[1],
     },
@@ -442,16 +423,18 @@ function makeStyles(theme: Theme) {
       fontFamily,
       fontSize: fontSize.caption,
       fontWeight: fontWeight.bold,
-      color: theme.text3,
+      color: theme.accent.on,
+      opacity: 0.72,
     },
     statValue: {
       fontFamily,
       fontSize: fontSize.title,
       fontWeight: fontWeight.extrabold,
-      color: theme.text,
+      color: theme.accent.on,
       letterSpacing: letterSpacing.title,
     },
     section: {
+      marginHorizontal: space[5],
       borderRadius: radius.xl,
       backgroundColor: theme.subtle,
       padding: space[5],
@@ -475,21 +458,24 @@ function makeStyles(theme: Theme) {
     },
     meetupItem: {
       borderRadius: radius.lg,
-      backgroundColor: theme.bg,
-      padding: space[3],
-      gap: space[1],
+      backgroundColor: theme.text,
+      padding: space[4],
+      gap: space[2],
+    },
+    cardPressed: {
+      opacity: 0.86,
     },
     meetupTitle: {
       fontFamily,
       fontSize: fontSize.body,
       fontWeight: fontWeight.bold,
-      color: theme.text,
+      color: theme.bg,
     },
     meetupMeta: {
       fontFamily,
       fontSize: fontSize.caption,
       fontWeight: fontWeight.medium,
-      color: theme.text2,
+      color: theme.text4,
     },
     bodyText: {
       fontFamily,

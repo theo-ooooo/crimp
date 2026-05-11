@@ -15,7 +15,7 @@ import { PrimaryButton, SecondaryButton } from '@/components/common/primitives';
 import { AuthHydrationGate } from '@/components/common/screen/AuthHydrationGate';
 import { useCreateMeetup } from '@/hooks/queries/useCrews';
 import { toUserMessage } from '@/lib/api/errorMessage';
-import { t } from '@/lib/i18n';
+import { t, type MessageKey } from '@/lib/i18n';
 import {
   fontFamily,
   fontSize,
@@ -87,6 +87,7 @@ function MeetupFormContent({
   const [selectedMinute, setSelectedMinute] = useState(30);
   const [manualLocation, setManualLocation] = useState('');
   const [capacityText, setCapacityText] = useState('');
+  const [joinPolicy, setJoinPolicy] = useState<'OPEN' | 'APPROVAL'>('OPEN');
   const [validation, setValidation] = useState<string | null>(null);
 
   const startsAt = new Date(
@@ -134,6 +135,7 @@ function MeetupFormContent({
       gymExtId: selectedGymExtId ?? null,
       location: selectedGymExtId ? null : toNullable(manualLocation),
       capacity,
+      joinPolicy,
     };
     setValidation(null);
     createMeetup.mutate(body, { onSuccess: () => navigation.goBack() });
@@ -251,6 +253,29 @@ function MeetupFormContent({
               keyboardType="number-pad"
               editable={!busy}
             />
+            <FieldLabel label={t('meetup.detail.joinPolicyLabel')} />
+            <View style={styles.policyRow}>
+              {(['OPEN', 'APPROVAL'] as const).map((policy) => {
+                const active = joinPolicy === policy;
+                return (
+                  <Pressable
+                    key={policy}
+                    onPress={() => setJoinPolicy(policy)}
+                    disabled={busy}
+                    accessibilityRole="button"
+                    style={({ pressed }) => [
+                      styles.policyChip,
+                      active ? styles.policyChipActive : null,
+                      pressed ? styles.pressed : null,
+                    ]}
+                  >
+                    <Text style={[styles.policyChipText, active ? styles.policyChipTextActive : null]}>
+                      {t(`meetup.joinPolicy.${policy}` as MessageKey)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </>
         ) : null}
 
@@ -261,6 +286,10 @@ function MeetupFormContent({
             <ConfirmRow
               label={t('crew.meetup.locationLabel')}
               value={selectedGymName ?? toNullable(manualLocation) ?? t('crew.meetup.noGymSelected')}
+            />
+            <ConfirmRow
+              label={t('meetup.detail.joinPolicyLabel')}
+              value={t(`meetup.joinPolicy.${joinPolicy}` as MessageKey)}
             />
             {crewName ? <ConfirmRow label={t('crew.list.title')} value={crewName} /> : null}
           </View>
@@ -597,6 +626,24 @@ function makeStyles(theme: Theme) {
       color: theme.text2,
     },
     timeChipTextActive: { color: theme.accent.on },
+    policyRow: { flexDirection: 'row', gap: space[2] },
+    policyChip: {
+      flex: 1,
+      minHeight: 44,
+      borderRadius: radius.lg,
+      backgroundColor: theme.bg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: space[3],
+    },
+    policyChipActive: { backgroundColor: theme.accent.base },
+    policyChipText: {
+      fontFamily,
+      fontSize: fontSize.caption,
+      fontWeight: fontWeight.bold,
+      color: theme.text2,
+    },
+    policyChipTextActive: { color: theme.accent.on },
     selectedDateText: {
       fontFamily,
       fontSize: fontSize.body,
