@@ -47,6 +47,7 @@ export type RootStackParamList = {
   GymSearch:
     | {
         selectFor?: 'MeetupForm';
+        meetupExtId?: string;
         crewExtId?: string;
         crewName?: string;
       }
@@ -87,6 +88,7 @@ export type RootStackParamList = {
   MeetupDetail: { extId: string };
   MeetupForm:
     | {
+        meetupExtId?: string;
         crewExtId?: string;
         crewName?: string;
         selectedGymExtId?: string;

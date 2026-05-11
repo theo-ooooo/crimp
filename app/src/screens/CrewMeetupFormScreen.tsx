@@ -1,5 +1,5 @@
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PrimaryButton, SecondaryButton } from '@/components/common/primitives';
 import { AuthHydrationGate } from '@/components/common/screen/AuthHydrationGate';
-import { useCreateMeetup } from '@/hooks/queries/useCrews';
+import { useCreateMeetup, useMeetupQuery, useUpdateMeetup } from '@/hooks/queries/useCrews';
 import { toUserMessage } from '@/lib/api/errorMessage';
 import { t, type MessageKey } from '@/lib/i18n';
 import {
@@ -50,6 +50,7 @@ export default function CrewMeetupFormScreen(): JSX.Element {
         <SafeAreaView style={styles.safeArea} edges={['top']}>
           <MeetupFormContent
             accessToken={token}
+            meetupExtId={route.params?.meetupExtId}
             crewExtId={route.params?.crewExtId}
             crewName={route.params?.crewName}
             selectedGymExtId={route.params?.selectedGymExtId}
@@ -63,12 +64,14 @@ export default function CrewMeetupFormScreen(): JSX.Element {
 
 function MeetupFormContent({
   accessToken,
+  meetupExtId,
   crewExtId,
   crewName,
   selectedGymExtId,
   selectedGymName,
 }: {
   accessToken: string;
+  meetupExtId?: string;
   crewExtId?: string;
   crewName?: string;
   selectedGymExtId?: string;
@@ -78,7 +81,10 @@ function MeetupFormContent({
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const navigation = useNavigation<RootStackNavigationProp<'MeetupForm'>>();
   const createMeetup = useCreateMeetup(accessToken);
+  const updateMeetup = useUpdateMeetup(accessToken);
+  const meetupQuery = useMeetupQuery(accessToken, meetupExtId);
   const [step, setStep] = useState<Step>('basic');
+  const [hydratedEditForm, setHydratedEditForm] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedDate, setSelectedDate] = useState(() => startOfDay(addDays(new Date(), 1)));
@@ -99,8 +105,30 @@ function MeetupFormContent({
     0,
     0,
   );
-  const busy = createMeetup.isPending;
-  const error = validation ?? (createMeetup.error ? toUserMessage(createMeetup.error) : null);
+  const isEdit = Boolean(meetupExtId);
+  const busy = createMeetup.isPending || updateMeetup.isPending || meetupQuery.isLoading;
+  const error = validation
+    ?? (createMeetup.error ? toUserMessage(createMeetup.error) : null)
+    ?? (updateMeetup.error ? toUserMessage(updateMeetup.error) : null)
+    ?? (meetupQuery.error ? toUserMessage(meetupQuery.error) : null);
+
+  useEffect(() => {
+    const meetup = meetupQuery.data;
+    if (!meetup || hydratedEditForm) {
+      return;
+    }
+    const start = new Date(meetup.startsAt);
+    setTitle(meetup.title);
+    setDescription(meetup.description ?? '');
+    setSelectedDate(startOfDay(start));
+    setVisibleMonth(startOfMonth(start));
+    setSelectedHour(start.getHours());
+    setSelectedMinute(start.getMinutes());
+    setManualLocation(meetup.gymExtId ? '' : meetup.location ?? '');
+    setCapacityText(meetup.capacity == null ? '' : String(meetup.capacity));
+    setJoinPolicy(meetup.joinPolicy);
+    setHydratedEditForm(true);
+  }, [hydratedEditForm, meetupQuery.data]);
 
   const goNext = () => {
     if (step === 'basic') {
@@ -138,6 +166,10 @@ function MeetupFormContent({
       joinPolicy,
     };
     setValidation(null);
+    if (meetupExtId) {
+      updateMeetup.mutate({ extId: meetupExtId, body }, { onSuccess: () => navigation.goBack() });
+      return;
+    }
     createMeetup.mutate(body, { onSuccess: () => navigation.goBack() });
   };
 
@@ -148,7 +180,7 @@ function MeetupFormContent({
       keyboardShouldPersistTaps="handled"
     >
       <View style={styles.titleBlock}>
-        <Text style={styles.title}>{t('crew.meetup.formTitle')}</Text>
+        <Text style={styles.title}>{isEdit ? t('crew.meetup.editTitle') : t('crew.meetup.formTitle')}</Text>
         <Text style={styles.subtitle}>{stepLabel(step, crewName)}</Text>
       </View>
 
@@ -228,7 +260,12 @@ function MeetupFormContent({
                 {selectedGymName ?? t('crew.meetup.noGymSelected')}
               </Text>
               <SecondaryButton
-                onPress={() => navigation.navigate('GymSearch', { selectFor: 'MeetupForm', crewExtId, crewName })}
+                onPress={() => navigation.navigate('GymSearch', {
+                  selectFor: 'MeetupForm',
+                  meetupExtId,
+                  crewExtId,
+                  crewName,
+                })}
                 disabled={busy}
               >
                 {t('crew.meetup.chooseGymCta')}
@@ -306,7 +343,11 @@ function MeetupFormContent({
         ) : null}
         <View style={styles.primaryAction}>
           <PrimaryButton onPress={step === 'confirm' ? submit : goNext} disabled={busy}>
-            {busy ? t('crew.form.creating') : step === 'confirm' ? t('crew.meetup.createCta') : t('common.next')}
+            {busy
+              ? t('crew.form.creating')
+              : step === 'confirm'
+                ? isEdit ? t('crew.meetup.updateCta') : t('crew.meetup.createCta')
+                : t('common.next')}
           </PrimaryButton>
         </View>
       </View>

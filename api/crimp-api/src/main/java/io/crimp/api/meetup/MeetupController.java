@@ -7,7 +7,9 @@ import io.crimp.domain.crew.CreateCrewMeetupCommand;
 import io.crimp.domain.crew.CrewException;
 import io.crimp.domain.crew.CrewMeetupView;
 import io.crimp.domain.crew.CrewService;
+import io.crimp.domain.crew.MeetupParticipantView;
 import io.crimp.domain.crew.MeetupHostView;
+import io.crimp.domain.crew.UpdateCrewMeetupCommand;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -21,6 +23,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -69,6 +72,15 @@ public class MeetupController {
         return MeetupItem.of(crewService.getMeetup(principal.userId(), extId));
     }
 
+    @Operation(summary = "모임 수정", description = "모임 방장 또는 크루 관리자/크루장이 시작 전 모임 정보를 수정한다.")
+    @PatchMapping("/{extId}")
+    public MeetupItem update(
+            @AuthenticationPrincipal CrimpPrincipal principal,
+            @PathVariable String extId,
+            @Valid @RequestBody UpdateMeetupRequest req) {
+        return MeetupItem.of(crewService.updateMeetup(principal.userId(), extId, req.toCommand()));
+    }
+
     @Operation(summary = "모임 참여", description = "바로참여 모임은 참여 완료, 승인제 모임은 참여 요청으로 처리한다.")
     @PostMapping("/{extId}/participants/me")
     public MeetupItem join(
@@ -95,6 +107,37 @@ public class MeetupController {
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(summary = "모임 참여자 목록", description = "ACTIVE 참여자 목록을 조회한다. PENDING 요청 목록은 모임 관리자만 조회한다.")
+    @GetMapping("/{extId}/participants")
+    public MeetupParticipantListResponse participants(
+            @AuthenticationPrincipal CrimpPrincipal principal,
+            @PathVariable String extId,
+            @RequestParam(required = false) String status) {
+        return new MeetupParticipantListResponse(crewService
+                .listMeetupParticipants(principal.userId(), extId, status)
+                .stream()
+                .map(MeetupParticipantItem::of)
+                .toList());
+    }
+
+    @Operation(summary = "모임 참여 요청 승인", description = "모임 관리자가 승인제 모임의 참여 요청을 승인한다.")
+    @PostMapping("/{extId}/participants/{userExtId}:approve")
+    public MeetupParticipantItem approveParticipant(
+            @AuthenticationPrincipal CrimpPrincipal principal,
+            @PathVariable String extId,
+            @PathVariable String userExtId) {
+        return MeetupParticipantItem.of(crewService.approveMeetupParticipant(principal.userId(), extId, userExtId));
+    }
+
+    @Operation(summary = "모임 참여 요청 거절", description = "모임 관리자가 승인제 모임의 참여 요청을 거절한다.")
+    @PostMapping("/{extId}/participants/{userExtId}:reject")
+    public MeetupParticipantItem rejectParticipant(
+            @AuthenticationPrincipal CrimpPrincipal principal,
+            @PathVariable String extId,
+            @PathVariable String userExtId) {
+        return MeetupParticipantItem.of(crewService.rejectMeetupParticipant(principal.userId(), extId, userExtId));
+    }
+
     @ExceptionHandler(CrewException.class)
     public ResponseEntity<ApiResponse<Void>> handleCrew(CrewException e) {
         HttpStatus status = switch (e.code()) {
@@ -104,7 +147,7 @@ public class MeetupController {
             case "CREW_FORBIDDEN", "CREW_IMAGE_MEDIA_FORBIDDEN", "MEETUP_FORBIDDEN" -> HttpStatus.FORBIDDEN;
             case "CREW_NAME_TAKEN", "CREW_LIMIT_EXCEEDED", "CREW_ALREADY_MEMBER",
                     "CREW_JOIN_REQUEST_PENDING", "CREW_CAPACITY_FULL", "MEETUP_CAPACITY_FULL" -> HttpStatus.CONFLICT;
-            case "CREW_OWNER_LEAVE_BLOCKED" -> HttpStatus.UNPROCESSABLE_ENTITY;
+            case "CREW_OWNER_LEAVE_BLOCKED", "MEETUP_CLOSED" -> HttpStatus.UNPROCESSABLE_ENTITY;
             default -> HttpStatus.BAD_REQUEST;
         };
         return ResponseEntity.status(status).body(ApiResponse.failure(ErrorBody.of(e.code(), e.getMessage())));
@@ -127,9 +170,27 @@ public class MeetupController {
         }
     }
 
+    public record UpdateMeetupRequest(
+            @Size(min = 2, max = 60) String title,
+            @Size(max = 500) String description,
+            Instant startsAt,
+            Instant endsAt,
+            @Size(min = 26, max = 26) String gymExtId,
+            @Size(max = 100) String location,
+            @Min(2) @Max(200) Integer capacity,
+            String joinPolicy
+    ) {
+        UpdateCrewMeetupCommand toCommand() {
+            return new UpdateCrewMeetupCommand(title, description, startsAt, endsAt, gymExtId, location, capacity,
+                    joinPolicy);
+        }
+    }
+
     public record JoinMeetupRequest(@Size(max = 500) String message) {}
 
     public record MeetupListResponse(List<MeetupItem> items) {}
+
+    public record MeetupParticipantListResponse(List<MeetupParticipantItem> items) {}
 
     public record MeetupItem(
             String extId,
@@ -161,6 +222,18 @@ public class MeetupController {
     public record MeetupHost(String extId, String nickname) {
         static MeetupHost of(MeetupHostView v) {
             return v == null ? null : new MeetupHost(v.extId(), v.nickname());
+        }
+    }
+
+    public record MeetupParticipantItem(
+            String userExtId,
+            String nickname,
+            String status,
+            String message,
+            Instant joinedAt
+    ) {
+        static MeetupParticipantItem of(MeetupParticipantView v) {
+            return new MeetupParticipantItem(v.userExtId(), v.nickname(), v.status(), v.message(), v.joinedAt());
         }
     }
 }

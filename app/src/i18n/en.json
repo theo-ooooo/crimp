@@ -412,7 +412,9 @@
     "meetup": {
       "title": "Meetups",
       "formTitle": "Create meetup",
+      "editTitle": "Edit meetup",
       "createCta": "Create meetup",
+      "updateCta": "Update meetup",
       "emptyBody": "No meetups yet.",
       "nameLabel": "Meetup name",
       "namePlaceholder": "e.g. Saturday Gangnam bouldering",
@@ -461,9 +463,17 @@
       "cancelRequestCta": "Cancel request",
       "leaveConfirmTitle": "Cancel participation?",
       "leaveConfirmBody": "You can join or request again later.",
-      "deleteCta": "Delete meetup",
-      "deleteConfirmTitle": "Delete this meetup?",
-      "deleteConfirmBody": "Deleted meetups will no longer appear in lists or detail views."
+      "editCta": "Edit meetup",
+      "deleteCta": "Cancel meetup",
+      "deleteConfirmTitle": "Cancel this meetup?",
+      "deleteConfirmBody": "Canceled meetups will no longer appear in lists or detail views.",
+      "participantListTitle": "Participants",
+      "participantEmpty": "No participants yet.",
+      "pendingListTitle": "Join requests",
+      "pendingEmpty": "No pending requests.",
+      "pendingMessageFallback": "No request message.",
+      "approveCta": "Approve",
+      "rejectCta": "Reject"
     }
   },
   "profile": {

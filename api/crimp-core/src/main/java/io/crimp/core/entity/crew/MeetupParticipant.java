@@ -74,6 +74,17 @@ public class MeetupParticipant {
         this.updatedAt = Instant.now();
     }
 
+    public void approve() {
+        Instant now = Instant.now();
+        this.status = MeetupParticipantStatus.ACTIVE;
+        this.joinedAt = now;
+        this.updatedAt = now;
+    }
+
+    public void reject() {
+        cancel();
+    }
+
     public static final class Id implements Serializable {
         private Long meetupId;
         private Long userId;

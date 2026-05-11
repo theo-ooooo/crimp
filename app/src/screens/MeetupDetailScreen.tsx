@@ -5,7 +5,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PrimaryButton, SecondaryButton, Skeleton } from '@/components/common/primitives';
 import { AuthHydrationGate } from '@/components/common/screen/AuthHydrationGate';
-import { useDeleteMeetup, useJoinMeetup, useLeaveMeetup, useMeetupQuery } from '@/hooks/queries/useCrews';
+import {
+  useDecideMeetupParticipant,
+  useDeleteMeetup,
+  useJoinMeetup,
+  useLeaveMeetup,
+  useMeetupParticipantsQuery,
+  useMeetupQuery,
+} from '@/hooks/queries/useCrews';
 import { toUserMessage } from '@/lib/api/errorMessage';
 import { t, type MessageKey } from '@/lib/i18n';
 import { fontFamily, fontSize, fontWeight, letterSpacing, radius, space, type Theme } from '@/lib/tokens';
@@ -44,10 +51,19 @@ function MeetupDetailContent({ accessToken, extId }: { accessToken: string; extI
   const joinMeetup = useJoinMeetup(accessToken);
   const leaveMeetup = useLeaveMeetup(accessToken);
   const deleteMeetup = useDeleteMeetup(accessToken);
+  const decideParticipant = useDecideMeetupParticipant(accessToken);
   const [requestMessage, setRequestMessage] = useState('');
   const meetup = meetupQuery.data;
-  const busy = joinMeetup.isPending || leaveMeetup.isPending || deleteMeetup.isPending;
-  const error = meetupQuery.error ?? joinMeetup.error ?? leaveMeetup.error ?? deleteMeetup.error;
+  const activeParticipantsQuery = useMeetupParticipantsQuery(accessToken, extId, 'ACTIVE', Boolean(meetup));
+  const pendingParticipantsQuery = useMeetupParticipantsQuery(accessToken, extId, 'PENDING', Boolean(meetup?.canManage));
+  const busy = joinMeetup.isPending || leaveMeetup.isPending || deleteMeetup.isPending || decideParticipant.isPending;
+  const error = meetupQuery.error
+    ?? joinMeetup.error
+    ?? leaveMeetup.error
+    ?? deleteMeetup.error
+    ?? decideParticipant.error
+    ?? activeParticipantsQuery.error
+    ?? pendingParticipantsQuery.error;
 
   if (meetupQuery.isLoading) {
     return (
@@ -107,6 +123,66 @@ function MeetupDetailContent({ accessToken, extId }: { accessToken: string; extI
         <Text style={styles.bodyText}>{meetup.description ?? t('meetup.detail.descriptionFallback')}</Text>
       </View>
 
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>{t('meetup.detail.participantListTitle')}</Text>
+        {(activeParticipantsQuery.data?.items ?? []).length > 0 ? (
+          activeParticipantsQuery.data?.items.map((participant) => (
+            <ParticipantRow
+              key={participant.userExtId ?? participant.nickname ?? participant.joinedAt}
+              nickname={participant.nickname ?? t('home.nicknameFallback')}
+              meta={formatDateTime(participant.joinedAt)}
+            />
+          ))
+        ) : (
+          <Text style={styles.bodyText}>{t('meetup.detail.participantEmpty')}</Text>
+        )}
+      </View>
+
+      {meetup.canManage ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('meetup.detail.pendingListTitle')}</Text>
+          {(pendingParticipantsQuery.data?.items ?? []).length > 0 ? (
+            pendingParticipantsQuery.data?.items.map((participant) => {
+              const participantUserExtId = participant.userExtId;
+              return (
+                <View key={participantUserExtId ?? participant.nickname ?? participant.joinedAt} style={styles.requestRow}>
+                  <ParticipantRow
+                    nickname={participant.nickname ?? t('home.nicknameFallback')}
+                    meta={participant.message ?? t('meetup.detail.pendingMessageFallback')}
+                  />
+                  {participantUserExtId ? (
+                    <View style={styles.miniActionRow}>
+                      <SecondaryButton
+                        disabled={busy}
+                        onPress={() => decideParticipant.mutate({
+                          extId: meetup.extId,
+                          userExtId: participantUserExtId,
+                          decision: 'reject',
+                        })}
+                      >
+                        {t('meetup.detail.rejectCta')}
+                      </SecondaryButton>
+                      <PrimaryButton
+                        disabled={busy}
+                        onPress={() => decideParticipant.mutate({
+                          extId: meetup.extId,
+                          userExtId: participantUserExtId,
+                          decision: 'approve',
+                        })}
+                      >
+                        {t('meetup.detail.approveCta')}
+                      </PrimaryButton>
+                    </View>
+                  ) : null}
+                </View>
+              );
+            })
+          ) : (
+            <Text style={styles.bodyText}>{t('meetup.detail.pendingEmpty')}</Text>
+          )}
+        </View>
+      ) : null}
+
       {error ? <Text style={styles.errorText}>{toUserMessage(error)}</Text> : null}
 
       {canJoinOrLeave && meetup.joinPolicy === 'APPROVAL' && meetup.myParticipation === 'NONE' ? (
@@ -151,6 +227,19 @@ function MeetupDetailContent({ accessToken, extId }: { accessToken: string; extI
         )
       ) : null}
       {meetup.canManage ? (
+        <>
+        <SecondaryButton
+          disabled={busy}
+          onPress={() => navigation.navigate('MeetupForm', {
+            meetupExtId: meetup.extId,
+            crewExtId: meetup.crewExtId ?? undefined,
+            crewName: meetup.crewName ?? undefined,
+            selectedGymExtId: meetup.gymExtId ?? undefined,
+            selectedGymName: meetup.gymName ?? undefined,
+          })}
+        >
+          {t('meetup.detail.editCta')}
+        </SecondaryButton>
         <SecondaryButton
           disabled={busy}
           onPress={() => {
@@ -169,6 +258,7 @@ function MeetupDetailContent({ accessToken, extId }: { accessToken: string; extI
         >
           {t('meetup.detail.deleteCta')}
         </SecondaryButton>
+        </>
       ) : null}
       {busy ? <ActivityIndicator color={theme.accent.base} /> : null}
     </ScrollView>
@@ -182,6 +272,22 @@ function InfoRow({ label, value }: { label: string; value: string }): JSX.Elemen
     <View style={styles.infoRow}>
       <Text style={styles.infoLabel}>{label}</Text>
       <Text style={styles.infoValue}>{value}</Text>
+    </View>
+  );
+}
+
+function ParticipantRow({ nickname, meta }: { nickname: string; meta: string }): JSX.Element {
+  const theme = useTokens();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
+  return (
+    <View style={styles.participantRow}>
+      <View style={styles.avatar}>
+        <Text style={styles.avatarText}>{Array.from(nickname)[0] ?? '?'}</Text>
+      </View>
+      <View style={styles.participantTextBlock}>
+        <Text style={styles.participantName} numberOfLines={1}>{nickname}</Text>
+        <Text style={styles.participantMeta} numberOfLines={2}>{meta}</Text>
+      </View>
     </View>
   );
 }
@@ -305,6 +411,52 @@ function makeStyles(theme: Theme) {
       fontSize: fontSize.body,
       fontWeight: fontWeight.bold,
       color: theme.text,
+    },
+    participantRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space[3],
+    },
+    avatar: {
+      width: 38,
+      height: 38,
+      borderRadius: radius.lg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.accent.soft,
+    },
+    avatarText: {
+      fontFamily,
+      fontSize: fontSize.body,
+      fontWeight: fontWeight.extrabold,
+      color: theme.text,
+    },
+    participantTextBlock: {
+      flex: 1,
+      minWidth: 0,
+      gap: 2,
+    },
+    participantName: {
+      fontFamily,
+      fontSize: fontSize.body,
+      fontWeight: fontWeight.bold,
+      color: theme.text,
+    },
+    participantMeta: {
+      fontFamily,
+      fontSize: fontSize.caption,
+      fontWeight: fontWeight.medium,
+      color: theme.text3,
+    },
+    requestRow: {
+      gap: space[3],
+      paddingBottom: space[3],
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.hairline,
+    },
+    miniActionRow: {
+      flexDirection: 'row',
+      gap: space[2],
     },
     errorText: {
       fontFamily,

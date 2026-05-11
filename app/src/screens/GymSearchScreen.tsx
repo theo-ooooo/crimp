@@ -63,6 +63,7 @@ export default function GymSearchScreen(): JSX.Element {
         onSelectGym={
           route.params?.selectFor === 'MeetupForm'
             ? (gym) => navigation.navigate('MeetupForm', {
+              meetupExtId: route.params?.meetupExtId,
               crewExtId: route.params?.crewExtId,
               crewName: route.params?.crewName,
               selectedGymExtId: gym.extId,

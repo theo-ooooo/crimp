@@ -9,6 +9,8 @@ import io.crimp.domain.crew.CrewException;
 import io.crimp.domain.crew.CrewMeetupView;
 import io.crimp.domain.crew.CrewService;
 import io.crimp.domain.crew.MeetupHostView;
+import io.crimp.domain.crew.MeetupParticipantView;
+import io.crimp.domain.crew.UpdateCrewMeetupCommand;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
@@ -32,6 +34,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -114,6 +117,54 @@ class MeetupControllerTest {
                 .andExpect(status().isNoContent());
 
         verify(crewService).deleteMeetup(7L, "01JMEETUP");
+    }
+
+    @Test
+    void update_http_mapsRequestAndWrapsResponse() throws Exception {
+        when(crewService.updateMeetup(eq(7L), eq("01JMEETUP"), any(UpdateCrewMeetupCommand.class)))
+                .thenReturn(meetupView());
+
+        mockMvc.perform(patch("/api/v1/meetups/01JMEETUP")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new MeetupController.UpdateMeetupRequest(
+                                "퇴근 볼더링",
+                                "수정된 설명",
+                                Instant.parse("2026-05-12T11:00:00Z"),
+                                null,
+                                null,
+                                "강남",
+                                10,
+                                "APPROVAL"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(true))
+                .andExpect(jsonPath("$.data.extId").value("01JMEETUP"));
+    }
+
+    @Test
+    void participants_http_mapsList() throws Exception {
+        when(crewService.listMeetupParticipants(7L, "01JMEETUP", "PENDING"))
+                .thenReturn(List.of(new MeetupParticipantView(
+                        "01JUSER2", "요청자", "PENDING", "참여하고 싶어요",
+                        Instant.parse("2026-05-11T01:00:00Z"))));
+
+        mockMvc.perform(get("/api/v1/meetups/01JMEETUP/participants").param("status", "PENDING"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(true))
+                .andExpect(jsonPath("$.data.items[0].userExtId").value("01JUSER2"))
+                .andExpect(jsonPath("$.data.items[0].message").value("참여하고 싶어요"));
+    }
+
+    @Test
+    void approveParticipant_http_mapsDecision() throws Exception {
+        when(crewService.approveMeetupParticipant(7L, "01JMEETUP", "01JUSER2"))
+                .thenReturn(new MeetupParticipantView(
+                        "01JUSER2", "요청자", "ACTIVE", "참여하고 싶어요",
+                        Instant.parse("2026-05-11T01:00:00Z")));
+
+        mockMvc.perform(post("/api/v1/meetups/01JMEETUP/participants/01JUSER2:approve"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(true))
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"));
     }
 
     private static CrewMeetupView meetupView() {

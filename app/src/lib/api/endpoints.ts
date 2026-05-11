@@ -32,6 +32,8 @@ import {
   CrewMemberListSchema,
   CrewMeetupListSchema,
   CrewMeetupSchema,
+  MeetupParticipantListSchema,
+  MeetupParticipantSchema,
   type CreateCrewBody,
   type CreateCrewJoinRequestBody,
   type CreateCrewMeetupBody,
@@ -46,7 +48,10 @@ import {
   type CrewLevelBand,
   type CrewStyle,
   type JoinMeetupBody,
+  type MeetupParticipant,
+  type MeetupParticipantList,
   type UpdateCrewBody,
+  type UpdateCrewMeetupBody,
 } from '@/lib/schemas/crew';
 import {
   GymDetailSchema,
@@ -763,6 +768,23 @@ export function fetchMeetup(
   });
 }
 
+/** `PATCH /api/v1/meetups/{extId}` — 모임 수정. */
+export function updateMeetup(
+  accessToken: string,
+  extId: string,
+  body: UpdateCrewMeetupBody,
+  signal?: AbortSignal,
+): Promise<CrewMeetup> {
+  return apiRequest({
+    method: 'PATCH',
+    path: `/api/v1/meetups/${encodeURIComponent(extId)}`,
+    accessToken,
+    body,
+    schema: CrewMeetupSchema as z.ZodType<CrewMeetup>,
+    signal,
+  });
+}
+
 /** `POST /api/v1/meetups` — 독립/크루 모임 생성. */
 export function createMeetup(
   accessToken: string,
@@ -822,6 +844,40 @@ export function deleteMeetup(
     path: `/api/v1/meetups/${encodeURIComponent(extId)}`,
     accessToken,
     schema: z.void(),
+    signal,
+  });
+}
+
+/** `GET /api/v1/meetups/{extId}/participants` — 모임 참여자/요청 목록. */
+export function fetchMeetupParticipants(
+  accessToken: string,
+  extId: string,
+  status?: 'ACTIVE' | 'PENDING',
+  signal?: AbortSignal,
+): Promise<MeetupParticipantList> {
+  const qs = buildQueryString([['status', status]]);
+  return apiRequest({
+    method: 'GET',
+    path: `/api/v1/meetups/${encodeURIComponent(extId)}/participants${qs ? `?${qs}` : ''}`,
+    accessToken,
+    schema: MeetupParticipantListSchema as z.ZodType<MeetupParticipantList>,
+    signal,
+  });
+}
+
+/** `POST /api/v1/meetups/{extId}/participants/{userExtId}:approve|reject` — 모임 참여 요청 결정. */
+export function decideMeetupParticipant(
+  accessToken: string,
+  extId: string,
+  userExtId: string,
+  decision: 'approve' | 'reject',
+  signal?: AbortSignal,
+): Promise<MeetupParticipant> {
+  return apiRequest({
+    method: 'POST',
+    path: `/api/v1/meetups/${encodeURIComponent(extId)}/participants/${encodeURIComponent(userExtId)}:${decision}`,
+    accessToken,
+    schema: MeetupParticipantSchema as z.ZodType<MeetupParticipant>,
     signal,
   });
 }

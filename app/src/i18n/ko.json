@@ -412,7 +412,9 @@
     "meetup": {
       "title": "모임",
       "formTitle": "모임 만들기",
+      "editTitle": "모임 수정",
       "createCta": "모임 만들기",
+      "updateCta": "모임 수정",
       "emptyBody": "아직 등록된 모임이 없습니다.",
       "nameLabel": "모임 이름",
       "namePlaceholder": "예: 토요일 강남 볼더링",
@@ -461,9 +463,17 @@
       "cancelRequestCta": "요청 취소",
       "leaveConfirmTitle": "참여를 취소할까요?",
       "leaveConfirmBody": "다시 참여하거나 요청할 수 있습니다.",
-      "deleteCta": "모임 삭제",
-      "deleteConfirmTitle": "모임을 삭제할까요?",
-      "deleteConfirmBody": "삭제한 모임은 목록과 상세에서 더 이상 보이지 않습니다."
+      "editCta": "모임 수정",
+      "deleteCta": "모임 취소",
+      "deleteConfirmTitle": "모임을 취소할까요?",
+      "deleteConfirmBody": "취소한 모임은 목록과 상세에서 더 이상 보이지 않습니다.",
+      "participantListTitle": "참여자",
+      "participantEmpty": "아직 참여자가 없습니다.",
+      "pendingListTitle": "참여 요청",
+      "pendingEmpty": "대기 중인 요청이 없습니다.",
+      "pendingMessageFallback": "요청 메시지가 없습니다.",
+      "approveCta": "승인",
+      "rejectCta": "거절"
     }
   },
   "profile": {

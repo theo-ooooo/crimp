@@ -28,6 +28,9 @@ export type MeetupJoinPolicy = z.infer<typeof MeetupJoinPolicySchema>;
 export const MeetupParticipationSchema = z.enum(['NONE', 'PENDING', 'JOINED']);
 export type MeetupParticipation = z.infer<typeof MeetupParticipationSchema>;
 
+export const MeetupParticipantStatusSchema = z.enum(['PENDING', 'ACTIVE', 'CANCELED']);
+export type MeetupParticipantStatus = z.infer<typeof MeetupParticipantStatusSchema>;
+
 export const CrewJoinRequestStatusSchema = z.enum(['PENDING', 'APPROVED', 'REJECTED', 'CANCELED']);
 export type CrewJoinRequestStatus = z.infer<typeof CrewJoinRequestStatusSchema>;
 
@@ -222,8 +225,30 @@ export const CreateCrewMeetupBodySchema = z.object({
 
 export type CreateCrewMeetupBody = z.infer<typeof CreateCrewMeetupBodySchema>;
 
+export const UpdateCrewMeetupBodySchema = CreateCrewMeetupBodySchema.partial().omit({
+  crewExtId: true,
+});
+
+export type UpdateCrewMeetupBody = z.infer<typeof UpdateCrewMeetupBodySchema>;
+
 export const JoinMeetupBodySchema = z.object({
   message: z.string().max(500).nullable().optional(),
 });
 
 export type JoinMeetupBody = z.infer<typeof JoinMeetupBodySchema>;
+
+export const MeetupParticipantSchema = z.object({
+  userExtId: z.string().nullable(),
+  nickname: z.string().nullable(),
+  status: MeetupParticipantStatusSchema,
+  message: z.string().nullable(),
+  joinedAt: z.string(),
+});
+
+export type MeetupParticipant = z.infer<typeof MeetupParticipantSchema>;
+
+export const MeetupParticipantListSchema = z.object({
+  items: z.array(MeetupParticipantSchema),
+});
+
+export type MeetupParticipantList = z.infer<typeof MeetupParticipantListSchema>;

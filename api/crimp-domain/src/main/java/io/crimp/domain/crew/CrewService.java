@@ -231,6 +231,49 @@ public class CrewService {
     }
 
     @Transactional
+    public CrewMeetupView updateMeetup(Long actorUserId, String meetupExtId, UpdateCrewMeetupCommand command) {
+        CrewMeetup meetup = findActiveMeetup(meetupExtId);
+        requireMeetupManager(meetup, actorUserId);
+        requireUpcoming(meetup);
+
+        String title = command.title() == null
+                ? meetup.getTitle()
+                : requireLength(command.title(), 2, 60, "INVALID_CREW_MEETUP_REQUEST",
+                "Meetup title must be 2-60 characters");
+        String description = command.description() == null
+                ? meetup.getDescription()
+                : trimOptional(command.description(), 500, "description");
+        Gym gym = command.gymExtId() == null ? (meetup.getGymId() == null
+                ? null
+                : gymRepository.findById(meetup.getGymId()).orElse(null)) : resolveMeetupGym(command.gymExtId());
+        String location = command.gymExtId() == null
+                ? command.location() == null ? meetup.getLocation() : trimOptional(command.location(), 100, "location")
+                : gym == null ? null : gym.getName();
+        Instant startsAt = command.startsAt() == null ? meetup.getStartsAt() : command.startsAt();
+        Instant endsAt = command.endsAt() == null ? meetup.getEndsAt() : command.endsAt();
+        Short capacity = command.capacity() == null ? meetup.getCapacity() : parseCapacity(command.capacity());
+        MeetupJoinPolicy joinPolicy = command.joinPolicy() == null
+                ? meetup.getJoinPolicy()
+                : parseEnum(MeetupJoinPolicy.class, command.joinPolicy(), "INVALID_CREW_MEETUP_REQUEST");
+
+        if (startsAt.isBefore(Instant.now().minusSeconds(MEETUP_START_CLOCK_SKEW_SECONDS))) {
+            throw new CrewException("INVALID_CREW_MEETUP_REQUEST", "startsAt must be in the future");
+        }
+        if (endsAt != null && !endsAt.isAfter(startsAt)) {
+            throw new CrewException("INVALID_CREW_MEETUP_REQUEST", "endsAt must be after startsAt");
+        }
+        if (capacity != null && meetupParticipantRepository.countByMeetupIdAndStatus(
+                meetup.getId(), MeetupParticipantStatus.ACTIVE) > capacity) {
+            throw new CrewException("MEETUP_CAPACITY_FULL", "Meetup active participants exceed capacity");
+        }
+
+        meetup.updateBasic(title, description, gym == null ? null : gym.getId(), startsAt, endsAt, location,
+                capacity, joinPolicy);
+        crewMeetupRepository.flush();
+        return toMeetupView(meetup, actorUserId);
+    }
+
+    @Transactional
     public CrewMeetupView joinMeetup(Long actorUserId, String meetupExtId, String message) {
         CrewMeetup meetup = findActiveMeetup(meetupExtId);
         if (meetup.getStartsAt().isBefore(Instant.now().minusSeconds(MEETUP_START_CLOCK_SKEW_SECONDS))) {
@@ -279,11 +322,52 @@ public class CrewService {
     @Transactional
     public void deleteMeetup(Long actorUserId, String meetupExtId) {
         CrewMeetup meetup = findActiveMeetup(meetupExtId);
-        if (!meetup.getCreatedBy().equals(actorUserId)) {
-            throw new CrewException("MEETUP_FORBIDDEN", "Only meetup host can delete meetup");
-        }
+        requireMeetupManager(meetup, actorUserId);
+        requireUpcoming(meetup);
         meetup.softDelete();
         crewMeetupRepository.flush();
+    }
+
+    @Transactional(readOnly = true)
+    public List<MeetupParticipantView> listMeetupParticipants(Long actorUserId, String meetupExtId, String status) {
+        CrewMeetup meetup = findActiveMeetup(meetupExtId);
+        MeetupParticipantStatus parsedStatus = status == null
+                ? MeetupParticipantStatus.ACTIVE
+                : parseEnum(MeetupParticipantStatus.class, status, "INVALID_CREW_MEETUP_REQUEST");
+        if (parsedStatus == MeetupParticipantStatus.PENDING) {
+            requireMeetupManager(meetup, actorUserId);
+        }
+        return meetupParticipantRepository
+                .findByMeetupIdAndStatusInOrderByJoinedAtAscUserIdAsc(meetup.getId(), List.of(parsedStatus))
+                .stream()
+                .map(this::toParticipantView)
+                .toList();
+    }
+
+    @Transactional
+    public MeetupParticipantView approveMeetupParticipant(Long actorUserId, String meetupExtId, String userExtId) {
+        CrewMeetup meetup = findActiveMeetup(meetupExtId);
+        requireMeetupManager(meetup, actorUserId);
+        requireUpcoming(meetup);
+        MeetupParticipant participant = findMeetupParticipantByUserExtId(meetup, userExtId, MeetupParticipantStatus.PENDING);
+        if (meetup.getCapacity() != null && meetupParticipantRepository.countByMeetupIdAndStatus(
+                meetup.getId(), MeetupParticipantStatus.ACTIVE) >= meetup.getCapacity()) {
+            throw new CrewException("MEETUP_CAPACITY_FULL", "Meetup capacity is full");
+        }
+        participant.approve();
+        meetupParticipantRepository.flush();
+        return toParticipantView(participant);
+    }
+
+    @Transactional
+    public MeetupParticipantView rejectMeetupParticipant(Long actorUserId, String meetupExtId, String userExtId) {
+        CrewMeetup meetup = findActiveMeetup(meetupExtId);
+        requireMeetupManager(meetup, actorUserId);
+        requireUpcoming(meetup);
+        MeetupParticipant participant = findMeetupParticipantByUserExtId(meetup, userExtId, MeetupParticipantStatus.PENDING);
+        participant.reject();
+        meetupParticipantRepository.flush();
+        return toParticipantView(participant);
     }
 
     @Transactional
@@ -585,6 +669,38 @@ public class CrewService {
                 .orElseThrow(() -> new CrewException("MEETUP_NOT_FOUND", "Meetup " + meetupExtId + " not found"));
     }
 
+    private void requireUpcoming(CrewMeetup meetup) {
+        if (meetup.getStartsAt().isBefore(Instant.now().minusSeconds(MEETUP_START_CLOCK_SKEW_SECONDS))) {
+            throw new CrewException("MEETUP_CLOSED", "Meetup already started");
+        }
+    }
+
+    private void requireMeetupManager(CrewMeetup meetup, Long actorUserId) {
+        if (meetup.getCreatedBy().equals(actorUserId)) {
+            return;
+        }
+        if (meetup.getCrewId() != null) {
+            requireAdmin(meetup.getCrewId(), actorUserId);
+            return;
+        }
+        throw new CrewException("MEETUP_FORBIDDEN", "Meetup manager permission required");
+    }
+
+    private MeetupParticipant findMeetupParticipantByUserExtId(
+            CrewMeetup meetup,
+            String userExtId,
+            MeetupParticipantStatus status) {
+        Long userId = userRepository.findByExtId(userExtId)
+                .map(User::getId)
+                .orElseThrow(() -> new CrewException("MEETUP_PARTICIPANT_NOT_FOUND", "Meetup participant not found"));
+        MeetupParticipant participant = meetupParticipantRepository.findByMeetupIdAndUserId(meetup.getId(), userId)
+                .orElseThrow(() -> new CrewException("MEETUP_PARTICIPANT_NOT_FOUND", "Meetup participant not found"));
+        if (participant.getStatus() != status) {
+            throw new CrewException("MEETUP_PARTICIPANT_NOT_FOUND", "Meetup participant not found");
+        }
+        return participant;
+    }
+
     private CrewMeetupView toMeetupView(CrewMeetup meetup, Long viewerUserId) {
         Crew crew = meetup.getCrewId() == null ? null : crewRepository.findById(meetup.getCrewId()).orElse(null);
         Gym gym = meetup.getGymId() == null ? null : gymRepository.findById(meetup.getGymId()).orElse(null);
@@ -612,8 +728,21 @@ public class CrewService {
                 participantCount,
                 myParticipation,
                 host,
-                viewerUserId != null && meetup.getCreatedBy().equals(viewerUserId),
+                viewerUserId != null && canManageMeetup(meetup, viewerUserId),
                 meetup.getCreatedAt());
+    }
+
+    private boolean canManageMeetup(CrewMeetup meetup, Long viewerUserId) {
+        if (meetup.getCreatedBy().equals(viewerUserId)) {
+            return true;
+        }
+        if (meetup.getCrewId() == null) {
+            return false;
+        }
+        return crewMemberRepository.findByCrewIdAndUserIdAndStatus(
+                        meetup.getCrewId(), viewerUserId, CrewMemberStatus.ACTIVE)
+                .map(member -> member.getRole() == CrewMemberRole.OWNER || member.getRole() == CrewMemberRole.ADMIN)
+                .orElse(false);
     }
 
     private MeetupHostView resolveMeetupHost(Long userId) {
@@ -624,6 +753,16 @@ public class CrewService {
                 .map(Profile::getNickname)
                 .orElse("탈퇴사용자");
         return new MeetupHostView(extId, nickname);
+    }
+
+    private MeetupParticipantView toParticipantView(MeetupParticipant participant) {
+        MeetupHostView user = resolveMeetupHost(participant.getUserId());
+        return new MeetupParticipantView(
+                user.extId(),
+                user.nickname(),
+                participant.getStatus().name(),
+                participant.getMessage(),
+                participant.getJoinedAt());
     }
 
     private static String joinUrl(String base, String path) {

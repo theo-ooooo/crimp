@@ -239,9 +239,13 @@
 | GET | `/api/v1/meetups?size=` | 전체 예정 모임 목록. 크루 소속 여부와 무관하게 시작 시각 오름차순 |
 | POST | `/api/v1/meetups` | 독립 모임 또는 크루 모임 생성. Body: `{ title, description?, startsAt, endsAt?, crewExtId?, gymExtId?, location?, capacity?, joinPolicy? }`. 생성자는 자동 참여 |
 | GET | `/api/v1/meetups/{extId}` | 모임 상세. 장소, 크루, 참여 방식, 참여 인원, 내 참여 상태, 방장(`host`), 내 관리 가능 여부(`canManage`) 포함 |
+| PATCH | `/api/v1/meetups/{extId}` | 모임 수정. 시작 전 모임만 가능. 독립 모임은 방장, 크루 모임은 방장 또는 크루 `OWNER`/`ADMIN` 가능 |
 | POST | `/api/v1/meetups/{extId}/participants/me` | 내 모임 참여. Body: `{ message? }`. `joinPolicy=OPEN` 은 즉시 `JOINED`, `APPROVAL` 은 요청 메시지와 함께 `PENDING` 요청 상태 |
 | DELETE | `/api/v1/meetups/{extId}/participants/me` | 내 모임 참여/요청 취소 |
-| DELETE | `/api/v1/meetups/{extId}` | 모임 삭제. 모임 방장만 가능하며 삭제된 모임은 목록/상세에서 제외 |
+| DELETE | `/api/v1/meetups/{extId}` | 모임 취소. 시작 전 모임만 가능. 독립 모임은 방장, 크루 모임은 방장 또는 크루 `OWNER`/`ADMIN` 가능. 취소된 모임은 목록/상세에서 제외 |
+| GET | `/api/v1/meetups/{extId}/participants?status=ACTIVE\|PENDING` | 모임 참여자/요청 목록. `ACTIVE` 는 참여자 목록, `PENDING` 은 승인 대기 요청이며 모임 관리자만 조회 |
+| POST | `/api/v1/meetups/{extId}/participants/{userExtId}:approve` | 승인제 모임 참여 요청 승인. 모임 관리자만 가능 |
+| POST | `/api/v1/meetups/{extId}/participants/{userExtId}:reject` | 승인제 모임 참여 요청 거절. 모임 관리자만 가능 |
 | GET | `/api/v1/crews/{extId}/meetups?size=` | 크루 예정 모임 목록. 시작 시각 오름차순 |
 | POST | `/api/v1/crews/{extId}/meetups` | 크루 모임 생성 (`OWNER`/`ADMIN`). Body: `{ title, description?, startsAt, endsAt?, gymExtId?, location?, capacity?, joinPolicy? }` |
 | POST | `/api/v1/crews/{extId}/join-requests` | 가입 요청 생성. 같은 사용자는 여러 크루에 가입 요청 가능, 같은 크루의 대기 요청은 1개 |

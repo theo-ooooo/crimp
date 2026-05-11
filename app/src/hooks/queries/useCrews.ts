@@ -12,6 +12,7 @@ import {
   createMeetup,
   createCrewMeetup,
   deleteMeetup,
+  decideMeetupParticipant,
   decideCrewJoinRequest,
   fetchCrew,
   fetchCrewJoinRequests,
@@ -19,11 +20,13 @@ import {
   fetchCrewMeetups,
   fetchCrews,
   fetchMeetup,
+  fetchMeetupParticipants,
   fetchMeetups,
   joinMeetup,
   leaveMeetup as leaveMeetupApi,
   leaveCrew,
   requestCrewJoin,
+  updateMeetup,
   updateCrew,
   type CrewListFilters,
 } from '@/lib/api/endpoints';
@@ -40,7 +43,10 @@ import type {
   CrewMeetup,
   CrewMeetupList,
   JoinMeetupBody,
+  MeetupParticipant,
+  MeetupParticipantList,
   UpdateCrewBody,
+  UpdateCrewMeetupBody,
 } from '@/lib/schemas/crew';
 
 export const CREWS_QUERY_KEY_ROOT = ['crews'] as const;
@@ -71,6 +77,10 @@ export function meetupsQueryKey() {
 
 export function meetupQueryKey(extId: string) {
   return ['meetup', extId] as const;
+}
+
+export function meetupParticipantsQueryKey(extId: string, status: 'ACTIVE' | 'PENDING') {
+  return ['meetup', extId, 'participants', status] as const;
 }
 
 export function useCrewsQuery(
@@ -366,6 +376,19 @@ export function useCreateMeetup(accessToken: string | null) {
   });
 }
 
+export function useUpdateMeetup(accessToken: string | null) {
+  const qc = useQueryClient();
+  return useMutation<CrewMeetup, Error, { extId: string; body: UpdateCrewMeetupBody }>({
+    mutationFn: ({ extId, body }) => {
+      if (!accessToken) {
+        return Promise.reject(new Error('access token is required'));
+      }
+      return updateMeetup(accessToken, extId, body);
+    },
+    onSuccess: (updated) => invalidateMeetupCaches(qc, updated),
+  });
+}
+
 export function useJoinMeetup(accessToken: string | null) {
   const qc = useQueryClient();
   return useMutation<CrewMeetup, Error, { extId: string; body?: JoinMeetupBody }>({
@@ -413,11 +436,58 @@ export function useDeleteMeetup(accessToken: string | null) {
   });
 }
 
+export function useMeetupParticipantsQuery(
+  accessToken: string | null,
+  extId: string | null | undefined,
+  status: 'ACTIVE' | 'PENDING',
+  enabled = true,
+) {
+  return useQuery<MeetupParticipantList>({
+    queryKey: extId ? meetupParticipantsQueryKey(extId, status) : (['meetup', '__none__', 'participants', status] as const),
+    queryFn: ({ signal }) => {
+      if (!accessToken) {
+        return Promise.reject(new Error('access token is required'));
+      }
+      if (!extId) {
+        return Promise.reject(new Error('meetup extId is required'));
+      }
+      return fetchMeetupParticipants(accessToken, extId, status, signal);
+    },
+    enabled: Boolean(accessToken && extId && enabled),
+    retry: 0,
+  });
+}
+
+export function useDecideMeetupParticipant(accessToken: string | null) {
+  const qc = useQueryClient();
+  return useMutation<
+    MeetupParticipant,
+    Error,
+    { extId: string; userExtId: string; decision: 'approve' | 'reject' }
+  >({
+    mutationFn: ({ extId, userExtId, decision }) => {
+      if (!accessToken) {
+        return Promise.reject(new Error('access token is required'));
+      }
+      return decideMeetupParticipant(accessToken, extId, userExtId, decision);
+    },
+    onSuccess: (_, { extId }) => {
+      qc.invalidateQueries({ queryKey: meetupParticipantsQueryKey(extId, 'ACTIVE') });
+      qc.invalidateQueries({ queryKey: meetupParticipantsQueryKey(extId, 'PENDING') });
+      qc.invalidateQueries({ queryKey: meetupQueryKey(extId) });
+      qc.invalidateQueries({ queryKey: meetupsQueryKey() });
+      qc.invalidateQueries({ queryKey: CREWS_QUERY_KEY_ROOT });
+    },
+  });
+}
+
 function invalidateMeetupCaches(
   qc: ReturnType<typeof useQueryClient>,
   updated: CrewMeetup,
 ) {
   qc.setQueryData(meetupQueryKey(updated.extId), updated);
+  qc.invalidateQueries({ queryKey: meetupParticipantsQueryKey(updated.extId, 'ACTIVE') });
+  qc.invalidateQueries({ queryKey: meetupParticipantsQueryKey(updated.extId, 'PENDING') });
   qc.invalidateQueries({ queryKey: meetupsQueryKey() });
   if (updated.crewExtId) {
     qc.invalidateQueries({ queryKey: crewMeetupsQueryKey(updated.crewExtId) });

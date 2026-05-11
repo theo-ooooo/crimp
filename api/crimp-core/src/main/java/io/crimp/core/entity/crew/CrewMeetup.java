@@ -78,4 +78,16 @@ public class CrewMeetup extends SoftDeletableEntity {
         this.capacity = capacity;
         this.joinPolicy = joinPolicy == null ? MeetupJoinPolicy.OPEN : joinPolicy;
     }
+
+    public void updateBasic(String title, String description, Long gymId, Instant startsAt, Instant endsAt,
+                            String location, Short capacity, MeetupJoinPolicy joinPolicy) {
+        this.title = title;
+        this.description = description;
+        this.gymId = gymId;
+        this.startsAt = startsAt;
+        this.endsAt = endsAt;
+        this.location = location;
+        this.capacity = capacity;
+        this.joinPolicy = joinPolicy;
+    }
 }
