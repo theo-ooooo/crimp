@@ -199,6 +199,7 @@ function CrewDetailContent({
           onManageMembers={() => navigation.navigate('CrewMembers', {
             crewExtId: crew.extId,
             crewName: crew.name,
+            managerRole: crew.myStatus === 'OWNER' || crew.myStatus === 'ADMIN' ? crew.myStatus : undefined,
           })}
         />
         {pending ? (

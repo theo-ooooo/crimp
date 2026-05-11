@@ -393,6 +393,7 @@
       "nicknameFallback": "탈퇴사용자",
       "removeCta": "내보내기",
       "ownerLocked": "오너",
+      "adminLocked": "관리자",
       "removeConfirmTitle": "멤버를 내보낼까요?",
       "removeConfirmBody": "{{nickname}} 님을 크루에서 탈퇴 처리합니다.",
       "role": {

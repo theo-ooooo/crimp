@@ -177,6 +177,7 @@ function CrewFormContent({ accessToken, extId }: { accessToken: string; extId?: 
           levelBand,
           style,
           capacity,
+          clearCapacity: capacity === null,
           imageMediaId,
         },
       }, {

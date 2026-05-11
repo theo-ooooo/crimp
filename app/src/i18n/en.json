@@ -393,6 +393,7 @@
       "nicknameFallback": "Deleted user",
       "removeCta": "Remove",
       "ownerLocked": "Owner",
+      "adminLocked": "Admin",
       "removeConfirmTitle": "Remove this member?",
       "removeConfirmBody": "Remove {{nickname}} from this crew.",
       "role": {

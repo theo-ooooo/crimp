@@ -42,7 +42,7 @@ export default function CrewMembersScreen(): JSX.Element {
   const hydrated = useTokenStore((s) => s.hydrated);
   const accessToken = useTokenStore((s) => s.accessToken);
   const route = useRoute<RouteProp<RootStackParamList, 'CrewMembers'>>();
-  const { crewExtId, crewName } = route.params;
+  const { crewExtId, crewName, managerRole } = route.params;
 
   return (
     <AuthHydrationGate
@@ -57,6 +57,7 @@ export default function CrewMembersScreen(): JSX.Element {
             accessToken={token}
             crewExtId={crewExtId}
             crewName={crewName}
+            managerRole={managerRole}
           />
         </SafeAreaView>
       )}
@@ -68,10 +69,12 @@ function CrewMembersContent({
   accessToken,
   crewExtId,
   crewName,
+  managerRole,
 }: {
   accessToken: string;
   crewExtId: string;
   crewName?: string;
+  managerRole?: 'OWNER' | 'ADMIN';
 }): JSX.Element {
   const theme = useTokens();
   const styles = useMemo(() => makeStyles(theme), [theme]);
@@ -117,15 +120,19 @@ function CrewMembersContent({
   }, [crewExtId, removeMember]);
 
   const renderItem = useCallback<ListRenderItem<CrewMember>>(
-    ({ item }) => (
-      <MemberCard
-        member={item}
-        busy={removeMember.isPending && activeUserExtId === item.userExtId}
-        disabled={removeMember.isPending || item.role === 'OWNER'}
-        onRemove={() => confirmRemove(item)}
-      />
-    ),
-    [activeUserExtId, confirmRemove, removeMember.isPending],
+    ({ item }) => {
+      const adminLocked = managerRole === 'ADMIN' && item.role === 'ADMIN';
+      return (
+        <MemberCard
+          member={item}
+          busy={removeMember.isPending && activeUserExtId === item.userExtId}
+          disabled={removeMember.isPending || item.role === 'OWNER' || adminLocked}
+          lockedLabel={adminLocked ? t('crew.members.adminLocked') : undefined}
+          onRemove={() => confirmRemove(item)}
+        />
+      );
+    },
+    [activeUserExtId, confirmRemove, managerRole, removeMember.isPending],
   );
 
   const header = (
@@ -203,11 +210,13 @@ function MemberCard({
   member,
   busy,
   disabled,
+  lockedLabel,
   onRemove,
 }: {
   member: CrewMember;
   busy: boolean;
   disabled: boolean;
+  lockedLabel?: string;
   onRemove: () => void;
 }): JSX.Element {
   const theme = useTokens();
@@ -240,7 +249,9 @@ function MemberCard({
           ]}
         >
           <Text style={[styles.removeText, disabled ? styles.removeTextDisabled : null]}>
-            {member.role === 'OWNER' ? t('crew.members.ownerLocked') : t('crew.members.removeCta')}
+            {member.role === 'OWNER'
+              ? t('crew.members.ownerLocked')
+              : lockedLabel ?? t('crew.members.removeCta')}
           </Text>
         </Pressable>
       )}

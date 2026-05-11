@@ -219,6 +219,22 @@ class CrewControllerTest {
     }
 
     @Test
+    void removeMember_http_returnsNoContent() throws Exception {
+        mockMvc.perform(delete("/api/v1/crews/01JCREW/members/01JUSER2"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void removeMember_http_mapsForbidden() throws Exception {
+        org.mockito.Mockito.doThrow(new CrewException("CREW_FORBIDDEN", "Admin cannot remove another admin"))
+                .when(crewService).removeMember(7L, "01JCREW", "01JADMIN");
+
+        mockMvc.perform(delete("/api/v1/crews/01JCREW/members/01JADMIN"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("CREW_FORBIDDEN"));
+    }
+
+    @Test
     void list_maps_domain_result() {
         when(crewService.search(7L, null, "강남", null, null, null, null, 20))
                 .thenReturn(new CrewService.CrewSearchResult(List.of(view("01JCREW", "MEMBER")), 10L, 20));
