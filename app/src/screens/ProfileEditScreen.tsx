@@ -150,6 +150,7 @@ export default function ProfileEditScreen(): JSX.Element {
     setToastMessage(t('profile.edit.avatarCleared'));
   };
 
+
   if (meQuery.error) {
     return (
       <View style={styles.container}>
@@ -193,6 +194,7 @@ export default function ProfileEditScreen(): JSX.Element {
           setToastMessage(typeof err === 'string' ? err : toUserMessage(err));
         }}
       />
+
 
       <Field
         label={t('profile.nickname')}
@@ -290,6 +292,7 @@ function logProfileAvatarSaveResult(
     hasAvatarUrl: Boolean(avatarUrl),
   });
 }
+
 
 function Field({
   label,
