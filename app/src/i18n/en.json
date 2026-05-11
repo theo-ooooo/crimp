@@ -422,6 +422,8 @@
       "startsAtLabel": "Date and time",
       "startsAtPlaceholder": "e.g. 2026-05-16 19:30",
       "startsAtValidation": "Use YYYY-MM-DD HH:mm for the date and time.",
+      "hourLabel": "Hour",
+      "minuteLabel": "Minute",
       "locationLabel": "Location",
       "locationPlaceholder": "e.g. The Climb Gangnam",
       "descriptionPlaceholder": "Add gear, level, or where to meet.",

@@ -31,6 +31,7 @@ import type { RootStackNavigationProp, RootStackParamList } from '@/navigation/t
 import { useTokenStore } from '@/store/tokenStore';
 
 type Step = 'basic' | 'time' | 'place' | 'confirm';
+type TimeSelectKind = 'hour' | 'minute';
 
 export default function CrewMeetupFormScreen(): JSX.Element {
   const theme = useTokens();
@@ -91,6 +92,7 @@ function MeetupFormContent({
   const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(addDays(new Date(), 1)));
   const [selectedHour, setSelectedHour] = useState(19);
   const [selectedMinute, setSelectedMinute] = useState(30);
+  const [openTimeSelect, setOpenTimeSelect] = useState<TimeSelectKind | null>(null);
   const [manualLocation, setManualLocation] = useState('');
   const [capacityText, setCapacityText] = useState('');
   const [joinPolicy, setJoinPolicy] = useState<'OPEN' | 'APPROVAL'>('OPEN');
@@ -223,6 +225,38 @@ function MeetupFormContent({
               onNext={() => setVisibleMonth(addMonths(visibleMonth, 1))}
               onSelect={setSelectedDate}
             />
+            <View style={styles.timeSelectRow}>
+              <TimeSelectBox
+                label={t('crew.meetup.hourLabel')}
+                value={formatHour(selectedHour)}
+                open={openTimeSelect === 'hour'}
+                options={HOUR_OPTIONS.map((hour) => ({
+                  key: String(hour),
+                  label: formatHour(hour),
+                  active: hour === selectedHour,
+                  onPress: () => {
+                    setSelectedHour(hour);
+                    setOpenTimeSelect(null);
+                  },
+                }))}
+                onToggle={() => setOpenTimeSelect(openTimeSelect === 'hour' ? null : 'hour')}
+              />
+              <TimeSelectBox
+                label={t('crew.meetup.minuteLabel')}
+                value={formatMinute(selectedMinute)}
+                open={openTimeSelect === 'minute'}
+                options={MINUTE_OPTIONS.map((minute) => ({
+                  key: String(minute),
+                  label: formatMinute(minute),
+                  active: minute === selectedMinute,
+                  onPress: () => {
+                    setSelectedMinute(minute);
+                    setOpenTimeSelect(null);
+                  },
+                }))}
+                onToggle={() => setOpenTimeSelect(openTimeSelect === 'minute' ? null : 'minute')}
+              />
+            </View>
             <View style={styles.timeGrid}>
               {TIME_SLOTS.map((slot) => {
                 const active = slot.hour === selectedHour && slot.minute === selectedMinute;
@@ -390,6 +424,67 @@ function ConfirmRow({ label, value }: { label: string; value: string }): JSX.Ele
   );
 }
 
+function TimeSelectBox({
+  label,
+  value,
+  open,
+  options,
+  onToggle,
+}: {
+  label: string;
+  value: string;
+  open: boolean;
+  options: Array<{
+    key: string;
+    label: string;
+    active: boolean;
+    onPress: () => void;
+  }>;
+  onToggle: () => void;
+}): JSX.Element {
+  const theme = useTokens();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
+  return (
+    <View style={styles.timeSelectBox}>
+      <Text style={styles.timeSelectLabel}>{label}</Text>
+      <Pressable
+        onPress={onToggle}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        style={({ pressed }) => [styles.timeSelectTrigger, pressed ? styles.pressed : null]}
+      >
+        <Text style={styles.timeSelectValue}>{value}</Text>
+        <Text style={styles.timeSelectChevron}>{open ? '⌃' : '⌄'}</Text>
+      </Pressable>
+      {open ? (
+        <View style={styles.timeSelectOptions}>
+          {options.map((option) => (
+            <Pressable
+              key={option.key}
+              onPress={option.onPress}
+              accessibilityRole="button"
+              accessibilityState={{ selected: option.active }}
+              style={({ pressed }) => [
+                styles.timeSelectOption,
+                option.active ? styles.timeSelectOptionActive : null,
+                pressed ? styles.pressed : null,
+              ]}
+            >
+              <Text style={[
+                styles.timeSelectOptionText,
+                option.active ? styles.timeSelectOptionTextActive : null,
+              ]}
+              >
+                {option.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 function CalendarPicker({
   visibleMonth,
   selectedDate,
@@ -461,6 +556,8 @@ function CalendarPicker({
 
 const STEPS: Step[] = ['basic', 'time', 'place', 'confirm'];
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, hour) => hour);
+const MINUTE_OPTIONS = Array.from({ length: 12 }, (_, index) => index * 5);
 const TIME_SLOTS = [
   { label: '10:00', hour: 10, minute: 0 },
   { label: '13:00', hour: 13, minute: 0 },
@@ -532,6 +629,14 @@ function formatSelectedDate(date: Date): string {
     hour: '2-digit',
     minute: '2-digit',
   }).format(date);
+}
+
+function formatHour(hour: number): string {
+  return `${String(hour).padStart(2, '0')}시`;
+}
+
+function formatMinute(minute: number): string {
+  return `${String(minute).padStart(2, '0')}분`;
 }
 
 function toNullable(value: string): string | null {
@@ -660,6 +765,73 @@ function makeStyles(theme: Theme) {
     },
     dayTextMuted: { color: theme.text4 },
     dayTextActive: { color: theme.accent.on },
+    timeSelectRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: space[3],
+      zIndex: 2,
+    },
+    timeSelectBox: {
+      flex: 1,
+      gap: space[1],
+    },
+    timeSelectLabel: {
+      fontFamily,
+      fontSize: fontSize.caption,
+      fontWeight: fontWeight.bold,
+      color: theme.text3,
+    },
+    timeSelectTrigger: {
+      minHeight: 48,
+      borderRadius: radius.lg,
+      backgroundColor: theme.bg,
+      paddingHorizontal: space[4],
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: space[2],
+    },
+    timeSelectValue: {
+      fontFamily,
+      fontSize: fontSize.title,
+      fontWeight: fontWeight.extrabold,
+      color: theme.text,
+      letterSpacing: letterSpacing.title,
+    },
+    timeSelectChevron: {
+      fontFamily,
+      fontSize: fontSize.body,
+      fontWeight: fontWeight.extrabold,
+      color: theme.text3,
+    },
+    timeSelectOptions: {
+      borderRadius: radius.lg,
+      backgroundColor: theme.bg,
+      padding: space[2],
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: space[1],
+    },
+    timeSelectOption: {
+      width: '23.5%',
+      minHeight: 36,
+      borderRadius: radius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.subtle,
+    },
+    timeSelectOptionActive: {
+      backgroundColor: theme.accent.base,
+    },
+    timeSelectOptionText: {
+      fontFamily,
+      fontSize: fontSize.caption,
+      fontWeight: fontWeight.bold,
+      color: theme.text2,
+    },
+    timeSelectOptionTextActive: {
+      color: theme.accent.on,
+    },
     timeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
     timeChip: {
       minWidth: 74,

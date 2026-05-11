@@ -422,6 +422,8 @@
       "startsAtLabel": "일시",
       "startsAtPlaceholder": "예: 2026-05-16 19:30",
       "startsAtValidation": "일시는 YYYY-MM-DD HH:mm 형식으로 입력해 주세요.",
+      "hourLabel": "시",
+      "minuteLabel": "분",
       "locationLabel": "장소",
       "locationPlaceholder": "예: 더클라임 강남점",
       "descriptionPlaceholder": "준비물, 난이도, 만나는 위치 등을 적어보세요.",
