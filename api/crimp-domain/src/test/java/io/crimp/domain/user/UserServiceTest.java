@@ -622,6 +622,25 @@ class UserServiceTest {
     }
 
     @Test
+    void deleteMe_releasesNickname_soOthersCanReuseIt() {
+        User user = user(1L, "01HDELETE__");
+        Profile profile = Profile.create(1L, "myNickname");
+        profile.updateNickname("myNickname");
+        when(userRepo.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(profileRepo.findById(1L)).thenReturn(Optional.of(profile));
+        when(crewJoinRequestRepo.findAllByUserIdAndStatus(1L, CrewJoinRequestStatus.PENDING))
+                .thenReturn(List.of());
+        when(crewMemberRepo.findCrewIdsByUserIdAndStatus(1L, CrewMemberStatus.ACTIVE))
+                .thenReturn(List.of());
+
+        service.deleteMe(1L);
+
+        assertThat(profile.getNickname()).isEqualTo("deleted_1");
+        assertThat(profile.isNicknameConfigured()).isFalse();
+        assertThat(user.getStatus()).isEqualTo(UserStatus.DELETED);
+    }
+
+    @Test
     void deleteMe_alreadyDeleted_isIdempotent_andClearsRefreshTokens() {
         User user = user(1L, "01HDELETE__");
         user.deleteAccount();

@@ -156,6 +156,7 @@ public class UserService {
         crewJoinRequestRepo.findAllByUserIdAndStatus(userId, CrewJoinRequestStatus.PENDING)
                 .forEach(request -> request.cancel(userId));
         leaveActiveCrewMemberships(userId);
+        profileRepo.findById(userId).ifPresent(Profile::releaseNicknameOnDeletion);
         user.deleteAccount();
         refreshTokenStore.deleteAllForUser(userId);
     }
